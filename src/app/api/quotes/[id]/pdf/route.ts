@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { renderToBuffer } = require("@react-pdf/renderer");
+import { renderToBuffer } from "@react-pdf/renderer";
 import { QuotePDF } from "@/lib/pdf/quote-template";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 import { formatDate } from "@/lib/format";
 import { createElement } from "react";
 import { DEFAULT_BRANDING } from "@/lib/branding";
@@ -52,7 +54,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     totalIncVat: Number(quote.totalIncVat),
   });
 
-  const pdfBuffer: Buffer = await renderToBuffer(element);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfBuffer: Buffer = await renderToBuffer(element as any);
 
   return new NextResponse(new Uint8Array(pdfBuffer), {
     headers: {

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { renderToBuffer } = require("@react-pdf/renderer");
+import { renderToBuffer } from "@react-pdf/renderer";
 import { AdvicePDF } from "@/lib/pdf/advice-template";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 import { createElement } from "react";
 import { DEFAULT_BRANDING } from "@/lib/branding";
 
@@ -45,7 +47,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     createdAt: doc.createdAt.toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" }),
   });
 
-  const pdfBuffer: Buffer = await renderToBuffer(element);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfBuffer: Buffer = await renderToBuffer(element as any);
 
   const filename = `advies-${doc.type.toLowerCase()}-${doc.quote.customer.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
 
