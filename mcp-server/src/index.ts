@@ -57,7 +57,7 @@ server.tool(
   {},
   async () => {
     const companies = await query(
-      `SELECT id, name, slug, created_at FROM "Company" ORDER BY name`
+      `SELECT id, name, slug, "createdAt" FROM "Company" ORDER BY name`
     );
     return {
       content: [{ type: "text", text: JSON.stringify(companies, null, 2) }],
@@ -86,7 +86,7 @@ server.tool(
     }
     if (!cid) return { content: [{ type: "text", text: "Geef company_slug of company_id op." }] };
 
-    let sql = `SELECT id, name, email, phone, address, city, zip_code FROM "Customer" WHERE company_id = $1`;
+    let sql = `SELECT id, name, email, phone, address, city, "zipCode" FROM "Customer" WHERE "companyId" = $1`;
     const params: unknown[] = [cid];
     if (search) {
       sql += ` AND (LOWER(name) LIKE $2 OR LOWER(email) LIKE $2)`;
@@ -124,7 +124,7 @@ server.tool(
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
     await query(
-      `INSERT INTO "Customer" (id, company_id, name, email, phone, address, city, zip_code, created_at, updated_at)
+      `INSERT INTO "Customer" (id, "companyId", name, email, phone, address, city, "zipCode", "createdAt", "updatedAt")
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)`,
       [id, co.id, name, email ?? null, phone ?? null, address ?? null, city ?? null, zip_code ?? null, now]
     );
@@ -150,11 +150,11 @@ server.tool(
     );
     if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
 
-    let sql = `SELECT id, name, description, category, unit, base_price, vat_rate FROM "Product" WHERE company_id = $1`;
+    let sql = `SELECT id, name, description, category, unit, "basePrice", "vatRate" FROM "Product" WHERE "companyId" = $1`;
     const params: unknown[] = [co.id];
     if (active_only !== false) { sql += ` AND active = true`; }
     if (category) { sql += ` AND LOWER(category) = $${params.length + 1}`; params.push(category.toLowerCase()); }
-    sql += ` ORDER BY category, sort_order, name`;
+    sql += ` ORDER BY category, "sortOrder", name`;
 
     const products = await query(sql, params);
     return {
@@ -193,9 +193,9 @@ server.tool(
     // Find a user to assign as creator (first admin of company)
     const user = await queryOne<{ id: string }>(
       `SELECT u.id FROM "User" u
-       JOIN "CompanyUser" cu ON cu.user_id = u.id
-       WHERE cu.company_id = $1
-       ORDER BY u.created_at LIMIT 1`,
+       JOIN "CompanyUser" cu ON cu."userId" = u.id
+       WHERE cu."companyId" = $1
+       ORDER BY u."createdAt" LIMIT 1`,
       [co.id]
     );
     if (!user) return { content: [{ type: "text", text: "Geen gebruiker gevonden voor dit bedrijf." }] };
@@ -216,8 +216,8 @@ server.tool(
     const number = generateQuoteNumber();
 
     await query(
-      `INSERT INTO "Quote" (id, company_id, customer_id, created_by_id, number, title, category, tagline,
-        intro, outro, status, valid_until, total_ex_vat, total_vat, total_inc_vat, created_at, updated_at)
+      `INSERT INTO "Quote" (id, "companyId", "customerId", "createdById", number, title, category, tagline,
+        intro, outro, status, "validUntil", "totalExVat", "totalVat", "totalIncVat", "createdAt", "updatedAt")
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'DRAFT',$11,$12,$13,$14,$15,$15)`,
       [quoteId, co.id, customer_id, user.id, number, title, category,
        tagline ?? "Ontwerp · Bouw · Plaatsing", intro ?? null, outro ?? null,
@@ -229,7 +229,7 @@ server.tool(
       const item = items[i];
       const lineTotal = item.qty * item.unit_price;
       await query(
-        `INSERT INTO "QuoteItem" (id, quote_id, description, qty, unit_price, vat_rate, total, sort_order)
+        `INSERT INTO "QuoteItem" (id, "quoteId", description, qty, "unitPrice", "vatRate", total, "sortOrder")
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [crypto.randomUUID(), quoteId, item.description,
          item.qty.toFixed(2), item.unit_price.toFixed(2),
@@ -263,15 +263,15 @@ server.tool(
     if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
 
     let sql = `
-      SELECT q.id, q.number, q.title, q.status, q.total_inc_vat, q.created_at, q.valid_until,
+      SELECT q.id, q.number, q.title, q.status, q."totalIncVat", q."createdAt", q."validUntil",
              c.name AS customer_name, c.email AS customer_email
       FROM "Quote" q
-      JOIN "Customer" c ON c.id = q.customer_id
-      WHERE q.company_id = $1
+      JOIN "Customer" c ON c.id = q."customerId"
+      WHERE q."companyId" = $1
     `;
     const params: unknown[] = [co.id];
     if (status) { sql += ` AND q.status = $2`; params.push(status); }
-    sql += ` ORDER BY q.created_at DESC LIMIT $${params.length + 1}`;
+    sql += ` ORDER BY q."createdAt" DESC LIMIT $${params.length + 1}`;
     params.push(limit ?? 20);
 
     const quotes = await query(sql, params);
@@ -294,21 +294,21 @@ server.tool(
               c.address AS customer_address, c.city AS customer_city,
               co.name AS company_name, co.slug AS company_slug
        FROM "Quote" q
-       JOIN "Customer" c ON c.id = q.customer_id
-       JOIN "Company" co ON co.id = q.company_id
+       JOIN "Customer" c ON c.id = q."customerId"
+       JOIN "Company" co ON co.id = q."companyId"
        WHERE q.id = $1`,
       [quote_id]
     );
     if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
 
     const items = await query(
-      `SELECT id, description, qty, unit_price, vat_rate, total, sort_order
-       FROM "QuoteItem" WHERE quote_id = $1 ORDER BY sort_order`,
+      `SELECT id, description, qty, "unitPrice", "vatRate", total, "sortOrder"
+       FROM "QuoteItem" WHERE "quoteId" = $1 ORDER BY "sortOrder"`,
       [quote_id]
     );
 
     const share = await queryOne(
-      `SELECT token, accepted_at, declined_at, viewed_at FROM "QuoteShare" WHERE quote_id = $1`,
+      `SELECT token, "acceptedAt", "declinedAt", "viewedAt" FROM "QuoteShare" WHERE "quoteId" = $1`,
       [quote_id]
     );
 
@@ -339,14 +339,11 @@ server.tool(
     const fields = Object.entries(updates).filter(([, v]) => v !== undefined);
     if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
 
-    const setClauses = fields.map(([k], i) => {
-      const col = k.replace(/([A-Z])/g, "_$1").toLowerCase();
-      return `${col} = $${i + 2}`;
-    });
+    const setClauses = fields.map(([k], i) => `"${k}" = $${i + 2}`);
     const values = [quote_id, ...fields.map(([, v]) => v)];
 
     await query(
-      `UPDATE "Quote" SET ${setClauses.join(", ")}, updated_at = NOW() WHERE id = $1`,
+      `UPDATE "Quote" SET ${setClauses.join(", ")}, "updatedAt" = NOW() WHERE id = $1`,
       values
     );
 
@@ -370,7 +367,7 @@ server.tool(
 
     // Check for existing share
     const existing = await queryOne<{ token: string }>(
-      `SELECT token FROM "QuoteShare" WHERE quote_id = $1`,
+      `SELECT token FROM "QuoteShare" WHERE "quoteId" = $1`,
       [quote_id]
     );
 
@@ -386,13 +383,13 @@ server.tool(
     const token = generateToken();
     const now = new Date().toISOString();
     await query(
-      `INSERT INTO "QuoteShare" (id, quote_id, token, created_at) VALUES ($1, $2, $3, $4)`,
+      `INSERT INTO "QuoteShare" (id, "quoteId", token, "createdAt") VALUES ($1, $2, $3, $4)`,
       [crypto.randomUUID(), quote_id, token, now]
     );
 
     // Update status to SENT
     await query(
-      `UPDATE "Quote" SET status = 'SENT', updated_at = NOW() WHERE id = $1 AND status = 'DRAFT'`,
+      `UPDATE "Quote" SET status = 'SENT', "updatedAt" = NOW() WHERE id = $1 AND status = 'DRAFT'`,
       [quote_id]
     );
 
@@ -427,12 +424,12 @@ server.tool(
     const lineVat = lineTotal * (vat_rate / 100);
 
     const maxSort = await queryOne<{ max: number }>(
-      `SELECT COALESCE(MAX(sort_order), -1) AS max FROM "QuoteItem" WHERE quote_id = $1`,
+      `SELECT COALESCE(MAX("sortOrder"), -1) AS max FROM "QuoteItem" WHERE "quoteId" = $1`,
       [quote_id]
     );
 
     await query(
-      `INSERT INTO "QuoteItem" (id, quote_id, description, qty, unit_price, vat_rate, total, sort_order)
+      `INSERT INTO "QuoteItem" (id, "quoteId", description, qty, "unitPrice", "vatRate", total, "sortOrder")
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
       [crypto.randomUUID(), quote_id, description,
        qty.toFixed(2), unit_price.toFixed(2), vat_rate.toFixed(2),
@@ -442,10 +439,10 @@ server.tool(
     // Recalculate totals
     await query(
       `UPDATE "Quote" SET
-        total_ex_vat = (SELECT SUM(qty * unit_price) FROM "QuoteItem" WHERE quote_id = $1),
-        total_vat    = (SELECT SUM(qty * unit_price * vat_rate / 100) FROM "QuoteItem" WHERE quote_id = $1),
-        total_inc_vat = (SELECT SUM(qty * unit_price * (1 + vat_rate / 100)) FROM "QuoteItem" WHERE quote_id = $1),
-        updated_at   = NOW()
+        "totalExVat"  = (SELECT SUM(qty * "unitPrice") FROM "QuoteItem" WHERE "quoteId" = $1),
+        "totalVat"    = (SELECT SUM(qty * "unitPrice" * "vatRate" / 100) FROM "QuoteItem" WHERE "quoteId" = $1),
+        "totalIncVat" = (SELECT SUM(qty * "unitPrice" * (1 + "vatRate" / 100)) FROM "QuoteItem" WHERE "quoteId" = $1),
+        "updatedAt"   = NOW()
        WHERE id = $1`,
       [quote_id]
     );
@@ -475,16 +472,16 @@ server.tool(
 
     const [statusStats, customerCount, totalValue] = await Promise.all([
       query(
-        `SELECT status, COUNT(*) AS count FROM "Quote" WHERE company_id = $1 GROUP BY status`,
+        `SELECT status, COUNT(*) AS count FROM "Quote" WHERE "companyId" = $1 GROUP BY status`,
         [co.id]
       ),
       queryOne<{ count: string }>(
-        `SELECT COUNT(*) AS count FROM "Customer" WHERE company_id = $1`,
+        `SELECT COUNT(*) AS count FROM "Customer" WHERE "companyId" = $1`,
         [co.id]
       ),
       queryOne<{ total: string }>(
-        `SELECT COALESCE(SUM(total_inc_vat), 0) AS total FROM "Quote"
-         WHERE company_id = $1 AND status IN ('SENT','VIEWED','ACCEPTED')`,
+        `SELECT COALESCE(SUM("totalIncVat"), 0) AS total FROM "Quote"
+         WHERE "companyId" = $1 AND status IN ('SENT','VIEWED','ACCEPTED')`,
         [co.id]
       ),
     ]);
