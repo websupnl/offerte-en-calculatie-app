@@ -45,11 +45,105 @@
   --sh-brand: 0 8px 24px rgba(236,72,153,.26), 0 4px 12px rgba(249,115,22,.18);
 }
 
+/* =============================================================
+   PRINT STYLES (100% EXACT A4)
+   ============================================================= */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  body {
+    background: #fff !important;
+  }
+  .portal-container {
+    background: #fff !important;
+    padding: 0 !important;
+  }
+  .doc-viewer {
+    padding: 0 !important;
+  }
+  .sheet {
+    margin: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    page-break-after: always;
+    width: 210mm !important;
+    height: 297mm !important;
+  }
+  .sheet:last-child {
+    page-break-after: auto;
+  }
+  /* Hide UI elements */
+  .no-print,
+  button,
+  .sidebar,
+  .sticky-sidebar,
+  .doc-foot-actions,
+  .toast {
+    display: none !important;
+  }
+}
+
 .portal-container {
   background-color: var(--bg);
   min-height: 100vh;
   font-family: var(--text);
   color: var(--on);
+}
+
+.portal-koolhaas {
+  --grad:        linear-gradient(120deg, #153369 0%, #1f7295 36%, #1f9ba3 70%, #5bbfb0 100%);
+  --grad-text:   linear-gradient(120deg, #1f7295 0%, #1f9ba3 52%, #5bbfb0 100%);
+  --grad-soft:   linear-gradient(135deg, rgba(31,114,149,.12) 0%, rgba(31,155,163,.10) 55%, rgba(91,191,176,.12) 100%);
+  --orange:      #1f9ba3;
+  --pink:        #1f7295;
+  --purple:      #5bbfb0;
+  --dark:        #08111f;
+  --dark-2:      #0c1f3d;
+  --bg:          #f4f8f8;
+  --on:          #0e2344;
+  --on-m:        #51637a;
+  --on-s:        #8a99ab;
+  --border:      rgba(14,35,68,.08);
+  --border-str:  rgba(14,35,68,.14);
+  --surface-in:  #f4f8f8;
+  --accent:      #1f9ba3;
+  --accent-bg:   rgba(31,155,163,.10);
+  --sh-brand: 0 8px 24px rgba(31,155,163,.24), 0 4px 12px rgba(31,114,149,.18);
+}
+
+.portal-koolhaas .cover {
+  background:
+    radial-gradient(95% 74% at 82% 8%, rgba(31,155,163,.42) 0%, transparent 48%),
+    radial-gradient(86% 68% at 100% 38%, rgba(31,114,149,.34) 0%, transparent 52%),
+    radial-gradient(96% 76% at 88% 92%, rgba(91,191,176,.28) 0%, transparent 55%),
+    linear-gradient(160deg, #08111f 0%, #0c1f3d 58%, #0a2030 100%);
+}
+
+.brand-logo {
+  display: block;
+  width: auto;
+  height: 32px;
+  object-fit: contain;
+}
+
+.brand-logo-cover {
+  height: 42px;
+  max-width: 220px;
+}
+
+.portal-koolhaas .ph {
+  min-height: 65px;
+}
+
+.portal-koolhaas .ph .brand-logo {
+  height: 34px;
+}
+
+.portal-koolhaas .doc-foot .brand-logo {
+  height: 30px;
+  max-width: 210px;
 }
 
 /* =============================================================
@@ -63,6 +157,7 @@
 
 .sheet {
   width: 210mm;
+  height: 297mm;
   min-height: 297mm;
   margin: 0 auto 28px;
   position: relative;
@@ -75,7 +170,8 @@
 /* Inner padding + flex column */
 .pad {
   padding: 18mm 17mm 14mm;
-  min-height: 297mm;
+  height: 100%;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -550,25 +646,26 @@
 }
 .cover .pad { padding: 16mm 17mm 14mm; }
 
-/* Cover split: left text + right image */
-.cov-split { display: grid; grid-template-columns: 1fr 0.85fr; gap: 0; }
-.cov-left { display: flex; flex-direction: column; padding-right: 14mm; border-right: 1px solid rgba(255,255,255,0.10); }
-.cov-left .cov-mid { margin-top: auto; }
+/* Cover stack: image above, text below */
+.cov-split { display: flex; flex-direction: column; gap: 8mm; height: 100%; }
+.cov-left { display: flex; flex-direction: column; padding-right: 0; border-right: none; }
+.cov-left .cov-mid { margin-top: 10mm; }
 .cov-img-col {
-  display: flex; align-items: center; justify-content: center;
-  padding: 8mm 0 8mm 10mm;
+  display: flex; align-items: stretch; justify-content: center;
+  padding: 0;
+  order: -1;
 }
 .cov-img-placeholder {
-  width: 100%; aspect-ratio: 4/3;
+  width: 100%; min-height: 92mm;
   border: 2px dashed rgba(255,255,255,0.18);
-  border-radius: 12px;
+  border-radius: 16px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   color: #fff;
   transition: border-color 0.2s;
 }
 .cov-img-placeholder:hover { border-color: rgba(249,115,22,0.50); }
 .cov-img-wrap {
-  width: 100%; aspect-ratio: 4/3; border-radius: 12px; overflow: hidden; position: relative;
+  width: 100%; min-height: 92mm; border-radius: 16px; overflow: hidden; position: relative;
 }
 .cov-img-preview { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cov-img-overlay {

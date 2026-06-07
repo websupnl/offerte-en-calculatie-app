@@ -76,7 +76,7 @@ export function SettingsClient({
   const isKoolhaas = companySlug === "koolhaas";
 
   return (
-    <div className="p-8 max-w-4xl space-y-6">
+    <div className="w-full max-w-[1400px] space-y-6 p-6 lg:p-8 2xl:px-10">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Instellingen</h1>
@@ -164,7 +164,7 @@ export function SettingsClient({
                   <div className="flex gap-2">
                     <input
                       type="color"
-                      value={branding.primaryColor || (isKoolhaas ? "#0F2818" : "#0F172A")}
+                      value={branding.primaryColor || (isKoolhaas ? "#0E2344" : "#0F172A")}
                       onChange={(e) => setBranding((b) => ({ ...b, primaryColor: e.target.value }))}
                       className="h-10 w-16 rounded cursor-pointer border"
                     />
@@ -180,7 +180,7 @@ export function SettingsClient({
                   <div className="flex gap-2">
                     <input
                       type="color"
-                      value={branding.accentColor || (isKoolhaas ? "#16A34A" : "#6366F1")}
+                      value={branding.accentColor || (isKoolhaas ? "#1F9BA3" : "#6366F1")}
                       onChange={(e) => setBranding((b) => ({ ...b, accentColor: e.target.value }))}
                       className="h-10 w-16 rounded cursor-pointer border"
                     />

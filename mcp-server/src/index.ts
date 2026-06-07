@@ -31,16 +31,93 @@ async function queryOne<T = Record<string, unknown>>(
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function generateQuoteNumber(): string {
+function generateQuoteNumber(companySlug = "websup"): string {
   const now = new Date();
   const yy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, "0");
   const rand = String(Math.floor(Math.random() * 9000) + 1000);
-  return `WU-${yy}-${mm}-${rand}`;
+  const prefix = companySlug === "koolhaas" ? "KI" : "WU";
+  return `${prefix}-${yy}-${mm}-${rand}`;
 }
 
 function generateToken(): string {
   return crypto.randomUUID();
+}
+
+function defaultTemplateFields(companySlug: string) {
+  if (companySlug === "koolhaas") {
+    return {
+      title: "Thuisbatterij installatie",
+      category: "Installatie · Energieopslag",
+      tagline: "Advies · Installatie · Inbedrijfstelling",
+      itemsHeader: "Wat wordt er geïnstalleerd",
+      flow: [
+        { n: 1, t: "Akkoord & opname", d: "Offerte akkoord, laatste technische check en bevestiging van de opstelplek." },
+        { n: 2, t: "Materialen bestellen", d: "Batterij, omvormer, beveiligingen, bekabeling en montagemateriaal worden ingepland." },
+        { n: 3, t: "Meterkast voorbereiden", d: "Controle op fasen, beschikbare ruimte, hoofdzekering en benodigde uitbreidingen." },
+        { n: 4, t: "Montage & bekabeling", d: "Plaatsing van de installatie met nette kabelroute en veilige afwerking." },
+        { n: 5, t: "Aansluiten & testen", d: "Elektrische controle, inbedrijfstelling, app-koppeling en functionele test." },
+        { n: 6, t: "Uitleg & oplevering", d: "Korte uitleg over gebruik, monitoring, onderhoud en wat u kunt verwachten." },
+      ],
+      approach: [
+        { n: "01", t: "Technische controle", d: "Ik controleer of de gekozen oplossing past bij woning, meterkast en verbruik." },
+        { n: "02", t: "Heldere voorbereiding", d: "Planning, materialen en eventuele bijzonderheden worden vooraf afgestemd." },
+        { n: "03", t: "Veilige uitvoering", d: "Installatie volgens geldende normen, met nette montage en duidelijke kabelroutes." },
+        { n: "04", t: "Inbedrijfstelling", d: "Systeem testen, instellingen nalopen en zorgen dat monitoring werkt." },
+        { n: "05", t: "Oplevering", d: "Samen controleren we de installatie en krijgt u uitleg over gebruik en onderhoud." },
+      ],
+      options: [
+        { t: "Meterkast uitbreiding", d: "Extra groep, beveiliging of aanpassing als de bestaande situatie dat vraagt.", tag: "Na opname" },
+        { t: "Energiemanagement", d: "EMS voor slim sturen van batterij, zonnepanelen, laadpaal en grootverbruikers.", tag: "Optioneel" },
+        { t: "Extra monitoring", d: "Inzicht in verbruik, teruglevering en batterijgedrag via app of dashboard.", tag: "Op aanvraag" },
+        { t: "Onderhoudscontrole", d: "Periodieke controle op veiligheid, instellingen en prestaties.", tag: "Jaarlijks" },
+      ],
+      exclusions: [
+        "Bouwkundige werkzaamheden zoals hak-, breek-, stuc- of schilderwerk",
+        "Graafwerk of herstel van bestrating tenzij expliciet opgenomen",
+        "Netverzwaring of werkzaamheden door de netbeheerder",
+        "Vergunningen, subsidies of gemeentelijke regelingen",
+        "Aanpassingen buiten de beschreven installatie en materialen",
+      ],
+    };
+  }
+
+  return {
+    title: "Maatwerk offerte-aanvraagmodule laadpalen",
+    category: "Maatwerk module · WordPress",
+    tagline: "Ontwerp · Bouw · Plaatsing",
+    itemsHeader: "Onderdelen binnen fase 1.",
+    flow: [
+      { n: 1, t: "Locatie & situatie", d: "Adres, type woning of pand en de gewenste plek voor de laadpaal." },
+      { n: 2, t: "Meterkast & aansluiting", d: "Foto meterkast, close-up slimme meter en het aantal fasen." },
+      { n: 3, t: "Verdeelkast", d: "Overzichtsfoto en ruimte voor een extra groep of loadbalancing." },
+      { n: 4, t: "Kabelroute", d: "Route en lengte van meterkast naar paal - is er graafwerk nodig?" },
+      { n: 5, t: "Laadpaal & montage", d: "Type 2 of vaste kabel, gevel of montagepaal, verrekening." },
+      { n: 6, t: "Klantgegevens", d: "Contactgegevens en of het zakelijk of particulier is." },
+      { n: 7, t: "Controle & versturen", d: "Overzicht van alle gegevens en foto's, akkoord en verzenden." },
+    ],
+    approach: [
+      { n: "01", t: "Inventarisatie", d: "Samen scope, velden en interne opvolging scherp krijgen." },
+      { n: "02", t: "UX-ontwerp", d: "Stappen, volgorde en logica van de aanvraagflow." },
+      { n: "03", t: "Visueel ontwerp", d: "Styling in de huisstijl - klaar voor akkoord." },
+      { n: "04", t: "Technische bouw", d: "Maatwerk in WordPress: uploads, e-mail en formulierlogica." },
+      { n: "05", t: "Test & feedback", d: "Testen op alle apparaten + een feedbackronde." },
+      { n: "06", t: "Livegang & nazorg", d: "Plaatsing, korte uitleg en ondersteuning na oplevering." },
+    ],
+    options: [
+      { t: "Dashboardomgeving", d: "Alle aanvragen, foto's en statussen centraal op een scherm.", tag: "Aparte offerte" },
+      { t: "Extra dienst-flows", d: "Airco, warmtepomp, zonnepanelen, thuisbatterij, EMS - per dienst uitgebreid.", tag: "Per dienst" },
+      { t: "Foto-export naar dossier", d: "Aangeleverde foto's makkelijk toevoegen aan een dossier in Syntess.", tag: "Op aanvraag" },
+      { t: "Onderhoud & support", d: "Updates, monitoring en kleine aanpassingen na oplevering.", tag: "Maandelijks" },
+    ],
+    exclusions: [
+      "Betaalde plugins of externe licenties",
+      "Hosting en domeinnaam",
+      "Teksten of fotografie",
+      "Grote wijzigingen buiten de afgesproken scope",
+      "Koppelingen met systemen buiten deze offerte",
+    ],
+  };
 }
 
 // ─── MCP Server ───────────────────────────────────────────────────────────────
@@ -173,8 +250,26 @@ server.tool(
     title: z.string().optional().default("Persoonlijk voorstel").describe("Titel van de offerte"),
     category: z.string().optional().default("Maatwerk project").describe("Categorie/type project"),
     tagline: z.string().optional().describe("Ondertitel, bijv. 'Ontwerp · Bouw · Plaatsing'"),
+    itemsHeader: z.string().optional().describe("Kop boven de lijst met werkzaamheden/onderdelen"),
     intro: z.string().optional().describe("Inleidende tekst"),
     outro: z.string().optional().describe("Slottekst"),
+    notes: z.string().optional().describe("Opmerkingen/interne of zichtbare notities voor de offerte"),
+    flow: z.array(z.object({
+      n: z.number(),
+      t: z.string(),
+      d: z.string(),
+    })).optional().describe("Proces/planning-stappen voor pagina 3"),
+    approach: z.array(z.object({
+      n: z.string(),
+      t: z.string(),
+      d: z.string(),
+    })).optional().describe("Werkwijze/fases voor pagina 3"),
+    options: z.array(z.object({
+      t: z.string(),
+      d: z.string(),
+      tag: z.string(),
+    })).optional().describe("Optionele uitbreidingen of meerwerk"),
+    exclusions: z.array(z.string()).optional().describe("Niet inbegrepen / uitsluitingen"),
     valid_days: z.number().optional().default(30).describe("Geldigheidsduur in dagen"),
     items: z.array(z.object({
       description: z.string().describe("Omschrijving van het item"),
@@ -183,7 +278,17 @@ server.tool(
       vat_rate: z.number().default(21).describe("BTW-percentage"),
     })).describe("Offerteregels"),
   },
-  async ({ company_slug, customer_id, title, category, tagline, intro, outro, valid_days, items }) => {
+  async ({ company_slug, customer_id, title, category, tagline, itemsHeader, intro, outro, notes, flow, approach, options, exclusions, valid_days, items }) => {
+    const defaults = defaultTemplateFields(company_slug);
+    const quoteTitle = title === "Persoonlijk voorstel" ? defaults.title : title;
+    const quoteCategory = category === "Maatwerk project" ? defaults.category : category;
+    const quoteTagline = tagline ?? defaults.tagline;
+    const quoteItemsHeader = itemsHeader ?? defaults.itemsHeader;
+    const quoteFlow = flow ?? defaults.flow;
+    const quoteApproach = approach ?? defaults.approach;
+    const quoteOptions = options ?? defaults.options;
+    const quoteExclusions = exclusions ?? defaults.exclusions;
+
     const co = await queryOne<{ id: string }>(
       `SELECT id FROM "Company" WHERE slug = $1`,
       [company_slug]
@@ -213,14 +318,16 @@ server.tool(
     const now = new Date().toISOString();
     const validUntil = new Date(Date.now() + (valid_days ?? 30) * 86400000).toISOString();
     const quoteId = crypto.randomUUID();
-    const number = generateQuoteNumber();
+    const number = generateQuoteNumber(company_slug);
 
     await query(
       `INSERT INTO "Quote" (id, "companyId", "customerId", "createdById", number, title, category, tagline,
-        intro, outro, status, "validUntil", "totalExVat", "totalVat", "totalIncVat", "createdAt", "updatedAt")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'DRAFT',$11,$12,$13,$14,$15,$15)`,
-      [quoteId, co.id, customer_id, user.id, number, title, category,
-       tagline ?? "Ontwerp · Bouw · Plaatsing", intro ?? null, outro ?? null,
+        "itemsHeader", intro, outro, notes, flow, approach, options, exclusions, status, "validUntil",
+        "totalExVat", "totalVat", "totalIncVat", "createdAt", "updatedAt")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16::jsonb,'DRAFT',$17,$18,$19,$20,$21,$21)`,
+      [quoteId, co.id, customer_id, user.id, number, quoteTitle, quoteCategory,
+       quoteTagline, quoteItemsHeader, intro ?? null, outro ?? null, notes ?? null,
+       JSON.stringify(quoteFlow), JSON.stringify(quoteApproach), JSON.stringify(quoteOptions), JSON.stringify(quoteExclusions),
        validUntil, totalExVat.toFixed(2), totalVat.toFixed(2), totalIncVat.toFixed(2), now]
     );
 
@@ -330,17 +437,26 @@ server.tool(
     title: z.string().optional(),
     category: z.string().optional(),
     tagline: z.string().optional(),
+    itemsHeader: z.string().optional(),
     intro: z.string().optional(),
     outro: z.string().optional(),
     status: z.enum(["DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"]).optional(),
     notes: z.string().optional(),
+    flow: z.array(z.object({ n: z.number(), t: z.string(), d: z.string() })).optional(),
+    approach: z.array(z.object({ n: z.string(), t: z.string(), d: z.string() })).optional(),
+    options: z.array(z.object({ t: z.string(), d: z.string(), tag: z.string() })).optional(),
+    exclusions: z.array(z.string()).optional(),
   },
   async ({ quote_id, ...updates }) => {
     const fields = Object.entries(updates).filter(([, v]) => v !== undefined);
     if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
 
-    const setClauses = fields.map(([k], i) => `"${k}" = $${i + 2}`);
-    const values = [quote_id, ...fields.map(([, v]) => v)];
+    const jsonFields = new Set(["flow", "approach", "options", "exclusions"]);
+    const setClauses = fields.map(([k], i) => `"${k}" = $${i + 2}${jsonFields.has(k) ? "::jsonb" : ""}`);
+    const values = [
+      quote_id,
+      ...fields.map(([k, v]) => (jsonFields.has(k) ? JSON.stringify(v) : v)),
+    ];
 
     await query(
       `UPDATE "Quote" SET ${setClauses.join(", ")}, "updatedAt" = NOW() WHERE id = $1`,

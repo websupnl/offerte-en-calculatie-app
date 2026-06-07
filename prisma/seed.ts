@@ -1,7 +1,10 @@
-import "dotenv/config";
+import { config } from "dotenv";
 import { PrismaClient } from "../src/generated/prisma";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
+
+config({ path: ".env.local" });
+config();
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
@@ -36,23 +39,47 @@ async function main() {
 
   const koolhaas = await prisma.company.upsert({
     where: { slug: "koolhaas" },
-    update: {},
-    create: {
-      name: "Koolhaas Installaties",
-      slug: "koolhaas",
+    update: {
       branding: {
-        primaryColor: "#0F2818",
-        accentColor: "#16A34A",
-        backgroundColor: "#F0FDF4",
-        font: "Inter",
-        tagline: "Persoonlijk · Technisch sterk · Friesland",
+        primaryColor: "#0E2344",
+        accentColor: "#1F9BA3",
+        backgroundColor: "#F4F8F8",
+        textColor: "#0E2344",
+        font: "Sora",
+        tagline: "Techniek die eerst goed doordacht wordt en daarna netjes wordt uitgevoerd.",
+        logoUrl: "/logos/koolhaas-logo.png",
       },
       settings: {
         defaultVatRate: 21,
         quoteValidDays: 30,
-        quoteIntroDefault: "Dank voor uw interesse. Naar aanleiding van ons gesprek sturen wij u graag onze offerte toe.",
-        quoteOutroDefault: "Heeft u vragen? Neem gerust contact op. Wij staan voor u klaar.",
-        paymentTerms: "Betaling binnen 14 dagen na factuurdatum.",
+        quoteIntroDefault:
+          "Dank voor uw aanvraag. In deze offerte vindt u een duidelijke uitsplitsing van de werkzaamheden, materialen en kosten. De offerte is opgesteld op basis van de bekende situatie en de besproken wensen.",
+        quoteOutroDefault:
+          "Heeft u vragen of wilt u iets aanpassen? Neem gerust contact op. Na akkoord plannen wij de uitvoering in en stemmen we de laatste technische punten af.",
+        paymentTerms: "30% bij akkoord voor materiaalreservering, restant na installatie en oplevering.",
+        aiSystemPrompts: {},
+      },
+    },
+    create: {
+      name: "Koolhaas Installaties",
+      slug: "koolhaas",
+      branding: {
+        primaryColor: "#0E2344",
+        accentColor: "#1F9BA3",
+        backgroundColor: "#F4F8F8",
+        textColor: "#0E2344",
+        font: "Sora",
+        tagline: "Techniek die eerst goed doordacht wordt en daarna netjes wordt uitgevoerd.",
+        logoUrl: "/logos/koolhaas-logo.png",
+      },
+      settings: {
+        defaultVatRate: 21,
+        quoteValidDays: 30,
+        quoteIntroDefault:
+          "Dank voor uw aanvraag. In deze offerte vindt u een duidelijke uitsplitsing van de werkzaamheden, materialen en kosten. De offerte is opgesteld op basis van de bekende situatie en de besproken wensen.",
+        quoteOutroDefault:
+          "Heeft u vragen of wilt u iets aanpassen? Neem gerust contact op. Na akkoord plannen wij de uitvoering in en stemmen we de laatste technische punten af.",
+        paymentTerms: "30% bij akkoord voor materiaalreservering, restant na installatie en oplevering.",
         aiSystemPrompts: {},
       },
     },
@@ -61,11 +88,15 @@ async function main() {
   console.log(`Companies created: ${websup.name}, ${koolhaas.name}`);
 
   // Create admin user
-  const hashedPassword = await bcrypt.hash("Admin123!", 12);
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!adminPassword) {
+    throw new Error("Set SEED_ADMIN_PASSWORD in .env.local before running db:seed.");
+  }
+  const hashedPassword = await bcrypt.hash(adminPassword, 12);
 
   const admin = await prisma.user.upsert({
     where: { email: "daan@websup.nl" },
-    update: {},
+    update: { password: hashedPassword },
     create: {
       name: "Daan Koolhaas",
       email: "daan@websup.nl",
@@ -87,7 +118,7 @@ async function main() {
     create: { userId: admin.id, companyId: koolhaas.id, role: "ADMIN" },
   });
 
-  console.log(`Admin user created: ${admin.email} (wachtwoord: Admin123!)`);
+  console.log(`Admin user ready: ${admin.email}`);
 
   // Seed WebsUp sample products
   const websupProducts = [
@@ -158,8 +189,8 @@ async function main() {
   }
 
   console.log("Sample products created");
-  console.log("\n✅ Seed complete!");
-  console.log("Login: daan@websup.nl / Admin123!");
+  console.log("\nâœ… Seed complete!");
+  console.log("Login: daan@websup.nl / value from SEED_ADMIN_PASSWORD");
 }
 
 main()

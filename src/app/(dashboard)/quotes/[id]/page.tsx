@@ -31,15 +31,16 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
 
   const companySlug = session?.user?.companies?.find((c) => c.id === companyId)?.slug ?? "websup";
   const customers = await prisma.customer.findMany({ where: { companyId }, orderBy: { name: "asc" } });
+  const serialized = JSON.parse(JSON.stringify({ quote, company, customers, products, productSets }));
 
   return (
     <QuoteDetailClient
-      quote={quote as never}
-      company={company as never}
+      quote={serialized.quote}
+      company={serialized.company}
       companySlug={companySlug}
-      customers={customers}
-      products={products as never}
-      productSets={productSets as never}
+      customers={serialized.customers}
+      products={serialized.products}
+      productSets={serialized.productSets}
     />
   );
 }

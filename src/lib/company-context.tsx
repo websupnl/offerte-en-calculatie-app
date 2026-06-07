@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 type Company = {
   id: string;
@@ -24,6 +25,7 @@ const CompanyContext = createContext<CompanyContextType>({
 
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const { data: session, update } = useSession();
+  const router = useRouter();
 
   const companies = session?.user?.companies ?? [];
   const activeCompany =
@@ -38,7 +40,9 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   }, [activeCompany]);
 
   async function switchCompany(companyId: string) {
+    if (companyId === activeCompany?.id) return;
     await update({ activeCompanyId: companyId });
+    router.refresh();
   }
 
   return (

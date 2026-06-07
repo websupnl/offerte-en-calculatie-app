@@ -14,11 +14,19 @@ const itemSchema = z.object({
 
 const schema = z.object({
   customerId: z.string().optional(),
+  title: z.string().optional(),
+  category: z.string().optional(),
+  tagline: z.string().optional(),
+  itemsHeader: z.string().optional(),
   status: z.enum(["DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"]).optional(),
-  validUntil: z.string().nullable().optional(),
+  validUntil: z.string().nullable().optional().transform((v) => (v === "" ? null : v)),
   intro: z.string().optional(),
   outro: z.string().optional(),
   notes: z.string().optional(),
+  flow: z.any().optional(),
+  approach: z.any().optional(),
+  options: z.any().optional(),
+  exclusions: z.any().optional(),
   items: z.array(itemSchema).optional(),
 });
 
@@ -48,7 +56,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const body = await req.json();
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
 
   const { items, ...rest } = parsed.data;
 
@@ -74,7 +84,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     });
   }
 
-  await prisma.quote.updateMany({
+  // Handle validUntil date conversion
+  if (updateData.validUntil) {
+    updateData.validUntil = new Date(updateData.validUntil as string);
+  }
+
+  await prisma.quote.update({
     where: { id, companyId: session.user.activeCompanyId },
     data: updateData,
   });

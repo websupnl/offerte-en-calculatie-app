@@ -40,4 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Generated Prisma Client
 /src/generated/prisma
+
+# Sub-projects
+src/mcp-server/node_modules/
+src/mcp-server/build/

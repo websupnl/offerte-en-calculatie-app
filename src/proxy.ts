@@ -9,6 +9,10 @@ const PUBLIC_PATHS = ["/login", "/q/", "/api/auth"];
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
+  if (pathname === "/login" && req.auth) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
+  }
+
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
   if (isPublic) return NextResponse.next();
 

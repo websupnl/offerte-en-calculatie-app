@@ -1,32 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { QuotePDF } from "@/lib/pdf/quote-template";
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 import { formatDate } from "@/lib/format";
 import { createElement } from "react";
 import { DEFAULT_BRANDING } from "@/lib/branding";
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-  const { id } = await params;
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
 
-  const quote = await prisma.quote.findFirst({
-    where: { id, companyId: session.user.activeCompanyId },
+  const share = await prisma.quoteShare.findUnique({
+    where: { token },
     include: {
-      customer: true,
-      items: { orderBy: { sortOrder: "asc" } },
-      company: true,
+      quote: {
+        include: {
+          customer: true,
+          items: { orderBy: { sortOrder: "asc" } },
+          company: true,
+        },
+      },
     },
   });
 
-  if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!share) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const quote = share.quote;
   const companySlug = quote.company.slug;
   const branding = DEFAULT_BRANDING[companySlug] ?? DEFAULT_BRANDING.websup;
 
@@ -51,8 +52,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     exclusions: (quote.exclusions as string[]) || [],
     itemsHeader: quote.itemsHeader || "Onderdelen",
     status: quote.status,
-    acceptedAt: quote.share?.acceptedAt ? formatDate(quote.share.acceptedAt) : undefined,
-    items: quote.items.map((i: { description: string; qty: unknown; unitPrice: unknown; total: unknown }) => ({
+    acceptedAt: share.acceptedAt ? formatDate(share.acceptedAt) : undefined,
+    items: quote.items.map((i) => ({
       description: i.description,
       qty: Number(i.qty),
       unitPrice: Number(i.unitPrice),

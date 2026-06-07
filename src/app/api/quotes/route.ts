@@ -14,10 +14,18 @@ const itemSchema = z.object({
 
 const schema = z.object({
   customerId: z.string().min(1),
+  title: z.string().optional(),
+  category: z.string().optional(),
+  tagline: z.string().optional(),
+  itemsHeader: z.string().optional(),
   validUntil: z.string().optional(),
   intro: z.string().optional(),
   outro: z.string().optional(),
   notes: z.string().optional(),
+  flow: z.any().optional(),
+  approach: z.any().optional(),
+  options: z.any().optional(),
+  exclusions: z.any().optional(),
   items: z.array(itemSchema).min(1, "Voeg minimaal één regel toe"),
 });
 
@@ -52,7 +60,7 @@ export async function POST(req: NextRequest) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { customerId, validUntil, intro, outro, notes, items } = parsed.data;
+  const { customerId, title, category, tagline, itemsHeader, validUntil, intro, outro, notes, flow, approach, options, exclusions, items } = parsed.data;
 
   const count = await prisma.quote.count({ where: { companyId } });
   const company = await prisma.company.findUnique({ where: { id: companyId } });
@@ -76,10 +84,18 @@ export async function POST(req: NextRequest) {
       customerId,
       createdById: session.user.id,
       number,
+      title,
+      category,
+      tagline,
+      itemsHeader,
       validUntil: validUntil ? new Date(validUntil) : undefined,
       intro,
       outro,
       notes,
+      flow,
+      approach,
+      options,
+      exclusions,
       totalExVat,
       totalVat,
       totalIncVat,

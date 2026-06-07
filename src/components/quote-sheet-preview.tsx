@@ -13,7 +13,7 @@ import {
   Loader2,
   ImagePlus,
 } from "lucide-react";
-import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import "@/app/q/[token]/portal.css";
 import { useRef, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -108,6 +108,7 @@ type Quote = {
   intro: string | null;
   outro: string | null;
   validUntil: string | null;
+  acceptedAt?: string | null;
   totalExVat: string | number;
   totalVat: string | number;
   totalIncVat: string | number;
@@ -118,19 +119,90 @@ type Quote = {
   options?: QuoteOption[];
   exclusions?: string[];
   adviceDocuments?: { id: string; type: string }[];
+  company?: { name?: string | null; slug?: string | null };
 };
 
 interface QuoteSheetPreviewProps {
   quote: Quote;
+  companySlug?: string;
   isEditable?: boolean;
   onUpdate?: (updates: Partial<Quote>) => void;
-  onUpdateItem?: (id: string, updates: Partial<QuoteItem>) => void;
+  onUpdateItem?: (id: string, updates: Pick<QuoteItem, "description">) => void;
   onAddItem?: () => void;
   onRemoveItem?: (id: string) => void;
 }
 
+const COMPANY_COPY = {
+  websup: {
+    slug: "websup",
+    name: "WebsUp.nl",
+    logoText: (
+      <>
+        Webs<span>Up.</span>
+      </>
+    ),
+    website: "webs-up.nl",
+    email: "hallo@websup.nl",
+    phone: "+31 6 12 34 56 78",
+    role: "Eigenaar WebsUp.nl",
+    defaultCategory: "Maatwerk project",
+    defaultTitle: "Persoonlijk voorstel op maat",
+    defaultTagline: "Ontwerp · Bouw · Plaatsing",
+    phaseLabel: "Fase 1",
+    summaryGoal: "Complete, gestructureerde aanvragen - minder navraag achteraf",
+    delivery: "Indicatie 4-6 weken na akkoord",
+    itemsHeader: "Onderdelen binnen fase 1.",
+    processEyebrow: "Het proces",
+    processTitle: "In duidelijke stappen.",
+    approachEyebrow: "De werkwijze",
+    approachTitle: "Van intake tot oplevering.",
+    investmentTitle: "Eén heldere prijs, geen verrassingen.",
+    investmentLabel: "Totale investering · Fase 1",
+    investmentDescription: "Investering voor het project zoals beschreven in de voorgaande pagina's.",
+    optionsEyebrow: "Optionele uitbreidingen",
+    optionsTitle: "Klaar om mee te groeien.",
+    exclusionsEyebrow: "Goed om te weten",
+    exclusionsTitle: "Niet standaard inbegrepen.",
+    closingTitle: "Zetten we de stap?",
+    contractor: "WebsUp.nl — Daan Koolhaas",
+    footerLine: "WebsUp.nl · Daan Koolhaas · Friesland",
+  },
+  koolhaas: {
+    slug: "koolhaas",
+    name: "Koolhaas Installaties",
+    logoText: null,
+    website: "koolhaasinstallaties.nl",
+    email: "daan@koolhaasinstallaties.nl",
+    phone: "+31 6 82 20 21 48",
+    role: "Koolhaas Installaties",
+    defaultCategory: "Installatie · Energieopslag",
+    defaultTitle: "Thuisbatterij installatie",
+    defaultTagline: "Advies · Installatie · Inbedrijfstelling",
+    phaseLabel: "Installatie",
+    summaryGoal: "Eigen zonnestroom opslaan en slim verbruiken",
+    delivery: "Installatie in 1 dag - ca. 2-3 weken na akkoord",
+    itemsHeader: "Wat wordt er geïnstalleerd",
+    processEyebrow: "Planning",
+    processTitle: "Van akkoord tot werkende installatie.",
+    approachEyebrow: "Werkwijze",
+    approachTitle: "Netjes voorbereid en veilig uitgevoerd.",
+    investmentTitle: "Eenmalige investering, helder opgebouwd.",
+    investmentLabel: "Totale investering",
+    investmentDescription:
+      "Een eenmalige investering voor materialen, montage, aansluiting, controle en oplevering zoals beschreven in deze offerte.",
+    optionsEyebrow: "Optioneel meerwerk",
+    optionsTitle: "Alleen waar het technisch logisch is.",
+    exclusionsEyebrow: "Niet inbegrepen",
+    exclusionsTitle: "Duidelijke grenzen aan de scope.",
+    closingTitle: "Akkoord voor uitvoering",
+    contractor: "Koolhaas Installaties — Daan Koolhaas",
+    footerLine: "Koolhaas Installaties · Daan Koolhaas · Friesland",
+  },
+} as const;
+
 export function QuoteSheetPreview({
   quote,
+  companySlug,
   isEditable = false,
   onUpdate,
   onUpdateItem,
@@ -138,6 +210,9 @@ export function QuoteSheetPreview({
   onRemoveItem
 }: QuoteSheetPreviewProps) {
   const today = new Date().toISOString();
+  const activeSlug = companySlug || quote.company?.slug || "websup";
+  const brand = activeSlug === "koolhaas" ? COMPANY_COPY.koolhaas : COMPANY_COPY.websup;
+  const isKoolhaas = brand.slug === "koolhaas";
   const [generating, setGenerating] = useState<string | null>(null);
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -204,8 +279,29 @@ export function QuoteSheetPreview({
     onUpdate({ exclusions: next });
   };
 
+  const renderHeaderLogo = (cover = false) => {
+    if (isKoolhaas) {
+      return (
+        <img
+          src={cover ? "/logos/koolhaas-white.png" : "/logos/koolhaas-logo.png"}
+          alt="Koolhaas Installaties"
+          className={cover ? "brand-logo brand-logo-cover" : "brand-logo"}
+        />
+      );
+    }
+
+    return (
+      <div className="ph-logo" style={cover ? { fontSize: "28px", color: "#fff" } : undefined}>
+        {brand.logoText}
+      </div>
+    );
+  };
+
   return (
-    <div className="portal-container" style={{ minHeight: 'auto', backgroundColor: 'transparent' }}>
+    <div
+      className={`portal-container ${isKoolhaas ? "portal-koolhaas" : "portal-websup"}`}
+      style={{ minHeight: 'auto', backgroundColor: 'transparent' }}
+    >
       <div className="doc-viewer" style={{ paddingBottom: 0 }}>
         
         {/* ── PAGINA 1: COVER ── */}
@@ -214,7 +310,7 @@ export function QuoteSheetPreview({
             {/* LEFT: tekst */}
             <div className="cov-left">
               <div className="cov-top">
-                <div className="ph-logo" style={{ fontSize: '28px', color: '#fff' }}>Webs<span>Up.</span></div>
+                {renderHeaderLogo(true)}
                 <div className="cov-meta">
                   <dl>
                     <dt>Offertenummer</dt> <dd>{quote.number || "CONCEPT"}</dd>
@@ -228,7 +324,7 @@ export function QuoteSheetPreview({
               <div className="cov-mid">
                 <span className="eyebrow inv">
                   <InlineInput
-                    value={quote.category || "Maatwerk project"}
+                    value={quote.category || brand.defaultCategory}
                     onChange={(v) => onUpdate?.({ category: v })}
                     isEditable={isEditable}
                   />
@@ -236,7 +332,7 @@ export function QuoteSheetPreview({
                 <h1 className="cov-h1">Offerte</h1>
                 <div className="cov-project">
                   <InlineInput
-                    value={quote.title || "Persoonlijk voorstel op maat"}
+                    value={quote.title || brand.defaultTitle}
                     onChange={(v) => onUpdate?.({ title: v })}
                     isEditable={isEditable}
                   />
@@ -245,23 +341,25 @@ export function QuoteSheetPreview({
                   <span>Voor</span>
                   <b>{quote.customer.name || "Klantnaam"}</b>
                 </div>
-                <div className="pills">
-                  <span className="pill g">Fase 1</span>
-                  <span className="pill">
-                    <InlineInput
-                      value={quote.tagline || "Ontwerp · Bouw · Plaatsing"}
-                      onChange={(v) => onUpdate?.({ tagline: v })}
-                      isEditable={isEditable}
-                    />
-                  </span>
-                  <span className="pill">{formatCurrency(Number(quote.totalIncVat))} incl. btw</span>
-                </div>
+                {!isKoolhaas && (
+                  <div className="pills">
+                    <span className="pill g">{brand.phaseLabel}</span>
+                    <span className="pill">
+                      <InlineInput
+                        value={quote.tagline || brand.defaultTagline}
+                        onChange={(v) => onUpdate?.({ tagline: v })}
+                        isEditable={isEditable}
+                      />
+                    </span>
+                    <span className="pill">{formatCurrency(Number(quote.totalIncVat))} incl. btw</span>
+                  </div>
+                )}
               </div>
 
               <div className="cov-foot">
-                <span><Globe /> webs-up.nl</span>
-                <span><Mail /> hallo@websup.nl</span>
-                <span><Phone /> +31 6 12 34 56 78</span>
+                <span><Globe /> {brand.website}</span>
+                <span><Mail /> {brand.email}</span>
+                <span><Phone /> {brand.phone}</span>
               </div>
             </div>
 
@@ -305,7 +403,7 @@ export function QuoteSheetPreview({
           <div className="bar"></div>
           <div className="pad">
             <div className="ph">
-              <div className="ph-logo">Webs<span>Up.</span></div>
+              {renderHeaderLogo()}
               <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
             </div>
 
@@ -335,7 +433,7 @@ export function QuoteSheetPreview({
               <div className="sig-av">DK</div>
               <div>
                 <div className="sig-name">Daan Koolhaas</div>
-                <div className="sig-role">Eigenaar WebsUp.nl</div>
+                <div className="sig-role">{brand.role}</div>
               </div>
             </div>
 
@@ -350,23 +448,23 @@ export function QuoteSheetPreview({
               </div>
               <div className="summary-row">
                 <div className="summary-k">Type</div>
-                <div className="summary-v">{quote.category || "Maatwerk"}</div>
+                <div className="summary-v">{quote.category || brand.defaultCategory}</div>
               </div>
               <div className="summary-row">
                 <div className="summary-k">Doel</div>
-                <div className="summary-v">Complete, gestructureerde aanvragen — minder navraag achteraf</div>
+                <div className="summary-v">{brand.summaryGoal}</div>
               </div>
               <div className="summary-row">
                 <div className="summary-k">Oplevering</div>
-                <div className="summary-v">Indicatie 4&ndash;6 weken na akkoord</div>
+                <div className="summary-v">{brand.delivery}</div>
               </div>
               <div className="summary-row summary-row-hl">
-                <div className="summary-k">Investering fase 1</div>
+                <div className="summary-k">Investering</div>
                 <div className="summary-v summary-v-hl"><strong>{formatCurrency(Number(quote.totalIncVat))}</strong>&ensp;incl. btw &middot; eenmalig</div>
               </div>
               <div className="summary-row">
                 <div className="summary-k">Scope</div>
-                <div className="summary-v">{quote.tagline || "Ontwerp · Bouw · Plaatsing"}</div>
+                <div className="summary-v">{quote.tagline || brand.defaultTagline}</div>
               </div>
             </div>
 
@@ -377,7 +475,7 @@ export function QuoteSheetPreview({
                 <span className="eyebrow">Wat wordt er geleverd</span>
                 <h2 className="h2">
                   <InlineInput 
-                    value={quote.itemsHeader || "Onderdelen binnen fase 1."} 
+                    value={quote.itemsHeader || brand.itemsHeader} 
                     onChange={(v) => onUpdate?.({ itemsHeader: v })} 
                     isEditable={isEditable}
                   />
@@ -419,14 +517,14 @@ export function QuoteSheetPreview({
           <div className="bar"></div>
           <div className="pad">
             <div className="ph">
-              <div className="ph-logo">Webs<span>Up.</span></div>
+              {renderHeaderLogo()}
               <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
             </div>
 
             <div className="row-badge">
               <div>
-                <span className="eyebrow">Het proces</span>
-                <h2 className="h2">In duidelijke stappen.</h2>
+                <span className="eyebrow">{brand.processEyebrow}</span>
+                <h2 className="h2">{brand.processTitle}</h2>
               </div>
               <div className="flex gap-3 items-center">
                 {isEditable && (
@@ -471,8 +569,8 @@ export function QuoteSheetPreview({
 
             <div className="row-badge">
               <div>
-                <span className="eyebrow">De werkwijze</span>
-                <h2 className="h2">Van intake tot oplevering.</h2>
+                <span className="eyebrow">{brand.approachEyebrow}</span>
+                <h2 className="h2">{brand.approachTitle}</h2>
               </div>
               <div className="flex gap-3 items-center">
                 {isEditable && (
@@ -519,20 +617,20 @@ export function QuoteSheetPreview({
           <div className="bar"></div>
           <div className="pad">
             <div className="ph">
-              <div className="ph-logo">Webs<span>Up.</span></div>
+              {renderHeaderLogo()}
               <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
             </div>
 
             <span className="eyebrow">De investering</span>
-            <h2 className="h2">Eén heldere prijs, geen verrassingen.</h2>
+            <h2 className="h2">{brand.investmentTitle}</h2>
 
             <div className="price-card">
-              <div className="pc-label">Totale investering &nbsp;&middot;&nbsp; Fase 1</div>
-              <p className="pc-desc">Investering voor het project zoals beschreven in de voorgaande pagina's.</p>
+              <div className="pc-label">{brand.investmentLabel}</div>
+              <p className="pc-desc">{brand.investmentDescription}</p>
               <div className="pc-amt">
                 <div className="a"><span className="c">&euro;</span>{Number(quote.totalIncVat).toLocaleString('nl-NL')}</div>
                 <div className="tags">
-                  <b>excl. btw</b>
+                  <b>incl. btw</b>
                   <span>eenmalig</span>
                 </div>
               </div>
@@ -550,8 +648,8 @@ export function QuoteSheetPreview({
 
             <div className="row-badge">
               <div>
-                <span className="eyebrow">Optionele uitbreidingen</span>
-                <h2 className="h2">Klaar om mee te groeien.</h2>
+                <span className="eyebrow">{brand.optionsEyebrow}</span>
+                <h2 className="h2">{brand.optionsTitle}</h2>
               </div>
               <div className="flex gap-3 items-center">
                 {isEditable && (
@@ -603,14 +701,14 @@ export function QuoteSheetPreview({
           <div className="bar"></div>
           <div className="pad">
             <div className="ph">
-              <div className="ph-logo">Webs<span>Up.</span></div>
+              {renderHeaderLogo()}
               <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
             </div>
 
             <div className="row-badge">
               <div>
-                <span className="eyebrow">Goed om te weten</span>
-                <h2 className="h2">Niet standaard inbegrepen.</h2>
+                <span className="eyebrow">{brand.exclusionsEyebrow}</span>
+                <h2 className="h2">{brand.exclusionsTitle}</h2>
               </div>
               <div className="flex gap-3 items-center">
                 {isEditable && (
@@ -672,30 +770,52 @@ export function QuoteSheetPreview({
             <div className="div"></div>
 
             <span className="eyebrow">Akkoord voor uitvoering</span>
-            <h2 className="h2">Zetten we de stap?</h2>
+            <h2 className="h2">{brand.closingTitle}</h2>
             
             <div className="sign-grid">
-              <div className="sign-box">
+              <div className="sign-box relative">
                 <div className="sign-who">Namens opdrachtgever</div>
                 <div className="sign-org">{quote.customer.name || "Klantnaam"}</div>
                 <div className="sign-line"><div className="sign-lbl">Naam</div><div className="sign-rule"></div></div>
                 <div className="sign-rule" style={{ marginTop: '40px', borderBottom: '1px solid var(--border-str)' }}></div>
+
+                {quote.status === "ACCEPTED" && quote.acceptedAt && (
+                  <div className="absolute top-[-10px] right-5 rotate-[-12deg] z-10 pointer-events-none">
+                    <div className="border-2 border-dashed border-green-500 text-green-500 rounded-full w-24 h-24 flex flex-col items-center justify-center p-2 bg-white/60 backdrop-blur-[2px]">
+                      <span className="text-[7px] font-bold uppercase tracking-tighter">Digitaal akkoord</span>
+                      <span className="text-[10px] font-black uppercase text-center leading-tight">Geaccepteerd</span>
+                      <span className="text-[7px] mt-1 font-mono">{formatDate(quote.acceptedAt)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="sign-box">
+              <div className="sign-box relative">
                 <div className="sign-who">Namens opdrachtnemer</div>
-                <div className="sign-org">WebsUp.nl — Daan Koolhaas</div>
+                <div className="sign-org">{brand.contractor}</div>
                 <div className="sign-line"><div className="sign-lbl">Naam</div><div className="sign-rule"></div></div>
                 <div className="sign-rule" style={{ marginTop: '40px', borderBottom: '1px solid var(--border-str)' }}></div>
+
+                <div className="absolute top-[-15px] right-2 rotate-[10deg] z-10 pointer-events-none">
+                  <div className="border-2 border-dashed rounded-full w-24 h-24 flex flex-col items-center justify-center p-2 bg-white/60 backdrop-blur-[2px]" style={{ borderColor: isKoolhaas ? '#1F9BA3' : '#f97316', color: isKoolhaas ? '#1F9BA3' : '#f97316' }}>
+                    <span className="text-[7px] font-bold uppercase tracking-tighter">Officieel voorstel</span>
+                    <span className="text-[10px] font-black uppercase text-center leading-tight">{brand.name.toUpperCase()}</span>
+                    <span className="text-[7px] mt-1 font-mono">Gevalideerd</span>
+                  </div>
+                </div>
               </div>
             </div>
 
             <div className="spacer"></div>
 
             <div className="doc-foot">
-              <div className="doc-foot-logo">Webs<span>Up.</span></div>
+              {isKoolhaas ? (
+                <img src="/logos/koolhaas-logo.png" alt="Koolhaas Installaties" className="brand-logo" />
+              ) : (
+                <div className="doc-foot-logo">{brand.logoText}</div>
+              )}
               <div className="doc-foot-meta">
-                <b>WebsUp.nl</b> &nbsp;&middot;&nbsp; Daan Koolhaas &nbsp;&middot;&nbsp; Friesland<br />
-                webs-up.nl &nbsp;&middot;&nbsp; hallo@websup.nl<br />
+                <b>{brand.name}</b> &nbsp;&middot;&nbsp; Daan Koolhaas &nbsp;&middot;&nbsp; Friesland<br />
+                {brand.website} &nbsp;&middot;&nbsp; {brand.email}<br />
                 Offerte geldig tot {quote.validUntil ? formatDate(quote.validUntil) : "Selecteer datum"}
               </div>
             </div>

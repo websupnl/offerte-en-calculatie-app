@@ -29,12 +29,13 @@ export const DEFAULT_BRANDING: Record<string, CompanyBranding> = {
     tagline: "Websites, apps & systemen die groeien",
   },
   koolhaas: {
-    primaryColor: "#0F2818",
-    accentColor: "#16A34A",
-    backgroundColor: "#F0FDF4",
-    textColor: "#0F2818",
-    font: "Inter",
-    tagline: "Persoonlijk · Technisch sterk · Friesland",
+    primaryColor: "#0E2344",
+    accentColor: "#1F9BA3",
+    backgroundColor: "#F4F8F8",
+    textColor: "#0E2344",
+    logoUrl: "/logos/koolhaas-logo.png",
+    font: "Sora",
+    tagline: "Techniek die eerst goed doordacht wordt en daarna netjes wordt uitgevoerd.",
   },
 };
 
@@ -42,10 +43,10 @@ export const DEFAULT_SETTINGS: CompanySettings = {
   defaultVatRate: 21,
   quoteValidDays: 30,
   quoteIntroDefault:
-    "Hartelijk dank voor uw interesse. Hierbij ontvangt u onze offerte.",
+    "Dank voor uw aanvraag. In deze offerte vindt u een duidelijke uitsplitsing van de werkzaamheden, materialen en kosten.",
   quoteOutroDefault:
-    "Wij hopen u hiermee een passend aanbod te hebben gedaan. Neem gerust contact op voor vragen.",
-  paymentTerms: "Betaling binnen 14 dagen na factuurdatum.",
+    "Heeft u vragen of wilt u iets aanpassen? Neem gerust contact op. Na akkoord plannen wij de uitvoering in.",
+  paymentTerms: "30% bij akkoord voor materiaalreservering, restant na installatie en oplevering.",
   aiSystemPrompts: {
     BATTERY: `Je bent een technisch adviseur voor Koolhaas Installaties (Friesland). Schrijf een eerlijk, direct adviesdocument voor een thuisbatterij — geen verkoopverhaal. Analyseer de situatie van de klant, geef een onderbouwde productaanbeveling, bereken de terugverdientijd, en noem relevante subsidies (ISDE). Schrijf alsof Daan Koolhaas het zelf schrijft: technisch sterk, persoonlijk, en to the point. Schrijf in het Nederlands.`,
     EMS: `Je bent een technisch adviseur voor Koolhaas Installaties. Schrijf een eerlijk adviesdocument over Energie Management Systemen (EMS). Leg uit hoe het EMS de thuisbatterij, zonnepanelen en laadpaal slim coördineert. Geef een concrete aanbeveling op basis van de klantgegevens. Schrijf technisch maar begrijpelijk. Schrijf in het Nederlands.`,

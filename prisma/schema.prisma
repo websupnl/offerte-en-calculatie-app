@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -170,6 +169,10 @@ model Quote {
   customerId  String
   createdById String
   number      String
+  title       String?     @default("Persoonlijk voorstel")
+  category    String?     @default("Maatwerk project")
+  tagline     String?     @default("Ontwerp · Bouw · Plaatsing")
+  itemsHeader String?     @default("Onderdelen binnen fase 1.")
   status      QuoteStatus @default(DRAFT)
   validUntil  DateTime?
   intro       String?     @db.Text
@@ -180,6 +183,10 @@ model Quote {
   totalExVat  Decimal     @default(0) @db.Decimal(10, 2)
   totalVat    Decimal     @default(0) @db.Decimal(10, 2)
   totalIncVat Decimal     @default(0) @db.Decimal(10, 2)
+  flow        Json?       @default("[]")
+  approach    Json?       @default("[]")
+  options     Json?       @default("[]")
+  exclusions  Json?       @default("[]")
   pdfUrl      String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
