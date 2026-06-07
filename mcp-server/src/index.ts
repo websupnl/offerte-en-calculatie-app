@@ -1,0 +1,516 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+import pg from "pg";
+
+const { Pool } = pg;
+
+// ─── Database ─────────────────────────────────────────────────────────────────
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL environment variable is required");
+}
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+async function query<T = Record<string, unknown>>(
+  sql: string,
+  params: unknown[] = []
+): Promise<T[]> {
+  const { rows } = await pool.query(sql, params);
+  return rows as T[];
+}
+
+async function queryOne<T = Record<string, unknown>>(
+  sql: string,
+  params: unknown[] = []
+): Promise<T | null> {
+  const rows = await query<T>(sql, params);
+  return rows[0] ?? null;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function generateQuoteNumber(): string {
+  const now = new Date();
+  const yy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const rand = String(Math.floor(Math.random() * 9000) + 1000);
+  return `WU-${yy}-${mm}-${rand}`;
+}
+
+function generateToken(): string {
+  return crypto.randomUUID();
+}
+
+// ─── MCP Server ───────────────────────────────────────────────────────────────
+
+const server = new McpServer({
+  name: "websup-quote-engine",
+  version: "1.0.0",
+});
+
+// ── list_companies ─────────────────────────────────────────────────────────────
+server.tool(
+  "list_companies",
+  "Geef een lijst van alle beschikbare bedrijven (websup, koolhaas, etc.)",
+  {},
+  async () => {
+    const companies = await query(
+      `SELECT id, name, slug, created_at FROM "Company" ORDER BY name`
+    );
+    return {
+      content: [{ type: "text", text: JSON.stringify(companies, null, 2) }],
+    };
+  }
+);
+
+// ── list_customers ─────────────────────────────────────────────────────────────
+server.tool(
+  "list_customers",
+  "Geef een lijst van klanten voor een bepaald bedrijf (op slug of ID)",
+  {
+    company_slug: z.string().optional().describe("Bedrijfsslug, bijv. 'websup' of 'koolhaas'"),
+    company_id: z.string().optional().describe("Bedrijfs-ID (alternatief voor slug)"),
+    search: z.string().optional().describe("Zoekterm op naam of e-mail"),
+  },
+  async ({ company_slug, company_id, search }) => {
+    let cid = company_id;
+    if (!cid && company_slug) {
+      const co = await queryOne<{ id: string }>(
+        `SELECT id FROM "Company" WHERE slug = $1`,
+        [company_slug]
+      );
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+      cid = co.id;
+    }
+    if (!cid) return { content: [{ type: "text", text: "Geef company_slug of company_id op." }] };
+
+    let sql = `SELECT id, name, email, phone, address, city, zip_code FROM "Customer" WHERE company_id = $1`;
+    const params: unknown[] = [cid];
+    if (search) {
+      sql += ` AND (LOWER(name) LIKE $2 OR LOWER(email) LIKE $2)`;
+      params.push(`%${search.toLowerCase()}%`);
+    }
+    sql += ` ORDER BY name`;
+
+    const customers = await query(sql, params);
+    return {
+      content: [{ type: "text", text: JSON.stringify(customers, null, 2) }],
+    };
+  }
+);
+
+// ── create_customer ────────────────────────────────────────────────────────────
+server.tool(
+  "create_customer",
+  "Maak een nieuwe klant aan voor een bedrijf",
+  {
+    company_slug: z.string().describe("Bedrijfsslug: 'websup' of 'koolhaas'"),
+    name: z.string().describe("Volledige naam of bedrijfsnaam"),
+    email: z.string().optional().describe("E-mailadres"),
+    phone: z.string().optional().describe("Telefoonnummer"),
+    address: z.string().optional().describe("Straat + huisnummer"),
+    city: z.string().optional().describe("Stad"),
+    zip_code: z.string().optional().describe("Postcode"),
+  },
+  async ({ company_slug, name, email, phone, address, city, zip_code }) => {
+    const co = await queryOne<{ id: string }>(
+      `SELECT id FROM "Company" WHERE slug = $1`,
+      [company_slug]
+    );
+    if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+    const now = new Date().toISOString();
+    const id = crypto.randomUUID();
+    await query(
+      `INSERT INTO "Customer" (id, company_id, name, email, phone, address, city, zip_code, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)`,
+      [id, co.id, name, email ?? null, phone ?? null, address ?? null, city ?? null, zip_code ?? null, now]
+    );
+    return {
+      content: [{ type: "text", text: `Klant aangemaakt! ID: ${id}, Naam: ${name}` }],
+    };
+  }
+);
+
+// ── list_products ──────────────────────────────────────────────────────────────
+server.tool(
+  "list_products",
+  "Geef een lijst van producten/diensten voor een bedrijf, optioneel gefilterd op categorie",
+  {
+    company_slug: z.string().describe("Bedrijfsslug"),
+    category: z.string().optional().describe("Filter op categorie"),
+    active_only: z.boolean().optional().default(true).describe("Alleen actieve producten"),
+  },
+  async ({ company_slug, category, active_only }) => {
+    const co = await queryOne<{ id: string }>(
+      `SELECT id FROM "Company" WHERE slug = $1`,
+      [company_slug]
+    );
+    if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+    let sql = `SELECT id, name, description, category, unit, base_price, vat_rate FROM "Product" WHERE company_id = $1`;
+    const params: unknown[] = [co.id];
+    if (active_only !== false) { sql += ` AND active = true`; }
+    if (category) { sql += ` AND LOWER(category) = $${params.length + 1}`; params.push(category.toLowerCase()); }
+    sql += ` ORDER BY category, sort_order, name`;
+
+    const products = await query(sql, params);
+    return {
+      content: [{ type: "text", text: JSON.stringify(products, null, 2) }],
+    };
+  }
+);
+
+// ── create_quote ───────────────────────────────────────────────────────────────
+server.tool(
+  "create_quote",
+  "Maak een nieuwe offerte aan voor een klant, inclusief regels",
+  {
+    company_slug: z.string().describe("Bedrijfsslug: 'websup' of 'koolhaas'"),
+    customer_id: z.string().describe("ID van de klant (gebruik list_customers om te vinden)"),
+    title: z.string().optional().default("Persoonlijk voorstel").describe("Titel van de offerte"),
+    category: z.string().optional().default("Maatwerk project").describe("Categorie/type project"),
+    tagline: z.string().optional().describe("Ondertitel, bijv. 'Ontwerp · Bouw · Plaatsing'"),
+    intro: z.string().optional().describe("Inleidende tekst"),
+    outro: z.string().optional().describe("Slottekst"),
+    valid_days: z.number().optional().default(30).describe("Geldigheidsduur in dagen"),
+    items: z.array(z.object({
+      description: z.string().describe("Omschrijving van het item"),
+      qty: z.number().default(1).describe("Aantal"),
+      unit_price: z.number().describe("Prijs per eenheid excl. btw"),
+      vat_rate: z.number().default(21).describe("BTW-percentage"),
+    })).describe("Offerteregels"),
+  },
+  async ({ company_slug, customer_id, title, category, tagline, intro, outro, valid_days, items }) => {
+    const co = await queryOne<{ id: string }>(
+      `SELECT id FROM "Company" WHERE slug = $1`,
+      [company_slug]
+    );
+    if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+    // Find a user to assign as creator (first admin of company)
+    const user = await queryOne<{ id: string }>(
+      `SELECT u.id FROM "User" u
+       JOIN "CompanyUser" cu ON cu.user_id = u.id
+       WHERE cu.company_id = $1
+       ORDER BY u.created_at LIMIT 1`,
+      [co.id]
+    );
+    if (!user) return { content: [{ type: "text", text: "Geen gebruiker gevonden voor dit bedrijf." }] };
+
+    // Calculate totals
+    let totalExVat = 0;
+    let totalVat = 0;
+    for (const item of items) {
+      const lineTotal = item.qty * item.unit_price;
+      totalExVat += lineTotal;
+      totalVat += lineTotal * (item.vat_rate / 100);
+    }
+    const totalIncVat = totalExVat + totalVat;
+
+    const now = new Date().toISOString();
+    const validUntil = new Date(Date.now() + (valid_days ?? 30) * 86400000).toISOString();
+    const quoteId = crypto.randomUUID();
+    const number = generateQuoteNumber();
+
+    await query(
+      `INSERT INTO "Quote" (id, company_id, customer_id, created_by_id, number, title, category, tagline,
+        intro, outro, status, valid_until, total_ex_vat, total_vat, total_inc_vat, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'DRAFT',$11,$12,$13,$14,$15,$15)`,
+      [quoteId, co.id, customer_id, user.id, number, title, category,
+       tagline ?? "Ontwerp · Bouw · Plaatsing", intro ?? null, outro ?? null,
+       validUntil, totalExVat.toFixed(2), totalVat.toFixed(2), totalIncVat.toFixed(2), now]
+    );
+
+    // Insert items
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const lineTotal = item.qty * item.unit_price;
+      await query(
+        `INSERT INTO "QuoteItem" (id, quote_id, description, qty, unit_price, vat_rate, total, sort_order)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [crypto.randomUUID(), quoteId, item.description,
+         item.qty.toFixed(2), item.unit_price.toFixed(2),
+         item.vat_rate.toFixed(2), lineTotal.toFixed(2), i]
+      );
+    }
+
+    return {
+      content: [{
+        type: "text",
+        text: `Offerte aangemaakt!\nNummer: ${number}\nID: ${quoteId}\nTotaal (excl. btw): €${totalExVat.toFixed(2)}\nTotaal (incl. btw): €${totalIncVat.toFixed(2)}\n\nDeel link (na share_quote): /q/[token]`,
+      }],
+    };
+  }
+);
+
+// ── list_quotes ────────────────────────────────────────────────────────────────
+server.tool(
+  "list_quotes",
+  "Geef een overzicht van offertes voor een bedrijf",
+  {
+    company_slug: z.string().describe("Bedrijfsslug"),
+    status: z.enum(["DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"]).optional().describe("Filter op status"),
+    limit: z.number().optional().default(20).describe("Max aantal resultaten"),
+  },
+  async ({ company_slug, status, limit }) => {
+    const co = await queryOne<{ id: string }>(
+      `SELECT id FROM "Company" WHERE slug = $1`,
+      [company_slug]
+    );
+    if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+    let sql = `
+      SELECT q.id, q.number, q.title, q.status, q.total_inc_vat, q.created_at, q.valid_until,
+             c.name AS customer_name, c.email AS customer_email
+      FROM "Quote" q
+      JOIN "Customer" c ON c.id = q.customer_id
+      WHERE q.company_id = $1
+    `;
+    const params: unknown[] = [co.id];
+    if (status) { sql += ` AND q.status = $2`; params.push(status); }
+    sql += ` ORDER BY q.created_at DESC LIMIT $${params.length + 1}`;
+    params.push(limit ?? 20);
+
+    const quotes = await query(sql, params);
+    return {
+      content: [{ type: "text", text: JSON.stringify(quotes, null, 2) }],
+    };
+  }
+);
+
+// ── get_quote ──────────────────────────────────────────────────────────────────
+server.tool(
+  "get_quote",
+  "Haal alle details van een offerte op, inclusief regels en klantgegevens",
+  {
+    quote_id: z.string().describe("Quote ID"),
+  },
+  async ({ quote_id }) => {
+    const quote = await queryOne(
+      `SELECT q.*, c.name AS customer_name, c.email AS customer_email,
+              c.address AS customer_address, c.city AS customer_city,
+              co.name AS company_name, co.slug AS company_slug
+       FROM "Quote" q
+       JOIN "Customer" c ON c.id = q.customer_id
+       JOIN "Company" co ON co.id = q.company_id
+       WHERE q.id = $1`,
+      [quote_id]
+    );
+    if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+
+    const items = await query(
+      `SELECT id, description, qty, unit_price, vat_rate, total, sort_order
+       FROM "QuoteItem" WHERE quote_id = $1 ORDER BY sort_order`,
+      [quote_id]
+    );
+
+    const share = await queryOne(
+      `SELECT token, accepted_at, declined_at, viewed_at FROM "QuoteShare" WHERE quote_id = $1`,
+      [quote_id]
+    );
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({ ...quote, items, share }, null, 2),
+      }],
+    };
+  }
+);
+
+// ── update_quote ───────────────────────────────────────────────────────────────
+server.tool(
+  "update_quote",
+  "Pas velden van een bestaande offerte aan (titel, intro, status, etc.)",
+  {
+    quote_id: z.string().describe("Quote ID"),
+    title: z.string().optional(),
+    category: z.string().optional(),
+    tagline: z.string().optional(),
+    intro: z.string().optional(),
+    outro: z.string().optional(),
+    status: z.enum(["DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"]).optional(),
+    notes: z.string().optional(),
+  },
+  async ({ quote_id, ...updates }) => {
+    const fields = Object.entries(updates).filter(([, v]) => v !== undefined);
+    if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
+
+    const setClauses = fields.map(([k], i) => {
+      const col = k.replace(/([A-Z])/g, "_$1").toLowerCase();
+      return `${col} = $${i + 2}`;
+    });
+    const values = [quote_id, ...fields.map(([, v]) => v)];
+
+    await query(
+      `UPDATE "Quote" SET ${setClauses.join(", ")}, updated_at = NOW() WHERE id = $1`,
+      values
+    );
+
+    return { content: [{ type: "text", text: `Offerte ${quote_id} bijgewerkt.` }] };
+  }
+);
+
+// ── share_quote ────────────────────────────────────────────────────────────────
+server.tool(
+  "share_quote",
+  "Maak een deelbare portaallink voor een offerte (of haal de bestaande op)",
+  {
+    quote_id: z.string().describe("Quote ID"),
+  },
+  async ({ quote_id }) => {
+    const quote = await queryOne<{ id: string; status: string }>(
+      `SELECT id, status FROM "Quote" WHERE id = $1`,
+      [quote_id]
+    );
+    if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+
+    // Check for existing share
+    const existing = await queryOne<{ token: string }>(
+      `SELECT token FROM "QuoteShare" WHERE quote_id = $1`,
+      [quote_id]
+    );
+
+    if (existing) {
+      return {
+        content: [{
+          type: "text",
+          text: `Bestaande deellink: /q/${existing.token}\nVolledig: https://[jouw-domein]/q/${existing.token}`,
+        }],
+      };
+    }
+
+    const token = generateToken();
+    const now = new Date().toISOString();
+    await query(
+      `INSERT INTO "QuoteShare" (id, quote_id, token, created_at) VALUES ($1, $2, $3, $4)`,
+      [crypto.randomUUID(), quote_id, token, now]
+    );
+
+    // Update status to SENT
+    await query(
+      `UPDATE "Quote" SET status = 'SENT', updated_at = NOW() WHERE id = $1 AND status = 'DRAFT'`,
+      [quote_id]
+    );
+
+    return {
+      content: [{
+        type: "text",
+        text: `Deellink aangemaakt!\nPortaal URL: /q/${token}\nVolledig: https://[jouw-domein]/q/${token}\n\nDeel deze link met de klant. Zij kunnen de offerte bekijken en direct akkoord geven.`,
+      }],
+    };
+  }
+);
+
+// ── add_quote_item ─────────────────────────────────────────────────────────────
+server.tool(
+  "add_quote_item",
+  "Voeg een regel toe aan een bestaande offerte en herbereken de totalen",
+  {
+    quote_id: z.string().describe("Quote ID"),
+    description: z.string().describe("Omschrijving"),
+    qty: z.number().default(1).describe("Aantal"),
+    unit_price: z.number().describe("Prijs excl. btw"),
+    vat_rate: z.number().default(21).describe("BTW-percentage"),
+  },
+  async ({ quote_id, description, qty, unit_price, vat_rate }) => {
+    const quote = await queryOne<{ id: string }>(
+      `SELECT id FROM "Quote" WHERE id = $1`,
+      [quote_id]
+    );
+    if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+
+    const lineTotal = qty * unit_price;
+    const lineVat = lineTotal * (vat_rate / 100);
+
+    const maxSort = await queryOne<{ max: number }>(
+      `SELECT COALESCE(MAX(sort_order), -1) AS max FROM "QuoteItem" WHERE quote_id = $1`,
+      [quote_id]
+    );
+
+    await query(
+      `INSERT INTO "QuoteItem" (id, quote_id, description, qty, unit_price, vat_rate, total, sort_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [crypto.randomUUID(), quote_id, description,
+       qty.toFixed(2), unit_price.toFixed(2), vat_rate.toFixed(2),
+       lineTotal.toFixed(2), (maxSort?.max ?? -1) + 1]
+    );
+
+    // Recalculate totals
+    await query(
+      `UPDATE "Quote" SET
+        total_ex_vat = (SELECT SUM(qty * unit_price) FROM "QuoteItem" WHERE quote_id = $1),
+        total_vat    = (SELECT SUM(qty * unit_price * vat_rate / 100) FROM "QuoteItem" WHERE quote_id = $1),
+        total_inc_vat = (SELECT SUM(qty * unit_price * (1 + vat_rate / 100)) FROM "QuoteItem" WHERE quote_id = $1),
+        updated_at   = NOW()
+       WHERE id = $1`,
+      [quote_id]
+    );
+
+    return {
+      content: [{
+        type: "text",
+        text: `Regel toegevoegd: "${description}" — €${lineTotal.toFixed(2)} excl. btw (+ €${lineVat.toFixed(2)} btw). Totalen herberekend.`,
+      }],
+    };
+  }
+);
+
+// ── get_stats ──────────────────────────────────────────────────────────────────
+server.tool(
+  "get_stats",
+  "Haal statistieken op voor een bedrijf: aantal offertes per status, totaalwaarde, klanten",
+  {
+    company_slug: z.string().describe("Bedrijfsslug"),
+  },
+  async ({ company_slug }) => {
+    const co = await queryOne<{ id: string }>(
+      `SELECT id FROM "Company" WHERE slug = $1`,
+      [company_slug]
+    );
+    if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+    const [statusStats, customerCount, totalValue] = await Promise.all([
+      query(
+        `SELECT status, COUNT(*) AS count FROM "Quote" WHERE company_id = $1 GROUP BY status`,
+        [co.id]
+      ),
+      queryOne<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM "Customer" WHERE company_id = $1`,
+        [co.id]
+      ),
+      queryOne<{ total: string }>(
+        `SELECT COALESCE(SUM(total_inc_vat), 0) AS total FROM "Quote"
+         WHERE company_id = $1 AND status IN ('SENT','VIEWED','ACCEPTED')`,
+        [co.id]
+      ),
+    ]);
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          offertes_per_status: statusStats,
+          totaal_klanten: customerCount?.count ?? 0,
+          totaalwaarde_openstaand: `€${Number(totalValue?.total ?? 0).toFixed(2)}`,
+        }, null, 2),
+      }],
+    };
+  }
+);
+
+// ─── Start ────────────────────────────────────────────────────────────────────
+
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  process.stderr.write("WebsUp Quote MCP server gestart op stdio\n");
+}
+
+main().catch((err) => {
+  process.stderr.write(`MCP server fout: ${err}\n`);
+  process.exit(1);
+});
