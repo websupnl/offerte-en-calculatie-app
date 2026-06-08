@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { OpenAI } from "openai";
+import { getOpenAI } from "@/lib/openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -47,7 +45,7 @@ export async function POST(req: NextRequest) {
       Bedrijf: WebsUp.nl (Daan Koolhaas)
     `;
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
