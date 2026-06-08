@@ -26,6 +26,10 @@ type QuoteItem = {
   total: string | number;
 };
 
+type FlowItem = { n: number; t: string; d: string };
+type ApproachStep = { n: string; t: string; d: string };
+type QuoteOption = { t: string; d: string; tag: string };
+
 type Quote = {
   id: string;
   number: string;
@@ -43,10 +47,10 @@ type Quote = {
   items: QuoteItem[];
   customer: { name: string; email: string | null; address: string | null; city: string | null };
   company: { name: string; slug: string };
-  flow?: any;
-  approach?: any;
-  options?: any;
-  exclusions?: any;
+  flow?: FlowItem[];
+  approach?: ApproachStep[];
+  options?: QuoteOption[];
+  exclusions?: string[];
   adviceDocuments: { id: string; type: string }[];
 };
 
@@ -239,15 +243,15 @@ export function QuotePortalClient({
               </div>
             </div>
 
-            {/* PDF download */}
+            {/* Print / PDF export */}
             <a
-              href={`/api/portal/${share.token}/pdf`}
+              href={`/print/portal/${share.token}?auto=1`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-secondary"
             >
               <Download style={{ width: "16px", height: "16px" }} />
-              PDF downloaden
+              Print / PDF
             </a>
 
             {/* Sign / Action card */}

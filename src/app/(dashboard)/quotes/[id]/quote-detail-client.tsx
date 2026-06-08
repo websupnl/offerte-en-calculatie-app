@@ -5,24 +5,21 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   ArrowLeft,
-  Download,
-  Send,
   Share2,
   Pencil,
   Trash2,
   Loader2,
-  Sparkles,
   Copy,
   FileText,
   Zap,
+  Printer,
 } from "lucide-react";
-import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
+import { formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
 import { QuoteBuilder } from "@/components/forms/quote-builder";
 import { AdviceDocumentForm } from "@/components/forms/advice-document-form";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
@@ -62,15 +59,6 @@ type Quote = {
   share: { token: string; viewedAt: string | null; acceptedAt: string | null } | null;
 };
 
-const ADVICE_LABELS: Record<string, string> = {
-  BATTERY: "Thuisbatterij advies",
-  EMS: "EMS advies",
-  SOLAR: "Zonnepanelen advies",
-  ELECTRICAL: "Elektrische installatie advies",
-  CAMERA: "Camera advies",
-  HEATPUMP: "Warmtepomp advies",
-};
-
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   DRAFT: "secondary", SENT: "outline", VIEWED: "outline",
   ACCEPTED: "default", DECLINED: "destructive", EXPIRED: "secondary",
@@ -98,7 +86,10 @@ export function QuoteDetailClient({
 
   useEffect(() => {
     if (quote.share) {
-      setShareUrl(`${window.location.origin}/q/${quote.share.token}`);
+      const timeout = window.setTimeout(() => {
+        setShareUrl(`${window.location.origin}/q/${quote.share?.token}`);
+      }, 0);
+      return () => window.clearTimeout(timeout);
     }
   }, [quote.share]);
 
@@ -139,13 +130,8 @@ export function QuoteDetailClient({
     router.push("/quotes");
   }
 
-  async function downloadPdf() {
-    toast.info("PDF generatie wordt geladen...");
-    window.open(`/api/quotes/${quote.id}/pdf`, "_blank");
-  }
-
   function handlePrint() {
-    window.print();
+    window.open(`/print/quotes/${quote.id}?auto=1`, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -172,12 +158,8 @@ export function QuoteDetailClient({
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handlePrint} className="no-print">
-            <Zap className="mr-2 h-4 w-4" />
-            Print (100% exact)
-          </Button>
-          <Button variant="outline" size="sm" onClick={downloadPdf}>
-            <Download className="mr-2 h-4 w-4" />
-            PDF
+            <Printer className="mr-2 h-4 w-4" />
+            Print / PDF
           </Button>
           <Button variant="outline" size="sm" onClick={handleShare} disabled={sharing}>
             {sharing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}

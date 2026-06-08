@@ -147,3 +147,21 @@
     @apply font-sans;
   }
 }
+
+.print-document-page {
+  min-height: 100vh;
+  padding: 28px 0 56px;
+  background: #eef3f4;
+}
+
+.print-document-page .portal-container {
+  background: transparent;
+}
+
+@media print {
+  .print-document-page {
+    min-height: auto;
+    padding: 0;
+    background: #fff;
+  }
+}

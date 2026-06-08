@@ -124,13 +124,13 @@
 .brand-logo {
   display: block;
   width: auto;
-  height: 32px;
+  height: 38px;
   object-fit: contain;
 }
 
 .brand-logo-cover {
-  height: 42px;
-  max-width: 220px;
+  height: 58px;
+  max-width: 280px;
 }
 
 .portal-koolhaas .ph {
@@ -169,7 +169,7 @@
 
 /* Inner padding + flex column */
 .pad {
-  padding: 18mm 17mm 14mm;
+  padding: 15mm 16mm 12mm;
   height: 100%;
   min-height: 100%;
   display: flex;
@@ -193,14 +193,14 @@
    ============================================================= */
 .pg-no {
   position: absolute;
-  bottom: 9mm; right: 17mm;
+  bottom: 8mm; right: 16mm;
   font: 700 10px/1 var(--text);
   letter-spacing: .12em;
   color: var(--on-s);
 }
 .pg-tag {
   position: absolute;
-  bottom: 9mm; left: 17mm;
+  bottom: 8mm; left: 16mm;
   font: 700 10px/1 var(--text);
   letter-spacing: .10em;
   text-transform: uppercase;
@@ -214,8 +214,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
+  margin-bottom: 15px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
 .ph-logo {
@@ -258,13 +258,13 @@
 .eyebrow.inv { color: rgba(255,255,255,.72); }
 
 .h2 {
-  font: 800 25px/1.1 var(--display);
+  font: 800 23px/1.08 var(--display);
   letter-spacing: -.02em;
   color: var(--on);
   margin-top: 9px;
 }
 .lead {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--on-m);
   line-height: 1.65;
   margin-top: 7px;
@@ -281,8 +281,8 @@
 /* =============================================================
    DIVIDERS
    ============================================================= */
-.div     { height: 1px; background: var(--border); margin: 18px 0; }
-.div-g   { height: 2px; background: linear-gradient(90deg, #f97316, #ec4899, rgba(167,139,250,.28), transparent); margin: 18px 0; border-radius: 2px; }
+.div     { height: 1px; background: var(--border); margin: 14px 0; }
+.div-g   { height: 2px; background: linear-gradient(90deg, #f97316, #ec4899, rgba(167,139,250,.28), transparent); margin: 14px 0; border-radius: 2px; }
 
 /* =============================================================
    KV GRID  (key-value pairs)
@@ -320,14 +320,14 @@
   margin-top: 12px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px 18px;
+  gap: 7px 16px;
 }
 .checks li {
   display: flex;
   gap: 9px;
   align-items: flex-start;
-  font-size: 12.5px;
-  line-height: 1.4;
+  font-size: 11.8px;
+  line-height: 1.32;
   color: var(--on);
 }
 .ic-ok {
@@ -349,7 +349,7 @@
   margin-top: 12px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 9px 22px;
+  gap: 8px 18px;
 }
 .flow-item { display: flex; gap: 11px; align-items: flex-start; }
 .fn {
@@ -364,17 +364,17 @@
   box-shadow: var(--sh-brand);
 }
 .fn.dark { background: #0f172a; box-shadow: none; }
-.flow-item h4 { font: 800 13px/1.2 var(--display); margin-bottom: 2px; }
-.flow-item p  { font-size: 11.5px; color: var(--on-m); line-height: 1.4; }
+.flow-item h4 { font: 800 12.5px/1.18 var(--display); margin-bottom: 2px; }
+.flow-item p  { font-size: 10.8px; color: var(--on-m); line-height: 1.34; }
 
 /* =============================================================
    STEP CARDS  (aanpak)
    ============================================================= */
-.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 12px; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 11px; }
 .step {
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  padding: 13px 13px 14px;
+  padding: 12px 12px 13px;
   background: var(--white);
   position: relative;
   overflow: hidden;
@@ -389,14 +389,14 @@
 }
 .step .sn { font: 800 12px/1 var(--display); color: var(--accent); margin-bottom: 7px; }
 .step h4  { font: 800 13px/1.2 var(--display); margin-bottom: 4px; }
-.step p   { font-size: 11px; color: var(--on-m); line-height: 1.45; }
+.step p   { font-size: 10.5px; color: var(--on-m); line-height: 1.38; }
 
 /* =============================================================
    PRICE CARD  (dark)
    ============================================================= */
 .price-card {
   border-radius: var(--r-xl);
-  padding: 26px 28px;
+  padding: 22px 24px;
   color: #fff;
   position: relative;
   overflow: hidden;
@@ -409,13 +409,14 @@
 }
 .pc-label { font: 800 10px/1 var(--text); letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.58); }
 .pc-desc  { font-size: 12.5px; color: rgba(255,255,255,.70); line-height: 1.6; margin-top: 6px; max-width: 48ch; }
-.pc-amt   { display: flex; align-items: baseline; gap: 14px; margin-top: 16px; }
-.pc-amt .a { font: 800 54px/1 var(--display); letter-spacing: -.03em; }
+.pc-amt   { display: flex; align-items: baseline; gap: 14px; margin-top: 13px; }
+.pc-amt .a { font: 800 46px/1 var(--display); letter-spacing: -.03em; }
 .pc-amt .a .c { font-size: 30px; opacity: .88; margin-right: 2px; }
 .pc-amt .tags { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: rgba(255,255,255,.56); }
 .pc-amt .tags b { color: #fff; font-weight: 700; font-size: 12px; }
-.pc-lines { margin-top: 18px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 12px; display: grid; gap: 7px; }
-.pc-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+.pc-lines { margin-top: 14px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 10px; display: grid; gap: 5px; }
+.pc-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; font-size: 10.5px; line-height: 1.25; }
+.pc-row span:first-child { min-width: 0; }
 .pc-row span:first-child { color: rgba(255,255,255,.78); }
 .pc-ok { color: #fff; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; }
 .pc-ok svg { width: 12px; height: 12px; color: var(--orange); }
@@ -498,7 +499,7 @@
    ============================================================= */
 .price-card {
   border-radius: var(--r-xl);
-  padding: 26px 28px;
+  padding: 22px 24px;
   color: #fff;
   position: relative;
   overflow: hidden;
@@ -511,14 +512,14 @@
 }
 .pc-label { font: 800 10px/1 var(--text); letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.58); }
 .pc-desc  { font-size: 12.5px; color: rgba(255,255,255,.70); line-height: 1.6; margin-top: 6px; max-width: 48ch; }
-.pc-amt   { display: flex; align-items: baseline; gap: 14px; margin-top: 16px; }
-.pc-amt .a { font: 800 54px/1 var(--display); letter-spacing: -.03em; }
+.pc-amt   { display: flex; align-items: baseline; gap: 14px; margin-top: 13px; }
+.pc-amt .a { font: 800 46px/1 var(--display); letter-spacing: -.03em; }
 .pc-amt .a .c { font-size: 30px; opacity: .88; margin-right: 2px; }
 .pc-amt .tags { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: rgba(255,255,255,.56); }
 .pc-amt .tags b { color: #fff; font-weight: 700; font-size: 12px; }
-.pc-lines { margin-top: 18px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 12px; display: grid; gap: 7px; }
-.pc-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
-.pc-row span:first-child { color: rgba(255,255,255,.78); }
+.pc-lines { margin-top: 14px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 10px; display: grid; gap: 5px; }
+.pc-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; font-size: 10.5px; line-height: 1.25; }
+.pc-row span:first-child { min-width: 0; color: rgba(255,255,255,.78); }
 .pc-ok { color: #fff; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; }
 .pc-ok svg { width: 12px; height: 12px; color: var(--orange); }
 .pc-note { font-size: 10px; color: rgba(255,255,255,.44); margin-top: 12px; line-height: 1.5; }
@@ -647,16 +648,16 @@
 .cover .pad { padding: 16mm 17mm 14mm; }
 
 /* Cover stack: image above, text below */
-.cov-split { display: flex; flex-direction: column; gap: 8mm; height: 100%; }
+.cov-split { display: flex; flex-direction: column; gap: 7mm; height: 100%; }
 .cov-left { display: flex; flex-direction: column; padding-right: 0; border-right: none; }
-.cov-left .cov-mid { margin-top: 10mm; }
+.cov-left .cov-mid { margin-top: 8mm; }
 .cov-img-col {
   display: flex; align-items: stretch; justify-content: center;
   padding: 0;
   order: -1;
 }
 .cov-img-placeholder {
-  width: 100%; min-height: 92mm;
+  width: 100%; min-height: 76mm;
   border: 2px dashed rgba(255,255,255,0.18);
   border-radius: 16px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -665,7 +666,7 @@
 }
 .cov-img-placeholder:hover { border-color: rgba(249,115,22,0.50); }
 .cov-img-wrap {
-  width: 100%; min-height: 92mm; border-radius: 16px; overflow: hidden; position: relative;
+  width: 100%; min-height: 76mm; border-radius: 16px; overflow: hidden; position: relative;
 }
 .cov-img-preview { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cov-img-overlay {
@@ -681,7 +682,7 @@
 .cov-logo { height: 44px; width: auto; }
 .cov-meta {
   text-align: right;
-  font-size: 11px; line-height: 1.5;
+  font-size: 12px; line-height: 1.55;
   border-left: 1px solid rgba(255,255,255,.15);
   padding-left: 14px;
 }
@@ -691,18 +692,18 @@
 
 .cov-mid { margin-top: auto; }
 .cov-h1 {
-  font: 800 96px/.9 var(--display);
+  font: 800 104px/.88 var(--display);
   letter-spacing: -.04em;
   margin: 0;
 }
 .cov-project {
-  font: 700 28px/1.15 var(--display);
+  font: 700 31px/1.12 var(--display);
   letter-spacing: -.02em;
   margin: 18px 0 0;
   max-width: 15ch;
 }
 .cov-for { margin-top: 16px; font-size: 13px; color: rgba(255,255,255,.60); display: flex; flex-direction: column; gap: 3px; }
-.cov-for b { color: #fff; font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+.cov-for b { color: #fff; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
 
 .pills { display: flex; gap: 7px; margin-top: 18px; flex-wrap: wrap; }
 .pill  {
@@ -716,10 +717,10 @@
 .pill.g { background: var(--grad); border-color: transparent; color: #fff; }
 
 .cov-foot {
-  margin-top: 32px; padding-top: 16px;
+  margin-top: 24px; padding-top: 14px;
   border-top: 1px solid rgba(255,255,255,.12);
   display: flex; gap: 20px; flex-wrap: wrap;
-  font-size: 11.5px; color: rgba(255,255,255,.66);
+  font-size: 12px; color: rgba(255,255,255,.72);
 }
 .cov-foot span { display: inline-flex; align-items: center; gap: 6px; }
 .cov-foot svg  { width: 12px; height: 12px; opacity: .65; }

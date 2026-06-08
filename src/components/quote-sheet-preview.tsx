@@ -97,6 +97,9 @@ type QuoteItem = {
 type FlowItem = { n: number; t: string; d: string };
 type ApproachStep = { n: string; t: string; d: string };
 type QuoteOption = { t: string; d: string; tag: string };
+type EditableArrayField = "flow" | "approach" | "options" | "exclusions";
+type EditableArrayValue = FlowItem | ApproachStep | QuoteOption | string;
+type EditableObjectValue = { n?: string | number; t?: string; d?: string; tag?: string };
 
 type Quote = {
   number: string;
@@ -147,7 +150,7 @@ const COMPANY_COPY = {
     role: "Eigenaar WebsUp.nl",
     defaultCategory: "Maatwerk project",
     defaultTitle: "Persoonlijk voorstel op maat",
-    defaultTagline: "Ontwerp · Bouw · Plaatsing",
+    defaultTagline: "Ontwerp - Bouw - Plaatsing",
     phaseLabel: "Fase 1",
     summaryGoal: "Complete, gestructureerde aanvragen - minder navraag achteraf",
     delivery: "Indicatie 4-6 weken na akkoord",
@@ -156,16 +159,16 @@ const COMPANY_COPY = {
     processTitle: "In duidelijke stappen.",
     approachEyebrow: "De werkwijze",
     approachTitle: "Van intake tot oplevering.",
-    investmentTitle: "Eén heldere prijs, geen verrassingen.",
-    investmentLabel: "Totale investering · Fase 1",
+    investmentTitle: "Een heldere prijs, geen verrassingen.",
+    investmentLabel: "Totale investering - Fase 1",
     investmentDescription: "Investering voor het project zoals beschreven in de voorgaande pagina's.",
     optionsEyebrow: "Optionele uitbreidingen",
     optionsTitle: "Klaar om mee te groeien.",
     exclusionsEyebrow: "Goed om te weten",
     exclusionsTitle: "Niet standaard inbegrepen.",
     closingTitle: "Zetten we de stap?",
-    contractor: "WebsUp.nl — Daan Koolhaas",
-    footerLine: "WebsUp.nl · Daan Koolhaas · Friesland",
+    contractor: "WebsUp.nl - Daan Koolhaas",
+    footerLine: "WebsUp.nl - Daan Koolhaas - Friesland",
   },
   koolhaas: {
     slug: "koolhaas",
@@ -175,13 +178,13 @@ const COMPANY_COPY = {
     email: "daan@koolhaasinstallaties.nl",
     phone: "+31 6 82 20 21 48",
     role: "Koolhaas Installaties",
-    defaultCategory: "Installatie · Energieopslag",
+    defaultCategory: "Installatie - Energieopslag",
     defaultTitle: "Thuisbatterij installatie",
-    defaultTagline: "Advies · Installatie · Inbedrijfstelling",
+    defaultTagline: "Advies - Installatie - Inbedrijfstelling",
     phaseLabel: "Installatie",
     summaryGoal: "Eigen zonnestroom opslaan en slim verbruiken",
     delivery: "Installatie in 1 dag - ca. 2-3 weken na akkoord",
-    itemsHeader: "Wat wordt er geïnstalleerd",
+    itemsHeader: "Wat wordt er geinstalleerd",
     processEyebrow: "Planning",
     processTitle: "Van akkoord tot werkende installatie.",
     approachEyebrow: "Werkwijze",
@@ -195,10 +198,66 @@ const COMPANY_COPY = {
     exclusionsEyebrow: "Niet inbegrepen",
     exclusionsTitle: "Duidelijke grenzen aan de scope.",
     closingTitle: "Akkoord voor uitvoering",
-    contractor: "Koolhaas Installaties — Daan Koolhaas",
-    footerLine: "Koolhaas Installaties · Daan Koolhaas · Friesland",
+    contractor: "Koolhaas Installaties - Daan Koolhaas",
+    footerLine: "Koolhaas Installaties - Daan Koolhaas - Friesland",
   },
 } as const;
+
+const DEFAULT_FLOW: Record<"websup" | "koolhaas", FlowItem[]> = {
+  websup: [
+    { n: 1, t: "Intake", d: "Wensen, randvoorwaarden en inhoud scherp krijgen." },
+    { n: 2, t: "Ontwerp", d: "Structuur, schermen en technische aanpak uitwerken." },
+    { n: 3, t: "Bouw", d: "Realisatie van de afgesproken onderdelen." },
+    { n: 4, t: "Test", d: "Controle op werking, inhoud en gebruiksgemak." },
+    { n: 5, t: "Oplevering", d: "Livegang met korte overdracht." },
+  ],
+  koolhaas: [
+    { n: 1, t: "Akkoord", d: "Offerte akkoord en bevestiging van de uitgangspunten." },
+    { n: 2, t: "Technische check", d: "Laatste controle van meterkast, bekabeling en opstelplek." },
+    { n: 3, t: "Planning", d: "Installatiemoment afstemmen en materialen reserveren." },
+    { n: 4, t: "Installatie", d: "Plaatsing, aansluiting en nette afwerking op locatie." },
+    { n: 5, t: "Inbedrijfstelling", d: "Testen, instellen en opleveren van de thuisbatterij." },
+  ],
+};
+
+const DEFAULT_APPROACH: Record<"websup" | "koolhaas", ApproachStep[]> = {
+  websup: [
+    { n: "01", t: "Scherp starten", d: "We leggen doelen, inhoud en prioriteiten vast voordat de bouw begint." },
+    { n: "02", t: "Gefaseerd bouwen", d: "De belangrijkste onderdelen worden eerst uitgewerkt en getest." },
+    { n: "03", t: "Netjes opleveren", d: "Na controle volgt overdracht en ruimte voor kleine finetuning." },
+  ],
+  koolhaas: [
+    { n: "01", t: "Voorbereiding", d: "We controleren de situatie en nemen de technische aandachtspunten door." },
+    { n: "02", t: "Veilige montage", d: "Bekabeling, beveiliging en aansluiting worden volgens geldende normen uitgevoerd." },
+    { n: "03", t: "Werkend opleveren", d: "De installatie wordt getest, ingesteld en duidelijk overgedragen." },
+  ],
+};
+
+const DEFAULT_OPTIONS: Record<"websup" | "koolhaas", QuoteOption[]> = {
+  websup: [
+    { t: "Extra koppeling", d: "Een aanvullende koppeling met een extern systeem of formulier.", tag: "Op aanvraag" },
+    { t: "Doorontwikkeling", d: "Nieuwe functies na oplevering op basis van praktijkgebruik.", tag: "Los voorstel" },
+  ],
+  koolhaas: [
+    { t: "Extra energiemeting", d: "Aanvullende meetpunten wanneer dit technisch nodig is.", tag: "In overleg" },
+    { t: "Groepenkast aanpassing", d: "Meerwerk als de bestaande kast niet geschikt blijkt.", tag: "In overleg" },
+  ],
+};
+
+const DEFAULT_EXCLUSIONS: Record<"websup" | "koolhaas", string[]> = {
+  websup: [
+    "Werk buiten de beschreven scope",
+    "Licenties of externe abonnementen",
+    "Teksten, fotografie of contentproductie",
+    "Koppelingen die niet vooraf zijn besproken",
+  ],
+  koolhaas: [
+    "Hak- en breekwerk buiten normale montage",
+    "Verzwaring of wijziging van de netaansluiting",
+    "Aanpassingen aan dak, gevel of constructie",
+    "Meerwerk door onvoorziene bestaande gebreken",
+  ],
+};
 
 export function QuoteSheetPreview({
   quote,
@@ -213,6 +272,11 @@ export function QuoteSheetPreview({
   const activeSlug = companySlug || quote.company?.slug || "websup";
   const brand = activeSlug === "koolhaas" ? COMPANY_COPY.koolhaas : COMPANY_COPY.websup;
   const isKoolhaas = brand.slug === "koolhaas";
+  const brandKey = isKoolhaas ? "koolhaas" : "websup";
+  const flow = quote.flow?.length ? quote.flow : DEFAULT_FLOW[brandKey];
+  const approach = quote.approach?.length ? quote.approach : DEFAULT_APPROACH[brandKey];
+  const options = quote.options?.length ? quote.options : DEFAULT_OPTIONS[brandKey];
+  const exclusions = quote.exclusions?.length ? quote.exclusions : DEFAULT_EXCLUSIONS[brandKey];
   const [generating, setGenerating] = useState<string | null>(null);
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -250,26 +314,26 @@ export function QuoteSheetPreview({
   };
 
   // Helper for updating array fields
-  const updateArray = (field: keyof Quote, index: number, value: any) => {
+  const updateArray = (field: Exclude<EditableArrayField, "exclusions">, index: number, value: EditableObjectValue) => {
     if (!onUpdate) return;
-    const current = (quote[field] as any[]) || [];
+    const current = (quote[field] || []) as EditableObjectValue[];
     const next = [...current];
     next[index] = { ...next[index], ...value };
-    onUpdate({ [field]: next });
+    onUpdate({ [field]: next } as Partial<Quote>);
   };
 
-  const removeFromArray = (field: keyof Quote, index: number) => {
+  const removeFromArray = (field: EditableArrayField, index: number) => {
     if (!onUpdate) return;
-    const current = (quote[field] as any[]) || [];
+    const current = (quote[field] || []) as EditableArrayValue[];
     const next = current.filter((_, i) => i !== index);
-    onUpdate({ [field]: next });
+    onUpdate({ [field]: next } as Partial<Quote>);
   };
 
-  const addToArray = (field: keyof Quote, defaultValue: any) => {
+  const addToArray = (field: EditableArrayField, defaultValue: EditableArrayValue) => {
     if (!onUpdate) return;
-    const current = (quote[field] as any[]) || [];
+    const current = (quote[field] || []) as EditableArrayValue[];
     const next = [...current, defaultValue];
-    onUpdate({ [field]: next });
+    onUpdate({ [field]: next } as Partial<Quote>);
   };
 
   const updateExclusion = (index: number, value: string) => {
@@ -537,7 +601,7 @@ export function QuoteSheetPreview({
                     AI Flow
                   </button>
                 )}
-                <span className="badge">{(quote.flow || []).length} stappen</span>
+                <span className="badge">{flow.length} stappen</span>
                 {isEditable && (
                   <button onClick={() => addToArray('flow', { n: (quote.flow || []).length + 1, t: "Nieuwe stap", d: "Beschrijving..." })} className="text-orange-500 hover:text-orange-600">
                     <PlusCircle size={20} />
@@ -547,7 +611,7 @@ export function QuoteSheetPreview({
             </div>
             
             <div className="flow">
-              {(quote.flow || []).map((s, idx) => (
+              {flow.map((s, idx) => (
                 <div key={idx} className="flow-item group relative">
                   <div className="fn">{s.n}</div>
                   <div className="flex-1">
@@ -592,7 +656,7 @@ export function QuoteSheetPreview({
             </div>
 
             <div className="steps">
-              {(quote.approach || []).map((s, idx) => (
+              {approach.map((s, idx) => (
                 <div key={idx} className="step group relative">
                   <div className="sn">{s.n}</div>
                   <h4 className="font-bold">
@@ -671,7 +735,7 @@ export function QuoteSheetPreview({
             </div>
 
             <div className="opts">
-              {(quote.options || []).map((o, idx) => (
+              {options.map((o, idx) => (
                 <div key={idx} className="opt group relative">
                   <span className="opt-ic"><Layers size={15} /></span>
                   <div className="flex-1">
@@ -730,7 +794,7 @@ export function QuoteSheetPreview({
             </div>
 
             <ul className="excl">
-              {(quote.exclusions || []).map((item, idx) => (
+              {exclusions.map((item, idx) => (
                 <li key={idx} className="group relative">
                   <span className="ic-x"><X size={9} strokeWidth={3} /></span>
                   <InlineInput value={item} onChange={(v) => updateExclusion(idx, v)} isEditable={isEditable} />
