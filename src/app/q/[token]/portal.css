@@ -111,7 +111,7 @@
   --bg:          #f4f8f8;
   --on:          #0e2344;
   --on-m:        #51637a;
-  --on-s:        #8a99ab;
+  --on-s:        #64748b;
   --border:      rgba(14,35,68,.08);
   --border-str:  rgba(14,35,68,.14);
   --surface-in:  #f4f8f8;
@@ -127,6 +127,10 @@
     radial-gradient(96% 76% at 88% 92%, rgba(91,191,176,.28) 0%, transparent 55%),
     linear-gradient(160deg, #08111f 0%, #0c1f3d 58%, #0a2030 100%);
 }
+
+/* Koolhaas donkere cover: geen topbar, normale padding */
+.portal-koolhaas .cover .bar { display: none; }
+.portal-koolhaas .cover .pad { padding-top: 14mm; }
 
 /* ── WebsUp: lichte witte cover ─────────────────────────────── */
 .portal-websup .cover {
@@ -348,7 +352,7 @@
    DIVIDERS
    ============================================================= */
 .div     { height: 1px; background: var(--border); margin: 14px 0; }
-.div-g   { height: 2px; background: linear-gradient(90deg, #f97316, #ec4899, rgba(167,139,250,.28), transparent); margin: 14px 0; border-radius: 2px; }
+.div-g   { height: 2px; background: var(--grad); opacity: .55; margin: 14px 0; border-radius: 2px; }
 
 /* =============================================================
    KV GRID  (key-value pairs)
@@ -374,7 +378,7 @@
   color: var(--on);
   line-height: 1.3;
 }
-.kv.hl  { background: linear-gradient(135deg, rgba(249,115,22,.09), rgba(236,72,153,.06)); border-color: rgba(249,115,22,.24); }
+.kv.hl  { background: var(--grad-soft); border-color: var(--accent); }
 .kv.hl .v { color: var(--accent); }
 .kv.wide { grid-column: 1 / -1; }
 
@@ -473,6 +477,13 @@
     radial-gradient(90% 130% at 80% 120%, rgba(167,139,250,.30) 0%, transparent 55%),
     var(--dark-2);
 }
+.portal-koolhaas .price-card {
+  background:
+    radial-gradient(90% 120% at 92%  0%, rgba(31,155,163,.50) 0%, transparent 48%),
+    radial-gradient(80% 120% at 100% 60%, rgba(31,114,149,.44) 0%, transparent 52%),
+    radial-gradient(90% 130% at 80% 120%, rgba(91,191,176,.30) 0%, transparent 55%),
+    var(--dark-2);
+}
 .pc-label { font: 800 10px/1 var(--text); letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.58); }
 .pc-desc  { font-size: 12.5px; color: rgba(255,255,255,.70); line-height: 1.6; margin-top: 6px; max-width: 48ch; }
 .pc-amt   { display: flex; align-items: baseline; gap: 14px; margin-top: 13px; }
@@ -539,8 +550,8 @@
   margin-top: 14px;
   border-radius: var(--r-lg);
   padding: 12px 14px;
-  background: linear-gradient(135deg, rgba(249,115,22,.08), rgba(167,139,250,.08));
-  border: 1px solid rgba(249,115,22,.20);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent);
   font-size: 12.5px;
   color: var(--on);
   line-height: 1.55;
@@ -574,6 +585,13 @@
     radial-gradient(90% 120% at 92%  0%, rgba(249,115,22,.44) 0%, transparent 48%),
     radial-gradient(80% 120% at 100% 60%, rgba(236,72,153,.40) 0%, transparent 52%),
     radial-gradient(90% 130% at 80% 120%, rgba(167,139,250,.30) 0%, transparent 55%),
+    var(--dark-2);
+}
+.portal-koolhaas .price-card {
+  background:
+    radial-gradient(90% 120% at 92%  0%, rgba(31,155,163,.50) 0%, transparent 48%),
+    radial-gradient(80% 120% at 100% 60%, rgba(31,114,149,.44) 0%, transparent 52%),
+    radial-gradient(90% 130% at 80% 120%, rgba(91,191,176,.30) 0%, transparent 55%),
     var(--dark-2);
 }
 .pc-label { font: 800 10px/1 var(--text); letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.58); }
@@ -721,7 +739,7 @@
 /* Gradient accent-lijn — brand-moment voor de content */
 .cov-line {
   height: 4px;
-  background: linear-gradient(135deg, #f97316 0%, #ec4899 50%, #a78bfa 100%);
+  background: var(--grad);
   border-radius: 2px;
   margin-bottom: 8mm;
   flex-shrink: 0;
@@ -745,7 +763,7 @@
   font: 800 118px/.86 var(--display);
   letter-spacing: -.04em;
   margin: 5px 0 0;
-  background: linear-gradient(135deg, #f97316 0%, #ec4899 48%, #a78bfa 100%);
+  background: var(--grad-text);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
