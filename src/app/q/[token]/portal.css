@@ -125,6 +125,53 @@
     linear-gradient(160deg, #08111f 0%, #0c1f3d 58%, #0a2030 100%);
 }
 
+/* ── WebsUp: lichte witte cover ─────────────────────────────── */
+.portal-websup .cover {
+  background: #fff;
+  color: var(--on);
+}
+.portal-websup .cover .bar {
+  height: 9mm;
+  background: var(--grad);
+}
+.portal-websup .cover .pad {
+  padding-top: 21mm; /* bar (9mm) + gap (12mm) */
+}
+.portal-websup .cov-h1 {
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: var(--on);
+  background-clip: unset;
+  color: var(--on);
+}
+.portal-websup .cov-meta {
+  border-left-color: var(--border-str);
+}
+.portal-websup .cov-meta dt { color: var(--on-s); text-transform: uppercase; letter-spacing: .05em; }
+.portal-websup .cov-meta dd { color: var(--on); }
+.portal-websup .cov-line {
+  background: var(--grad);
+  opacity: 1;
+}
+.portal-websup .cover .eyebrow.inv {
+  color: var(--orange);
+}
+.portal-websup .cover .eyebrow.inv::before {
+  background: var(--orange);
+}
+.portal-websup .cov-project { color: var(--on-m); }
+.portal-websup .cov-for {
+  border-top-color: var(--border-str);
+  color: var(--on-s);
+}
+.portal-websup .cov-for b { color: var(--on); }
+.portal-websup .cov-foot {
+  border-top-color: var(--border-str);
+  color: var(--on-m);
+}
+.portal-websup .cover .editable-input:hover { background: rgba(11,21,38,.04); }
+.portal-websup .cover .editable-input:focus { background: rgba(11,21,38,.07); }
+
 .brand-logo {
   display: block;
   width: auto;

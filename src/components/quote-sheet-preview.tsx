@@ -345,7 +345,7 @@ export function QuoteSheetPreview({
 
     return (
       <img
-        src={cover ? "/logos/websup-white.png" : "/logos/websup-color.png"}
+        src="/logos/websup-color.png"
         alt="WebsUp"
         className={cover ? "brand-logo brand-logo-cover" : "brand-logo"}
       />
@@ -361,6 +361,7 @@ export function QuoteSheetPreview({
         
         {/* ── PAGINA 1: COVER ── */}
         <section className="sheet cover">
+          <div className="bar"></div>
           <div className="pad cov-split">
             {/* BOVEN: logo + meta — vast bovenaan */}
             <div className="cov-top">
