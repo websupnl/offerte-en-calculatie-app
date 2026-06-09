@@ -1,79 +1,59 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { renderToBuffer } from "@react-pdf/renderer";
-import { QuotePDF } from "@/lib/pdf/quote-template";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-import { formatDate } from "@/lib/format";
-import { createElement } from "react";
-import { DEFAULT_BRANDING } from "@/lib/branding";
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
 
-  const quote = await prisma.quote.findFirst({
-    where: { id, companyId: session.user.activeCompanyId },
-    include: {
-      customer: true,
-      items: { orderBy: { sortOrder: "asc" } },
-      company: true,
-      share: true,
-    },
-  });
+  // Construct the print page URL from the incoming request host
+  const host = req.headers.get("host") ?? "localhost:3000";
+  const proto = host.startsWith("localhost") ? "http" : "https";
+  const printUrl = `${proto}://${host}/print/quotes/${id}`;
 
-  if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Forward the session cookie so the print page can authenticate
+  const cookie = req.headers.get("cookie") ?? "";
 
-  const companySlug = quote.company.slug;
-  const branding = DEFAULT_BRANDING[companySlug] ?? DEFAULT_BRANDING.websup;
+  let browser: import("playwright-core").Browser | null = null;
+  try {
+    const { chromium } = await import("playwright-core");
 
-  const element = createElement(QuotePDF, {
-    companyName: quote.company.name,
-    companySlug,
-    companyTagline: branding.tagline,
-    title: quote.title ?? undefined,
-    category: quote.category ?? undefined,
-    tagline: quote.tagline ?? undefined,
-    quoteNumber: quote.number,
-    quoteDate: formatDate(quote.createdAt),
-    validUntil: quote.validUntil ? formatDate(quote.validUntil) : undefined,
-    customerName: quote.customer.name,
-    customerEmail: quote.customer.email ?? undefined,
-    customerPhone: quote.customer.phone ?? undefined,
-    customerAddress: quote.customer.address ?? undefined,
-    customerCity: quote.customer.city ?? undefined,
-    intro: quote.intro ?? undefined,
-    outro: quote.outro ?? undefined,
-    notes: quote.notes ?? undefined,
-    flow: (quote.flow as any[]) || [],
-    approach: (quote.approach as any[]) || [],
-    options: (quote.options as any[]) || [],
-    exclusions: (quote.exclusions as string[]) || [],
-    itemsHeader: quote.itemsHeader || "Onderdelen",
-    status: quote.status,
-    acceptedAt: quote.share?.acceptedAt ? formatDate(quote.share.acceptedAt) : undefined,
-    items: quote.items.map((i: { description: string; qty: unknown; unitPrice: unknown; total: unknown }) => ({
-      description: i.description,
-      qty: Number(i.qty),
-      unitPrice: Number(i.unitPrice),
-      total: Number(i.total),
-    })),
-    totalExVat: Number(quote.totalExVat),
-    totalVat: Number(quote.totalVat),
-    totalIncVat: Number(quote.totalIncVat),
-  });
+    browser = await chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pdfBuffer: Buffer = await renderToBuffer(element as any);
+    const ctx = await browser.newContext({
+      extraHTTPHeaders: { cookie },
+    });
+    const page = await ctx.newPage();
 
-  return new NextResponse(new Uint8Array(pdfBuffer), {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${quote.number}.pdf"`,
-    },
-  });
+    await page.goto(printUrl, { waitUntil: "networkidle", timeout: 20000 });
+
+    // Wait for fonts and images to be fully loaded
+    await page.waitForTimeout(800);
+
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: "0", right: "0", bottom: "0", left: "0" },
+    });
+
+    await browser.close();
+
+    return new NextResponse(new Uint8Array(pdfBuffer), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="offerte-${id}.pdf"`,
+      },
+    });
+  } catch (err) {
+    if (browser) await browser.close().catch(() => {});
+    console.error("PDF generation failed:", err);
+    return NextResponse.json({ error: "PDF generation failed" }, { status: 500 });
+  }
 }
