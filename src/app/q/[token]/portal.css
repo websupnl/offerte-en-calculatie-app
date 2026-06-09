@@ -128,7 +128,7 @@
 .brand-logo {
   display: block;
   width: auto;
-  height: 38px;
+  height: 44px;
   object-fit: contain;
 }
 
@@ -639,10 +639,11 @@
    ============================================================= */
 .cover {
   background:
-    radial-gradient(120% 80% at 84%  8%,  rgba(249,115,22,.55) 0%, transparent 40%),
-    radial-gradient(90%  70% at 100% 34%, rgba(236,72,153,.50) 0%, transparent 46%),
-    radial-gradient(120% 90% at 88%  88%, rgba(167,139,250,.42) 0%, transparent 52%),
-    radial-gradient(80%  60% at 6%   78%, rgba(236,72,153,.16) 0%, transparent 50%),
+    radial-gradient(110% 60% at 92%  4%,  rgba(249,115,22,.50) 0%, transparent 38%),
+    radial-gradient(80%  55% at 102% 28%, rgba(236,72,153,.44) 0%, transparent 44%),
+    radial-gradient(100% 70% at 95%  92%, rgba(167,139,250,.55) 0%, transparent 48%),
+    radial-gradient(90%  65% at -4%  82%, rgba(167,139,250,.28) 0%, transparent 52%),
+    radial-gradient(60%  40% at 12%  18%, rgba(249,115,22,.12) 0%, transparent 45%),
     var(--dark);
   color: #fff;
 }
@@ -654,11 +655,12 @@
 
 /* Gradient accent-lijn — brand-moment voor de content */
 .cov-line {
-  height: 3px;
+  height: 4px;
   background: linear-gradient(135deg, #f97316 0%, #ec4899 50%, #a78bfa 100%);
   border-radius: 2px;
-  margin-bottom: 9mm;
+  margin-bottom: 8mm;
   flex-shrink: 0;
+  opacity: 0.9;
 }
 
 .cov-top { display: flex; justify-content: space-between; align-items: flex-start; }
@@ -678,6 +680,10 @@
   font: 800 118px/.86 var(--display);
   letter-spacing: -.04em;
   margin: 5px 0 0;
+  background: linear-gradient(135deg, #f97316 0%, #ec4899 48%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 .cov-project {
   font: 600 26px/1.2 var(--display);
