@@ -121,17 +121,76 @@
 }
 
 .portal-koolhaas .cover {
-  background:
-    radial-gradient(95% 74% at 82% 8%, rgba(31,155,163,.42) 0%, transparent 48%),
-    radial-gradient(86% 68% at 100% 38%, rgba(31,114,149,.34) 0%, transparent 52%),
-    radial-gradient(96% 76% at 88% 92%, rgba(91,191,176,.28) 0%, transparent 55%),
-    linear-gradient(160deg, #08111f 0%, #0c1f3d 58%, #0a2030 100%);
+  background: #fff;
+  color: var(--on);
 }
 
-/* Koolhaas donkere cover: geen topbar, normale padding */
-.portal-koolhaas .cover .bar { display: none; }
-.portal-koolhaas .cover .pad { padding-top: 14mm; }
-
+/* Koolhaas: zelfde lichte cover-opbouw als WebsUp, met eigen teal branding */
+.portal-koolhaas .cover .bar {
+  height: 9mm;
+  background: var(--grad);
+}
+.portal-koolhaas .cover .pad {
+  padding-top: 21mm; /* bar (9mm) + gap (12mm) */
+}
+.portal-koolhaas .cov-h1 {
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: #111827;
+  background-clip: unset;
+  color: #111827;
+  font-size: 58px;
+  line-height: .96;
+  letter-spacing: -.035em;
+  max-width: 9.5ch;
+}
+.portal-koolhaas .cov-meta {
+  border-left-color: var(--border-str);
+}
+.portal-koolhaas .cov-meta dt { color: var(--on-s); text-transform: uppercase; letter-spacing: .05em; }
+.portal-koolhaas .cov-meta dd { color: var(--on); }
+.portal-koolhaas .cov-line {
+  background: var(--grad);
+  opacity: 1;
+}
+.portal-koolhaas .cover .eyebrow.inv {
+  background: var(--grad-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.portal-koolhaas .cover .eyebrow.inv::before {
+  background: var(--grad);
+  -webkit-text-fill-color: initial;
+}
+.portal-koolhaas .cov-project { color: var(--on-m); }
+.portal-koolhaas .cov-for {
+  border-top-color: var(--border-str);
+  color: var(--on-s);
+}
+.portal-koolhaas .cov-for b { color: var(--on); }
+.portal-koolhaas .cov-foot {
+  border-top-color: var(--border-str);
+  color: var(--on-m);
+}
+.portal-koolhaas .cover .editable-input:hover { background: rgba(14,35,68,.04); }
+.portal-koolhaas .cover .editable-input:focus { background: rgba(14,35,68,.07); }
+.portal-koolhaas .cover .cov-spacer {
+  flex: .55;
+  min-height: 10mm;
+}
+.portal-koolhaas .cover .cov-line {
+  margin-bottom: 6mm;
+}
+.portal-koolhaas .cov-project {
+  font-size: 19px;
+  max-width: 31ch;
+  color: #334155;
+}
+.portal-koolhaas .cov-for {
+  margin-top: 13px;
+  padding-top: 12px;
+}
 /* ── WebsUp: lichte witte cover ─────────────────────────────── */
 .portal-websup .cover {
   background: #fff;
@@ -186,28 +245,34 @@
 .brand-logo {
   display: block;
   width: auto;
-  height: 72px;
-  max-width: 260px;
+  height: 88px;
+  max-width: 340px;
   object-fit: contain;
   object-position: left center;
 }
 
 .brand-logo-cover {
-  height: 116px;
-  max-width: 360px;
+  height: 156px;
+  max-width: 500px;
 }
 
 .portal-koolhaas .ph {
-  min-height: 65px;
+  min-height: 58px;
 }
 
 .portal-koolhaas .ph .brand-logo {
-  height: 52px;
+  height: 38px;
+  max-width: 210px;
+}
+
+.portal-koolhaas .brand-logo-cover {
+  height: 64px;
+  max-width: 300px;
 }
 
 .portal-koolhaas .doc-foot .brand-logo {
-  height: 30px;
-  max-width: 210px;
+  height: 50px;
+  max-width: 230px;
 }
 
 /* =============================================================
@@ -255,22 +320,6 @@
 /* =============================================================
    PAGE CORNER LABELS
    ============================================================= */
-.pg-no {
-  position: absolute;
-  bottom: 8mm; right: 16mm;
-  font: 700 10px/1 var(--text);
-  letter-spacing: .12em;
-  color: var(--on-s);
-}
-.pg-tag {
-  position: absolute;
-  bottom: 8mm; left: 16mm;
-  font: 700 10px/1 var(--text);
-  letter-spacing: .10em;
-  text-transform: uppercase;
-  color: var(--on-s);
-}
-
 /* =============================================================
    INNER PAGE HEADER
    ============================================================= */
@@ -500,6 +549,76 @@
 .pc-note { font-size: 10px; color: rgba(255,255,255,.44); margin-top: 12px; line-height: 1.5; }
 
 /* =============================================================
+   ARTICLE TABLE
+   ============================================================= */
+.article-table-wrap {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--white);
+  overflow: hidden;
+}
+.article-table-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 15px 11px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--surface-in), #fff);
+}
+.article-table-head .eyebrow {
+  font-size: 10px;
+}
+.article-table-head h3 {
+  font: 800 17px/1.15 var(--display);
+  margin-top: 5px;
+  color: var(--on);
+}
+.article-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.2px;
+}
+.article-table th {
+  padding: 8px 11px;
+  text-align: left;
+  font: 800 9.5px/1 var(--text);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--on-m);
+  border-bottom: 1px solid var(--border);
+}
+.article-table td {
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--border);
+  color: var(--on);
+  line-height: 1.35;
+  vertical-align: top;
+}
+.article-table th:nth-child(n+2),
+.article-table td:nth-child(n+2) {
+  text-align: right;
+  white-space: nowrap;
+}
+.article-table tbody tr:last-child td {
+  border-bottom: 1px solid var(--border-str);
+}
+.article-table tfoot td {
+  padding: 7px 11px;
+  color: var(--on-m);
+  background: var(--surface-in);
+  font-weight: 700;
+}
+.article-table tfoot .grand-total td {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  color: var(--on);
+  font: 800 14px/1 var(--display);
+  background: var(--accent-bg);
+}
+
+/* =============================================================
    OPTION CHIPS
    ============================================================= */
 .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 12px; }
@@ -542,6 +661,22 @@
 .sign-line { margin-top: 12px; }
 .sign-lbl  { font-size: 10.5px; font-weight: 700; color: var(--on-m); }
 .sign-rule { height: 1px; background: var(--border-str); margin-top: 17px; }
+.acceptance-banner {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(34,197,94,.32);
+  border-radius: var(--r-md);
+  background: linear-gradient(135deg, rgba(34,197,94,.10), rgba(31,155,163,.08));
+  color: #166534;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 800 12px/1.35 var(--text);
+}
+.acceptance-banner svg {
+  flex: none;
+  color: #16a34a;
+}
 
 /* =============================================================
    NOTE STRIP
@@ -557,6 +692,65 @@
   line-height: 1.55;
 }
 .note b { font-weight: 800; }
+
+/* =============================================================
+   INSTALLATION-SPECIFIC SUMMARY
+   ============================================================= */
+.scope-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr;
+  gap: 9px;
+}
+.scope-card {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 12px 13px;
+  background: var(--white);
+}
+.scope-card-main {
+  background: linear-gradient(135deg, rgba(31,155,163,.10), rgba(255,255,255,1));
+  border-color: rgba(31,155,163,.24);
+}
+.scope-card span,
+.install-note-row b {
+  display: block;
+  font: 800 9px/1 var(--text);
+  letter-spacing: .10em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.scope-card b {
+  display: block;
+  margin-top: 6px;
+  font: 800 13.5px/1.2 var(--display);
+  color: var(--on);
+}
+.scope-card p {
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.42;
+  color: var(--on-m);
+}
+.install-note-row {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+}
+.install-note-row div {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 13px 14px;
+  background: var(--surface-in);
+}
+.install-note-row span {
+  display: block;
+  margin-top: 7px;
+  font-size: 12.5px;
+  line-height: 1.42;
+  color: var(--on-m);
+}
 
 /* =============================================================
    ROW WITH BADGE
@@ -659,12 +853,13 @@
    DOCUMENT FOOTER  (last page)
    ============================================================= */
 .doc-foot {
-  padding-top: 14px;
+  padding-top: 10px;
   border-top: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  gap: 14px;
+  align-items: center;
+  gap: 18px;
+  min-height: 36px;
 }
 .doc-foot-logo {
   font: 800 18px/1 var(--display);
@@ -673,11 +868,37 @@
 .doc-foot-logo span { background: var(--grad-text); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 .doc-foot-meta {
   text-align: right;
-  font-size: 10.5px;
+  font-size: 9.5px;
   color: var(--on-m);
-  line-height: 1.6;
+  line-height: 1.45;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 10px;
+  flex-wrap: wrap;
+  max-width: 440px;
 }
 .doc-foot-meta b { color: var(--on); }
+.doc-foot-meta span:not(:last-child)::after {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin-left: 10px;
+  border-radius: 999px;
+  background: var(--border-str);
+  vertical-align: middle;
+}
+.portal-koolhaas .doc-foot .brand-logo {
+  height: 28px;
+  max-width: 150px;
+}
+.portal-koolhaas .eyebrow + .h2 + .summary-table {
+  margin-top: 12px;
+}
+.portal-koolhaas .eyebrow + .h2:has(+ .summary-table) {
+  display: none;
+}
 
 /* =============================================================
    SUMMARY TABLE  (vervangt kv-grid op pagina 2)
@@ -798,7 +1019,7 @@
 }
 
 .cov-foot {
-  margin-top: 20px;
+  margin-top: auto;
   padding-top: 12px;
   border-top: 1px solid rgba(255,255,255,.10);
   display: flex;

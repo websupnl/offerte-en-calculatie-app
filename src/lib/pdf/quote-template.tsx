@@ -173,8 +173,8 @@ const BRANDS: Record<BrandKey, BrandConfig> = {
   koolhaas: {
     key: "koolhaas",
     name: "Koolhaas Installaties",
-    logoPath: logoDataUri("koolhaas-white.png"),
-    logoPathDark: logoDataUri("koolhaas-logo.png"),
+    logoPath: logoDataUri("koolhaas-logo-tight.png"),
+    logoPathDark: logoDataUri("koolhaas-logo-tight.png"),
     website: "koolhaasinstallaties.nl",
     email: "daan@koolhaasinstallaties.nl",
     phone: "+31 6 82 20 21 48",
@@ -345,6 +345,11 @@ export function QuotePDF({
 
   const PAD = 38;
   const innerPage = { padding: PAD, paddingTop: 30, paddingBottom: 50 };
+  const coverLight = isKoolhaas;
+  const coverText = coverLight ? brand.colors.text : "#FFFFFF";
+  const coverMuted = coverLight ? brand.colors.muted : "rgba(255,255,255,0.45)";
+  const coverSoft = coverLight ? brand.colors.surface : "rgba(255,255,255,0.08)";
+  const coverBorder = coverLight ? brand.colors.border : "rgba(255,255,255,0.12)";
 
   return (
     <Document>
@@ -356,7 +361,7 @@ export function QuotePDF({
         <View style={{ flexDirection: "row", height: "100%" }}>
 
           {/* LEFT: dark panel */}
-          <View style={{ flex: 1.1, backgroundColor: brand.colors.primary, padding: PAD, flexDirection: "column" }}>
+          <View style={{ flex: 1.1, backgroundColor: coverLight ? "#FFFFFF" : brand.colors.primary, padding: PAD, flexDirection: "column" }}>
 
             {/* Top: logo + meta */}
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 50 }}>
@@ -366,10 +371,10 @@ export function QuotePDF({
                   <Text style={{ fontSize: 18, fontFamily: "Helvetica-Bold", color: brand.colors.accent }}>Up.</Text>
                 </View>
               ) : (
-                <Image src={brand.logoPath} style={{ height: 28, width: 90, objectFit: "contain" }} />
+                <Image src={brand.logoPath} style={{ height: 54, width: 190, objectFit: "contain" }} />
               )}
 
-              <View style={{ borderLeftWidth: 1, borderLeftColor: "rgba(255,255,255,0.12)", paddingLeft: 12 }}>
+              <View style={{ borderLeftWidth: 1, borderLeftColor: coverBorder, paddingLeft: 12 }}>
                 {[
                   { l: "Offertenummer", v: quoteNumber },
                   { l: "Datum", v: quoteDate },
@@ -377,8 +382,8 @@ export function QuotePDF({
                   { l: "Contactpersoon", v: "Daan Koolhaas" },
                 ].map((row) => (
                   <View key={row.l} style={{ flexDirection: "row", marginBottom: 3 }}>
-                    <Text style={{ width: 85, fontSize: 7.5, color: "rgba(255,255,255,0.4)", fontFamily: "Helvetica-Bold" }}>{row.l}</Text>
-                    <Text style={{ fontSize: 7.5, color: "#FFFFFF", fontFamily: "Helvetica-Bold" }}>{row.v}</Text>
+                    <Text style={{ width: 85, fontSize: 7.5, color: coverMuted, fontFamily: "Helvetica-Bold" }}>{row.l}</Text>
+                    <Text style={{ fontSize: 7.5, color: coverText, fontFamily: "Helvetica-Bold" }}>{row.v}</Text>
                   </View>
                 ))}
               </View>
@@ -389,15 +394,15 @@ export function QuotePDF({
               <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 1.2, color: brand.colors.accent, marginBottom: 6 }}>
                 {category}
               </Text>
-              <Text style={{ fontSize: 48, fontFamily: "Helvetica-Bold", color: "#FFFFFF", lineHeight: 1, marginBottom: 12 }}>
+              <Text style={{ fontSize: 48, fontFamily: "Helvetica-Bold", color: coverText, lineHeight: 1, marginBottom: 12 }}>
                 Offerte
               </Text>
-              <Text style={{ fontSize: 16, fontFamily: "Helvetica-Bold", color: "#FFFFFF", lineHeight: 1.3, marginBottom: 20, maxWidth: 240 }}>
+              <Text style={{ fontSize: 16, fontFamily: "Helvetica-Bold", color: coverText, lineHeight: 1.3, marginBottom: 20, maxWidth: 240 }}>
                 {title}
               </Text>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 20 }}>
-                <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.45)" }}>Voor</Text>
-                <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>{customerName}</Text>
+                <Text style={{ fontSize: 9, color: coverMuted }}>Voor</Text>
+                <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: coverText }}>{customerName}</Text>
               </View>
 
               {/* Pills */}
@@ -405,29 +410,29 @@ export function QuotePDF({
                 <View style={{ backgroundColor: brand.colors.accent, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
                   <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>{brand.phaseLabel}</Text>
                 </View>
-                <View style={{ backgroundColor: "rgba(255,255,255,0.08)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
-                  <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.7)" }}>{tagline}</Text>
+                <View style={{ backgroundColor: coverSoft, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
+                  <Text style={{ fontSize: 7.5, color: coverLight ? brand.colors.muted : "rgba(255,255,255,0.7)" }}>{tagline}</Text>
                 </View>
-                <View style={{ backgroundColor: "rgba(255,255,255,0.08)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
-                  <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.7)" }}>{formatEur(totalIncVat)} incl. btw</Text>
+                <View style={{ backgroundColor: coverSoft, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
+                  <Text style={{ fontSize: 7.5, color: coverLight ? brand.colors.muted : "rgba(255,255,255,0.7)" }}>{formatEur(totalIncVat)} incl. btw</Text>
                 </View>
               </View>
             </View>
 
             {/* Footer */}
-            <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)", paddingTop: 14, gap: 4 }}>
-              <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.4)" }}>{brand.website}</Text>
-              <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.4)" }}>{brand.email}</Text>
-              <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.4)" }}>{brand.phone}</Text>
+            <View style={{ borderTopWidth: 1, borderTopColor: coverLight ? brand.colors.border : "rgba(255,255,255,0.1)", paddingTop: 14, gap: 4 }}>
+              <Text style={{ fontSize: 8, color: coverMuted }}>{brand.website}</Text>
+              <Text style={{ fontSize: 8, color: coverMuted }}>{brand.email}</Text>
+              <Text style={{ fontSize: 8, color: coverMuted }}>{brand.phone}</Text>
             </View>
           </View>
 
           {/* RIGHT: image placeholder */}
-          <View style={{ flex: 0.9, backgroundColor: "#0e0b16", justifyContent: "center", alignItems: "center" }}>
-            <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", justifyContent: "center", alignItems: "center" }}>
-              <Text style={{ fontSize: 22, color: "rgba(255,255,255,0.15)" }}>?</Text>
+          <View style={{ flex: 0.9, backgroundColor: coverLight ? brand.colors.surface : "#0e0b16", justifyContent: "center", alignItems: "center" }}>
+            <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 1, borderColor: coverLight ? brand.colors.border : "rgba(255,255,255,0.12)", justifyContent: "center", alignItems: "center" }}>
+              <Text style={{ fontSize: 22, color: coverLight ? brand.colors.muted : "rgba(255,255,255,0.15)" }}>?</Text>
             </View>
-            <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.15)", marginTop: 10, textAlign: "center" }}>Projectfoto</Text>
+            <Text style={{ fontSize: 8, color: coverLight ? brand.colors.muted : "rgba(255,255,255,0.15)", marginTop: 10, textAlign: "center" }}>Projectfoto</Text>
           </View>
         </View>
       </Page>

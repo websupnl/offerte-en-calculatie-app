@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node build/index.js"
+    "start": "node ../mcp-build/index.js"
   },
   "keywords": [],
   "author": "",
@@ -13,8 +13,9 @@
   "type": "module",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.0",
-    "@prisma/client": "^5.22.0",
-    "zod": "^3.22.4"
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",

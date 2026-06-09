@@ -3,7 +3,7 @@
     "target": "ESNext",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "outDir": "./build",
+    "outDir": "../mcp-build",
     "rootDir": "./",
     "strict": true,
     "skipLibCheck": true,
