@@ -381,63 +381,20 @@ export function QuoteSheetPreview({
         {/* ── PAGINA 1: COVER ── */}
         <section className="sheet cover">
           <div className="pad cov-split">
-            {/* LEFT: tekst */}
-            <div className="cov-left">
-              <div className="cov-top">
-                {renderHeaderLogo(true)}
-                <div className="cov-meta">
-                  <dl>
-                    <dt>Offertenummer</dt> <dd>{quote.number || "CONCEPT"}</dd>
-                    <dt>Datum</dt>         <dd>{formatDate(today)}</dd>
-                    <dt>Geldig tot</dt>    <dd>{quote.validUntil ? formatDate(quote.validUntil) : "Selecteer datum"}</dd>
-                    <dt>Contactpersoon</dt><dd>Daan Koolhaas</dd>
-                  </dl>
-                </div>
-              </div>
-
-              <div className="cov-mid">
-                <span className="eyebrow inv">
-                  <InlineInput
-                    value={quote.category || brand.defaultCategory}
-                    onChange={(v) => onUpdate?.({ category: v })}
-                    isEditable={isEditable}
-                  />
-                </span>
-                <h1 className="cov-h1">Offerte</h1>
-                <div className="cov-project">
-                  <InlineInput
-                    value={quote.title || brand.defaultTitle}
-                    onChange={(v) => onUpdate?.({ title: v })}
-                    isEditable={isEditable}
-                  />
-                </div>
-                <div className="cov-for">
-                  <span>Voor</span>
-                  <b>{quote.customer.name || "Klantnaam"}</b>
-                </div>
-                {!isKoolhaas && (
-                  <div className="pills">
-                    <span className="pill g">{brand.phaseLabel}</span>
-                    <span className="pill">
-                      <InlineInput
-                        value={quote.tagline || brand.defaultTagline}
-                        onChange={(v) => onUpdate?.({ tagline: v })}
-                        isEditable={isEditable}
-                      />
-                    </span>
-                    <span className="pill">{formatCurrency(Number(quote.totalIncVat))} incl. btw</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="cov-foot">
-                <span><Globe /> {brand.website}</span>
-                <span><Mail /> {brand.email}</span>
-                <span><Phone /> {brand.phone}</span>
+            {/* BOVEN: logo + meta */}
+            <div className="cov-top">
+              {renderHeaderLogo(true)}
+              <div className="cov-meta">
+                <dl>
+                  <dt>Offertenummer</dt> <dd>{quote.number || "CONCEPT"}</dd>
+                  <dt>Datum</dt>         <dd>{formatDate(today)}</dd>
+                  <dt>Geldig tot</dt>    <dd>{quote.validUntil ? formatDate(quote.validUntil) : "Selecteer datum"}</dd>
+                  <dt>Contactpersoon</dt><dd>Daan Koolhaas</dd>
+                </dl>
               </div>
             </div>
 
-            {/* RIGHT: afbeelding */}
+            {/* MIDDEN: afbeelding */}
             <div className="cov-img-col">
               <input
                 ref={fileInputRef}
@@ -468,6 +425,36 @@ export function QuoteSheetPreview({
                   </span>
                 </div>
               )}
+            </div>
+
+            {/* ONDER: titel + naam */}
+            <div className="cov-mid">
+              <span className="eyebrow inv">
+                <InlineInput
+                  value={quote.category || brand.defaultCategory}
+                  onChange={(v) => onUpdate?.({ category: v })}
+                  isEditable={isEditable}
+                />
+              </span>
+              <h1 className="cov-h1">Offerte</h1>
+              <div className="cov-project">
+                <InlineInput
+                  value={quote.title || brand.defaultTitle}
+                  onChange={(v) => onUpdate?.({ title: v })}
+                  isEditable={isEditable}
+                />
+              </div>
+              <div className="cov-for">
+                <span>Voor</span>
+                <b>{quote.customer.name || "Klantnaam"}</b>
+              </div>
+            </div>
+
+            {/* FOOTER: contact */}
+            <div className="cov-foot">
+              <span><Globe /> {brand.website}</span>
+              <span><Mail /> {brand.email}</span>
+              <span><Phone /> {brand.phone}</span>
             </div>
           </div>
         </section>

@@ -228,10 +228,7 @@
   color: var(--on);
 }
 .ph-logo span {
-  background: var(--grad-text);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--on);
 }
 .ph-meta {
   font-size: 10.5px;
@@ -649,19 +646,17 @@
     var(--dark);
   color: #fff;
 }
-.cover .pad { padding: 16mm 17mm 14mm; }
+.cover .pad { padding: 12mm 12mm 10mm; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; }
 
-/* Cover stack: image above, text below */
-.cov-split { display: flex; flex-direction: column; gap: 7mm; height: 100%; }
-.cov-left { display: flex; flex-direction: column; padding-right: 0; border-right: none; }
-.cov-left .cov-mid { margin-top: 8mm; }
+/* Cover: logo/meta top → foto midden → titel/naam onder */
+.cov-split { display: flex; flex-direction: column; gap: 5mm; height: 100%; }
 .cov-img-col {
   display: flex; align-items: stretch; justify-content: center;
   padding: 0;
-  order: -1;
+  flex: 1;
 }
 .cov-img-placeholder {
-  width: 100%; min-height: 76mm;
+  width: 100%; min-height: 80mm;
   border: 2px dashed rgba(255,255,255,0.18);
   border-radius: 16px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -670,7 +665,7 @@
 }
 .cov-img-placeholder:hover { border-color: rgba(249,115,22,0.50); }
 .cov-img-wrap {
-  width: 100%; min-height: 76mm; border-radius: 16px; overflow: hidden; position: relative;
+  width: 100%; min-height: 80mm; height: 100%; border-radius: 16px; overflow: hidden; position: relative;
 }
 .cov-img-preview { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cov-img-overlay {
@@ -694,7 +689,7 @@
 .cov-meta dt { color: rgba(255,255,255,.48); text-align: left; font-weight: 600; }
 .cov-meta dd { margin: 0; color: #fff; font-weight: 700; }
 
-.cov-mid { margin-top: auto; }
+.cov-mid { margin-top: 0; }
 .cov-h1 {
   font: 800 104px/.88 var(--display);
   letter-spacing: -.04em;
