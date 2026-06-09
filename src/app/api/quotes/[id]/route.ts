@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
 
 const itemSchema = z.object({
   id: z.string().optional(),
@@ -92,6 +93,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   await prisma.quote.update({
     where: { id, companyId: session.user.activeCompanyId },
     data: updateData,
+  });
+
+  // Auto-generate PDF in background after response is sent
+  const host = req.headers.get("host") ?? "localhost:3000";
+  const cookie = req.headers.get("cookie") ?? "";
+  after(async () => {
+    await generateAndStorePdf(id, host, cookie);
   });
 
   return NextResponse.json({ ok: true });

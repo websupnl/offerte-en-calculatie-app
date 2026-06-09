@@ -354,8 +354,18 @@ export function QuoteSheetPreview({
       );
     }
 
+    if (cover) {
+      return (
+        <img
+          src="/logos/websup-white.png"
+          alt="WebsUp"
+          className="brand-logo brand-logo-cover"
+        />
+      );
+    }
+
     return (
-      <div className="ph-logo" style={cover ? { fontSize: "28px", color: "#fff" } : undefined}>
+      <div className="ph-logo">
         {brand.logoText}
       </div>
     );
