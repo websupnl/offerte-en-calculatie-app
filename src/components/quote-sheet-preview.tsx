@@ -143,7 +143,7 @@ const COMPANY_COPY = {
         Webs<span>Up.</span>
       </>
     ),
-    website: "webs-up.nl",
+    website: "websup.nl",
     email: "hallo@websup.nl",
     phone: "+31 6 12 34 56 78",
     role: "Eigenaar WebsUp.nl",

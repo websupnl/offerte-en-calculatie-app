@@ -23,9 +23,9 @@
   --border-str:  rgba(11,21,38,.12);
   --surface-in:  #f8fafc;
 
-  /* Accent (orange only as solid) */
-  --accent:      #f97316;
-  --accent-bg:   rgba(249,115,22,.09);
+  /* Accent — pink/paars voor offerte (minder oranje) */
+  --accent:      #a78bfa;
+  --accent-bg:   rgba(167,139,250,.10);
 
   /* Typography */
   --display:     var(--font-heading), system-ui, sans-serif;
@@ -154,10 +154,10 @@
   opacity: 1;
 }
 .portal-websup .cover .eyebrow.inv {
-  color: var(--orange);
+  color: var(--purple);
 }
 .portal-websup .cover .eyebrow.inv::before {
-  background: var(--orange);
+  background: var(--purple);
 }
 .portal-websup .cov-project { color: var(--on-m); }
 .portal-websup .cov-for {
@@ -175,13 +175,13 @@
 .brand-logo {
   display: block;
   width: auto;
-  height: 44px;
+  height: 54px;
   object-fit: contain;
 }
 
 .brand-logo-cover {
-  height: 58px;
-  max-width: 280px;
+  height: 88px;
+  max-width: 300px;
 }
 
 .portal-koolhaas .ph {
@@ -189,7 +189,7 @@
 }
 
 .portal-koolhaas .ph .brand-logo {
-  height: 34px;
+  height: 46px;
 }
 
 .portal-koolhaas .doc-foot .brand-logo {
@@ -312,7 +312,7 @@
   margin-top: 9px;
 }
 .lead {
-  font-size: 12.5px;
+  font-size: 14px;
   color: var(--on-m);
   line-height: 1.65;
   margin-top: 7px;
@@ -412,8 +412,8 @@
   box-shadow: var(--sh-brand);
 }
 .fn.dark { background: #0f172a; box-shadow: none; }
-.flow-item h4 { font: 800 12.5px/1.18 var(--display); margin-bottom: 2px; }
-.flow-item p  { font-size: 10.8px; color: var(--on-m); line-height: 1.34; }
+.flow-item h4 { font: 800 14px/1.18 var(--display); margin-bottom: 2px; }
+.flow-item p  { font-size: 12px; color: var(--on-m); line-height: 1.4; }
 
 /* =============================================================
    STEP CARDS  (aanpak)
@@ -435,9 +435,9 @@
   border-radius: 0 0 3px 3px;
   background: var(--grad);
 }
-.step .sn { font: 800 12px/1 var(--display); color: var(--accent); margin-bottom: 7px; }
-.step h4  { font: 800 13px/1.2 var(--display); margin-bottom: 4px; }
-.step p   { font-size: 10.5px; color: var(--on-m); line-height: 1.38; }
+.step .sn { font: 800 13px/1 var(--display); color: var(--accent); margin-bottom: 7px; }
+.step h4  { font: 800 14px/1.2 var(--display); margin-bottom: 4px; }
+.step p   { font-size: 13px; color: var(--on-m); line-height: 1.4; }
 
 /* =============================================================
    PRICE CARD  (dark)
@@ -491,15 +491,15 @@
   color: var(--accent);
 }
 .opt-ic svg { width: 15px; height: 15px; }
-.opt h4   { font: 800 12.5px/1.2 var(--display); margin-bottom: 3px; }
-.opt p    { font-size: 10.5px; color: var(--on-m); line-height: 1.4; }
-.opt-tag  { font: 800 9.5px/1 var(--text); color: var(--accent); text-transform: uppercase; letter-spacing: .05em; margin-top: 5px; display: inline-block; }
+.opt h4   { font: 800 14px/1.2 var(--display); margin-bottom: 3px; }
+.opt p    { font-size: 13px; color: var(--on-m); line-height: 1.4; }
+.opt-tag  { font: 800 11px/1 var(--text); color: var(--accent); text-transform: uppercase; letter-spacing: .05em; margin-top: 5px; display: inline-block; }
 
 /* =============================================================
    EXCLUSION LIST
    ============================================================= */
 .excl { list-style: none; margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 7px 18px; }
-.excl li { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; color: var(--on-m); line-height: 1.4; }
+.excl li { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--on-m); line-height: 1.4; }
 .ic-x { flex: none; width: 16px; height: 16px; border-radius: 50%; margin-top: 2px; display: grid; place-items: center; background: #f1f5f9; color: #94a3b8; }
 .ic-x svg { width: 9px; height: 9px; }
 
@@ -593,22 +593,22 @@
   color: var(--accent);
 }
 .opt-ic svg { width: 15px; height: 15px; }
-.opt h4   { font: 800 12.5px/1.2 var(--display); margin-bottom: 3px; }
-.opt p    { font-size: 10.5px; color: var(--on-m); line-height: 1.4; }
-.opt-tag  { font: 800 9.5px/1 var(--text); color: var(--accent); text-transform: uppercase; letter-spacing: .05em; margin-top: 5px; display: inline-block; }
+.opt h4   { font: 800 14px/1.2 var(--display); margin-bottom: 3px; }
+.opt p    { font-size: 13px; color: var(--on-m); line-height: 1.4; }
+.opt-tag  { font: 800 11px/1 var(--text); color: var(--accent); text-transform: uppercase; letter-spacing: .05em; margin-top: 5px; display: inline-block; }
 
 /* =============================================================
    EXCLUSION LIST
    ============================================================= */
 .excl { list-style: none; margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 7px 18px; }
-.excl li { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; color: var(--on-m); line-height: 1.4; }
+.excl li { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--on-m); line-height: 1.4; }
 .ic-x { flex: none; width: 16px; height: 16px; border-radius: 50%; margin-top: 2px; display: grid; place-items: center; background: #f1f5f9; color: #94a3b8; }
 .ic-x svg { width: 9px; height: 9px; }
 
 /* =============================================================
    INTRO LETTER
    ============================================================= */
-.letter { font-size: 13.5px; line-height: 1.72; color: var(--on); margin-top: 12px; }
+.letter { font-size: 16px; line-height: 1.72; color: var(--on); margin-top: 12px; }
 .letter p { margin-bottom: 9px; }
 .sig { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
 .sig-av {
@@ -780,13 +780,13 @@
 .items-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: 14px;
   margin-top: 12px;
 }
 .items-table th {
   text-align: left;
   padding: 10px 12px;
-  font: 800 10px/1 var(--text);
+  font: 800 11px/1 var(--text);
   letter-spacing: .08em;
   text-transform: uppercase;
   color: var(--on-s);
