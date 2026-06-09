@@ -11,7 +11,6 @@ import {
   MinusCircle,
   Sparkles,
   Loader2,
-  ImagePlus,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import "@/app/q/[token]/portal.css";
@@ -278,16 +277,6 @@ export function QuoteSheetPreview({
   const options = quote.options?.length ? quote.options : DEFAULT_OPTIONS[brandKey];
   const exclusions = quote.exclusions?.length ? quote.exclusions : DEFAULT_EXCLUSIONS[brandKey];
   const [generating, setGenerating] = useState<string | null>(null);
-  const [coverImage, setCoverImage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  function handleCoverImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setCoverImage(ev.target?.result as string);
-    reader.readAsDataURL(file);
-  }
 
   const handleAiGen = async (section: string) => {
     if (!onUpdate) return;
@@ -354,20 +343,12 @@ export function QuoteSheetPreview({
       );
     }
 
-    if (cover) {
-      return (
-        <img
-          src="/logos/websup-white.png"
-          alt="WebsUp"
-          className="brand-logo brand-logo-cover"
-        />
-      );
-    }
-
     return (
-      <div className="ph-logo">
-        {brand.logoText}
-      </div>
+      <img
+        src={cover ? "/logos/websup-white.png" : "/logos/websup-color.png"}
+        alt="WebsUp"
+        className={cover ? "brand-logo brand-logo-cover" : "brand-logo"}
+      />
     );
   };
 
@@ -381,7 +362,7 @@ export function QuoteSheetPreview({
         {/* ── PAGINA 1: COVER ── */}
         <section className="sheet cover">
           <div className="pad cov-split">
-            {/* BOVEN: logo + meta */}
+            {/* BOVEN: logo + meta — vast bovenaan */}
             <div className="cov-top">
               {renderHeaderLogo(true)}
               <div className="cov-meta">
@@ -394,40 +375,13 @@ export function QuoteSheetPreview({
               </div>
             </div>
 
-            {/* MIDDEN: afbeelding */}
-            <div className="cov-img-col">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={handleCoverImageChange}
-              />
-              {coverImage ? (
-                <div className="cov-img-wrap" onClick={isEditable ? () => fileInputRef.current?.click() : undefined} style={{ cursor: isEditable ? 'pointer' : 'default' }}>
-                  <img src={coverImage} alt="Project preview" className="cov-img-preview" />
-                  {isEditable && (
-                    <div className="cov-img-overlay">
-                      <ImagePlus size={20} />
-                      <span>Vervangen</span>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div
-                  className="cov-img-placeholder"
-                  onClick={isEditable ? () => fileInputRef.current?.click() : undefined}
-                  style={{ cursor: isEditable ? 'pointer' : 'default' }}
-                >
-                  <ImagePlus size={28} style={{ opacity: 0.4 }} />
-                  <span style={{ fontSize: '11px', opacity: 0.45, marginTop: '8px', textAlign: 'center', lineHeight: 1.4 }}>
-                    {isEditable ? "Klik om een afbeelding\ntoe te voegen" : ""}
-                  </span>
-                </div>
-              )}
-            </div>
+            {/* Spacer duwt content naar onderste helft */}
+            <div className="cov-spacer" />
 
-            {/* ONDER: titel + naam */}
+            {/* Gradient accent-lijn */}
+            <div className="cov-line" />
+
+            {/* Content: category → OFFERTE → titel → klant */}
             <div className="cov-mid">
               <span className="eyebrow inv">
                 <InlineInput
