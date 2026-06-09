@@ -27,6 +27,9 @@
   --accent:      #a78bfa;
   --accent-bg:   rgba(167,139,250,.10);
 
+  /* Secundaire tekst donkerder voor leesbaarheid op wit */
+  --on-s:        #64748b;
+
   /* Typography */
   --display:     var(--font-heading), system-ui, sans-serif;
   --text:        var(--font-body), system-ui, sans-serif;
@@ -154,10 +157,14 @@
   opacity: 1;
 }
 .portal-websup .cover .eyebrow.inv {
-  color: var(--purple);
+  background: var(--grad-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 .portal-websup .cover .eyebrow.inv::before {
-  background: var(--purple);
+  background: var(--grad);
+  -webkit-text-fill-color: initial;
 }
 .portal-websup .cov-project { color: var(--on-m); }
 .portal-websup .cov-for {
@@ -175,13 +182,15 @@
 .brand-logo {
   display: block;
   width: auto;
-  height: 54px;
+  height: 72px;
+  max-width: 260px;
   object-fit: contain;
+  object-position: left center;
 }
 
 .brand-logo-cover {
-  height: 88px;
-  max-width: 300px;
+  height: 116px;
+  max-width: 360px;
 }
 
 .portal-koolhaas .ph {
@@ -189,7 +198,7 @@
 }
 
 .portal-koolhaas .ph .brand-logo {
-  height: 46px;
+  height: 52px;
 }
 
 .portal-koolhaas .doc-foot .brand-logo {
@@ -291,19 +300,28 @@
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  font: 700 10px/1 var(--text);
-  letter-spacing: .14em;
+  font: 700 12px/1 var(--text);
+  letter-spacing: .12em;
   text-transform: uppercase;
-  color: var(--accent);
+  background: var(--grad-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 .eyebrow::before {
   content: '';
-  width: 20px; height: 3px;
+  width: 22px; height: 3px;
   border-radius: 3px;
   background: var(--grad);
   flex-shrink: 0;
+  -webkit-text-fill-color: initial;
 }
-.eyebrow.inv { color: rgba(255,255,255,.72); }
+.eyebrow.inv {
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: rgba(255,255,255,.80);
+  background-clip: unset;
+}
 
 .h2 {
   font: 800 23px/1.08 var(--display);
@@ -344,15 +362,15 @@
   background: var(--white);
 }
 .kv .k {
-  font: 800 9px/1 var(--text);
+  font: 800 10px/1 var(--text);
   letter-spacing: .10em;
   text-transform: uppercase;
-  color: var(--on-s);
+  color: var(--on-m);
 }
 .kv .v {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
-  margin-top: 4px;
+  margin-top: 5px;
   color: var(--on);
   line-height: 1.3;
 }
