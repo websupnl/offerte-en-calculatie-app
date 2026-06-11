@@ -687,7 +687,16 @@ app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", service: "websup-quote-mcp" });
 });
 
-const PORT = process.env.MCP_PORT ?? process.env.PORT ?? 3001;
-app.listen(PORT, () => {
-  process.stderr.write(`WebsUp Quote MCP server draait op http://0.0.0.0:${PORT}/mcp\n`);
-});
+if (process.env.MCP_HTTP_MODE === "true") {
+  const PORT = process.env.MCP_PORT ?? process.env.PORT ?? 3001;
+  app.listen(PORT, () => {
+    process.stderr.write(`WebsUp Quote MCP server draait op http://0.0.0.0:${PORT}/mcp\n`);
+  });
+} else {
+  // Stdio mode — Claude Code draait de server direct als process
+  const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js");
+  const transport = new StdioServerTransport();
+  const server = createMcpServer();
+  await server.connect(transport);
+  process.stderr.write("WebsUp Quote MCP server gestart op stdio\n");
+}

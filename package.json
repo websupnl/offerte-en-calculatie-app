@@ -3,8 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev\" \"npm run dev:mcp\"",
-    "dev:mcp": "cd mcp-server && npm run build && node --env-file=../.env.local build/index.js",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
