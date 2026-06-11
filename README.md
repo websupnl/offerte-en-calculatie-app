@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Offerte & Calculatie App
 
-## Getting Started
+> **Vibe code project** — gebouwd met AI-assistentie als persoonlijk intern tool voor WebsUp.nl en Koolhaas Installaties. Deze app is niet ontworpen voor productie en heeft geen security audit gehad. Gebruik op eigen risico.
 
-First, run the development server:
+Een multi-tenant offerte-app waarmee je professionele 5-pagina offertes kunt aanmaken, versturen en laten accorderen via een klantportaal. Inclusief een MCP-server zodat je Claude direct offertes kunt laten maken.
+
+## Stack
+
+- **Next.js 16** (App Router) + TypeScript + Tailwind CSS + shadcn/ui
+- **PostgreSQL** via Prisma ORM
+- **Auth:** NextAuth.js v5 (credentials + JWT)
+- **AI:** OpenAI GPT-4o
+- **PDF:** @react-pdf/renderer
+- **MCP Server:** Express + @modelcontextprotocol/sdk (HTTP transport)
+
+## Multi-tenant
+
+Eén app, twee bedrijven via een company switcher bij login.
+
+- `websup` — WebsUp.nl
+- `koolhaas` — Koolhaas Installaties
+
+## Lokaal draaien
 
 ```bash
+npm install
+cp .env.example .env.local   # Vul de variabelen in
+npm run db:push               # Maak tabellen aan
+npm run db:seed               # Seed bedrijven + admin gebruiker
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Login: `daan@websup.nl` / `Admin123!`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## MCP Server
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+De MCP server draait als aparte service en stelt Claude in staat offertes te maken via natuurlijke taal.
 
-## Learn More
+```bash
+cd mcp-server
+npm install
+npm run build
+MCP_API_KEY=geheim DATABASE_URL=... npm start
+```
 
-To learn more about Next.js, take a look at the following resources:
+Koppelen in Claude Code:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+URL: https://jouw-domein.nl/mcp
+Header: Authorization: Bearer <MCP_API_KEY>
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Environment variabelen
 
-## Deploy on Vercel
+Zie `.env.example` voor alle benodigde variabelen.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Disclaimer
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Dit project is gebouwd als persoonlijk intern tool via vibe coding met Claude. Er is geen formele security review gedaan. Zet dit niet live voor publieke eindgebruikers zonder eigen beoordeling van de code.
