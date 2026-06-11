@@ -528,6 +528,127 @@ function createMcpServer() {
     }
   );
 
+  // ── save_datasheet ───────────────────────────────────────────────────────
+  server.tool(
+    "save_datasheet",
+    "Sla een productdatasheet op of update hem. Gebruik dit na elk product-onderzoek zodat je het nooit twee keer hoeft op te zoeken.",
+    {
+      brand: z.string().describe("Merk, bijv. 'Sofar' of 'Victron'"),
+      model: z.string().describe("Modelnaam, bijv. 'BTS-10K'"),
+      category: z.string().optional().describe("Categorie, bijv. 'batterij', 'omvormer', 'laadpaal'"),
+      specs: z.record(z.string(), z.unknown()).optional().describe("Technische specs als JSON, bijv. {capaciteit: '10kWh', voltage: '48V'}"),
+      notes: z.string().optional().describe("Jouw bevindingen, aandachtspunten, compatibiliteit"),
+      price: z.number().optional().describe("Inkoopprijs excl. btw"),
+      source_url: z.string().optional().describe("URL van de bron (fabrikant, leverancier)"),
+    },
+    async ({ brand, model, category, specs, notes, price, source_url }) => {
+      const now = new Date().toISOString();
+      const existing = await queryOne<{ id: string }>(
+        `SELECT id FROM "Datasheet" WHERE LOWER(brand) = LOWER($1) AND LOWER(model) = LOWER($2)`,
+        [brand, model]
+      );
+
+      if (existing) {
+        const updates: string[] = ['"updatedAt" = $3'];
+        const params: unknown[] = [brand, model, now];
+        if (category !== undefined) { updates.push(`category = $${params.length + 1}`); params.push(category); }
+        if (specs !== undefined) { updates.push(`specs = $${params.length + 1}::jsonb`); params.push(JSON.stringify(specs)); }
+        if (notes !== undefined) { updates.push(`notes = $${params.length + 1}`); params.push(notes); }
+        if (price !== undefined) { updates.push(`price = $${params.length + 1}`); params.push(price); }
+        if (source_url !== undefined) { updates.push(`"sourceUrl" = $${params.length + 1}`); params.push(source_url); }
+        await query(
+          `UPDATE "Datasheet" SET ${updates.join(", ")} WHERE LOWER(brand) = LOWER($1) AND LOWER(model) = LOWER($2)`,
+          params
+        );
+        return { content: [{ type: "text", text: `Datasheet bijgewerkt: ${brand} ${model}` }] };
+      }
+
+      const id = crypto.randomUUID();
+      await query(
+        `INSERT INTO "Datasheet" (id, brand, model, category, specs, notes, price, "sourceUrl", "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$9)`,
+        [id, brand, model, category ?? null, JSON.stringify(specs ?? {}), notes ?? null, price ?? null, source_url ?? null, now]
+      );
+      return { content: [{ type: "text", text: `Datasheet opgeslagen: ${brand} ${model} (ID: ${id})` }] };
+    }
+  );
+
+  // ── search_datasheets ─────────────────────────────────────────────────────
+  server.tool(
+    "search_datasheets",
+    "Zoek in opgeslagen productdatasheets. Doe dit ALTIJD als eerste stap bij product-onderzoek, vóór je naar internet gaat.",
+    {
+      query: z.string().describe("Zoekterm, bijv. 'Sofar batterij' of 'Victron omvormer'"),
+      category: z.string().optional().describe("Filter op categorie"),
+    },
+    async ({ query: q, category }) => {
+      const term = `%${q.toLowerCase()}%`;
+      const params: unknown[] = [term, term, term];
+      let sql = `
+        SELECT id, brand, model, category, specs, notes, price, "sourceUrl", "updatedAt"
+        FROM "Datasheet"
+        WHERE (LOWER(brand) LIKE $1 OR LOWER(model) LIKE $2 OR LOWER(COALESCE(notes,'')) LIKE $3)
+      `;
+      if (category) { sql += ` AND LOWER(category) = $${params.length + 1}`; params.push(category.toLowerCase()); }
+      sql += ` ORDER BY "updatedAt" DESC LIMIT 10`;
+
+      const results = await query(sql, params);
+      if (results.length === 0) {
+        return { content: [{ type: "text", text: `Niets gevonden voor '${q}'. Zoek op internet en sla daarna op met save_datasheet.` }] };
+      }
+      return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+    }
+  );
+
+  // ── save_finding ──────────────────────────────────────────────────────────
+  server.tool(
+    "save_finding",
+    "Sla een bevinding of conclusie op. Gebruik dit voor compatibiliteitsnotes, prijsinfo, aandachtspunten of projectlessen.",
+    {
+      topic: z.string().describe("Onderwerp, bijv. 'Sofar + Victron compatibiliteit' of 'installatie meterkast uitbreiding'"),
+      content: z.string().describe("De bevinding zelf, zo concreet mogelijk"),
+      tags: z.array(z.string()).optional().describe("Tags voor sneller terugvinden, bijv. ['batterij','compatibiliteit']"),
+      quote_id: z.string().optional().describe("Optioneel: koppel aan een offerte-ID"),
+    },
+    async ({ topic, content, tags, quote_id }) => {
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+      await query(
+        `INSERT INTO "ResearchFinding" (id, topic, content, tags, "quoteId", "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,$6)`,
+        [id, topic, content, tags ?? [], quote_id ?? null, now]
+      );
+      return { content: [{ type: "text", text: `Bevinding opgeslagen: "${topic}" (ID: ${id})` }] };
+    }
+  );
+
+  // ── search_findings ───────────────────────────────────────────────────────
+  server.tool(
+    "search_findings",
+    "Zoek in opgeslagen bevindingen en conclusies. Doe dit bij twijfel over compatibiliteit, prijzen of aanpak.",
+    {
+      query: z.string().describe("Zoekterm, bijv. 'Sofar compatibiliteit' of 'meterkast uitbreiding'"),
+      tag: z.string().optional().describe("Filter op een specifieke tag"),
+    },
+    async ({ query: q, tag }) => {
+      const term = `%${q.toLowerCase()}%`;
+      const params: unknown[] = [term, term];
+      let sql = `
+        SELECT id, topic, content, tags, "quoteId", "createdAt"
+        FROM "ResearchFinding"
+        WHERE (LOWER(topic) LIKE $1 OR LOWER(content) LIKE $2)
+      `;
+      if (tag) { sql += ` AND $${params.length + 1} = ANY(tags)`; params.push(tag); }
+      sql += ` ORDER BY "createdAt" DESC LIMIT 10`;
+
+      const results = await query(sql, params);
+      if (results.length === 0) {
+        return { content: [{ type: "text", text: `Geen bevindingen gevonden voor '${q}'.` }] };
+      }
+      return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+    }
+  );
+
   return server;
 }
 

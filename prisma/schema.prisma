@@ -198,6 +198,7 @@ model Quote {
   items           QuoteItem[]
   adviceDocuments AdviceDocument[]
   share           QuoteShare?
+  findings        ResearchFinding[]
 }
 
 enum QuoteStatus {
@@ -245,6 +246,35 @@ enum AdviceType {
   ELECTRICAL
   CAMERA
   HEATPUMP
+}
+
+// ─── Knowledge Base ────────────────────────────────────────────────────────
+
+model Datasheet {
+  id        String   @id @default(cuid())
+  brand     String
+  model     String
+  category  String?
+  specs     Json     @default("{}")
+  notes     String?  @db.Text
+  price     Decimal? @db.Decimal(10, 2)
+  sourceUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([brand, model])
+}
+
+model ResearchFinding {
+  id        String   @id @default(cuid())
+  topic     String
+  content   String   @db.Text
+  tags      String[]
+  quoteId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quote Quote? @relation(fields: [quoteId], references: [id], onDelete: SetNull)
 }
 
 // ─── Quote Sharing (klantportaal) ──────────────────────────────────────────
