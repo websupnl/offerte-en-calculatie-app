@@ -528,6 +528,56 @@ function createMcpServer() {
     }
   );
 
+  // ── save_datasheets_batch ─────────────────────────────────────────────────
+  server.tool(
+    "save_datasheets_batch",
+    "Sla meerdere productdatasheets tegelijk op. Gebruik dit na onderzoek voor een offerte waarbij je meerdere componenten hebt gevonden (batterij, omvormer, kabels, interfaces, etc.).",
+    {
+      datasheets: z.array(z.object({
+        brand: z.string().describe("Merk"),
+        model: z.string().describe("Modelnaam"),
+        category: z.string().optional().describe("Categorie, bijv. 'batterij', 'omvormer', 'laadpaal', 'kabel', 'interface'"),
+        specs: z.record(z.string(), z.unknown()).optional().describe("Technische specs als JSON"),
+        notes: z.string().optional().describe("Bevindingen, aandachtspunten, compatibiliteit"),
+        price: z.number().optional().describe("Inkoopprijs excl. btw"),
+        source_url: z.string().optional().describe("Bron URL"),
+      })).describe("Lijst van datasheets om op te slaan"),
+    },
+    async ({ datasheets }) => {
+      const results: string[] = [];
+      const now = new Date().toISOString();
+
+      for (const ds of datasheets) {
+        const existing = await queryOne<{ id: string }>(
+          `SELECT id FROM "Datasheet" WHERE LOWER(brand) = LOWER($1) AND LOWER(model) = LOWER($2)`,
+          [ds.brand, ds.model]
+        );
+
+        if (existing) {
+          const updates: string[] = ['"updatedAt" = $3'];
+          const params: unknown[] = [ds.brand, ds.model, now];
+          if (ds.category !== undefined) { updates.push(`category = $${params.length + 1}`); params.push(ds.category); }
+          if (ds.specs !== undefined) { updates.push(`specs = $${params.length + 1}::jsonb`); params.push(JSON.stringify(ds.specs)); }
+          if (ds.notes !== undefined) { updates.push(`notes = $${params.length + 1}`); params.push(ds.notes); }
+          if (ds.price !== undefined) { updates.push(`price = $${params.length + 1}`); params.push(ds.price); }
+          if (ds.source_url !== undefined) { updates.push(`"sourceUrl" = $${params.length + 1}`); params.push(ds.source_url); }
+          await query(`UPDATE "Datasheet" SET ${updates.join(", ")} WHERE LOWER(brand) = LOWER($1) AND LOWER(model) = LOWER($2)`, params);
+          results.push(`Bijgewerkt: ${ds.brand} ${ds.model}`);
+        } else {
+          const id = crypto.randomUUID();
+          await query(
+            `INSERT INTO "Datasheet" (id, brand, model, category, specs, notes, price, "sourceUrl", "createdAt", "updatedAt")
+             VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$9)`,
+            [id, ds.brand, ds.model, ds.category ?? null, JSON.stringify(ds.specs ?? {}), ds.notes ?? null, ds.price ?? null, ds.source_url ?? null, now]
+          );
+          results.push(`Nieuw: ${ds.brand} ${ds.model}`);
+        }
+      }
+
+      return { content: [{ type: "text", text: `${results.length} datasheets verwerkt:\n${results.join("\n")}` }] };
+    }
+  );
+
   // ── save_datasheet ───────────────────────────────────────────────────────
   server.tool(
     "save_datasheet",

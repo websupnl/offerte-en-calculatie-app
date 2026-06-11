@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Building2,
   Zap,
+  Brain,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ const navItems = [
   { href: "/quotes", label: "Offertes", icon: FileText },
   { href: "/customers", label: "Klanten", icon: Users },
   { href: "/admin/products", label: "Producten", icon: Package },
+  { href: "/knowledge", label: "Kennisbank", icon: Brain },
   { href: "/admin/settings", label: "Instellingen", icon: Settings },
 ];
 
