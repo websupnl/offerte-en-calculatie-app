@@ -687,7 +687,7 @@ app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", service: "websup-quote-mcp" });
 });
 
-const PORT = process.env.PORT ?? 3001;
+const PORT = process.env.MCP_PORT ?? process.env.PORT ?? 3001;
 app.listen(PORT, () => {
   process.stderr.write(`WebsUp Quote MCP server draait op http://0.0.0.0:${PORT}/mcp\n`);
 });

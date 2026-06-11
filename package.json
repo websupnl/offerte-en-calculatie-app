@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "concurrently \"next dev\" \"npm run dev:mcp\"",
+    "dev:mcp": "cd mcp-server && npm run build && node --env-file=../.env.local build/index.js",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -63,6 +64,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
+    "concurrently": "^10.0.3",
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
