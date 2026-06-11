@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import express, { type Request, type Response } from "express";
 import { z } from "zod";
 import pg from "pg";
 
@@ -120,510 +121,452 @@ function defaultTemplateFields(companySlug: string) {
   };
 }
 
-// ─── MCP Server ───────────────────────────────────────────────────────────────
+// ─── MCP Server factory ────────────────────────────────────────────────────────
 
-const server = new McpServer({
-  name: "websup-quote-engine",
-  version: "1.0.0",
-});
+function createMcpServer() {
+  const server = new McpServer({
+    name: "websup-quote-engine",
+    version: "1.0.0",
+  });
 
-// ── list_companies ─────────────────────────────────────────────────────────────
-server.tool(
-  "list_companies",
-  "Geef een lijst van alle beschikbare bedrijven (websup, koolhaas, etc.)",
-  {},
-  async () => {
-    const companies = await query(
-      `SELECT id, name, slug, "createdAt" FROM "Company" ORDER BY name`
-    );
-    return {
-      content: [{ type: "text", text: JSON.stringify(companies, null, 2) }],
-    };
-  }
-);
-
-// ── list_customers ─────────────────────────────────────────────────────────────
-server.tool(
-  "list_customers",
-  "Geef een lijst van klanten voor een bepaald bedrijf (op slug of ID)",
-  {
-    company_slug: z.string().optional().describe("Bedrijfsslug, bijv. 'websup' of 'koolhaas'"),
-    company_id: z.string().optional().describe("Bedrijfs-ID (alternatief voor slug)"),
-    search: z.string().optional().describe("Zoekterm op naam of e-mail"),
-  },
-  async ({ company_slug, company_id, search }) => {
-    let cid = company_id;
-    if (!cid && company_slug) {
-      const co = await queryOne<{ id: string }>(
-        `SELECT id FROM "Company" WHERE slug = $1`,
-        [company_slug]
+  server.tool(
+    "list_companies",
+    "Geef een lijst van alle beschikbare bedrijven (websup, koolhaas, etc.)",
+    {},
+    async () => {
+      const companies = await query(
+        `SELECT id, name, slug, "createdAt" FROM "Company" ORDER BY name`
       );
+      return { content: [{ type: "text", text: JSON.stringify(companies, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "list_customers",
+    "Geef een lijst van klanten voor een bepaald bedrijf (op slug of ID)",
+    {
+      company_slug: z.string().optional().describe("Bedrijfsslug, bijv. 'websup' of 'koolhaas'"),
+      company_id: z.string().optional().describe("Bedrijfs-ID (alternatief voor slug)"),
+      search: z.string().optional().describe("Zoekterm op naam of e-mail"),
+    },
+    async ({ company_slug, company_id, search }) => {
+      let cid = company_id;
+      if (!cid && company_slug) {
+        const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+        if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+        cid = co.id;
+      }
+      if (!cid) return { content: [{ type: "text", text: "Geef company_slug of company_id op." }] };
+
+      let sql = `SELECT id, name, email, phone, address, city, "zipCode" FROM "Customer" WHERE "companyId" = $1`;
+      const params: unknown[] = [cid];
+      if (search) {
+        sql += ` AND (LOWER(name) LIKE $2 OR LOWER(email) LIKE $2)`;
+        params.push(`%${search.toLowerCase()}%`);
+      }
+      sql += ` ORDER BY name`;
+
+      const customers = await query(sql, params);
+      return { content: [{ type: "text", text: JSON.stringify(customers, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "create_customer",
+    "Maak een nieuwe klant aan voor een bedrijf",
+    {
+      company_slug: z.string().describe("Bedrijfsslug: 'websup' of 'koolhaas'"),
+      name: z.string().describe("Volledige naam of bedrijfsnaam"),
+      email: z.string().optional().describe("E-mailadres"),
+      phone: z.string().optional().describe("Telefoonnummer"),
+      address: z.string().optional().describe("Straat + huisnummer"),
+      city: z.string().optional().describe("Stad"),
+      zip_code: z.string().optional().describe("Postcode"),
+    },
+    async ({ company_slug, name, email, phone, address, city, zip_code }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
       if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
-      cid = co.id;
-    }
-    if (!cid) return { content: [{ type: "text", text: "Geef company_slug of company_id op." }] };
 
-    let sql = `SELECT id, name, email, phone, address, city, "zipCode" FROM "Customer" WHERE "companyId" = $1`;
-    const params: unknown[] = [cid];
-    if (search) {
-      sql += ` AND (LOWER(name) LIKE $2 OR LOWER(email) LIKE $2)`;
-      params.push(`%${search.toLowerCase()}%`);
-    }
-    sql += ` ORDER BY name`;
-
-    const customers = await query(sql, params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(customers, null, 2) }],
-    };
-  }
-);
-
-// ── create_customer ────────────────────────────────────────────────────────────
-server.tool(
-  "create_customer",
-  "Maak een nieuwe klant aan voor een bedrijf",
-  {
-    company_slug: z.string().describe("Bedrijfsslug: 'websup' of 'koolhaas'"),
-    name: z.string().describe("Volledige naam of bedrijfsnaam"),
-    email: z.string().optional().describe("E-mailadres"),
-    phone: z.string().optional().describe("Telefoonnummer"),
-    address: z.string().optional().describe("Straat + huisnummer"),
-    city: z.string().optional().describe("Stad"),
-    zip_code: z.string().optional().describe("Postcode"),
-  },
-  async ({ company_slug, name, email, phone, address, city, zip_code }) => {
-    const co = await queryOne<{ id: string }>(
-      `SELECT id FROM "Company" WHERE slug = $1`,
-      [company_slug]
-    );
-    if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
-
-    const now = new Date().toISOString();
-    const id = crypto.randomUUID();
-    await query(
-      `INSERT INTO "Customer" (id, "companyId", name, email, phone, address, city, "zipCode", "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)`,
-      [id, co.id, name, email ?? null, phone ?? null, address ?? null, city ?? null, zip_code ?? null, now]
-    );
-    return {
-      content: [{ type: "text", text: `Klant aangemaakt! ID: ${id}, Naam: ${name}` }],
-    };
-  }
-);
-
-// ── list_products ──────────────────────────────────────────────────────────────
-server.tool(
-  "list_products",
-  "Geef een lijst van producten/diensten voor een bedrijf, optioneel gefilterd op categorie",
-  {
-    company_slug: z.string().describe("Bedrijfsslug"),
-    category: z.string().optional().describe("Filter op categorie"),
-    active_only: z.boolean().optional().default(true).describe("Alleen actieve producten"),
-  },
-  async ({ company_slug, category, active_only }) => {
-    const co = await queryOne<{ id: string }>(
-      `SELECT id FROM "Company" WHERE slug = $1`,
-      [company_slug]
-    );
-    if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
-
-    let sql = `SELECT id, name, description, category, unit, "basePrice", "vatRate" FROM "Product" WHERE "companyId" = $1`;
-    const params: unknown[] = [co.id];
-    if (active_only !== false) { sql += ` AND active = true`; }
-    if (category) { sql += ` AND LOWER(category) = $${params.length + 1}`; params.push(category.toLowerCase()); }
-    sql += ` ORDER BY category, "sortOrder", name`;
-
-    const products = await query(sql, params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(products, null, 2) }],
-    };
-  }
-);
-
-// ── create_quote ───────────────────────────────────────────────────────────────
-server.tool(
-  "create_quote",
-  "Maak een nieuwe offerte aan voor een klant, inclusief regels",
-  {
-    company_slug: z.string().describe("Bedrijfsslug: 'websup' of 'koolhaas'"),
-    customer_id: z.string().describe("ID van de klant (gebruik list_customers om te vinden)"),
-    title: z.string().optional().default("Persoonlijk voorstel").describe("Titel van de offerte"),
-    category: z.string().optional().default("Maatwerk project").describe("Categorie/type project"),
-    tagline: z.string().optional().describe("Ondertitel, bijv. 'Ontwerp · Bouw · Plaatsing'"),
-    itemsHeader: z.string().optional().describe("Kop boven de lijst met werkzaamheden/onderdelen"),
-    intro: z.string().optional().describe("Inleidende tekst"),
-    outro: z.string().optional().describe("Slottekst"),
-    notes: z.string().optional().describe("Opmerkingen/interne of zichtbare notities voor de offerte"),
-    flow: z.array(z.object({
-      n: z.number(),
-      t: z.string(),
-      d: z.string(),
-    })).optional().describe("Proces/planning-stappen voor pagina 3"),
-    approach: z.array(z.object({
-      n: z.string(),
-      t: z.string(),
-      d: z.string(),
-    })).optional().describe("Werkwijze/fases voor pagina 3"),
-    options: z.array(z.object({
-      t: z.string(),
-      d: z.string(),
-      tag: z.string(),
-    })).optional().describe("Optionele uitbreidingen of meerwerk"),
-    exclusions: z.array(z.string()).optional().describe("Niet inbegrepen / uitsluitingen"),
-    valid_days: z.number().optional().default(30).describe("Geldigheidsduur in dagen"),
-    items: z.array(z.object({
-      description: z.string().describe("Omschrijving van het item"),
-      qty: z.number().default(1).describe("Aantal"),
-      unit_price: z.number().describe("Prijs per eenheid excl. btw"),
-      vat_rate: z.number().default(21).describe("BTW-percentage"),
-    })).describe("Offerteregels"),
-  },
-  async ({ company_slug, customer_id, title, category, tagline, itemsHeader, intro, outro, notes, flow, approach, options, exclusions, valid_days, items }) => {
-    const defaults = defaultTemplateFields(company_slug);
-    const quoteTitle = title === "Persoonlijk voorstel" ? defaults.title : title;
-    const quoteCategory = category === "Maatwerk project" ? defaults.category : category;
-    const quoteTagline = tagline ?? defaults.tagline;
-    const quoteItemsHeader = itemsHeader ?? defaults.itemsHeader;
-    const quoteFlow = flow ?? defaults.flow;
-    const quoteApproach = approach ?? defaults.approach;
-    const quoteOptions = options ?? defaults.options;
-    const quoteExclusions = exclusions ?? defaults.exclusions;
-
-    const co = await queryOne<{ id: string }>(
-      `SELECT id FROM "Company" WHERE slug = $1`,
-      [company_slug]
-    );
-    if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
-
-    // Find a user to assign as creator (first admin of company)
-    const user = await queryOne<{ id: string }>(
-      `SELECT u.id FROM "User" u
-       JOIN "CompanyUser" cu ON cu."userId" = u.id
-       WHERE cu."companyId" = $1
-       ORDER BY u."createdAt" LIMIT 1`,
-      [co.id]
-    );
-    if (!user) return { content: [{ type: "text", text: "Geen gebruiker gevonden voor dit bedrijf." }] };
-
-    // Calculate totals
-    let totalExVat = 0;
-    let totalVat = 0;
-    for (const item of items) {
-      const lineTotal = item.qty * item.unit_price;
-      totalExVat += lineTotal;
-      totalVat += lineTotal * (item.vat_rate / 100);
-    }
-    const totalIncVat = totalExVat + totalVat;
-
-    const now = new Date().toISOString();
-    const validUntil = new Date(Date.now() + (valid_days ?? 30) * 86400000).toISOString();
-    const quoteId = crypto.randomUUID();
-    const number = generateQuoteNumber(company_slug);
-
-    await query(
-      `INSERT INTO "Quote" (id, "companyId", "customerId", "createdById", number, title, category, tagline,
-        "itemsHeader", intro, outro, notes, flow, approach, options, exclusions, status, "validUntil",
-        "totalExVat", "totalVat", "totalIncVat", "createdAt", "updatedAt")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16::jsonb,'DRAFT',$17,$18,$19,$20,$21,$21)`,
-      [quoteId, co.id, customer_id, user.id, number, quoteTitle, quoteCategory,
-       quoteTagline, quoteItemsHeader, intro ?? null, outro ?? null, notes ?? null,
-       JSON.stringify(quoteFlow), JSON.stringify(quoteApproach), JSON.stringify(quoteOptions), JSON.stringify(quoteExclusions),
-       validUntil, totalExVat.toFixed(2), totalVat.toFixed(2), totalIncVat.toFixed(2), now]
-    );
-
-    // Insert items
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      const lineTotal = item.qty * item.unit_price;
+      const now = new Date().toISOString();
+      const id = crypto.randomUUID();
       await query(
-        `INSERT INTO "QuoteItem" (id, "quoteId", description, qty, "unitPrice", "vatRate", total, "sortOrder")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [crypto.randomUUID(), quoteId, item.description,
-         item.qty.toFixed(2), item.unit_price.toFixed(2),
-         item.vat_rate.toFixed(2), lineTotal.toFixed(2), i]
+        `INSERT INTO "Customer" (id, "companyId", name, email, phone, address, city, "zipCode", "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)`,
+        [id, co.id, name, email ?? null, phone ?? null, address ?? null, city ?? null, zip_code ?? null, now]
       );
+      return { content: [{ type: "text", text: `Klant aangemaakt! ID: ${id}, Naam: ${name}` }] };
     }
+  );
 
-    return {
-      content: [{
-        type: "text",
-        text: `Offerte aangemaakt!\nNummer: ${number}\nID: ${quoteId}\nTotaal (excl. btw): €${totalExVat.toFixed(2)}\nTotaal (incl. btw): €${totalIncVat.toFixed(2)}\n\nDeel link (na share_quote): /q/[token]`,
-      }],
-    };
-  }
-);
+  server.tool(
+    "list_products",
+    "Geef een lijst van producten/diensten voor een bedrijf, optioneel gefilterd op categorie",
+    {
+      company_slug: z.string().describe("Bedrijfsslug"),
+      category: z.string().optional().describe("Filter op categorie"),
+      active_only: z.boolean().optional().default(true).describe("Alleen actieve producten"),
+    },
+    async ({ company_slug, category, active_only }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
 
-// ── list_quotes ────────────────────────────────────────────────────────────────
-server.tool(
-  "list_quotes",
-  "Geef een overzicht van offertes voor een bedrijf",
-  {
-    company_slug: z.string().describe("Bedrijfsslug"),
-    status: z.enum(["DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"]).optional().describe("Filter op status"),
-    limit: z.number().optional().default(20).describe("Max aantal resultaten"),
-  },
-  async ({ company_slug, status, limit }) => {
-    const co = await queryOne<{ id: string }>(
-      `SELECT id FROM "Company" WHERE slug = $1`,
-      [company_slug]
-    );
-    if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+      let sql = `SELECT id, name, description, category, unit, "basePrice", "vatRate" FROM "Product" WHERE "companyId" = $1`;
+      const params: unknown[] = [co.id];
+      if (active_only !== false) { sql += ` AND active = true`; }
+      if (category) { sql += ` AND LOWER(category) = $${params.length + 1}`; params.push(category.toLowerCase()); }
+      sql += ` ORDER BY category, "sortOrder", name`;
 
-    let sql = `
-      SELECT q.id, q.number, q.title, q.status, q."totalIncVat", q."createdAt", q."validUntil",
-             c.name AS customer_name, c.email AS customer_email
-      FROM "Quote" q
-      JOIN "Customer" c ON c.id = q."customerId"
-      WHERE q."companyId" = $1
-    `;
-    const params: unknown[] = [co.id];
-    if (status) { sql += ` AND q.status = $2`; params.push(status); }
-    sql += ` ORDER BY q."createdAt" DESC LIMIT $${params.length + 1}`;
-    params.push(limit ?? 20);
+      const products = await query(sql, params);
+      return { content: [{ type: "text", text: JSON.stringify(products, null, 2) }] };
+    }
+  );
 
-    const quotes = await query(sql, params);
-    return {
-      content: [{ type: "text", text: JSON.stringify(quotes, null, 2) }],
-    };
-  }
-);
+  server.tool(
+    "create_quote",
+    "Maak een nieuwe offerte aan voor een klant, inclusief regels",
+    {
+      company_slug: z.string().describe("Bedrijfsslug: 'websup' of 'koolhaas'"),
+      customer_id: z.string().describe("ID van de klant (gebruik list_customers om te vinden)"),
+      title: z.string().optional().default("Persoonlijk voorstel").describe("Titel van de offerte"),
+      category: z.string().optional().default("Maatwerk project").describe("Categorie/type project"),
+      tagline: z.string().optional().describe("Ondertitel, bijv. 'Ontwerp · Bouw · Plaatsing'"),
+      itemsHeader: z.string().optional().describe("Kop boven de lijst met werkzaamheden/onderdelen"),
+      intro: z.string().optional().describe("Inleidende tekst"),
+      outro: z.string().optional().describe("Slottekst"),
+      notes: z.string().optional().describe("Opmerkingen/interne of zichtbare notities voor de offerte"),
+      flow: z.array(z.object({ n: z.number(), t: z.string(), d: z.string() })).optional().describe("Processtappen voor pagina 3"),
+      approach: z.array(z.object({ n: z.string(), t: z.string(), d: z.string() })).optional().describe("Werkwijze/fases voor pagina 3"),
+      options: z.array(z.object({ t: z.string(), d: z.string(), tag: z.string() })).optional().describe("Optionele uitbreidingen of meerwerk"),
+      exclusions: z.array(z.string()).optional().describe("Niet inbegrepen / uitsluitingen"),
+      valid_days: z.number().optional().default(30).describe("Geldigheidsduur in dagen"),
+      items: z.array(z.object({
+        description: z.string().describe("Omschrijving van het item"),
+        qty: z.number().default(1).describe("Aantal"),
+        unit_price: z.number().describe("Prijs per eenheid excl. btw"),
+        vat_rate: z.number().default(21).describe("BTW-percentage"),
+      })).describe("Offerteregels"),
+    },
+    async ({ company_slug, customer_id, title, category, tagline, itemsHeader, intro, outro, notes, flow, approach, options, exclusions, valid_days, items }) => {
+      const defaults = defaultTemplateFields(company_slug);
+      const quoteTitle = title === "Persoonlijk voorstel" ? defaults.title : title;
+      const quoteCategory = category === "Maatwerk project" ? defaults.category : category;
+      const quoteTagline = tagline ?? defaults.tagline;
+      const quoteItemsHeader = itemsHeader ?? defaults.itemsHeader;
+      const quoteFlow = flow ?? defaults.flow;
+      const quoteApproach = approach ?? defaults.approach;
+      const quoteOptions = options ?? defaults.options;
+      const quoteExclusions = exclusions ?? defaults.exclusions;
 
-// ── get_quote ──────────────────────────────────────────────────────────────────
-server.tool(
-  "get_quote",
-  "Haal alle details van een offerte op, inclusief regels en klantgegevens",
-  {
-    quote_id: z.string().describe("Quote ID"),
-  },
-  async ({ quote_id }) => {
-    const quote = await queryOne(
-      `SELECT q.*, c.name AS customer_name, c.email AS customer_email,
-              c.address AS customer_address, c.city AS customer_city,
-              co.name AS company_name, co.slug AS company_slug
-       FROM "Quote" q
-       JOIN "Customer" c ON c.id = q."customerId"
-       JOIN "Company" co ON co.id = q."companyId"
-       WHERE q.id = $1`,
-      [quote_id]
-    );
-    if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
 
-    const items = await query(
-      `SELECT id, description, qty, "unitPrice", "vatRate", total, "sortOrder"
-       FROM "QuoteItem" WHERE "quoteId" = $1 ORDER BY "sortOrder"`,
-      [quote_id]
-    );
+      const user = await queryOne<{ id: string }>(
+        `SELECT u.id FROM "User" u
+         JOIN "CompanyUser" cu ON cu."userId" = u.id
+         WHERE cu."companyId" = $1
+         ORDER BY u."createdAt" LIMIT 1`,
+        [co.id]
+      );
+      if (!user) return { content: [{ type: "text", text: "Geen gebruiker gevonden voor dit bedrijf." }] };
 
-    const share = await queryOne(
-      `SELECT token, "acceptedAt", "declinedAt", "viewedAt" FROM "QuoteShare" WHERE "quoteId" = $1`,
-      [quote_id]
-    );
+      let totalExVat = 0;
+      let totalVat = 0;
+      for (const item of items) {
+        const lineTotal = item.qty * item.unit_price;
+        totalExVat += lineTotal;
+        totalVat += lineTotal * (item.vat_rate / 100);
+      }
+      const totalIncVat = totalExVat + totalVat;
 
-    return {
-      content: [{
-        type: "text",
-        text: JSON.stringify({ ...quote, items, share }, null, 2),
-      }],
-    };
-  }
-);
+      const now = new Date().toISOString();
+      const validUntil = new Date(Date.now() + (valid_days ?? 30) * 86400000).toISOString();
+      const quoteId = crypto.randomUUID();
+      const number = generateQuoteNumber(company_slug);
 
-// ── update_quote ───────────────────────────────────────────────────────────────
-server.tool(
-  "update_quote",
-  "Pas velden van een bestaande offerte aan (titel, intro, status, etc.)",
-  {
-    quote_id: z.string().describe("Quote ID"),
-    title: z.string().optional(),
-    category: z.string().optional(),
-    tagline: z.string().optional(),
-    itemsHeader: z.string().optional(),
-    intro: z.string().optional(),
-    outro: z.string().optional(),
-    status: z.enum(["DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"]).optional(),
-    notes: z.string().optional(),
-    flow: z.array(z.object({ n: z.number(), t: z.string(), d: z.string() })).optional(),
-    approach: z.array(z.object({ n: z.string(), t: z.string(), d: z.string() })).optional(),
-    options: z.array(z.object({ t: z.string(), d: z.string(), tag: z.string() })).optional(),
-    exclusions: z.array(z.string()).optional(),
-  },
-  async ({ quote_id, ...updates }) => {
-    const fields = Object.entries(updates).filter(([, v]) => v !== undefined);
-    if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
+      await query(
+        `INSERT INTO "Quote" (id, "companyId", "customerId", "createdById", number, title, category, tagline,
+          "itemsHeader", intro, outro, notes, flow, approach, options, exclusions, status, "validUntil",
+          "totalExVat", "totalVat", "totalIncVat", "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16::jsonb,'DRAFT',$17,$18,$19,$20,$21,$21)`,
+        [quoteId, co.id, customer_id, user.id, number, quoteTitle, quoteCategory,
+         quoteTagline, quoteItemsHeader, intro ?? null, outro ?? null, notes ?? null,
+         JSON.stringify(quoteFlow), JSON.stringify(quoteApproach), JSON.stringify(quoteOptions), JSON.stringify(quoteExclusions),
+         validUntil, totalExVat.toFixed(2), totalVat.toFixed(2), totalIncVat.toFixed(2), now]
+      );
 
-    const jsonFields = new Set(["flow", "approach", "options", "exclusions"]);
-    const setClauses = fields.map(([k], i) => `"${k}" = $${i + 2}${jsonFields.has(k) ? "::jsonb" : ""}`);
-    const values = [
-      quote_id,
-      ...fields.map(([k, v]) => (jsonFields.has(k) ? JSON.stringify(v) : v)),
-    ];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const lineTotal = item.qty * item.unit_price;
+        await query(
+          `INSERT INTO "QuoteItem" (id, "quoteId", description, qty, "unitPrice", "vatRate", total, "sortOrder")
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [crypto.randomUUID(), quoteId, item.description,
+           item.qty.toFixed(2), item.unit_price.toFixed(2),
+           item.vat_rate.toFixed(2), lineTotal.toFixed(2), i]
+        );
+      }
 
-    await query(
-      `UPDATE "Quote" SET ${setClauses.join(", ")}, "updatedAt" = NOW() WHERE id = $1`,
-      values
-    );
-
-    return { content: [{ type: "text", text: `Offerte ${quote_id} bijgewerkt.` }] };
-  }
-);
-
-// ── share_quote ────────────────────────────────────────────────────────────────
-server.tool(
-  "share_quote",
-  "Maak een deelbare portaallink voor een offerte (of haal de bestaande op)",
-  {
-    quote_id: z.string().describe("Quote ID"),
-  },
-  async ({ quote_id }) => {
-    const quote = await queryOne<{ id: string; status: string }>(
-      `SELECT id, status FROM "Quote" WHERE id = $1`,
-      [quote_id]
-    );
-    if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
-
-    // Check for existing share
-    const existing = await queryOne<{ token: string }>(
-      `SELECT token FROM "QuoteShare" WHERE "quoteId" = $1`,
-      [quote_id]
-    );
-
-    if (existing) {
       return {
         content: [{
           type: "text",
-          text: `Bestaande deellink: /q/${existing.token}\nVolledig: https://[jouw-domein]/q/${existing.token}`,
+          text: `Offerte aangemaakt!\nNummer: ${number}\nID: ${quoteId}\nTotaal excl. btw: €${totalExVat.toFixed(2)}\nTotaal incl. btw: €${totalIncVat.toFixed(2)}`,
         }],
       };
     }
+  );
 
-    const token = generateToken();
-    const now = new Date().toISOString();
-    await query(
-      `INSERT INTO "QuoteShare" (id, "quoteId", token, "createdAt") VALUES ($1, $2, $3, $4)`,
-      [crypto.randomUUID(), quote_id, token, now]
-    );
+  server.tool(
+    "list_quotes",
+    "Geef een overzicht van offertes voor een bedrijf",
+    {
+      company_slug: z.string().describe("Bedrijfsslug"),
+      status: z.enum(["DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"]).optional().describe("Filter op status"),
+      limit: z.number().optional().default(20).describe("Max aantal resultaten"),
+    },
+    async ({ company_slug, status, limit }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
 
-    // Update status to SENT
-    await query(
-      `UPDATE "Quote" SET status = 'SENT', "updatedAt" = NOW() WHERE id = $1 AND status = 'DRAFT'`,
-      [quote_id]
-    );
+      let sql = `
+        SELECT q.id, q.number, q.title, q.status, q."totalIncVat", q."createdAt", q."validUntil",
+               c.name AS customer_name, c.email AS customer_email
+        FROM "Quote" q
+        JOIN "Customer" c ON c.id = q."customerId"
+        WHERE q."companyId" = $1
+      `;
+      const params: unknown[] = [co.id];
+      if (status) { sql += ` AND q.status = $2`; params.push(status); }
+      sql += ` ORDER BY q."createdAt" DESC LIMIT $${params.length + 1}`;
+      params.push(limit ?? 20);
 
-    return {
-      content: [{
-        type: "text",
-        text: `Deellink aangemaakt!\nPortaal URL: /q/${token}\nVolledig: https://[jouw-domein]/q/${token}\n\nDeel deze link met de klant. Zij kunnen de offerte bekijken en direct akkoord geven.`,
-      }],
-    };
-  }
-);
+      const quotes = await query(sql, params);
+      return { content: [{ type: "text", text: JSON.stringify(quotes, null, 2) }] };
+    }
+  );
 
-// ── add_quote_item ─────────────────────────────────────────────────────────────
-server.tool(
-  "add_quote_item",
-  "Voeg een regel toe aan een bestaande offerte en herbereken de totalen",
-  {
-    quote_id: z.string().describe("Quote ID"),
-    description: z.string().describe("Omschrijving"),
-    qty: z.number().default(1).describe("Aantal"),
-    unit_price: z.number().describe("Prijs excl. btw"),
-    vat_rate: z.number().default(21).describe("BTW-percentage"),
-  },
-  async ({ quote_id, description, qty, unit_price, vat_rate }) => {
-    const quote = await queryOne<{ id: string }>(
-      `SELECT id FROM "Quote" WHERE id = $1`,
-      [quote_id]
-    );
-    if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+  server.tool(
+    "get_quote",
+    "Haal alle details van een offerte op, inclusief regels en klantgegevens",
+    { quote_id: z.string().describe("Quote ID") },
+    async ({ quote_id }) => {
+      const quote = await queryOne(
+        `SELECT q.*, c.name AS customer_name, c.email AS customer_email,
+                c.address AS customer_address, c.city AS customer_city,
+                co.name AS company_name, co.slug AS company_slug
+         FROM "Quote" q
+         JOIN "Customer" c ON c.id = q."customerId"
+         JOIN "Company" co ON co.id = q."companyId"
+         WHERE q.id = $1`,
+        [quote_id]
+      );
+      if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
 
-    const lineTotal = qty * unit_price;
-    const lineVat = lineTotal * (vat_rate / 100);
+      const items = await query(
+        `SELECT id, description, qty, "unitPrice", "vatRate", total, "sortOrder"
+         FROM "QuoteItem" WHERE "quoteId" = $1 ORDER BY "sortOrder"`,
+        [quote_id]
+      );
+      const share = await queryOne(
+        `SELECT token, "acceptedAt", "declinedAt", "viewedAt" FROM "QuoteShare" WHERE "quoteId" = $1`,
+        [quote_id]
+      );
 
-    const maxSort = await queryOne<{ max: number }>(
-      `SELECT COALESCE(MAX("sortOrder"), -1) AS max FROM "QuoteItem" WHERE "quoteId" = $1`,
-      [quote_id]
-    );
+      return { content: [{ type: "text", text: JSON.stringify({ ...quote, items, share }, null, 2) }] };
+    }
+  );
 
-    await query(
-      `INSERT INTO "QuoteItem" (id, "quoteId", description, qty, "unitPrice", "vatRate", total, "sortOrder")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [crypto.randomUUID(), quote_id, description,
-       qty.toFixed(2), unit_price.toFixed(2), vat_rate.toFixed(2),
-       lineTotal.toFixed(2), (maxSort?.max ?? -1) + 1]
-    );
+  server.tool(
+    "update_quote",
+    "Pas velden van een bestaande offerte aan (titel, intro, status, etc.)",
+    {
+      quote_id: z.string().describe("Quote ID"),
+      title: z.string().optional(),
+      category: z.string().optional(),
+      tagline: z.string().optional(),
+      itemsHeader: z.string().optional(),
+      intro: z.string().optional(),
+      outro: z.string().optional(),
+      status: z.enum(["DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"]).optional(),
+      notes: z.string().optional(),
+      flow: z.array(z.object({ n: z.number(), t: z.string(), d: z.string() })).optional(),
+      approach: z.array(z.object({ n: z.string(), t: z.string(), d: z.string() })).optional(),
+      options: z.array(z.object({ t: z.string(), d: z.string(), tag: z.string() })).optional(),
+      exclusions: z.array(z.string()).optional(),
+    },
+    async ({ quote_id, ...updates }) => {
+      const fields = Object.entries(updates).filter(([, v]) => v !== undefined);
+      if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
 
-    // Recalculate totals
-    await query(
-      `UPDATE "Quote" SET
-        "totalExVat"  = (SELECT SUM(qty * "unitPrice") FROM "QuoteItem" WHERE "quoteId" = $1),
-        "totalVat"    = (SELECT SUM(qty * "unitPrice" * "vatRate" / 100) FROM "QuoteItem" WHERE "quoteId" = $1),
-        "totalIncVat" = (SELECT SUM(qty * "unitPrice" * (1 + "vatRate" / 100)) FROM "QuoteItem" WHERE "quoteId" = $1),
-        "updatedAt"   = NOW()
-       WHERE id = $1`,
-      [quote_id]
-    );
+      const jsonFields = new Set(["flow", "approach", "options", "exclusions"]);
+      const setClauses = fields.map(([k], i) => `"${k}" = $${i + 2}${jsonFields.has(k) ? "::jsonb" : ""}`);
+      const values = [
+        quote_id,
+        ...fields.map(([k, v]) => (jsonFields.has(k) ? JSON.stringify(v) : v)),
+      ];
 
-    return {
-      content: [{
-        type: "text",
-        text: `Regel toegevoegd: "${description}" — €${lineTotal.toFixed(2)} excl. btw (+ €${lineVat.toFixed(2)} btw). Totalen herberekend.`,
-      }],
-    };
-  }
-);
+      await query(
+        `UPDATE "Quote" SET ${setClauses.join(", ")}, "updatedAt" = NOW() WHERE id = $1`,
+        values
+      );
 
-// ── get_stats ──────────────────────────────────────────────────────────────────
-server.tool(
-  "get_stats",
-  "Haal statistieken op voor een bedrijf: aantal offertes per status, totaalwaarde, klanten",
-  {
-    company_slug: z.string().describe("Bedrijfsslug"),
-  },
-  async ({ company_slug }) => {
-    const co = await queryOne<{ id: string }>(
-      `SELECT id FROM "Company" WHERE slug = $1`,
-      [company_slug]
-    );
-    if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+      return { content: [{ type: "text", text: `Offerte ${quote_id} bijgewerkt.` }] };
+    }
+  );
 
-    const [statusStats, customerCount, totalValue] = await Promise.all([
-      query(
-        `SELECT status, COUNT(*) AS count FROM "Quote" WHERE "companyId" = $1 GROUP BY status`,
-        [co.id]
-      ),
-      queryOne<{ count: string }>(
-        `SELECT COUNT(*) AS count FROM "Customer" WHERE "companyId" = $1`,
-        [co.id]
-      ),
-      queryOne<{ total: string }>(
-        `SELECT COALESCE(SUM("totalIncVat"), 0) AS total FROM "Quote"
-         WHERE "companyId" = $1 AND status IN ('SENT','VIEWED','ACCEPTED')`,
-        [co.id]
-      ),
-    ]);
+  server.tool(
+    "share_quote",
+    "Maak een deelbare portaallink voor een offerte (of haal de bestaande op)",
+    { quote_id: z.string().describe("Quote ID") },
+    async ({ quote_id }) => {
+      const quote = await queryOne<{ id: string; status: string }>(
+        `SELECT id, status FROM "Quote" WHERE id = $1`,
+        [quote_id]
+      );
+      if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
 
-    return {
-      content: [{
-        type: "text",
-        text: JSON.stringify({
-          offertes_per_status: statusStats,
-          totaal_klanten: customerCount?.count ?? 0,
-          totaalwaarde_openstaand: `€${Number(totalValue?.total ?? 0).toFixed(2)}`,
-        }, null, 2),
-      }],
-    };
-  }
-);
+      const existing = await queryOne<{ token: string }>(
+        `SELECT token FROM "QuoteShare" WHERE "quoteId" = $1`,
+        [quote_id]
+      );
 
-// ─── Start ────────────────────────────────────────────────────────────────────
+      if (existing) {
+        return { content: [{ type: "text", text: `Bestaande deellink: /q/${existing.token}` }] };
+      }
 
-async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  process.stderr.write("WebsUp Quote MCP server gestart op stdio\n");
+      const token = generateToken();
+      const now = new Date().toISOString();
+      await query(
+        `INSERT INTO "QuoteShare" (id, "quoteId", token, "createdAt") VALUES ($1, $2, $3, $4)`,
+        [crypto.randomUUID(), quote_id, token, now]
+      );
+      await query(
+        `UPDATE "Quote" SET status = 'SENT', "updatedAt" = NOW() WHERE id = $1 AND status = 'DRAFT'`,
+        [quote_id]
+      );
+
+      return { content: [{ type: "text", text: `Deellink aangemaakt!\nPortaal: /q/${token}` }] };
+    }
+  );
+
+  server.tool(
+    "add_quote_item",
+    "Voeg een regel toe aan een bestaande offerte en herbereken de totalen",
+    {
+      quote_id: z.string().describe("Quote ID"),
+      description: z.string().describe("Omschrijving"),
+      qty: z.number().default(1).describe("Aantal"),
+      unit_price: z.number().describe("Prijs excl. btw"),
+      vat_rate: z.number().default(21).describe("BTW-percentage"),
+    },
+    async ({ quote_id, description, qty, unit_price, vat_rate }) => {
+      const quote = await queryOne<{ id: string }>(`SELECT id FROM "Quote" WHERE id = $1`, [quote_id]);
+      if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+
+      const lineTotal = qty * unit_price;
+      const lineVat = lineTotal * (vat_rate / 100);
+
+      const maxSort = await queryOne<{ max: number }>(
+        `SELECT COALESCE(MAX("sortOrder"), -1) AS max FROM "QuoteItem" WHERE "quoteId" = $1`,
+        [quote_id]
+      );
+
+      await query(
+        `INSERT INTO "QuoteItem" (id, "quoteId", description, qty, "unitPrice", "vatRate", total, "sortOrder")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [crypto.randomUUID(), quote_id, description,
+         qty.toFixed(2), unit_price.toFixed(2), vat_rate.toFixed(2),
+         lineTotal.toFixed(2), (maxSort?.max ?? -1) + 1]
+      );
+
+      await query(
+        `UPDATE "Quote" SET
+          "totalExVat"  = (SELECT SUM(qty * "unitPrice") FROM "QuoteItem" WHERE "quoteId" = $1),
+          "totalVat"    = (SELECT SUM(qty * "unitPrice" * "vatRate" / 100) FROM "QuoteItem" WHERE "quoteId" = $1),
+          "totalIncVat" = (SELECT SUM(qty * "unitPrice" * (1 + "vatRate" / 100)) FROM "QuoteItem" WHERE "quoteId" = $1),
+          "updatedAt"   = NOW()
+         WHERE id = $1`,
+        [quote_id]
+      );
+
+      return {
+        content: [{
+          type: "text",
+          text: `Regel toegevoegd: "${description}" — €${lineTotal.toFixed(2)} excl. btw (+ €${lineVat.toFixed(2)} btw). Totalen herberekend.`,
+        }],
+      };
+    }
+  );
+
+  server.tool(
+    "get_stats",
+    "Haal statistieken op voor een bedrijf: aantal offertes per status, totaalwaarde, klanten",
+    { company_slug: z.string().describe("Bedrijfsslug") },
+    async ({ company_slug }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+      const [statusStats, customerCount, totalValue] = await Promise.all([
+        query(`SELECT status, COUNT(*) AS count FROM "Quote" WHERE "companyId" = $1 GROUP BY status`, [co.id]),
+        queryOne<{ count: string }>(`SELECT COUNT(*) AS count FROM "Customer" WHERE "companyId" = $1`, [co.id]),
+        queryOne<{ total: string }>(
+          `SELECT COALESCE(SUM("totalIncVat"), 0) AS total FROM "Quote"
+           WHERE "companyId" = $1 AND status IN ('SENT','VIEWED','ACCEPTED')`,
+          [co.id]
+        ),
+      ]);
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            offertes_per_status: statusStats,
+            totaal_klanten: customerCount?.count ?? 0,
+            totaalwaarde_openstaand: `€${Number(totalValue?.total ?? 0).toFixed(2)}`,
+          }, null, 2),
+        }],
+      };
+    }
+  );
+
+  return server;
 }
 
-main().catch((err) => {
-  process.stderr.write(`MCP server fout: ${err}\n`);
-  process.exit(1);
+// ─── HTTP Server ──────────────────────────────────────────────────────────────
+
+const app = express();
+app.use(express.json({ limit: "4mb" }));
+
+const MCP_API_KEY = process.env.MCP_API_KEY;
+
+app.use("/mcp", (req: Request, res: Response, next) => {
+  if (MCP_API_KEY) {
+    const auth = req.headers.authorization;
+    if (auth !== `Bearer ${MCP_API_KEY}`) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+  }
+  next();
+});
+
+app.post("/mcp", async (req: Request, res: Response) => {
+  try {
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    const server = createMcpServer();
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  } catch (err) {
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+});
+
+app.get("/health", (_req: Request, res: Response) => {
+  res.json({ status: "ok", service: "websup-quote-mcp" });
+});
+
+const PORT = process.env.PORT ?? 3001;
+app.listen(PORT, () => {
+  process.stderr.write(`WebsUp Quote MCP server draait op http://0.0.0.0:${PORT}/mcp\n`);
 });
