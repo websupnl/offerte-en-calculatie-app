@@ -199,6 +199,71 @@ function createMcpServer() {
   );
 
   server.tool(
+    "get_customer",
+    "Haal details van één klant op, inclusief alle offertes",
+    { customer_id: z.string().describe("Klant-ID") },
+    async ({ customer_id }) => {
+      const customer = await queryOne(
+        `SELECT c.*, co.slug AS company_slug FROM "Customer" c
+         JOIN "Company" co ON co.id = c."companyId"
+         WHERE c.id = $1`,
+        [customer_id]
+      );
+      if (!customer) return { content: [{ type: "text", text: `Klant ${customer_id} niet gevonden.` }] };
+
+      const quotes = await query(
+        `SELECT id, number, title, status, "totalIncVat", "createdAt" FROM "Quote"
+         WHERE "customerId" = $1 ORDER BY "createdAt" DESC`,
+        [customer_id]
+      );
+      return { content: [{ type: "text", text: JSON.stringify({ ...customer, quotes }, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "update_customer",
+    "Pas klantgegevens aan",
+    {
+      customer_id: z.string().describe("Klant-ID"),
+      name: z.string().optional(),
+      email: z.string().optional(),
+      phone: z.string().optional(),
+      address: z.string().optional(),
+      city: z.string().optional(),
+      zip_code: z.string().optional(),
+      notes: z.string().optional(),
+    },
+    async ({ customer_id, name, email, phone, address, city, zip_code, notes }) => {
+      const map: Record<string, unknown> = { name, email, phone, address, city, notes };
+      if (zip_code !== undefined) map["zipCode"] = zip_code;
+      const fields = Object.entries(map).filter(([, v]) => v !== undefined);
+      if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
+
+      const setClauses = fields.map(([k], i) => `"${k}" = $${i + 2}`);
+      await query(
+        `UPDATE "Customer" SET ${setClauses.join(", ")}, "updatedAt" = NOW() WHERE id = $1`,
+        [customer_id, ...fields.map(([, v]) => v)]
+      );
+      return { content: [{ type: "text", text: `Klant ${customer_id} bijgewerkt.` }] };
+    }
+  );
+
+  server.tool(
+    "delete_quote",
+    "Verwijder een offerte inclusief alle regels en deellinks",
+    { quote_id: z.string().describe("Quote ID") },
+    async ({ quote_id }) => {
+      const quote = await queryOne<{ number: string }>(
+        `SELECT number FROM "Quote" WHERE id = $1`, [quote_id]
+      );
+      if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+
+      await query(`DELETE FROM "Quote" WHERE id = $1`, [quote_id]);
+      return { content: [{ type: "text", text: `Offerte ${quote.number} verwijderd.` }] };
+    }
+  );
+
+  server.tool(
     "list_products",
     "Geef een lijst van producten/diensten voor een bedrijf, optioneel gefilterd op categorie",
     {
@@ -218,6 +283,180 @@ function createMcpServer() {
 
       const products = await query(sql, params);
       return { content: [{ type: "text", text: JSON.stringify(products, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "create_product",
+    "Voeg een nieuw product of dienst toe aan de catalogus van een bedrijf",
+    {
+      company_slug: z.string().describe("Bedrijfsslug"),
+      name: z.string().describe("Productnaam"),
+      category: z.string().describe("Categorie, bijv. 'Installatie', 'Materiaal', 'Dienst'"),
+      description: z.string().optional().describe("Omschrijving"),
+      unit: z.string().optional().default("stuk").describe("Eenheid, bijv. 'stuk', 'uur', 'meter'"),
+      base_price: z.number().describe("Basisprijs excl. btw"),
+      vat_rate: z.number().optional().default(21).describe("BTW-percentage"),
+      specs: z.record(z.string(), z.unknown()).optional().describe("Extra specs als JSON"),
+    },
+    async ({ company_slug, name, category, description, unit, base_price, vat_rate, specs }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+      await query(
+        `INSERT INTO "Product" (id, "companyId", name, category, description, unit, "basePrice", "vatRate", specs, active, "sortOrder", "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,true,0,$10,$10)`,
+        [id, co.id, name, category, description ?? null, unit ?? "stuk", base_price.toFixed(2), (vat_rate ?? 21).toFixed(2), JSON.stringify(specs ?? {}), now]
+      );
+      return { content: [{ type: "text", text: `Product aangemaakt: "${name}" (ID: ${id})` }] };
+    }
+  );
+
+  server.tool(
+    "update_product",
+    "Pas een product in de catalogus aan",
+    {
+      product_id: z.string().describe("Product-ID"),
+      name: z.string().optional(),
+      category: z.string().optional(),
+      description: z.string().optional(),
+      unit: z.string().optional(),
+      base_price: z.number().optional(),
+      vat_rate: z.number().optional(),
+      active: z.boolean().optional().describe("Actief of inactief"),
+      specs: z.record(z.string(), z.unknown()).optional(),
+    },
+    async ({ product_id, name, category, description, unit, base_price, vat_rate, active, specs }) => {
+      const map: Record<string, unknown> = { name, category, description, unit, active };
+      if (base_price !== undefined) map["basePrice"] = base_price.toFixed(2);
+      if (vat_rate !== undefined) map["vatRate"] = vat_rate.toFixed(2);
+      if (specs !== undefined) map["specs"] = JSON.stringify(specs);
+
+      const fields = Object.entries(map).filter(([, v]) => v !== undefined);
+      if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
+
+      const jsonFields = new Set(["specs"]);
+      const setClauses = fields.map(([k], i) => `"${k}" = $${i + 2}${jsonFields.has(k) ? "::jsonb" : ""}`);
+      await query(
+        `UPDATE "Product" SET ${setClauses.join(", ")}, "updatedAt" = NOW() WHERE id = $1`,
+        [product_id, ...fields.map(([, v]) => v)]
+      );
+      return { content: [{ type: "text", text: `Product ${product_id} bijgewerkt.` }] };
+    }
+  );
+
+  server.tool(
+    "delete_product",
+    "Verwijder een product uit de catalogus (alleen als het niet gekoppeld is aan offerteregels)",
+    { product_id: z.string().describe("Product-ID") },
+    async ({ product_id }) => {
+      const product = await queryOne<{ name: string }>(
+        `SELECT name FROM "Product" WHERE id = $1`, [product_id]
+      );
+      if (!product) return { content: [{ type: "text", text: `Product ${product_id} niet gevonden.` }] };
+
+      const inUse = await queryOne<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM "QuoteItem" WHERE "productId" = $1`, [product_id]
+      );
+      if (Number(inUse?.count) > 0) {
+        return { content: [{ type: "text", text: `Product "${product.name}" is gekoppeld aan ${inUse?.count} offerteregels. Zet het eerst op inactief met update_product.` }] };
+      }
+
+      await query(`DELETE FROM "Product" WHERE id = $1`, [product_id]);
+      return { content: [{ type: "text", text: `Product "${product.name}" verwijderd.` }] };
+    }
+  );
+
+  server.tool(
+    "list_product_sets",
+    "Geef een overzicht van productsets (standaardpakketten) voor een bedrijf",
+    {
+      company_slug: z.string().describe("Bedrijfsslug"),
+      include_items: z.boolean().optional().default(false).describe("Inclusief de losse producten per set"),
+    },
+    async ({ company_slug, include_items }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+      const sets = await query(
+        `SELECT id, name, description, category FROM "ProductSet" WHERE "companyId" = $1 AND active = true ORDER BY name`,
+        [co.id]
+      );
+
+      if (!include_items) {
+        return { content: [{ type: "text", text: JSON.stringify(sets, null, 2) }] };
+      }
+
+      const result = [];
+      for (const set of sets) {
+        const items = await query(
+          `SELECT p.id AS product_id, p.name, p.category, p."basePrice", p.unit, psi.qty
+           FROM "ProductSetItem" psi
+           JOIN "Product" p ON p.id = psi."productId"
+           WHERE psi."setId" = $1 ORDER BY psi."sortOrder"`,
+          [(set as Record<string, unknown>).id]
+        );
+        result.push({ ...set, items });
+      }
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "add_set_to_quote",
+    "Voeg alle producten uit een productset in één keer toe aan een offerte. Handig voor standaardpakketten.",
+    {
+      quote_id: z.string().describe("Quote ID"),
+      set_id: z.string().describe("Productset-ID (gebruik list_product_sets om te vinden)"),
+      price_override: z.number().optional().describe("Overschrijf de basisprijs van alle items met dit percentage (bijv. 110 = 10% opslag)"),
+    },
+    async ({ quote_id, set_id, price_override }) => {
+      const quote = await queryOne<{ id: string }>(
+        `SELECT id FROM "Quote" WHERE id = $1`, [quote_id]
+      );
+      if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+
+      const items = await query<{ productId: string; name: string; basePrice: string; vatRate: string; unit: string; qty: string }>(
+        `SELECT p.id AS "productId", p.name, p."basePrice", p."vatRate", p.unit, psi.qty
+         FROM "ProductSetItem" psi
+         JOIN "Product" p ON p.id = psi."productId"
+         WHERE psi."setId" = $1 ORDER BY psi."sortOrder"`,
+        [set_id]
+      );
+      if (items.length === 0) return { content: [{ type: "text", text: `Productset ${set_id} niet gevonden of leeg.` }] };
+
+      const maxSort = await queryOne<{ max: number }>(
+        `SELECT COALESCE(MAX("sortOrder"), -1) AS max FROM "QuoteItem" WHERE "quoteId" = $1`, [quote_id]
+      );
+      let sortOrder = (maxSort?.max ?? -1) + 1;
+
+      for (const item of items) {
+        const basePrice = Number(item.basePrice);
+        const unitPrice = price_override ? basePrice * (price_override / 100) : basePrice;
+        const qty = Number(item.qty);
+        const vatRate = Number(item.vatRate);
+        await query(
+          `INSERT INTO "QuoteItem" (id, "quoteId", "productId", description, qty, "unitPrice", "vatRate", total, "sortOrder")
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [crypto.randomUUID(), quote_id, item.productId, item.name,
+           qty.toFixed(2), unitPrice.toFixed(2), vatRate.toFixed(2),
+           (qty * unitPrice).toFixed(2), sortOrder++]
+        );
+      }
+
+      await query(
+        `UPDATE "Quote" SET
+          "totalExVat"  = (SELECT SUM(qty * "unitPrice") FROM "QuoteItem" WHERE "quoteId" = $1),
+          "totalVat"    = (SELECT SUM(qty * "unitPrice" * "vatRate" / 100) FROM "QuoteItem" WHERE "quoteId" = $1),
+          "totalIncVat" = (SELECT SUM(qty * "unitPrice" * (1 + "vatRate" / 100)) FROM "QuoteItem" WHERE "quoteId" = $1),
+          "updatedAt"   = NOW()
+         WHERE id = $1`,
+        [quote_id]
+      );
+
+      return { content: [{ type: "text", text: `${items.length} producten uit de set toegevoegd aan offerte ${quote_id}. Totalen herberekend.` }] };
     }
   );
 
