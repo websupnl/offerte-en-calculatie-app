@@ -50,20 +50,26 @@ type QuotePDFProps = {
   exclusions?: string[];
 };
 
-const logoDataUri = (fileName: string) => {
+const logoDataUri = (fileName: string): string => {
   try {
     const buffer = readFileSync(`${process.cwd()}/public/logos/${fileName}`);
-    return `data:image/png;base64,${buffer.toString("base64")}`;
+    const ext = fileName.split(".").pop()?.toLowerCase();
+    const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
+    return `data:${mime};base64,${buffer.toString("base64")}`;
   } catch {
     return "";
   }
 };
 
+// Profile photo — used on cover and signature avatar
+const PROFILE_PHOTO = logoDataUri("daan-koolhaas.jpg");
+
 type BrandConfig = {
   key: BrandKey;
   name: string;
-  logoPath: string;
-  logoPathDark?: string;
+  logoWhite: string;
+  logoColor: string;
+  logoIcon: string;
   website: string;
   email: string;
   phone: string;
@@ -75,6 +81,7 @@ type BrandConfig = {
   summaryGoal: string;
   delivery: string;
   itemsHeader: string;
+  itemsEyebrow: string;
   processEyebrow: string;
   processTitle: string;
   approachEyebrow: string;
@@ -88,7 +95,6 @@ type BrandConfig = {
   exclusionsTitle: string;
   closingTitle: string;
   contractor: string;
-  footerLine: string;
   colors: {
     primary: string;
     accent: string;
@@ -110,18 +116,21 @@ const BRANDS: Record<BrandKey, BrandConfig> = {
   websup: {
     key: "websup",
     name: "WebsUp.nl",
-    logoPath: logoDataUri("websup-white.png"),
+    logoWhite: logoDataUri("websup-white.png"),
+    logoColor: logoDataUri("websup-color.png"),
+    logoIcon: logoDataUri("websup-icon.png"),
     website: "webs-up.nl",
     email: "hallo@websup.nl",
     phone: "+31 6 82 20 21 48",
     role: "Eigenaar WebsUp.nl",
     defaultCategory: "Maatwerk project",
     defaultTitle: "Persoonlijk voorstel op maat",
-    defaultTagline: "Ontwerp - Bouw - Plaatsing",
+    defaultTagline: "Ontwerp - Bouw - Oplevering",
     phaseLabel: "Fase 1",
     summaryGoal: "Complete, gestructureerde aanvragen - minder navraag achteraf",
     delivery: "Indicatie 4-6 weken na akkoord",
-    itemsHeader: "Onderdelen binnen fase 1.",
+    itemsHeader: "Diensten en onderdelen.",
+    itemsEyebrow: "Wat wordt er opgeleverd",
     processEyebrow: "Het proces",
     processTitle: "In duidelijke stappen.",
     approachEyebrow: "De werkwijze",
@@ -135,7 +144,6 @@ const BRANDS: Record<BrandKey, BrandConfig> = {
     exclusionsTitle: "Niet standaard inbegrepen.",
     closingTitle: "Zetten we de stap?",
     contractor: "WebsUp.nl - Daan Koolhaas",
-    footerLine: "WebsUp.nl - Daan Koolhaas - Friesland",
     colors: {
       primary: "#06040c",
       accent: "#f97316",
@@ -173,8 +181,9 @@ const BRANDS: Record<BrandKey, BrandConfig> = {
   koolhaas: {
     key: "koolhaas",
     name: "Koolhaas Installaties",
-    logoPath: logoDataUri("koolhaas-logo-tight.png"),
-    logoPathDark: logoDataUri("koolhaas-logo-tight.png"),
+    logoWhite: logoDataUri("koolhaas-logo-tight.png"),
+    logoColor: logoDataUri("koolhaas-logo-tight.png"),
+    logoIcon: logoDataUri("koolhaas-icon.png"),
     website: "koolhaasinstallaties.nl",
     email: "daan@koolhaasinstallaties.nl",
     phone: "+31 6 82 20 21 48",
@@ -185,7 +194,8 @@ const BRANDS: Record<BrandKey, BrandConfig> = {
     phaseLabel: "Installatie",
     summaryGoal: "Eigen zonnestroom opslaan en slim verbruiken",
     delivery: "Installatie in 1 dag - ca. 2-3 weken na akkoord",
-    itemsHeader: "Wat wordt er geinstalleerd",
+    itemsHeader: "Wat wordt er geinstalleerd.",
+    itemsEyebrow: "Wat wordt er geleverd",
     processEyebrow: "Planning",
     processTitle: "Van akkoord tot werkende installatie.",
     approachEyebrow: "Werkwijze",
@@ -199,7 +209,6 @@ const BRANDS: Record<BrandKey, BrandConfig> = {
     exclusionsTitle: "Duidelijke grenzen aan de scope.",
     closingTitle: "Akkoord voor uitvoering",
     contractor: "Koolhaas Installaties - Daan Koolhaas",
-    footerLine: "Koolhaas Installaties - Daan Koolhaas - Friesland",
     colors: {
       primary: "#0c1f3d",
       accent: "#1f9ba3",
@@ -248,31 +257,33 @@ function formatAmt(amount: number): string {
   return new Intl.NumberFormat("nl-NL").format(amount);
 }
 
-// ─── Shared page header (inner pages) ────────────────────────────────────────
+// ─── Shared page header ───────────────────────────────────────────────────────
 
 function PageHeader({ brand, quoteNumber, customerName }: { brand: BrandConfig; quoteNumber: string; customerName: string }) {
   return (
     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-      {brand.key === "websup" ? (
-        <View style={{ flexDirection: "row", alignItems: "baseline", gap: 2 }}>
-          <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: brand.colors.primary }}>Webs</Text>
-          <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: brand.colors.accent }}>Up.</Text>
+      {brand.key === "websup" && brand.logoColor ? (
+        <Image src={brand.logoColor} style={{ height: 16, width: 72, objectFit: "contain", objectPositionX: "0%" }} />
+      ) : brand.key === "websup" ? (
+        <View style={{ flexDirection: "row", alignItems: "baseline", gap: 1 }}>
+          <Text style={{ fontSize: 16, fontFamily: "Helvetica-Bold", color: brand.colors.primary }}>Webs</Text>
+          <Text style={{ fontSize: 16, fontFamily: "Helvetica-Bold", color: brand.colors.accent }}>Up.</Text>
         </View>
       ) : (
-        <Image src={brand.logoPathDark || brand.logoPath} style={{ height: 18, width: 60, objectFit: "contain" }} />
+        <Image src={brand.logoColor} style={{ height: 18, width: 64, objectFit: "contain", objectPositionX: "0%" }} />
       )}
       <Text style={{ fontSize: 8, color: brand.colors.muted }}>{quoteNumber} &nbsp;&middot;&nbsp; {customerName}</Text>
     </View>
   );
 }
 
-// ─── Divider ─────────────────────────────────────────────────────────────────
+// ─── Divider ──────────────────────────────────────────────────────────────────
 
 function Divider({ color }: { color: string }) {
-  return <View style={{ height: 1, backgroundColor: "#F1F5F9", marginVertical: 18 }} />;
+  return <View style={{ height: 1, backgroundColor: "#F1F5F9", marginVertical: 16 }} />;
 }
 
-// ─── Eyebrow + H2 ────────────────────────────────────────────────────────────
+// ─── Eyebrow + H2 ─────────────────────────────────────────────────────────────
 
 function Eyebrow({ text, color }: { text: string; color: string }) {
   return (
@@ -284,13 +295,13 @@ function Eyebrow({ text, color }: { text: string; color: string }) {
 
 function H2({ text, color = "#0F172A" }: { text: string; color?: string }) {
   return (
-    <Text style={{ fontSize: 18, fontFamily: "Helvetica-Bold", color, marginBottom: 14, lineHeight: 1.2 }}>
+    <Text style={{ fontSize: 17, fontFamily: "Helvetica-Bold", color, marginBottom: 12, lineHeight: 1.2 }}>
       {text}
     </Text>
   );
 }
 
-// ─── Page footer ─────────────────────────────────────────────────────────────
+// ─── Page footer ──────────────────────────────────────────────────────────────
 
 function PageFooter({ tag, page, customerName }: { tag: string; page: string; customerName: string }) {
   return (
@@ -305,7 +316,7 @@ function PageFooter({ tag, page, customerName }: { tag: string; page: string; cu
   );
 }
 
-// ─── MAIN DOCUMENT ───────────────────────────────────────────────────────────
+// ─── MAIN DOCUMENT ────────────────────────────────────────────────────────────
 
 export function QuotePDF({
   companySlug,
@@ -345,11 +356,13 @@ export function QuotePDF({
 
   const PAD = 38;
   const innerPage = { padding: PAD, paddingTop: 30, paddingBottom: 50 };
-  const coverLight = isKoolhaas;
-  const coverText = coverLight ? brand.colors.text : "#FFFFFF";
-  const coverMuted = coverLight ? brand.colors.muted : "rgba(255,255,255,0.45)";
-  const coverSoft = coverLight ? brand.colors.surface : "rgba(255,255,255,0.08)";
-  const coverBorder = coverLight ? brand.colors.border : "rgba(255,255,255,0.12)";
+
+  // Cover uses dark left panel for WebsUp, light for Koolhaas
+  const coverDark = !isKoolhaas;
+  const coverText = coverDark ? "#FFFFFF" : brand.colors.text;
+  const coverMuted = coverDark ? "rgba(255,255,255,0.50)" : brand.colors.muted;
+  const coverSoft = coverDark ? "rgba(255,255,255,0.09)" : brand.colors.surface;
+  const coverBorder = coverDark ? "rgba(255,255,255,0.13)" : brand.colors.border;
 
   return (
     <Document>
@@ -360,101 +373,109 @@ export function QuotePDF({
       <Page size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF" }}>
         <View style={{ flexDirection: "row", height: "100%" }}>
 
-          {/* LEFT: dark panel */}
-          <View style={{ flex: 1.1, backgroundColor: coverLight ? "#FFFFFF" : brand.colors.primary, padding: PAD, flexDirection: "column" }}>
+          {/* LEFT: dark/light panel */}
+          <View style={{
+            flex: 1.15,
+            backgroundColor: coverDark ? brand.colors.primary : "#FFFFFF",
+            padding: PAD,
+            flexDirection: "column",
+          }}>
 
-            {/* Top: logo + meta */}
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 50 }}>
+            {/* Top: logo */}
+            <View style={{ marginBottom: 44 }}>
               {brand.key === "websup" ? (
-                <View style={{ flexDirection: "row", alignItems: "baseline", gap: 2 }}>
-                  <Text style={{ fontSize: 18, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>Webs</Text>
-                  <Text style={{ fontSize: 18, fontFamily: "Helvetica-Bold", color: brand.colors.accent }}>Up.</Text>
-                </View>
+                brand.logoWhite ? (
+                  <Image src={brand.logoWhite} style={{ height: 28, width: 120, objectFit: "contain", objectPositionX: "0%" }} />
+                ) : (
+                  <View style={{ flexDirection: "row", alignItems: "baseline", gap: 2 }}>
+                    <Text style={{ fontSize: 30, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>Webs</Text>
+                    <Text style={{ fontSize: 30, fontFamily: "Helvetica-Bold", color: brand.colors.accent }}>Up.</Text>
+                  </View>
+                )
               ) : (
-                <Image src={brand.logoPath} style={{ height: 54, width: 190, objectFit: "contain" }} />
+                <Image src={brand.logoWhite} style={{ height: 44, width: 160, objectFit: "contain", objectPositionX: "0%" }} />
               )}
+            </View>
 
-              <View style={{ borderLeftWidth: 1, borderLeftColor: coverBorder, paddingLeft: 12 }}>
+            {/* Mid: main content */}
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 1.2, color: brand.colors.accent, marginBottom: 8 }}>
+                {category}
+              </Text>
+              <Text style={{ fontSize: 52, fontFamily: "Helvetica-Bold", color: coverText, lineHeight: 1, marginBottom: 14 }}>
+                Offerte
+              </Text>
+              <Text style={{ fontSize: 15, fontFamily: "Helvetica-Bold", color: coverText, lineHeight: 1.35, marginBottom: 24, maxWidth: 220 }}>
+                {title}
+              </Text>
+
+              <View style={{ borderLeftWidth: 2, borderLeftColor: brand.colors.accent, paddingLeft: 10, marginBottom: 28 }}>
+                <Text style={{ fontSize: 8, color: coverMuted, marginBottom: 3 }}>Opgesteld voor</Text>
+                <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: coverText }}>{customerName}</Text>
+              </View>
+
+              {/* Meta */}
+              <View style={{ gap: 5, borderTopWidth: 1, borderTopColor: coverBorder, paddingTop: 14 }}>
                 {[
                   { l: "Offertenummer", v: quoteNumber },
                   { l: "Datum", v: quoteDate },
-                  { l: "Geldig tot", v: validUntil || "—" },
-                  { l: "Contactpersoon", v: "Daan Koolhaas" },
+                  ...(validUntil ? [{ l: "Geldig tot", v: validUntil }] : []),
                 ].map((row) => (
-                  <View key={row.l} style={{ flexDirection: "row", marginBottom: 3 }}>
-                    <Text style={{ width: 85, fontSize: 7.5, color: coverMuted, fontFamily: "Helvetica-Bold" }}>{row.l}</Text>
+                  <View key={row.l} style={{ flexDirection: "row", gap: 6 }}>
+                    <Text style={{ width: 82, fontSize: 7.5, color: coverMuted }}>{row.l}</Text>
                     <Text style={{ fontSize: 7.5, color: coverText, fontFamily: "Helvetica-Bold" }}>{row.v}</Text>
                   </View>
                 ))}
               </View>
             </View>
 
-            {/* Mid: eyebrow + h1 + title + for */}
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 1.2, color: brand.colors.accent, marginBottom: 6 }}>
-                {category}
-              </Text>
-              <Text style={{ fontSize: 48, fontFamily: "Helvetica-Bold", color: coverText, lineHeight: 1, marginBottom: 12 }}>
-                Offerte
-              </Text>
-              <Text style={{ fontSize: 16, fontFamily: "Helvetica-Bold", color: coverText, lineHeight: 1.3, marginBottom: 20, maxWidth: 240 }}>
-                {title}
-              </Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 20 }}>
-                <Text style={{ fontSize: 9, color: coverMuted }}>Voor</Text>
-                <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: coverText }}>{customerName}</Text>
-              </View>
-
-              {/* Pills */}
-              <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
-                <View style={{ backgroundColor: brand.colors.accent, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
-                  <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>{brand.phaseLabel}</Text>
-                </View>
-                <View style={{ backgroundColor: coverSoft, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
-                  <Text style={{ fontSize: 7.5, color: coverLight ? brand.colors.muted : "rgba(255,255,255,0.7)" }}>{tagline}</Text>
-                </View>
-                <View style={{ backgroundColor: coverSoft, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
-                  <Text style={{ fontSize: 7.5, color: coverLight ? brand.colors.muted : "rgba(255,255,255,0.7)" }}>{formatEur(totalIncVat)} incl. btw</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Footer */}
-            <View style={{ borderTopWidth: 1, borderTopColor: coverLight ? brand.colors.border : "rgba(255,255,255,0.1)", paddingTop: 14, gap: 4 }}>
+            {/* Contact footer */}
+            <View style={{ borderTopWidth: 1, borderTopColor: coverBorder, paddingTop: 12, gap: 3, marginTop: 24 }}>
               <Text style={{ fontSize: 8, color: coverMuted }}>{brand.website}</Text>
               <Text style={{ fontSize: 8, color: coverMuted }}>{brand.email}</Text>
               <Text style={{ fontSize: 8, color: coverMuted }}>{brand.phone}</Text>
             </View>
           </View>
 
-          {/* RIGHT: image placeholder */}
-          <View style={{ flex: 0.9, backgroundColor: coverLight ? brand.colors.surface : "#0e0b16", justifyContent: "center", alignItems: "center" }}>
-            <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 1, borderColor: coverLight ? brand.colors.border : "rgba(255,255,255,0.12)", justifyContent: "center", alignItems: "center" }}>
-              <Text style={{ fontSize: 22, color: coverLight ? brand.colors.muted : "rgba(255,255,255,0.15)" }}>?</Text>
-            </View>
-            <Text style={{ fontSize: 8, color: coverLight ? brand.colors.muted : "rgba(255,255,255,0.15)", marginTop: 10, textAlign: "center" }}>Projectfoto</Text>
+          {/* RIGHT: profile photo */}
+          <View style={{ flex: 0.85, overflow: "hidden", backgroundColor: brand.colors.surface }}>
+            {PROFILE_PHOTO ? (
+              <Image
+                src={PROFILE_PHOTO}
+                style={{ width: "100%", height: "100%", objectFit: "cover", objectPositionX: "50%", objectPositionY: "15%" }}
+              />
+            ) : (
+              <View style={{ flex: 1, backgroundColor: coverDark ? "#0e0b16" : brand.colors.surface }} />
+            )}
           </View>
+
         </View>
       </Page>
 
       {/* ════════════════════════════════════════════════════════
-          PAGE 2: INTRO + SUMMARY + DELIVERABLES
+          PAGE 2: INTRO + DELIVERABLES
       ════════════════════════════════════════════════════════ */}
       <Page size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
-        {/* accent bar */}
         <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
         <PageHeader brand={brand} quoteNumber={quoteNumber} customerName={customerName} />
 
         {/* Intro */}
         <Eyebrow text="Persoonlijke toelichting" color={brand.colors.accent} />
         <H2 text={`Beste ${customerName.split(" ")[0]},`} />
-        <Text style={{ fontSize: 9.5, lineHeight: 1.65, color: "#334155", marginBottom: 14 }}>
+        <Text style={{ fontSize: 9.5, lineHeight: 1.65, color: "#334155", marginBottom: 16 }}>
           {intro || brand.summaryGoal}
         </Text>
+
         {/* Signature */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 }}>
-          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: brand.colors.accent, justifyContent: "center", alignItems: "center" }}>
-            <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>DK</Text>
+          <View style={{ width: 34, height: 34, borderRadius: 17, overflow: "hidden" }}>
+            {PROFILE_PHOTO ? (
+              <Image src={PROFILE_PHOTO} style={{ width: 34, height: 34, objectFit: "cover", objectPositionY: "10%" }} />
+            ) : (
+              <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: brand.colors.accent, justifyContent: "center", alignItems: "center" }}>
+                <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>DK</Text>
+              </View>
+            )}
           </View>
           <View>
             <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold" }}>Daan Koolhaas</Text>
@@ -464,35 +485,10 @@ export function QuotePDF({
 
         <Divider color={brand.colors.border} />
 
-        {/* Summary table */}
-        <Eyebrow text="Het project in het kort" color={brand.colors.accent} />
-        <H2 text="In één oogopslag." />
-        <View style={{ borderWidth: 1, borderColor: brand.colors.border, borderRadius: 8, overflow: "hidden", marginBottom: 4 }}>
-          {[
-            { k: "Project", v: title },
-            { k: "Type", v: category },
-            { k: "Doel", v: brand.summaryGoal },
-            { k: "Oplevering", v: brand.delivery },
-            { k: "Investering", v: `${formatEur(totalIncVat)}  incl. btw · eenmalig`, hl: true },
-            { k: "Scope", v: tagline },
-          ].map((row, i, arr) => (
-            <View key={row.k} style={{ flexDirection: "row", borderBottomWidth: i < arr.length - 1 ? 1 : 0, borderBottomColor: brand.colors.border, backgroundColor: row.hl ? "#fff7ed" : "#FFFFFF" }}>
-              <Text style={{ width: "32%", backgroundColor: brand.colors.surface, padding: 8, fontSize: 8, fontFamily: "Helvetica-Bold", borderRightWidth: 1, borderRightColor: brand.colors.border }}>
-                {row.k}
-              </Text>
-              <Text style={{ flex: 1, padding: 8, fontSize: 8, color: row.hl ? brand.colors.accent : brand.colors.text, fontFamily: row.hl ? "Helvetica-Bold" : "Helvetica" }}>
-                {row.v}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        <Divider color={brand.colors.border} />
-
         {/* Deliverables */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <View>
-            <Eyebrow text="Wat wordt er geleverd" color={brand.colors.accent} />
+            <Eyebrow text={brand.itemsEyebrow} color={brand.colors.accent} />
             <H2 text={itemsHeader || brand.itemsHeader} />
           </View>
           <View style={{ backgroundColor: brand.colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
@@ -503,7 +499,7 @@ export function QuotePDF({
           {items.map((item, i) => (
             <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
               <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: brand.colors.accent, justifyContent: "center", alignItems: "center", marginTop: 1 }}>
-                <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>✓</Text>
+                <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>v</Text>
               </View>
               <Text style={{ fontSize: 9, color: "#334155", flex: 1, lineHeight: 1.5 }}>{item.description}</Text>
             </View>
@@ -531,7 +527,7 @@ export function QuotePDF({
           </View>
         </View>
 
-        <View style={{ gap: 8, marginBottom: 4 }}>
+        <View style={{ gap: 7, marginBottom: 4 }}>
           {flow.map((step, i) => (
             <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, padding: 10, backgroundColor: brand.colors.surface, borderRadius: 8 }}>
               <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: brand.colors.primary, justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
@@ -575,48 +571,45 @@ export function QuotePDF({
         <H2 text={brand.investmentTitle} />
 
         {/* Price card */}
-        <View style={{ backgroundColor: brand.colors.primary, borderRadius: 16, padding: 24, marginBottom: 16 }}>
-          <Text style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: 1, color: "rgba(255,255,255,0.45)", marginBottom: 4 }}>
+        <View style={{ backgroundColor: brand.colors.primary, borderRadius: 14, padding: 20, marginBottom: 14 }}>
+          <Text style={{ fontSize: 7.5, textTransform: "uppercase", letterSpacing: 1, color: "rgba(255,255,255,0.45)", marginBottom: 3 }}>
             {brand.investmentLabel}
           </Text>
-          <Text style={{ fontSize: 8.5, color: "rgba(255,255,255,0.5)", marginBottom: 12, lineHeight: 1.5 }}>
+          <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.5)", marginBottom: 10, lineHeight: 1.5 }}>
             {brand.investmentDescription}
           </Text>
 
           {/* Amount */}
-          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8, marginBottom: 16 }}>
-            <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: brand.colors.accent }}>€</Text>
-            <Text style={{ fontSize: 38, fontFamily: "Helvetica-Bold", color: "#FFFFFF", lineHeight: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6, marginBottom: 14 }}>
+            <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: brand.colors.accent }}>€</Text>
+            <Text style={{ fontSize: 34, fontFamily: "Helvetica-Bold", color: "#FFFFFF", lineHeight: 1 }}>
               {formatAmt(totalIncVat)}
             </Text>
             <View style={{ gap: 2 }}>
-              <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: "rgba(255,255,255,0.8)" }}>incl. btw</Text>
-              <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.4)" }}>eenmalig</Text>
+              <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: "rgba(255,255,255,0.8)" }}>incl. btw</Text>
+              <Text style={{ fontSize: 7, color: "rgba(255,255,255,0.4)" }}>eenmalig</Text>
             </View>
           </View>
 
           {/* Items in price card */}
-          <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)", paddingTop: 10, gap: 5 }}>
+          <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)", paddingTop: 8, gap: 4 }}>
             {items.map((item, i) => (
               <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={{ fontSize: 8.5, color: "rgba(255,255,255,0.7)", flex: 1 }}>{item.description}</Text>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                  <Text style={{ fontSize: 7.5, color: brand.colors.accent, fontFamily: "Helvetica-Bold" }}>✓</Text>
-                  <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.45)" }}>inbegrepen</Text>
-                </View>
+                <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.7)", flex: 1 }}>{item.description}</Text>
+                <Text style={{ fontSize: 7.5, color: brand.colors.accent, fontFamily: "Helvetica-Bold", marginLeft: 8 }}>inbegrepen</Text>
               </View>
             ))}
           </View>
 
           {/* Subtotals */}
-          <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)", paddingTop: 10, marginTop: 6, gap: 4 }}>
+          <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)", paddingTop: 8, marginTop: 6, gap: 3 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text style={{ fontSize: 8.5, color: "rgba(255,255,255,0.5)" }}>Subtotaal excl. btw</Text>
-              <Text style={{ fontSize: 8.5, color: "#FFFFFF" }}>{formatEur(totalExVat)}</Text>
+              <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.5)" }}>Subtotaal excl. btw</Text>
+              <Text style={{ fontSize: 8, color: "#FFFFFF" }}>{formatEur(totalExVat)}</Text>
             </View>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text style={{ fontSize: 8.5, color: "rgba(255,255,255,0.5)" }}>Btw (21%)</Text>
-              <Text style={{ fontSize: 8.5, color: "#FFFFFF" }}>{formatEur(totalVat)}</Text>
+              <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.5)" }}>Btw (21%)</Text>
+              <Text style={{ fontSize: 8, color: "#FFFFFF" }}>{formatEur(totalVat)}</Text>
             </View>
           </View>
         </View>
@@ -627,16 +620,16 @@ export function QuotePDF({
         <Eyebrow text={brand.optionsEyebrow} color={brand.colors.accent} />
         <H2 text={brand.optionsTitle} />
 
-        <View style={{ gap: 8 }}>
+        <View style={{ gap: 7 }}>
           {options.map((o, i) => (
-            <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: brand.colors.surface, padding: 12, borderRadius: 8 }}>
-              <View style={{ width: 26, height: 26, borderRadius: 6, backgroundColor: brand.colors.border, justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
-                <Text style={{ fontSize: 11, color: brand.colors.accent }}>⊕</Text>
+            <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: brand.colors.surface, padding: 10, borderRadius: 8 }}>
+              <View style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: brand.colors.border, justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
+                <Text style={{ fontSize: 11, color: brand.colors.accent }}>+</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", marginBottom: 2 }}>{o.t}</Text>
                 <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.4 }}>{o.d}</Text>
-                <View style={{ marginTop: 5, backgroundColor: brand.colors.border, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, alignSelf: "flex-start" }}>
+                <View style={{ marginTop: 4, backgroundColor: brand.colors.border, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, alignSelf: "flex-start" }}>
                   <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>{o.tag}</Text>
                 </View>
               </View>
@@ -661,7 +654,7 @@ export function QuotePDF({
           {exclusions.map((item, i) => (
             <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: "#fef2f2", justifyContent: "center", alignItems: "center" }}>
-                <Text style={{ fontSize: 7, color: "#ef4444", fontFamily: "Helvetica-Bold" }}>✕</Text>
+                <Text style={{ fontSize: 7, color: "#ef4444", fontFamily: "Helvetica-Bold" }}>x</Text>
               </View>
               <Text style={{ fontSize: 9, color: "#334155", flex: 1 }}>{item}</Text>
             </View>
@@ -716,16 +709,8 @@ export function QuotePDF({
           </View>
         </View>
 
-        {/* Doc footer */}
-        <View style={{ borderTopWidth: 1, borderTopColor: "#F1F5F9", paddingTop: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: "auto" }}>
-          {brand.key === "websup" ? (
-            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 2 }}>
-              <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: brand.colors.primary }}>Webs</Text>
-              <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: brand.colors.accent }}>Up.</Text>
-            </View>
-          ) : (
-            <Image src={brand.logoPathDark || brand.logoPath} style={{ height: 18, width: 60, objectFit: "contain" }} />
-          )}
+        {/* Doc footer — contact only, no logo */}
+        <View style={{ borderTopWidth: 1, borderTopColor: "#F1F5F9", paddingTop: 12, flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-end", marginTop: "auto" }}>
           <View style={{ alignItems: "flex-end" }}>
             <Text style={{ fontSize: 7.5, color: "#94A3B8" }}>{brand.name} &nbsp;&middot;&nbsp; Daan Koolhaas &nbsp;&middot;&nbsp; Friesland</Text>
             <Text style={{ fontSize: 7.5, color: "#94A3B8", marginTop: 2 }}>{brand.website} &nbsp;&middot;&nbsp; {brand.email}</Text>
