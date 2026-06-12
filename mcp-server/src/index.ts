@@ -498,6 +498,83 @@ function createMcpServer() {
   );
 
   server.tool(
+    "update_quote_item",
+    "Pas een bestaande offerteregel aan (omschrijving, aantal, prijs, btw). Herberekent automatisch de totalen.",
+    {
+      item_id: z.string().describe("ID van de offerteregel"),
+      description: z.string().optional().describe("Nieuwe omschrijving"),
+      qty: z.number().optional().describe("Nieuw aantal"),
+      unit_price: z.number().optional().describe("Nieuwe prijs excl. btw"),
+      vat_rate: z.number().optional().describe("Nieuw BTW-percentage"),
+    },
+    async ({ item_id, description, qty, unit_price, vat_rate }) => {
+      const item = await queryOne<{ id: string; quoteId: string; qty: string; unitPrice: string; vatRate: string }>(
+        `SELECT id, "quoteId", qty, "unitPrice", "vatRate" FROM "QuoteItem" WHERE id = $1`,
+        [item_id]
+      );
+      if (!item) return { content: [{ type: "text", text: `Offerteregel ${item_id} niet gevonden.` }] };
+
+      const fields: string[] = [];
+      const params: unknown[] = [item_id];
+      if (description !== undefined) { fields.push(`description = $${params.length + 1}`); params.push(description); }
+      if (qty !== undefined) { fields.push(`qty = $${params.length + 1}`); params.push(qty.toFixed(2)); }
+      if (unit_price !== undefined) { fields.push(`"unitPrice" = $${params.length + 1}`); params.push(unit_price.toFixed(2)); }
+      if (vat_rate !== undefined) { fields.push(`"vatRate" = $${params.length + 1}`); params.push(vat_rate.toFixed(2)); }
+
+      if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
+
+      // Herbereken total op basis van nieuwe of bestaande waarden
+      const newQty = qty ?? Number(item.qty);
+      const newPrice = unit_price ?? Number(item.unitPrice);
+      fields.push(`total = $${params.length + 1}`);
+      params.push((newQty * newPrice).toFixed(2));
+
+      await query(`UPDATE "QuoteItem" SET ${fields.join(", ")} WHERE id = $1`, params);
+
+      await query(
+        `UPDATE "Quote" SET
+          "totalExVat"  = (SELECT SUM(qty * "unitPrice") FROM "QuoteItem" WHERE "quoteId" = $1),
+          "totalVat"    = (SELECT SUM(qty * "unitPrice" * "vatRate" / 100) FROM "QuoteItem" WHERE "quoteId" = $1),
+          "totalIncVat" = (SELECT SUM(qty * "unitPrice" * (1 + "vatRate" / 100)) FROM "QuoteItem" WHERE "quoteId" = $1),
+          "updatedAt"   = NOW()
+         WHERE id = $1`,
+        [item.quoteId]
+      );
+
+      return { content: [{ type: "text", text: `Offerteregel bijgewerkt en totalen herberekend.` }] };
+    }
+  );
+
+  server.tool(
+    "delete_quote_item",
+    "Verwijder een offerteregel en herbereken de totalen.",
+    {
+      item_id: z.string().describe("ID van de offerteregel"),
+    },
+    async ({ item_id }) => {
+      const item = await queryOne<{ quoteId: string; description: string }>(
+        `SELECT "quoteId", description FROM "QuoteItem" WHERE id = $1`,
+        [item_id]
+      );
+      if (!item) return { content: [{ type: "text", text: `Offerteregel ${item_id} niet gevonden.` }] };
+
+      await query(`DELETE FROM "QuoteItem" WHERE id = $1`, [item_id]);
+
+      await query(
+        `UPDATE "Quote" SET
+          "totalExVat"  = COALESCE((SELECT SUM(qty * "unitPrice") FROM "QuoteItem" WHERE "quoteId" = $1), 0),
+          "totalVat"    = COALESCE((SELECT SUM(qty * "unitPrice" * "vatRate" / 100) FROM "QuoteItem" WHERE "quoteId" = $1), 0),
+          "totalIncVat" = COALESCE((SELECT SUM(qty * "unitPrice" * (1 + "vatRate" / 100)) FROM "QuoteItem" WHERE "quoteId" = $1), 0),
+          "updatedAt"   = NOW()
+         WHERE id = $1`,
+        [item.quoteId]
+      );
+
+      return { content: [{ type: "text", text: `Regel "${item.description}" verwijderd en totalen herberekend.` }] };
+    }
+  );
+
+  server.tool(
     "get_stats",
     "Haal statistieken op voor een bedrijf: aantal offertes per status, totaalwaarde, klanten",
     { company_slug: z.string().describe("Bedrijfsslug") },
