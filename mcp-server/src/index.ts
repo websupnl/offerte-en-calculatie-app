@@ -533,6 +533,7 @@ function createMcpServer() {
     "save_datasheets_batch",
     "Sla meerdere productdatasheets tegelijk op. Gebruik dit na onderzoek voor een offerte waarbij je meerdere componenten hebt gevonden (batterij, omvormer, kabels, interfaces, etc.).",
     {
+      company_slug: z.string().describe("Bedrijfsslug: 'websup' of 'koolhaas' — datasheets worden per werkruimte gescheiden"),
       datasheets: z.array(z.object({
         brand: z.string().describe("Merk"),
         model: z.string().describe("Modelnaam"),
@@ -543,32 +544,35 @@ function createMcpServer() {
         source_url: z.string().optional().describe("Bron URL"),
       })).describe("Lijst van datasheets om op te slaan"),
     },
-    async ({ datasheets }) => {
+    async ({ company_slug, datasheets }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
       const results: string[] = [];
       const now = new Date().toISOString();
 
       for (const ds of datasheets) {
         const existing = await queryOne<{ id: string }>(
-          `SELECT id FROM "Datasheet" WHERE LOWER(brand) = LOWER($1) AND LOWER(model) = LOWER($2)`,
-          [ds.brand, ds.model]
+          `SELECT id FROM "Datasheet" WHERE "companyId" = $1 AND LOWER(brand) = LOWER($2) AND LOWER(model) = LOWER($3)`,
+          [co.id, ds.brand, ds.model]
         );
 
         if (existing) {
-          const updates: string[] = ['"updatedAt" = $3'];
-          const params: unknown[] = [ds.brand, ds.model, now];
+          const updates: string[] = ['"updatedAt" = $4'];
+          const params: unknown[] = [co.id, ds.brand, ds.model, now];
           if (ds.category !== undefined) { updates.push(`category = $${params.length + 1}`); params.push(ds.category); }
           if (ds.specs !== undefined) { updates.push(`specs = $${params.length + 1}::jsonb`); params.push(JSON.stringify(ds.specs)); }
           if (ds.notes !== undefined) { updates.push(`notes = $${params.length + 1}`); params.push(ds.notes); }
           if (ds.price !== undefined) { updates.push(`price = $${params.length + 1}`); params.push(ds.price); }
           if (ds.source_url !== undefined) { updates.push(`"sourceUrl" = $${params.length + 1}`); params.push(ds.source_url); }
-          await query(`UPDATE "Datasheet" SET ${updates.join(", ")} WHERE LOWER(brand) = LOWER($1) AND LOWER(model) = LOWER($2)`, params);
+          await query(`UPDATE "Datasheet" SET ${updates.join(", ")} WHERE "companyId" = $1 AND LOWER(brand) = LOWER($2) AND LOWER(model) = LOWER($3)`, params);
           results.push(`Bijgewerkt: ${ds.brand} ${ds.model}`);
         } else {
           const id = crypto.randomUUID();
           await query(
-            `INSERT INTO "Datasheet" (id, brand, model, category, specs, notes, price, "sourceUrl", "createdAt", "updatedAt")
-             VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$9)`,
-            [id, ds.brand, ds.model, ds.category ?? null, JSON.stringify(ds.specs ?? {}), ds.notes ?? null, ds.price ?? null, ds.source_url ?? null, now]
+            `INSERT INTO "Datasheet" (id, "companyId", brand, model, category, specs, notes, price, "sourceUrl", "createdAt", "updatedAt")
+             VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$10)`,
+            [id, co.id, ds.brand, ds.model, ds.category ?? null, JSON.stringify(ds.specs ?? {}), ds.notes ?? null, ds.price ?? null, ds.source_url ?? null, now]
           );
           results.push(`Nieuw: ${ds.brand} ${ds.model}`);
         }
@@ -583,6 +587,7 @@ function createMcpServer() {
     "save_datasheet",
     "Sla een productdatasheet op of update hem. Gebruik dit na elk product-onderzoek zodat je het nooit twee keer hoeft op te zoeken.",
     {
+      company_slug: z.string().describe("Bedrijfsslug: 'websup' of 'koolhaas' — datasheets worden per werkruimte gescheiden"),
       brand: z.string().describe("Merk, bijv. 'Sofar' of 'Victron'"),
       model: z.string().describe("Modelnaam, bijv. 'BTS-10K'"),
       category: z.string().optional().describe("Categorie, bijv. 'batterij', 'omvormer', 'laadpaal'"),
@@ -591,23 +596,26 @@ function createMcpServer() {
       price: z.number().optional().describe("Inkoopprijs excl. btw"),
       source_url: z.string().optional().describe("URL van de bron (fabrikant, leverancier)"),
     },
-    async ({ brand, model, category, specs, notes, price, source_url }) => {
+    async ({ company_slug, brand, model, category, specs, notes, price, source_url }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
       const now = new Date().toISOString();
       const existing = await queryOne<{ id: string }>(
-        `SELECT id FROM "Datasheet" WHERE LOWER(brand) = LOWER($1) AND LOWER(model) = LOWER($2)`,
-        [brand, model]
+        `SELECT id FROM "Datasheet" WHERE "companyId" = $1 AND LOWER(brand) = LOWER($2) AND LOWER(model) = LOWER($3)`,
+        [co.id, brand, model]
       );
 
       if (existing) {
-        const updates: string[] = ['"updatedAt" = $3'];
-        const params: unknown[] = [brand, model, now];
+        const updates: string[] = ['"updatedAt" = $4'];
+        const params: unknown[] = [co.id, brand, model, now];
         if (category !== undefined) { updates.push(`category = $${params.length + 1}`); params.push(category); }
         if (specs !== undefined) { updates.push(`specs = $${params.length + 1}::jsonb`); params.push(JSON.stringify(specs)); }
         if (notes !== undefined) { updates.push(`notes = $${params.length + 1}`); params.push(notes); }
         if (price !== undefined) { updates.push(`price = $${params.length + 1}`); params.push(price); }
         if (source_url !== undefined) { updates.push(`"sourceUrl" = $${params.length + 1}`); params.push(source_url); }
         await query(
-          `UPDATE "Datasheet" SET ${updates.join(", ")} WHERE LOWER(brand) = LOWER($1) AND LOWER(model) = LOWER($2)`,
+          `UPDATE "Datasheet" SET ${updates.join(", ")} WHERE "companyId" = $1 AND LOWER(brand) = LOWER($2) AND LOWER(model) = LOWER($3)`,
           params
         );
         return { content: [{ type: "text", text: `Datasheet bijgewerkt: ${brand} ${model}` }] };
@@ -615,9 +623,9 @@ function createMcpServer() {
 
       const id = crypto.randomUUID();
       await query(
-        `INSERT INTO "Datasheet" (id, brand, model, category, specs, notes, price, "sourceUrl", "createdAt", "updatedAt")
-         VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$9)`,
-        [id, brand, model, category ?? null, JSON.stringify(specs ?? {}), notes ?? null, price ?? null, source_url ?? null, now]
+        `INSERT INTO "Datasheet" (id, "companyId", brand, model, category, specs, notes, price, "sourceUrl", "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$10)`,
+        [id, co.id, brand, model, category ?? null, JSON.stringify(specs ?? {}), notes ?? null, price ?? null, source_url ?? null, now]
       );
       return { content: [{ type: "text", text: `Datasheet opgeslagen: ${brand} ${model} (ID: ${id})` }] };
     }
@@ -628,16 +636,21 @@ function createMcpServer() {
     "search_datasheets",
     "Zoek in opgeslagen productdatasheets. Doe dit ALTIJD als eerste stap bij product-onderzoek, vóór je naar internet gaat.",
     {
+      company_slug: z.string().describe("Bedrijfsslug: 'websup' of 'koolhaas'"),
       query: z.string().describe("Zoekterm, bijv. 'Sofar batterij' of 'Victron omvormer'"),
       category: z.string().optional().describe("Filter op categorie"),
     },
-    async ({ query: q, category }) => {
+    async ({ company_slug, query: q, category }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
       const term = `%${q.toLowerCase()}%`;
-      const params: unknown[] = [term, term, term];
+      const params: unknown[] = [co.id, term, term, term];
       let sql = `
         SELECT id, brand, model, category, specs, notes, price, "sourceUrl", "updatedAt"
         FROM "Datasheet"
-        WHERE (LOWER(brand) LIKE $1 OR LOWER(model) LIKE $2 OR LOWER(COALESCE(notes,'')) LIKE $3)
+        WHERE "companyId" = $1
+          AND (LOWER(brand) LIKE $2 OR LOWER(model) LIKE $3 OR LOWER(COALESCE(notes,'')) LIKE $4)
       `;
       if (category) { sql += ` AND LOWER(category) = $${params.length + 1}`; params.push(category.toLowerCase()); }
       sql += ` ORDER BY "updatedAt" DESC LIMIT 10`;
@@ -655,18 +668,22 @@ function createMcpServer() {
     "save_finding",
     "Sla een bevinding of conclusie op. Gebruik dit voor compatibiliteitsnotes, prijsinfo, aandachtspunten of projectlessen.",
     {
+      company_slug: z.string().describe("Bedrijfsslug: 'websup' of 'koolhaas' — bevindingen worden per werkruimte gescheiden"),
       topic: z.string().describe("Onderwerp, bijv. 'Sofar + Victron compatibiliteit' of 'installatie meterkast uitbreiding'"),
       content: z.string().describe("De bevinding zelf, zo concreet mogelijk"),
       tags: z.array(z.string()).optional().describe("Tags voor sneller terugvinden, bijv. ['batterij','compatibiliteit']"),
       quote_id: z.string().optional().describe("Optioneel: koppel aan een offerte-ID"),
     },
-    async ({ topic, content, tags, quote_id }) => {
+    async ({ company_slug, topic, content, tags, quote_id }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
       await query(
-        `INSERT INTO "ResearchFinding" (id, topic, content, tags, "quoteId", "createdAt", "updatedAt")
-         VALUES ($1,$2,$3,$4,$5,$6,$6)`,
-        [id, topic, content, tags ?? [], quote_id ?? null, now]
+        `INSERT INTO "ResearchFinding" (id, "companyId", topic, content, tags, "quoteId", "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$7)`,
+        [id, co.id, topic, content, tags ?? [], quote_id ?? null, now]
       );
       return { content: [{ type: "text", text: `Bevinding opgeslagen: "${topic}" (ID: ${id})` }] };
     }
@@ -677,16 +694,21 @@ function createMcpServer() {
     "search_findings",
     "Zoek in opgeslagen bevindingen en conclusies. Doe dit bij twijfel over compatibiliteit, prijzen of aanpak.",
     {
+      company_slug: z.string().describe("Bedrijfsslug: 'websup' of 'koolhaas'"),
       query: z.string().describe("Zoekterm, bijv. 'Sofar compatibiliteit' of 'meterkast uitbreiding'"),
       tag: z.string().optional().describe("Filter op een specifieke tag"),
     },
-    async ({ query: q, tag }) => {
+    async ({ company_slug, query: q, tag }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
       const term = `%${q.toLowerCase()}%`;
-      const params: unknown[] = [term, term];
+      const params: unknown[] = [co.id, term, term];
       let sql = `
         SELECT id, topic, content, tags, "quoteId", "createdAt"
         FROM "ResearchFinding"
-        WHERE (LOWER(topic) LIKE $1 OR LOWER(content) LIKE $2)
+        WHERE "companyId" = $1
+          AND (LOWER(topic) LIKE $2 OR LOWER(content) LIKE $3)
       `;
       if (tag) { sql += ` AND $${params.length + 1} = ANY(tags)`; params.push(tag); }
       sql += ` ORDER BY "createdAt" DESC LIMIT 10`;

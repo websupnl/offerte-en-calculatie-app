@@ -81,6 +81,8 @@ model Company {
   products    Product[]
   productSets ProductSet[]
   quotes      Quote[]
+  datasheets  Datasheet[]
+  findings    ResearchFinding[]
 }
 
 model CompanyUser {
@@ -252,6 +254,7 @@ enum AdviceType {
 
 model Datasheet {
   id        String   @id @default(cuid())
+  companyId String
   brand     String
   model     String
   category  String?
@@ -262,11 +265,14 @@ model Datasheet {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([brand, model])
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, brand, model])
 }
 
 model ResearchFinding {
   id        String   @id @default(cuid())
+  companyId String
   topic     String
   content   String   @db.Text
   tags      String[]
@@ -274,7 +280,8 @@ model ResearchFinding {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  quote Quote? @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  quote   Quote?  @relation(fields: [quoteId], references: [id], onDelete: SetNull)
 }
 
 // ─── Quote Sharing (klantportaal) ──────────────────────────────────────────
