@@ -12,6 +12,13 @@ const itemSchema = z.object({
   vatRate: z.coerce.number().default(21),
 });
 
+const attachmentSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().optional().nullable(),
+  imageUrl: z.string().min(1),
+  caption: z.string().optional().nullable(),
+});
+
 const schema = z.object({
   customerId: z.string().min(1),
   title: z.string().optional(),
@@ -26,6 +33,7 @@ const schema = z.object({
   approach: z.any().optional(),
   options: z.any().optional(),
   exclusions: z.any().optional(),
+  attachments: z.array(attachmentSchema).optional(),
   items: z.array(itemSchema).min(1, "Voeg minimaal één regel toe"),
 });
 
@@ -44,7 +52,7 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
     include: {
       customer: { select: { id: true, name: true, email: true } },
-      _count: { select: { items: true } },
+      _count: { select: { items: true, attachments: true } },
     },
   });
 
@@ -60,7 +68,7 @@ export async function POST(req: NextRequest) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { customerId, title, category, tagline, itemsHeader, validUntil, intro, outro, notes, flow, approach, options, exclusions, items } = parsed.data;
+  const { customerId, title, category, tagline, itemsHeader, validUntil, intro, outro, notes, flow, approach, options, exclusions, attachments, items } = parsed.data;
 
   const count = await prisma.quote.count({ where: { companyId } });
   const company = await prisma.company.findUnique({ where: { id: companyId } });
@@ -102,8 +110,16 @@ export async function POST(req: NextRequest) {
       items: {
         create: itemsWithTotals,
       },
+      attachments: attachments?.length
+        ? {
+            create: attachments.map(({ id: _id, ...attachment }, sortOrder) => ({
+              ...attachment,
+              sortOrder,
+            })),
+          }
+        : undefined,
     },
-    include: { customer: true, items: true },
+    include: { customer: true, items: true, attachments: { orderBy: { sortOrder: "asc" } } },
   });
 
   return NextResponse.json(quote, { status: 201 });

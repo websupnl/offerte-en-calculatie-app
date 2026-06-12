@@ -3,6 +3,8 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import express, { type Request, type Response } from "express";
 import { z } from "zod";
 import pg from "pg";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 
 const { Pool } = pg;
 
@@ -43,6 +45,28 @@ function generateQuoteNumber(companySlug = "websup"): string {
 
 function generateToken(): string {
   return crypto.randomUUID();
+}
+
+const MIME_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
+async function storeBase64Image(imageBase64: string, mimeType = "image/png"): Promise<string> {
+  const ext = MIME_EXTENSIONS[mimeType.toLowerCase()] ?? "png";
+  const projectRoot = path.basename(process.cwd()) === "mcp-server"
+    ? path.resolve(process.cwd(), "..")
+    : process.cwd();
+  const uploadDir = path.join(projectRoot, "public", "uploads", "quote-attachments");
+  const fileName = `${crypto.randomUUID()}.${ext}`;
+
+  await mkdir(uploadDir, { recursive: true });
+  await writeFile(path.join(uploadDir, fileName), Buffer.from(imageBase64, "base64"));
+
+  return `/uploads/quote-attachments/${fileName}`;
 }
 
 function defaultTemplateFields(companySlug: string) {
@@ -478,6 +502,13 @@ function createMcpServer() {
       options: z.array(z.object({ t: z.string(), d: z.string(), tag: z.string() })).optional().describe("Optionele uitbreidingen of meerwerk"),
       exclusions: z.array(z.string()).optional().describe("Niet inbegrepen / uitsluitingen"),
       valid_days: z.number().optional().default(30).describe("Geldigheidsduur in dagen"),
+      attachments: z.array(z.object({
+        image_url: z.string().optional().describe("Publieke image URL of data-URI"),
+        image_base64: z.string().optional().describe("Ruwe base64 van een afbeelding; wordt opgeslagen als bestand in public/uploads"),
+        mime_type: z.string().optional().default("image/png").describe("MIME type bij image_base64"),
+        title: z.string().optional().describe("Titel onder/bij de afbeelding"),
+        caption: z.string().optional().describe("Caption onder de afbeelding"),
+      })).optional().describe("Optionele ontwerpen/mockups voor de offerte"),
       items: z.array(z.object({
         description: z.string().describe("Omschrijving van het item"),
         qty: z.number().default(1).describe("Aantal"),
@@ -485,7 +516,7 @@ function createMcpServer() {
         vat_rate: z.number().default(21).describe("BTW-percentage"),
       })).describe("Offerteregels"),
     },
-    async ({ company_slug, customer_id, title, category, tagline, itemsHeader, intro, outro, notes, flow, approach, options, exclusions, valid_days, items }) => {
+    async ({ company_slug, customer_id, title, category, tagline, itemsHeader, intro, outro, notes, flow, approach, options, exclusions, valid_days, attachments, items }) => {
       const defaults = defaultTemplateFields(company_slug);
       const quoteTitle = title === "Persoonlijk voorstel" ? defaults.title : title;
       const quoteCategory = category === "Maatwerk project" ? defaults.category : category;
@@ -543,6 +574,21 @@ function createMcpServer() {
            item.qty.toFixed(2), item.unit_price.toFixed(2),
            item.vat_rate.toFixed(2), lineTotal.toFixed(2), i]
         );
+      }
+
+      if (attachments?.length) {
+        for (let i = 0; i < attachments.length; i++) {
+          const attachment = attachments[i];
+          const imageUrl = attachment.image_url ?? (
+            attachment.image_base64 ? await storeBase64Image(attachment.image_base64, attachment.mime_type) : null
+          );
+          if (!imageUrl) continue;
+          await query(
+            `INSERT INTO "QuoteAttachment" (id, "quoteId", title, "imageUrl", caption, "sortOrder", "createdAt", "updatedAt")
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$7)`,
+            [crypto.randomUUID(), quoteId, attachment.title ?? null, imageUrl, attachment.caption ?? null, i, now]
+          );
+        }
       }
 
       return {
@@ -605,12 +651,85 @@ function createMcpServer() {
          FROM "QuoteItem" WHERE "quoteId" = $1 ORDER BY "sortOrder"`,
         [quote_id]
       );
+      const attachments = await query(
+        `SELECT id, title, "imageUrl", caption, "sortOrder", "createdAt"
+         FROM "QuoteAttachment" WHERE "quoteId" = $1 ORDER BY "sortOrder"`,
+        [quote_id]
+      );
       const share = await queryOne(
         `SELECT token, "acceptedAt", "declinedAt", "viewedAt" FROM "QuoteShare" WHERE "quoteId" = $1`,
         [quote_id]
       );
 
-      return { content: [{ type: "text", text: JSON.stringify({ ...quote, items, share }, null, 2) }] };
+      return { content: [{ type: "text", text: JSON.stringify({ ...quote, items, attachments, share }, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "add_quote_attachment",
+    "Voeg een ontwerp/mockup/screenshot toe aan een offerte. Gebruik image_url voor publieke URLs of image_base64 voor uploads uit de chat.",
+    {
+      quote_id: z.string().describe("Quote ID"),
+      image_url: z.string().optional().describe("Publieke image URL of data-URI"),
+      image_base64: z.string().optional().describe("Ruwe base64 afbeelding; wordt opgeslagen als bestand in public/uploads"),
+      mime_type: z.string().optional().default("image/png").describe("MIME type bij image_base64"),
+      title: z.string().optional().describe("Titel"),
+      caption: z.string().optional().describe("Caption onder de afbeelding"),
+    },
+    async ({ quote_id, image_url, image_base64, mime_type, title, caption }) => {
+      const quote = await queryOne<{ id: string }>(`SELECT id FROM "Quote" WHERE id = $1`, [quote_id]);
+      if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+
+      const imageUrl = image_url ?? (image_base64 ? await storeBase64Image(image_base64, mime_type) : null);
+      if (!imageUrl) return { content: [{ type: "text", text: "Geef image_url of image_base64 mee." }] };
+
+      const maxSort = await queryOne<{ max: number }>(
+        `SELECT COALESCE(MAX("sortOrder"), -1) AS max FROM "QuoteAttachment" WHERE "quoteId" = $1`,
+        [quote_id]
+      );
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      await query(
+        `INSERT INTO "QuoteAttachment" (id, "quoteId", title, "imageUrl", caption, "sortOrder", "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$7)`,
+        [id, quote_id, title ?? null, imageUrl, caption ?? null, (maxSort?.max ?? -1) + 1, now]
+      );
+      await query(`UPDATE "Quote" SET "pdfUrl" = NULL, "updatedAt" = NOW() WHERE id = $1`, [quote_id]);
+
+      return { content: [{ type: "text", text: `Ontwerp toegevoegd aan offerte ${quote_id}. Attachment ID: ${id}` }] };
+    }
+  );
+
+  server.tool(
+    "list_quote_attachments",
+    "Toon alle ontwerp/mockup-afbeeldingen bij een offerte.",
+    { quote_id: z.string().describe("Quote ID") },
+    async ({ quote_id }) => {
+      const attachments = await query(
+        `SELECT id, title, "imageUrl", caption, "sortOrder", "createdAt"
+         FROM "QuoteAttachment" WHERE "quoteId" = $1 ORDER BY "sortOrder"`,
+        [quote_id]
+      );
+      return { content: [{ type: "text", text: JSON.stringify(attachments, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "remove_quote_attachment",
+    "Verwijder een ontwerp/mockup-afbeelding uit een offerte.",
+    { attachment_id: z.string().describe("Attachment ID") },
+    async ({ attachment_id }) => {
+      const attachment = await queryOne<{ id: string; quoteId: string; title: string | null }>(
+        `SELECT id, "quoteId", title FROM "QuoteAttachment" WHERE id = $1`,
+        [attachment_id]
+      );
+      if (!attachment) return { content: [{ type: "text", text: `Attachment ${attachment_id} niet gevonden.` }] };
+
+      await query(`DELETE FROM "QuoteAttachment" WHERE id = $1`, [attachment_id]);
+      await query(`UPDATE "Quote" SET "pdfUrl" = NULL, "updatedAt" = NOW() WHERE id = $1`, [attachment.quoteId]);
+
+      return { content: [{ type: "text", text: `Ontwerp verwijderd: ${attachment.title ?? attachment_id}` }] };
     }
   );
 
@@ -1043,7 +1162,7 @@ function createMcpServer() {
 // ─── HTTP Server ──────────────────────────────────────────────────────────────
 
 const app = express();
-app.use(express.json({ limit: "4mb" }));
+app.use(express.json({ limit: "20mb" }));
 
 const MCP_API_KEY = process.env.MCP_API_KEY;
 

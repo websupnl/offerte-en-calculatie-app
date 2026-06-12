@@ -93,6 +93,7 @@ type QuoteItem = {
 type FlowItem = { n: number; t: string; d: string };
 type ApproachStep = { n: string; t: string; d: string };
 type QuoteOption = { t: string; d: string; tag: string };
+type QuoteAttachment = { id?: string; title?: string | null; imageUrl: string; caption?: string | null };
 type EditableArrayField = "flow" | "approach" | "options" | "exclusions";
 type EditableArrayValue = FlowItem | ApproachStep | QuoteOption | string;
 type EditableObjectValue = { n?: string | number; t?: string; d?: string; tag?: string };
@@ -117,6 +118,7 @@ type Quote = {
   approach?: ApproachStep[];
   options?: QuoteOption[];
   exclusions?: string[];
+  attachments?: QuoteAttachment[];
   adviceDocuments?: { id: string; type: string }[];
   company?: { name?: string | null; slug?: string | null };
 };
@@ -273,6 +275,10 @@ export function QuoteSheetPreview({
   const approach = quote.approach?.length ? quote.approach : DEFAULT_APPROACH[brandKey];
   const options = quote.options?.length ? quote.options : DEFAULT_OPTIONS[brandKey];
   const exclusions = quote.exclusions?.length ? quote.exclusions : DEFAULT_EXCLUSIONS[brandKey];
+  const attachments = quote.attachments ?? [];
+  const totalPages = 5 + attachments.length;
+  const pageLabel = (page: number) =>
+    `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
   const coverHeading = isKoolhaas ? (quote.category || quote.title || brand.defaultTitle) : "Offerte";
   const primaryItem = quote.items[0]?.description || quote.title || brand.defaultTitle;
   const [generating, setGenerating] = useState<string | null>(null);
@@ -341,10 +347,9 @@ export function QuoteSheetPreview({
         />
       );
     }
-
     return (
       <img
-        src="/logos/websup-color.png"
+        src="/logos/websup-cover.png"
         alt="WebsUp"
         className={cover ? "brand-logo brand-logo-cover" : "brand-logo"}
       />
@@ -354,9 +359,9 @@ export function QuoteSheetPreview({
   const renderPageFooter = (pageNo: string) => (
     <div className="doc-foot">
       {isKoolhaas ? (
-        <img src="/logos/koolhaas-logo-tight.png" alt="Koolhaas Installaties" className="brand-logo" />
+        <img src="/logos/koolhaas-logo-tight.png" alt="Koolhaas Installaties" className="brand-logo doc-foot-brand-logo" />
       ) : (
-        <div className="doc-foot-logo">{brand.logoText}</div>
+        <img src="/logos/websup-icon-w.png" alt="WebsUp" className="doc-foot-icon" />
       )}
       <div className="doc-foot-meta">
         <span>{brand.website}</span>
@@ -377,56 +382,59 @@ export function QuoteSheetPreview({
         
         {/* ── PAGINA 1: COVER ── */}
         <section className="sheet cover">
-          <div className="bar"></div>
-          <div className="pad cov-split">
-            {/* BOVEN: logo + meta — vast bovenaan */}
-            <div className="cov-top">
-              {renderHeaderLogo(true)}
-              <div className="cov-meta">
-                <dl>
-                  <dt>Offertenummer</dt> <dd>{quote.number || "CONCEPT"}</dd>
-                  <dt>Datum</dt>         <dd>{formatDate(today)}</dd>
-                  <dt>Geldig tot</dt>    <dd>{quote.validUntil ? formatDate(quote.validUntil) : "Selecteer datum"}</dd>
-                  <dt>Contactpersoon</dt><dd>Daan Koolhaas</dd>
-                </dl>
+          <div className="cov-layout">
+            <div className="cov-panel">
+              <div className="bar"></div>
+              <div className="cov-pad">
+                {/* BOVEN: logo + meta */}
+                <div className="cov-top">
+                  {renderHeaderLogo(true)}
+                  <div className="cov-meta">
+                    <dl>
+                      <dt>Offertenummer</dt> <dd>{quote.number || "CONCEPT"}</dd>
+                      <dt>Datum</dt>         <dd>{formatDate(today)}</dd>
+                      <dt>Geldig tot</dt>    <dd>{quote.validUntil ? formatDate(quote.validUntil) : "Selecteer datum"}</dd>
+                      <dt>Contactpersoon</dt><dd>Daan Koolhaas</dd>
+                    </dl>
+                  </div>
+                </div>
+
+                {/* Content: verticaal gecentreerd */}
+                <div className="cov-main">
+                  <div className="cov-line" />
+                  <div className="cov-mid">
+                    <span className="eyebrow inv">
+                      <InlineInput
+                        value={quote.category || brand.defaultCategory}
+                        onChange={(v) => onUpdate?.({ category: v })}
+                        isEditable={isEditable}
+                      />
+                    </span>
+                    <h1 className="cov-h1">{coverHeading}</h1>
+                    <div className="cov-project">
+                      <InlineInput
+                        value={quote.title || brand.defaultTitle}
+                        onChange={(v) => onUpdate?.({ title: v })}
+                        isEditable={isEditable}
+                      />
+                    </div>
+                    <div className="cov-for">
+                      <span>Voor</span>
+                      <b>{quote.customer.name || "Klantnaam"}</b>
+                    </div>
+                  </div>
+                </div>
+
+                {/* FOOTER: contact */}
+                <div className="cov-foot">
+                  {!isKoolhaas && <img src="/logos/websup-icon-w.png" alt="" className="cov-foot-icon" />}
+                  <span>{brand.website}</span>
+                  <span>{brand.email}</span>
+                  <span>{brand.phone}</span>
+                </div>
               </div>
             </div>
 
-            {/* Spacer duwt content naar onderste helft */}
-            <div className="cov-spacer" />
-
-            {/* Gradient accent-lijn */}
-            <div className="cov-line" />
-
-            {/* Content: category → OFFERTE → titel → klant */}
-            <div className="cov-mid">
-              <span className="eyebrow inv">
-                <InlineInput
-                  value={quote.category || brand.defaultCategory}
-                  onChange={(v) => onUpdate?.({ category: v })}
-                  isEditable={isEditable}
-                />
-              </span>
-              <h1 className="cov-h1">{coverHeading}</h1>
-              <div className="cov-project">
-                <InlineInput
-                  value={quote.title || brand.defaultTitle}
-                  onChange={(v) => onUpdate?.({ title: v })}
-                  isEditable={isEditable}
-                />
-              </div>
-              <div className="cov-for">
-                <span>Voor</span>
-                <b>{quote.customer.name || "Klantnaam"}</b>
-              </div>
-            </div>
-
-            {/* FOOTER: contact */}
-            <div className="cov-foot">
-              <span>{brand.website}</span>
-              <span>{brand.email}</span>
-              <span>{brand.phone}</span>
-            </div>
           </div>
         </section>
 
@@ -462,46 +470,13 @@ export function QuoteSheetPreview({
               />
             </div>
             <div className="sig">
-              <div className="sig-av">DK</div>
+              <div className="sig-av">
+                <img src="/logos/daan-koolhaas.jpg" alt="Daan Koolhaas" />
+              </div>
               <div>
                 <div className="sig-name">Daan Koolhaas</div>
                 <div className="sig-role">{brand.role}</div>
               </div>
-            </div>
-
-            <div className="div"></div>
-
-            <span className="eyebrow">{isKoolhaas ? "Details" : "Het project in het kort"}</span>
-            <h2 className="h2">In één oogopslag.</h2>
-            <div className="summary-table">
-              <div className="summary-row">
-                <div className="summary-k">Project</div>
-                <div className="summary-v">{quote.title || "Naam project"}</div>
-              </div>
-              <div className="summary-row">
-                <div className="summary-k">Type</div>
-                <div className="summary-v">{quote.category || brand.defaultCategory}</div>
-              </div>
-              <div className="summary-row">
-                <div className="summary-k">Doel</div>
-                <div className="summary-v">{brand.summaryGoal}</div>
-              </div>
-              <div className="summary-row">
-                <div className="summary-k">Oplevering</div>
-                <div className="summary-v">{brand.delivery}</div>
-              </div>
-              <div className="summary-row summary-row-hl">
-                <div className="summary-k">Investering</div>
-                <div className="summary-v summary-v-hl"><strong>{formatCurrency(Number(quote.totalIncVat))}</strong>&ensp;incl. btw &middot; eenmalig</div>
-              </div>
-              <div className="summary-row">
-                <div className="summary-k">Scope</div>
-                <div className="summary-v">{quote.tagline || brand.defaultTagline}</div>
-              </div>
-            </div>
-
-            <div className="note">
-              <b>{quote.items.length} onderdelen opgenomen.</b> De volledige artikellijst met totaalprijs staat overzichtelijk bij de investering.
             </div>
 
             {isKoolhaas && (
@@ -524,7 +499,7 @@ export function QuoteSheetPreview({
               </div>
             )}
             <div className="spacer"></div>
-            {renderPageFooter("02 / 05")}
+            {renderPageFooter(pageLabel(2))}
           </div>
         </section>
 
@@ -639,9 +614,47 @@ export function QuoteSheetPreview({
               </>
             )}
             <div className="spacer"></div>
-            {renderPageFooter("03 / 05")}
+            {renderPageFooter(pageLabel(3))}
           </div>
         </section>
+
+        {attachments.map((attachment, idx) => (
+          <section key={attachment.id ?? idx} className="sheet design-sheet">
+            <div className="bar"></div>
+            <div className="pad">
+              <div className="ph">
+                {renderHeaderLogo()}
+                <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
+              </div>
+
+              <div className="row-badge">
+                <div>
+                  <span className="eyebrow">Ontwerp & uitwerking</span>
+                  <h2 className="h2">{attachment.title || (isKoolhaas ? "Technische indruk en plaatsing." : "Zo ziet de richting eruit.")}</h2>
+                </div>
+                <span className="badge">{idx + 1} / {attachments.length}</span>
+              </div>
+
+              <figure className="design-full">
+                <a className="design-full-frame" href={attachment.imageUrl} target="_blank" rel="noreferrer">
+                  <img src={attachment.imageUrl} alt={attachment.title || attachment.caption || `Ontwerp ${idx + 1}`} />
+                </a>
+                {(attachment.caption || attachment.title) && (
+                  <figcaption className="design-full-caption">
+                    {attachment.title && <b>{attachment.title}</b>}
+                    {attachment.caption && <span>{attachment.caption}</span>}
+                  </figcaption>
+                )}
+                <a className="design-open-link no-print" href={attachment.imageUrl} target="_blank" rel="noreferrer">
+                  Open afbeelding volledig
+                </a>
+              </figure>
+
+              <div className="spacer"></div>
+              {renderPageFooter(pageLabel(4 + idx))}
+            </div>
+          </section>
+        ))}
 
         {/* ── PAGINA 4: INVESTERING + OPTIONS ── */}
         <section className="sheet">
@@ -670,7 +683,7 @@ export function QuoteSheetPreview({
             <div className="article-table-wrap">
               <div className="article-table-head">
                 <div>
-                  <span className="eyebrow">Artikelen</span>
+                  <span className="eyebrow">{isKoolhaas ? "Materialen" : "Diensten"}</span>
                   <h3>{quote.itemsHeader || brand.itemsHeader}</h3>
                 </div>
                 <div className="flex gap-2 items-center">
@@ -777,7 +790,7 @@ export function QuoteSheetPreview({
               ))}
             </div>
             <div className="spacer"></div>
-            {renderPageFooter("04 / 05")}
+            {renderPageFooter(pageLabel(4 + attachments.length))}
           </div>
         </section>
 
@@ -880,7 +893,7 @@ export function QuoteSheetPreview({
             </div>
 
             <div className="spacer"></div>
-            {renderPageFooter("05 / 05")}
+            {renderPageFooter(pageLabel(5 + attachments.length))}
           </div>
         </section>
 

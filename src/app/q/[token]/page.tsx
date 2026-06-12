@@ -12,6 +12,7 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
         include: {
           customer: true,
           items: { orderBy: { sortOrder: "asc" } },
+          attachments: { orderBy: { sortOrder: "asc" } },
           adviceDocuments: { orderBy: { createdAt: "desc" } },
           company: true,
         },
@@ -36,11 +37,12 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
 
   const branding = (share.quote.company.branding ?? {}) as Record<string, string>;
   const slug = share.quote.company.slug;
+  const serialized = JSON.parse(JSON.stringify(share));
 
   return (
     <QuotePortalClient
-      quote={share.quote as never}
-      share={share as never}
+      quote={serialized.quote}
+      share={serialized}
       companySlug={slug}
       branding={branding}
     />

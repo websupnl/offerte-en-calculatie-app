@@ -20,6 +20,7 @@ export default async function PortalPrintPage({
         include: {
           customer: true,
           items: { orderBy: { sortOrder: "asc" } },
+          attachments: { orderBy: { sortOrder: "asc" } },
           company: true,
         },
       },

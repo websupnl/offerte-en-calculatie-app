@@ -198,6 +198,7 @@ model Quote {
   customer        Customer         @relation(fields: [customerId], references: [id])
   createdBy       User             @relation(fields: [createdById], references: [id])
   items           QuoteItem[]
+  attachments     QuoteAttachment[]
   adviceDocuments AdviceDocument[]
   share           QuoteShare?
   findings        ResearchFinding[]
@@ -228,6 +229,19 @@ model QuoteItem {
 }
 
 // ─── Advice Documents ──────────────────────────────────────────────────────
+
+model QuoteAttachment {
+  id        String   @id @default(cuid())
+  quoteId   String
+  title     String?
+  imageUrl  String   @db.Text
+  caption   String?  @db.Text
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+}
 
 model AdviceDocument {
   id        String     @id @default(cuid())

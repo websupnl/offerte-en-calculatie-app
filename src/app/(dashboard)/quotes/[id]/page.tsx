@@ -15,6 +15,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
       include: {
         customer: true,
         items: { orderBy: { sortOrder: "asc" } },
+        attachments: { orderBy: { sortOrder: "asc" } },
         adviceDocuments: { orderBy: { createdAt: "desc" } },
         share: true,
       },

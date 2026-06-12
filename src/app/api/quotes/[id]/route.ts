@@ -13,6 +13,13 @@ const itemSchema = z.object({
   vatRate: z.coerce.number().default(21),
 });
 
+const attachmentSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().optional().nullable(),
+  imageUrl: z.string().min(1),
+  caption: z.string().optional().nullable(),
+});
+
 const schema = z.object({
   customerId: z.string().optional(),
   title: z.string().optional(),
@@ -29,6 +36,7 @@ const schema = z.object({
   options: z.any().optional(),
   exclusions: z.any().optional(),
   items: z.array(itemSchema).optional(),
+  attachments: z.array(attachmentSchema).optional(),
 });
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +49,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     include: {
       customer: true,
       items: { orderBy: { sortOrder: "asc" } },
+      attachments: { orderBy: { sortOrder: "asc" } },
       adviceDocuments: true,
       share: true,
     },
@@ -61,9 +70,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { items, ...rest } = parsed.data;
+  const { items, attachments, ...rest } = parsed.data;
 
-  let updateData: Record<string, unknown> = { ...rest };
+  let updateData: Record<string, unknown> = { ...rest, pdfUrl: null };
 
   if (items) {
     // Recalculate totals
@@ -83,6 +92,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     await prisma.quoteItem.createMany({
       data: itemsWithTotals.map(({ id: _id, ...item }) => ({ ...item, quoteId: id })),
     });
+  }
+
+  if (attachments) {
+    await prisma.quoteAttachment.deleteMany({ where: { quoteId: id } });
+    if (attachments.length) {
+      await prisma.quoteAttachment.createMany({
+        data: attachments.map(({ id: _id, ...attachment }, sortOrder) => ({
+          ...attachment,
+          quoteId: id,
+          sortOrder,
+        })),
+      });
+    }
   }
 
   // Handle validUntil date conversion

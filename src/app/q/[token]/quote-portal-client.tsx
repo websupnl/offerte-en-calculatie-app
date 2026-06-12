@@ -29,6 +29,7 @@ type QuoteItem = {
 type FlowItem = { n: number; t: string; d: string };
 type ApproachStep = { n: string; t: string; d: string };
 type QuoteOption = { t: string; d: string; tag: string };
+type QuoteAttachment = { id: string; title: string | null; imageUrl: string; caption: string | null };
 
 type Quote = {
   id: string;
@@ -51,6 +52,7 @@ type Quote = {
   approach?: ApproachStep[];
   options?: QuoteOption[];
   exclusions?: string[];
+  attachments?: QuoteAttachment[];
   adviceDocuments: { id: string; type: string }[];
 };
 

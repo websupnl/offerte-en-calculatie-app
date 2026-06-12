@@ -19,6 +19,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
         include: {
           customer: true,
           items: { orderBy: { sortOrder: "asc" } },
+          attachments: { orderBy: { sortOrder: "asc" } },
           company: true,
         },
       },
@@ -50,6 +51,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
     approach: (quote.approach as any[]) || [],
     options: (quote.options as any[]) || [],
     exclusions: (quote.exclusions as string[]) || [],
+    attachments: quote.attachments.map((attachment) => ({
+      title: attachment.title ?? undefined,
+      imageUrl: attachment.imageUrl,
+      caption: attachment.caption ?? undefined,
+    })),
     itemsHeader: quote.itemsHeader || "Onderdelen",
     status: quote.status,
     acceptedAt: share.acceptedAt ? formatDate(share.acceptedAt) : undefined,

@@ -19,6 +19,12 @@ type QuoteItem = {
   total: number;
 };
 
+type QuoteAttachment = {
+  title?: string;
+  imageUrl: string;
+  caption?: string;
+};
+
 type QuotePDFProps = {
   companyName: string;
   companySlug: string;
@@ -48,6 +54,7 @@ type QuotePDFProps = {
   approach?: { n: string; t: string; d: string }[];
   options?: { t: string; d: string; tag: string }[];
   exclusions?: string[];
+  attachments?: QuoteAttachment[];
 };
 
 const logoDataUri = (fileName: string): string => {
@@ -58,6 +65,23 @@ const logoDataUri = (fileName: string): string => {
     return `data:${mime};base64,${buffer.toString("base64")}`;
   } catch {
     return "";
+  }
+};
+
+const publicImageDataUri = (imageUrl: string): string => {
+  if (!imageUrl.startsWith("/")) return imageUrl;
+
+  try {
+    const buffer = readFileSync(`${process.cwd()}/public${imageUrl}`);
+    const ext = imageUrl.split(".").pop()?.toLowerCase();
+    const mime =
+      ext === "jpg" || ext === "jpeg" ? "image/jpeg" :
+      ext === "webp" ? "image/webp" :
+      ext === "gif" ? "image/gif" :
+      "image/png";
+    return `data:${mime};base64,${buffer.toString("base64")}`;
+  } catch {
+    return imageUrl;
   }
 };
 
@@ -341,6 +365,7 @@ export function QuotePDF({
   approach: approachProp = [],
   options: optionsProp = [],
   exclusions: exclusionsProp = [],
+  attachments = [],
 }: QuotePDFProps) {
   const brand = getBrand(companySlug);
   const isKoolhaas = companySlug === "koolhaas";
@@ -356,6 +381,9 @@ export function QuotePDF({
 
   const PAD = 38;
   const innerPage = { padding: PAD, paddingTop: 30, paddingBottom: 50 };
+  const totalPages = 5 + attachments.length;
+  const pageLabel = (page: number) =>
+    `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
 
   // Cover uses dark left panel for WebsUp, light for Koolhaas
   const coverDark = !isKoolhaas;
@@ -506,7 +534,7 @@ export function QuotePDF({
           ))}
         </View>
 
-        <PageFooter tag="Offerte" page="02 / 05" customerName={customerName} />
+        <PageFooter tag="Offerte" page={pageLabel(2)} customerName={customerName} />
       </Page>
 
       {/* ════════════════════════════════════════════════════════
@@ -557,8 +585,38 @@ export function QuotePDF({
           ))}
         </View>
 
-        <PageFooter tag="Offerte" page="03 / 05" customerName={customerName} />
+        <PageFooter tag="Offerte" page={pageLabel(3)} customerName={customerName} />
       </Page>
+
+      {attachments.map((attachment, i) => (
+        <Page key={i} size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
+          <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
+          <PageHeader brand={brand} quoteNumber={quoteNumber} customerName={customerName} />
+
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 10 }}>
+            <View>
+              <Eyebrow text="Ontwerp & uitwerking" color={brand.colors.accent} />
+              <H2 text={attachment.title || (isKoolhaas ? "Technische indruk en plaatsing." : "Zo ziet de richting eruit.")} />
+            </View>
+            <View style={{ backgroundColor: brand.colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
+              <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>{i + 1} / {attachments.length}</Text>
+            </View>
+          </View>
+
+          <View style={{ flex: 1, borderWidth: 1, borderColor: brand.colors.border, borderRadius: 8, overflow: "hidden", backgroundColor: "#FFFFFF", justifyContent: "center", alignItems: "center" }}>
+            <Image src={publicImageDataUri(attachment.imageUrl)} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          </View>
+
+          {(attachment.title || attachment.caption) && (
+            <View style={{ marginTop: 8 }}>
+              {attachment.title && <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>{attachment.title}</Text>}
+              {attachment.caption && <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.35, marginTop: 3 }}>{attachment.caption}</Text>}
+            </View>
+          )}
+
+          <PageFooter tag="Offerte" page={pageLabel(4 + i)} customerName={customerName} />
+        </Page>
+      ))}
 
       {/* ════════════════════════════════════════════════════════
           PAGE 4: INVESTMENT + OPTIONS
@@ -637,7 +695,7 @@ export function QuotePDF({
           ))}
         </View>
 
-        <PageFooter tag="Offerte" page="04 / 05" customerName={customerName} />
+        <PageFooter tag="Offerte" page={pageLabel(4 + attachments.length)} customerName={customerName} />
       </Page>
 
       {/* ════════════════════════════════════════════════════════
@@ -718,7 +776,7 @@ export function QuotePDF({
           </View>
         </View>
 
-        <PageFooter tag="Offerte" page="05 / 05" customerName={customerName} />
+        <PageFooter tag="Offerte" page={pageLabel(5 + attachments.length)} customerName={customerName} />
       </Page>
 
     </Document>

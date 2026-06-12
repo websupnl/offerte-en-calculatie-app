@@ -34,6 +34,13 @@ type QuoteItem = {
   productId: string | null;
 };
 
+type QuoteAttachment = {
+  id: string;
+  title: string | null;
+  imageUrl: string;
+  caption: string | null;
+};
+
 type AdviceDocument = {
   id: string;
   type: string;
@@ -55,6 +62,7 @@ type Quote = {
   createdAt: string;
   customer: { id: string; name: string; email: string | null; address: string | null; city: string | null };
   items: QuoteItem[];
+  attachments: QuoteAttachment[];
   adviceDocuments: AdviceDocument[];
   share: { token: string; viewedAt: string | null; acceptedAt: string | null } | null;
 };

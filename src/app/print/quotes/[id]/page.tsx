@@ -22,6 +22,7 @@ export default async function QuotePrintPage({
     include: {
       customer: true,
       items: { orderBy: { sortOrder: "asc" } },
+      attachments: { orderBy: { sortOrder: "asc" } },
       company: true,
       share: true,
     },

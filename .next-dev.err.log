@@ -1,0 +1,186 @@
+⚠ Port 3000 is in use by process 25704, using available port 3001 instead.
+(node:29284) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/quotes/cm..." notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="nl" className="inter_b299...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+    at <unknown> (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:3439:25)
+    at runWithFiberInDEV (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:965:74)
+    at emitPendingHydrationWarnings (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:3438:13)
+    at completeWork (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:6885:102)
+    at runWithFiberInDEV (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:965:131)
+    at completeUnitOfWork (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9622:23)
+    at performUnitOfWork (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9557:28)
+    at workLoopConcurrentByScheduler (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9551:58)
+    at renderRootConcurrent (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9534:71)
+    at performWorkOnRoot (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9061:150)
+    at performWorkOnRootViaSchedulerTask (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:10255:9)
+    at MessagePort.performWorkUntilDeadline (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_0rpq4pf._.js:2647:64) (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:3439:25)
+[PDF] BLOB_READ_WRITE_TOKEN not set — skipping PDF pre-generation
+[PDF] BLOB_READ_WRITE_TOKEN not set — skipping PDF pre-generation
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/print/quo..." notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="nl" className="inter_b299...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+    at <unknown> (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:3439:25)
+    at runWithFiberInDEV (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:965:74)
+    at emitPendingHydrationWarnings (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:3438:13)
+    at completeWork (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:6885:102)
+    at runWithFiberInDEV (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:965:131)
+    at completeUnitOfWork (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9622:23)
+    at performUnitOfWork (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9557:28)
+    at workLoopConcurrentByScheduler (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9551:58)
+    at renderRootConcurrent (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9534:71)
+    at performWorkOnRoot (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9061:150)
+    at performWorkOnRootViaSchedulerTask (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:10255:9)
+    at MessagePort.performWorkUntilDeadline (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_0rpq4pf._.js:2647:64) (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:3439:25)
+Only plain objects can be passed to Client Components from Server Components. Decimal objects are not supported.
+  {id: ..., companyId: ..., customerId: ..., createdById: ..., number: ..., title: ..., category: ..., tagline: ..., itemsHeader: ..., status: ..., validUntil: ..., intro: ..., outro: ..., notes: ..., vatRate: Decimal, discount: ..., totalExVat: ..., totalVat: ..., totalIncVat: ..., flow: ..., approach: ..., options: ..., exclusions: ..., pdfUrl: ..., createdAt: ..., updatedAt: ..., customer: ..., items: ..., attachments: ..., adviceDocuments: ..., company: ...}
+                                                                                                                                                                                                                  ^^^^^^^
+Only plain objects can be passed to Client Components from Server Components. Decimal objects are not supported.
+  {id: ..., companyId: ..., customerId: ..., createdById: ..., number: ..., title: ..., category: ..., tagline: ..., itemsHeader: ..., status: ..., validUntil: ..., intro: ..., outro: ..., notes: ..., vatRate: ..., discount: Decimal, totalExVat: ..., totalVat: ..., totalIncVat: ..., flow: ..., approach: ..., options: ..., exclusions: ..., pdfUrl: ..., createdAt: ..., updatedAt: ..., customer: ..., items: ..., attachments: ..., adviceDocuments: ..., company: ...}
+                                                                                                                                                                                                                                 ^^^^^^^
+Only plain objects can be passed to Client Components from Server Components. Decimal objects are not supported.
+  {id: ..., companyId: ..., customerId: ..., createdById: ..., number: ..., title: ..., category: ..., tagline: ..., itemsHeader: ..., status: ..., validUntil: ..., intro: ..., outro: ..., notes: ..., vatRate: ..., discount: ..., totalExVat: Decimal, totalVat: ..., totalIncVat: ..., flow: ..., approach: ..., options: ..., exclusions: ..., pdfUrl: ..., createdAt: ..., updatedAt: ..., customer: ..., items: ..., attachments: ..., adviceDocuments: ..., company: ...}
+                                                                                                                                                                                                                                                  ^^^^^^^
+Only plain objects can be passed to Client Components from Server Components. Decimal objects are not supported.
+  {id: ..., companyId: ..., customerId: ..., createdById: ..., number: ..., title: ..., category: ..., tagline: ..., itemsHeader: ..., status: ..., validUntil: ..., intro: ..., outro: ..., notes: ..., vatRate: ..., discount: ..., totalExVat: ..., totalVat: Decimal, totalIncVat: ..., flow: ..., approach: ..., options: ..., exclusions: ..., pdfUrl: ..., createdAt: ..., updatedAt: ..., customer: ..., items: ..., attachments: ..., adviceDocuments: ..., company: ...}
+                                                                                                                                                                                                                                                                 ^^^^^^^
+Only plain objects can be passed to Client Components from Server Components. Decimal objects are not supported.
+  {id: ..., companyId: ..., customerId: ..., createdById: ..., number: ..., title: ..., category: ..., tagline: ..., itemsHeader: ..., status: ..., validUntil: ..., intro: ..., outro: ..., notes: ..., vatRate: ..., discount: ..., totalExVat: ..., totalVat: ..., totalIncVat: Decimal, flow: ..., approach: ..., options: ..., exclusions: ..., pdfUrl: ..., createdAt: ..., updatedAt: ..., customer: ..., items: ..., attachments: ..., adviceDocuments: ..., company: ...}
+                                                                                                                                                                                                                                                                                   ^^^^^^^
+Only plain objects can be passed to Client Components from Server Components. Decimal objects are not supported.
+  {id: ..., quoteId: ..., productId: Null, description: ..., qty: Decimal, unitPrice: ..., vatRate: ..., total: ..., sortOrder: ...}
+                                                                  ^^^^^^^
+Only plain objects can be passed to Client Components from Server Components. Decimal objects are not supported.
+  {id: ..., quoteId: ..., productId: Null, description: ..., qty: ..., unitPrice: Decimal, vatRate: ..., total: ..., sortOrder: ...}
+                                                                                  ^^^^^^^
+Only plain objects can be passed to Client Components from Server Components. Decimal objects are not supported.
+  {id: ..., quoteId: ..., productId: Null, description: ..., qty: ..., unitPrice: ..., vatRate: Decimal, total: ..., sortOrder: ...}
+                                                                                                ^^^^^^^
+Only plain objects can be passed to Client Components from Server Components. Decimal objects are not supported.
+  {id: ..., quoteId: ..., productId: Null, description: ..., qty: ..., unitPrice: ..., vatRate: ..., total: Decimal, sortOrder: ...}
+                                                                                                            ^^^^^^^
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/q/bbf11b2..." notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="nl" className="inter_b299...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+    at <unknown> (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:3439:25)
+    at runWithFiberInDEV (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:965:74)
+    at emitPendingHydrationWarnings (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:3438:13)
+    at completeWork (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:6885:102)
+    at runWithFiberInDEV (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:965:131)
+    at completeUnitOfWork (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9622:23)
+    at performUnitOfWork (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9557:28)
+    at workLoopConcurrentByScheduler (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9551:58)
+    at renderRootConcurrent (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9534:71)
+    at performWorkOnRoot (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9061:150)
+    at performWorkOnRootViaSchedulerTask (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:10255:9)
+    at MessagePort.performWorkUntilDeadline (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_0rpq4pf._.js:2647:64) (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:3439:25)

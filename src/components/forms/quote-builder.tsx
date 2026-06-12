@@ -17,6 +17,8 @@ import {
   X,
   Sparkles,
   Wand2,
+  Upload,
+  Image as ImageIcon,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
@@ -36,6 +38,20 @@ type QuoteItem = {
   unitPrice: number;
   vatRate: number;
   total: number;
+};
+
+type QuoteAttachment = {
+  id: string;
+  title: string;
+  imageUrl: string;
+  caption: string;
+};
+
+type InitialQuoteAttachment = {
+  id?: string;
+  title?: string | null;
+  imageUrl?: string | null;
+  caption?: string | null;
 };
 
 // â”€â”€â”€ Defaults â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -144,6 +160,14 @@ export function QuoteBuilder({
       { id: genId(), description: isKoolhaas ? "Levering en installatie volgens offerte" : "Ontwerp, bouw en plaatsing van module", qty: 1, unitPrice: 0, vatRate: 21, total: 0 },
     ]
   );
+  const [attachments, setAttachments] = useState<QuoteAttachment[]>(
+    initialQuote?.attachments?.map((attachment: InitialQuoteAttachment) => ({
+      id: attachment.id || genId(),
+      title: attachment.title || "",
+      imageUrl: attachment.imageUrl || "",
+      caption: attachment.caption || "",
+    })) || []
+  );
   
   const [saving, setSaving] = useState(false);
   const [aiInput, setAiInput] = useState("");
@@ -170,6 +194,7 @@ export function QuoteBuilder({
     totalVat,
     totalIncVat,
     items,
+    attachments,
     flow,
     approach,
     options,
@@ -243,6 +268,11 @@ export function QuoteBuilder({
           approach,
           options,
           exclusions,
+          attachments: attachments
+            .filter((attachment) => attachment.imageUrl.trim())
+            .map(({ id, ...rest }) =>
+              initialQuote?.id && id.length > 20 ? { ...rest, id } : rest
+            ),
           items: items.map(({ id, ...rest }) => initialQuote?.id ? { ...rest, id: id.length > 20 ? id : undefined } : rest) 
         }),
       });
@@ -278,6 +308,60 @@ export function QuoteBuilder({
 
   function removeItem(id: string) {
     setItems((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  function updateAttachment(id: string, updates: Partial<QuoteAttachment>) {
+    setAttachments((prev) =>
+      prev.map((attachment) =>
+        attachment.id === id ? { ...attachment, ...updates } : attachment
+      )
+    );
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((prev) => prev.filter((attachment) => attachment.id !== id));
+  }
+
+  function addAttachmentUrl() {
+    setAttachments((prev) => [
+      ...prev,
+      { id: genId(), title: "Ontwerp", imageUrl: "", caption: "" },
+    ]);
+  }
+
+  async function handleAttachmentUpload(files: FileList | null) {
+    if (!files?.length) return;
+
+    try {
+      const next = await Promise.all(
+        Array.from(files).map(async (file) => {
+          if (!file.type.startsWith("image/")) {
+            throw new Error("Alleen afbeeldingen zijn toegestaan");
+          }
+
+          const formData = new FormData();
+          formData.append("file", file);
+
+          const res = await fetch("/api/quote-attachments/upload", {
+            method: "POST",
+            body: formData,
+          });
+          if (!res.ok) throw new Error("Upload mislukt");
+
+          const uploaded = (await res.json()) as { url: string; title?: string };
+          return {
+            id: genId(),
+            title: uploaded.title || file.name.replace(/\.[^.]+$/, ""),
+            imageUrl: uploaded.url,
+            caption: "",
+          };
+        })
+      );
+      setAttachments((prev) => [...prev, ...next]);
+      toast.success(`${next.length} ontwerp${next.length === 1 ? "" : "en"} toegevoegd`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Upload mislukt");
+    }
   }
 
   const handleUpdate = (updates: Partial<any>) => {
@@ -454,6 +538,87 @@ export function QuoteBuilder({
                   onChange={(e) => setNotes(e.target.value)}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-bold flex items-center justify-between">
+                Ontwerpen
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={addAttachmentUrl} className="h-8">
+                    <Plus className="h-3 w-3 mr-1" /> URL
+                  </Button>
+                  <label className="inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-xs font-medium shadow-xs hover:bg-accent hover:text-accent-foreground cursor-pointer">
+                    <Upload className="h-3 w-3 mr-1" /> Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="sr-only"
+                      onChange={(event) => {
+                        void handleAttachmentUpload(event.target.files);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {attachments.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
+                  <ImageIcon className="mx-auto mb-2 h-5 w-5 text-slate-400" />
+                  Voeg mockups, screenshots of Figma exports toe.
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[520px] overflow-y-auto pr-2">
+                  {attachments.map((attachment, index) => (
+                    <div key={attachment.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                      <div className="flex items-start gap-3">
+                        <div className="h-16 w-20 rounded-md border border-slate-200 bg-white overflow-hidden shrink-0">
+                          {attachment.imageUrl ? (
+                            <img src={attachment.imageUrl} alt="" className="h-full w-full object-contain" />
+                          ) : (
+                            <div className="h-full w-full grid place-items-center text-slate-300">
+                              <ImageIcon className="h-5 w-5" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <Input
+                            value={attachment.title}
+                            onChange={(event) => updateAttachment(attachment.id, { title: event.target.value })}
+                            placeholder={`Ontwerp ${index + 1}`}
+                            className="h-8 text-sm"
+                          />
+                          <Input
+                            value={attachment.imageUrl}
+                            onChange={(event) => updateAttachment(attachment.id, { imageUrl: event.target.value })}
+                            placeholder="https://... of data:image/..."
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(attachment.id)}
+                          className="rounded-full p-1 text-red-500 hover:bg-red-50"
+                          aria-label="Ontwerp verwijderen"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <Textarea
+                        value={attachment.caption}
+                        onChange={(event) => updateAttachment(attachment.id, { caption: event.target.value })}
+                        placeholder="Caption onder de afbeelding..."
+                        rows={2}
+                        className="resize-none text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
