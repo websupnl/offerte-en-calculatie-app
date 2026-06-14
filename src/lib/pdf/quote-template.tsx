@@ -381,9 +381,15 @@ export function QuotePDF({
 
   const PAD = 38;
   const innerPage = { padding: PAD, paddingTop: 30, paddingBottom: 50 };
-  const totalPages = 5 + attachments.length;
+  const totalPages = 4 + attachments.length;
   const pageLabel = (page: number) =>
     `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
+  const valueTitle = isKoolhaas
+    ? "Een nette installatie zonder onduidelijkheid achteraf."
+    : "Een website die bezoekers sneller naar contact brengt.";
+  const valueCopy = isKoolhaas
+    ? "Je krijgt een duidelijke installatie met veilige montage, nette afwerking en uitleg bij oplevering. Vooraf is helder wat er wordt geplaatst en wat buiten de scope valt."
+    : "Bezoekers moeten snel kunnen zien wat je aanbiedt, eenvoudig vinden wat relevant is en zonder drempel contact opnemen. Jij kunt de belangrijkste inhoud zelf beheren, zonder technische kennis of afhankelijkheid voor kleine wijzigingen.";
 
   // Cover uses dark left panel for WebsUp, light for Koolhaas
   const coverDark = !isKoolhaas;
@@ -513,6 +519,16 @@ export function QuotePDF({
 
         <Divider color={brand.colors.border} />
 
+        <View style={{ backgroundColor: brand.colors.surface, borderLeftWidth: 3, borderLeftColor: brand.colors.accent, borderRadius: 10, padding: 14, marginBottom: 14 }}>
+          <Eyebrow text={isKoolhaas ? "Wat dit oplevert" : "Wat ik voor je bouw"} color={brand.colors.accent} />
+          <Text style={{ fontSize: 15, fontFamily: "Helvetica-Bold", color: brand.colors.text, marginTop: 7, marginBottom: 6, lineHeight: 1.2 }}>
+            {valueTitle}
+          </Text>
+          <Text style={{ fontSize: 9, lineHeight: 1.55, color: brand.colors.muted }}>
+            {valueCopy}
+          </Text>
+        </View>
+
         {/* Deliverables */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <View>
@@ -536,6 +552,9 @@ export function QuotePDF({
 
         <PageFooter tag="Offerte" page={pageLabel(2)} customerName={customerName} />
       </Page>
+
+      {false && (
+      <>
 
       {/* ════════════════════════════════════════════════════════
           PAGE 3: FLOW + APPROACH
@@ -588,6 +607,9 @@ export function QuotePDF({
         <PageFooter tag="Offerte" page={pageLabel(3)} customerName={customerName} />
       </Page>
 
+      </>
+      )}
+
       {attachments.map((attachment, i) => (
         <Page key={i} size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
           <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
@@ -614,7 +636,7 @@ export function QuotePDF({
             </View>
           )}
 
-          <PageFooter tag="Offerte" page={pageLabel(4 + i)} customerName={customerName} />
+          <PageFooter tag="Offerte" page={pageLabel(3 + i)} customerName={customerName} />
         </Page>
       ))}
 
@@ -628,6 +650,35 @@ export function QuotePDF({
         <Eyebrow text="De investering" color={brand.colors.accent} />
         <H2 text={brand.investmentTitle} />
 
+        <View style={{ borderWidth: 1, borderColor: brand.colors.border, borderRadius: 10, overflow: "hidden", marginTop: 10, marginBottom: 14 }}>
+          <View style={{ flexDirection: "row", backgroundColor: brand.colors.surface, borderBottomWidth: 1, borderBottomColor: brand.colors.border }}>
+            <Text style={{ flex: 1, padding: 9, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted, textTransform: "uppercase" }}>Omschrijving</Text>
+            <Text style={{ width: 58, padding: 9, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted, textAlign: "right", textTransform: "uppercase" }}>Aantal</Text>
+            <Text style={{ width: 78, padding: 9, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted, textAlign: "right", textTransform: "uppercase" }}>Prijs</Text>
+            <Text style={{ width: 78, padding: 9, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted, textAlign: "right", textTransform: "uppercase" }}>Totaal</Text>
+          </View>
+          {items.map((item, i) => (
+            <View key={i} style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: brand.colors.border }}>
+              <Text style={{ flex: 1, padding: 9, fontSize: 8.5, color: "#334155", lineHeight: 1.35 }}>{item.description}</Text>
+              <Text style={{ width: 58, padding: 9, fontSize: 8.5, color: "#334155", textAlign: "right" }}>{formatAmt(item.qty)}</Text>
+              <Text style={{ width: 78, padding: 9, fontSize: 8.5, color: "#334155", textAlign: "right" }}>{formatEur(item.unitPrice)}</Text>
+              <Text style={{ width: 78, padding: 9, fontSize: 8.5, color: "#334155", textAlign: "right" }}>{formatEur(item.total)}</Text>
+            </View>
+          ))}
+          {[
+            ["Totaal excl. btw", formatEur(totalExVat), false],
+            ["Btw", formatEur(totalVat), false],
+            ["Totaal incl. btw", formatEur(totalIncVat), true],
+          ].map(([label, value, strong]) => (
+            <View key={String(label)} style={{ flexDirection: "row", justifyContent: "flex-end", backgroundColor: strong ? brand.colors.surface : "#FFFFFF" }}>
+              <Text style={{ width: 180, padding: 8, fontSize: strong ? 10 : 8.5, fontFamily: strong ? "Helvetica-Bold" : "Helvetica", color: strong ? brand.colors.text : brand.colors.muted, textAlign: "right" }}>{label}</Text>
+              <Text style={{ width: 96, padding: 8, fontSize: strong ? 10 : 8.5, fontFamily: strong ? "Helvetica-Bold" : "Helvetica", color: brand.colors.text, textAlign: "right" }}>{value}</Text>
+            </View>
+          ))}
+        </View>
+
+        {false && (
+        <>
         {/* Price card */}
         <View style={{ backgroundColor: brand.colors.primary, borderRadius: 14, padding: 20, marginBottom: 14 }}>
           <Text style={{ fontSize: 7.5, textTransform: "uppercase", letterSpacing: 1, color: "rgba(255,255,255,0.45)", marginBottom: 3 }}>
@@ -672,6 +723,9 @@ export function QuotePDF({
           </View>
         </View>
 
+        </>
+        )}
+
         <Divider color={brand.colors.border} />
 
         {/* Options */}
@@ -695,7 +749,7 @@ export function QuotePDF({
           ))}
         </View>
 
-        <PageFooter tag="Offerte" page={pageLabel(4 + attachments.length)} customerName={customerName} />
+        <PageFooter tag="Offerte" page={pageLabel(3 + attachments.length)} customerName={customerName} />
       </Page>
 
       {/* ════════════════════════════════════════════════════════
@@ -776,7 +830,7 @@ export function QuotePDF({
           </View>
         </View>
 
-        <PageFooter tag="Offerte" page={pageLabel(5 + attachments.length)} customerName={customerName} />
+        <PageFooter tag="Offerte" page={pageLabel(4 + attachments.length)} customerName={customerName} />
       </Page>
 
     </Document>

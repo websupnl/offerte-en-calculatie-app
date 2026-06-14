@@ -141,12 +141,12 @@ export function QuoteBuilder({
   const router = useRouter();
   const isKoolhaas = companySlug === "koolhaas";
   const [customerId, setCustomerId] = useState(initialQuote?.customerId || "");
-  const [title, setTitle] = useState(initialQuote?.title || (isKoolhaas ? "Thuisbatterij installatie" : "Maatwerk offerte-aanvraagmodule laadpalen"));
+  const [title, setTitle] = useState(initialQuote?.title || (isKoolhaas ? "Thuisbatterij installatie" : "Maatwerk website met voorraadbeheer"));
   const [category, setCategory] = useState(initialQuote?.category || (isKoolhaas ? "Installatie · Energieopslag" : "Maatwerk module · WordPress"));
   const [tagline, setTagline] = useState(initialQuote?.tagline || (isKoolhaas ? "Advies · Installatie · Inbedrijfstelling" : "Ontwerp · Bouw · Plaatsing"));
   const [itemsHeader, setItemsHeader] = useState(initialQuote?.itemsHeader || (isKoolhaas ? "Wat wordt er geïnstalleerd" : "Onderdelen binnen fase 1."));
   const [validUntil, setValidUntil] = useState(initialQuote?.validUntil ? new Date(initialQuote.validUntil).toISOString().split('T')[0] : "");
-  const [intro, setIntro] = useState(initialQuote?.intro || "");
+  const [intro, setIntro] = useState(initialQuote?.intro || (isKoolhaas ? "" : "Bedankt voor je interesse. In dit voorstel staat een professionele website centraal waarmee bezoekers snel kunnen zien wat je aanbiedt en eenvoudig contact kunnen opnemen. Daarnaast krijg je een praktische beheeromgeving, zodat je zelf zonder technische kennis inhoud kunt aanpassen."));
   const [outro, setOutro] = useState(initialQuote?.outro || "");
   const [notes, setNotes] = useState(initialQuote?.notes || "");
   
@@ -157,7 +157,7 @@ export function QuoteBuilder({
 
   const [items, setItems] = useState<QuoteItem[]>(
     initialQuote?.items?.map((i: any) => ({ ...i, id: i.id || genId() })) || [
-      { id: genId(), description: isKoolhaas ? "Levering en installatie volgens offerte" : "Ontwerp, bouw en plaatsing van module", qty: 1, unitPrice: 0, vatRate: 21, total: 0 },
+      { id: genId(), description: isKoolhaas ? "Levering en installatie volgens offerte" : "Professionele website waarop bezoekers snel het aanbod kunnen bekijken en eenvoudig contact kunnen opnemen", qty: 1, unitPrice: 0, vatRate: 21, total: 0 },
     ]
   );
   const [attachments, setAttachments] = useState<QuoteAttachment[]>(

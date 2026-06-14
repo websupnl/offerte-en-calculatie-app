@@ -276,11 +276,17 @@ export function QuoteSheetPreview({
   const options = quote.options?.length ? quote.options : DEFAULT_OPTIONS[brandKey];
   const exclusions = quote.exclusions?.length ? quote.exclusions : DEFAULT_EXCLUSIONS[brandKey];
   const attachments = quote.attachments ?? [];
-  const totalPages = 5 + attachments.length;
+  const totalPages = 4 + attachments.length;
   const pageLabel = (page: number) =>
     `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
   const coverHeading = isKoolhaas ? (quote.category || quote.title || brand.defaultTitle) : "Offerte";
   const primaryItem = quote.items[0]?.description || quote.title || brand.defaultTitle;
+  const valueTitle = isKoolhaas
+    ? "Een nette installatie zonder onduidelijkheid achteraf."
+    : "Een website die bezoekers sneller naar contact brengt.";
+  const valueCopy = isKoolhaas
+    ? "Je krijgt een duidelijke installatie met veilige montage, nette afwerking en uitleg bij oplevering. Vooraf is helder wat er wordt geplaatst en wat buiten de scope valt."
+    : "Bezoekers moeten snel kunnen zien wat je aanbiedt, eenvoudig vinden wat relevant is en zonder drempel contact opnemen. Jij kunt de belangrijkste inhoud zelf beheren, zonder technische kennis of afhankelijkheid voor kleine wijzigingen.";
   const [generating, setGenerating] = useState<string | null>(null);
 
   const handleAiGen = async (section: string) => {
@@ -479,6 +485,30 @@ export function QuoteSheetPreview({
               </div>
             </div>
 
+            <div className="value-panel">
+              <span className="eyebrow">{isKoolhaas ? "Wat dit oplevert" : "Wat ik voor je bouw"}</span>
+              <h2 className="h2">{valueTitle}</h2>
+              <p>{valueCopy}</p>
+            </div>
+
+            <div className="included-block">
+              <div className="row-badge">
+                <div>
+                  <span className="eyebrow">Inbegrepen</span>
+                  <h2 className="h2">{quote.itemsHeader || brand.itemsHeader}</h2>
+                </div>
+                <span className="badge">{quote.items.length} onderdelen</span>
+              </div>
+              <ul className="included-list">
+                {quote.items.map((item) => (
+                  <li key={item.id}>
+                    <span className="ic-ok"><Check size={10} strokeWidth={3} /></span>
+                    <span>{item.description}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             {isKoolhaas && (
               <div className="scope-grid">
                 <div className="scope-card scope-card-main">
@@ -502,6 +532,9 @@ export function QuoteSheetPreview({
             {renderPageFooter(pageLabel(2))}
           </div>
         </section>
+
+        {false && (
+          <>
 
         {/* ── PAGINA 3: FLOW + AANPAK ── */}
         <section className="sheet">
@@ -618,6 +651,9 @@ export function QuoteSheetPreview({
           </div>
         </section>
 
+          </>
+        )}
+
         {attachments.map((attachment, idx) => (
           <section key={attachment.id ?? idx} className="sheet design-sheet">
             <div className="bar"></div>
@@ -651,7 +687,7 @@ export function QuoteSheetPreview({
               </figure>
 
               <div className="spacer"></div>
-              {renderPageFooter(pageLabel(4 + idx))}
+              {renderPageFooter(pageLabel(3 + idx))}
             </div>
           </section>
         ))}
@@ -663,21 +699,6 @@ export function QuoteSheetPreview({
             <div className="ph">
               {renderHeaderLogo()}
               <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
-            </div>
-
-            <span className="eyebrow">De investering</span>
-            <h2 className="h2">{brand.investmentTitle}</h2>
-
-            <div className="price-card">
-              <div className="pc-label">{brand.investmentLabel}</div>
-              <p className="pc-desc">{brand.investmentDescription}</p>
-              <div className="pc-amt">
-                <div className="a"><span className="c">&euro;</span>{Number(quote.totalIncVat).toLocaleString('nl-NL')}</div>
-                <div className="tags">
-                  <b>incl. btw</b>
-                  <span>eenmalig</span>
-                </div>
-              </div>
             </div>
 
             <div className="article-table-wrap">
@@ -790,7 +811,7 @@ export function QuoteSheetPreview({
               ))}
             </div>
             <div className="spacer"></div>
-            {renderPageFooter(pageLabel(4 + attachments.length))}
+            {renderPageFooter(pageLabel(3 + attachments.length))}
           </div>
         </section>
 
@@ -893,7 +914,7 @@ export function QuoteSheetPreview({
             </div>
 
             <div className="spacer"></div>
-            {renderPageFooter(pageLabel(5 + attachments.length))}
+            {renderPageFooter(pageLabel(4 + attachments.length))}
           </div>
         </section>
 

@@ -184,3 +184,514 @@ https://react.dev/link/hydration-mismatch
     at performWorkOnRoot (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9061:150)
     at performWorkOnRootViaSchedulerTask (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:10255:9)
     at MessagePort.performWorkUntilDeadline (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_0rpq4pf._.js:2647:64) (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:3439:25)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/q/bbf11b2..." notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="nl" className="inter_b299...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+    at <unknown> (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:3439:25)
+    at runWithFiberInDEV (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:965:74)
+    at emitPendingHydrationWarnings (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:3438:13)
+    at completeWork (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:6885:102)
+    at runWithFiberInDEV (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:965:131)
+    at completeUnitOfWork (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9622:23)
+    at performUnitOfWork (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9557:28)
+    at workLoopConcurrentByScheduler (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9551:58)
+    at renderRootConcurrent (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9534:71)
+    at performWorkOnRoot (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9061:150)
+    at performWorkOnRootViaSchedulerTask (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:10255:9)
+    at MessagePort.performWorkUntilDeadline (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_0rpq4pf._.js:2647:64) (file://C:/Users/Daan Koolhaas/Documents/GitHub/offerte-en-calculatie-app/.next/dev/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:3439:25)
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⨯ ReferenceError: flow is not defined
+    at QuoteSheetPreview (src\components\quote-sheet-preview.tsx:535:42)
+  533 |                   </button>
+  534 |                 )}
+> 535 |                 <span className="badge">{flow.length} stappen</span>
+      |                                          ^
+  536 |                 {isEditable && (
+  537 |                   <button onClick={() => addToArray('flow', { n: (quote.flow || []).lengt...
+  538 |                     <PlusCircle size={20} /> {
+  digest: '1681028870'
+}
+⨯ ReferenceError: flow is not defined
+    at QuoteSheetPreview (src\components\quote-sheet-preview.tsx:535:42)
+  533 |                   </button>
+  534 |                 )}
+> 535 |                 <span className="badge">{flow.length} stappen</span>
+      |                                          ^
+  536 |                 {isEditable && (
+  537 |                   <button onClick={() => addToArray('flow', { n: (quote.flow || []).lengt...
+  538 |                     <PlusCircle size={20} /> {
+  digest: '1681028870'
+}
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⨯ ReferenceError: flow is not defined
+    at QuoteSheetPreview (src\components\quote-sheet-preview.tsx:559:42)
+  557 |                   </button>
+  558 |                 )}
+> 559 |                 <span className="badge">{flow.length} stappen</span>
+      |                                          ^
+  560 |                 {isEditable && (
+  561 |                   <button onClick={() => addToArray('flow', { n: (quote.flow || []).lengt...
+  562 |                     <PlusCircle size={20} /> {
+  digest: '1712173548'
+}
+⨯ ReferenceError: flow is not defined
+    at QuoteSheetPreview (src\components\quote-sheet-preview.tsx:559:42)
+  557 |                   </button>
+  558 |                 )}
+> 559 |                 <span className="badge">{flow.length} stappen</span>
+      |                                          ^
+  560 |                 {isEditable && (
+  561 |                   <button onClick={() => addToArray('flow', { n: (quote.flow || []).lengt...
+  562 |                     <PlusCircle size={20} /> {
+  digest: '1712173548'
+}
+⨯ ReferenceError: flow is not defined
+    at QuoteSheetPreview (src\components\quote-sheet-preview.tsx:559:42)
+  557 |                   </button>
+  558 |                 )}
+> 559 |                 <span className="badge">{flow.length} stappen</span>
+      |                                          ^
+  560 |                 {isEditable && (
+  561 |                   <button onClick={() => addToArray('flow', { n: (quote.flow || []).lengt...
+  562 |                     <PlusCircle size={20} /> {
+  digest: '197264661'
+}
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⨯ ./src/components/quote-sheet-preview.tsx:933:9
+Expected '</', got 'ident'
+  [90m931 |[0m         </section>
+  [90m932 |[0m
+[31m[1m>[0m [90m933 |[0m       </div>
+  [90m    |[0m         [31m[1m^^^[0m
+  [90m934 |[0m     </div>
+  [90m935 |[0m   );
+  [90m936 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/quote-sheet-preview.tsx [Client Component Browser]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Client Component Browser]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Server Component]
+    ./src/app/(dashboard)/quotes/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/quote-sheet-preview.tsx [Client Component SSR]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Client Component SSR]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Server Component]
+    ./src/app/(dashboard)/quotes/[id]/page.tsx [Server Component]
+
+
+⨯ ./src/components/quote-sheet-preview.tsx:933:9
+Expected '</', got 'ident'
+  [90m931 |[0m         </section>
+  [90m932 |[0m
+[31m[1m>[0m [90m933 |[0m       </div>
+  [90m    |[0m         [31m[1m^^^[0m
+  [90m934 |[0m     </div>
+  [90m935 |[0m   );
+  [90m936 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/quote-sheet-preview.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/quote-sheet-preview.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+
+⨯ ./src/components/quote-sheet-preview.tsx:933:9
+Expected '</', got 'ident'
+  [90m931 |[0m         </section>
+  [90m932 |[0m
+[31m[1m>[0m [90m933 |[0m       </div>
+  [90m    |[0m         [31m[1m^^^[0m
+  [90m934 |[0m     </div>
+  [90m935 |[0m   );
+  [90m936 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/quote-sheet-preview.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/quote-sheet-preview.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+
+⨯ ./src/components/quote-sheet-preview.tsx:933:9
+Expected '</', got 'ident'
+  [90m931 |[0m         </section>
+  [90m932 |[0m
+[31m[1m>[0m [90m933 |[0m       </div>
+  [90m    |[0m         [31m[1m^^^[0m
+  [90m934 |[0m     </div>
+  [90m935 |[0m   );
+  [90m936 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/quote-sheet-preview.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/quote-sheet-preview.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+
+⨯ ./src/components/quote-sheet-preview.tsx:933:9
+Expected '</', got 'ident'
+  [90m931 |[0m         </section>
+  [90m932 |[0m
+[31m[1m>[0m [90m933 |[0m       </div>
+  [90m    |[0m         [31m[1m^^^[0m
+  [90m934 |[0m     </div>
+  [90m935 |[0m   );
+  [90m936 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/quote-sheet-preview.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/quote-sheet-preview.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+
+⨯ ./src/components/quote-sheet-preview.tsx:933:9
+Expected '</', got 'ident'
+  [90m931 |[0m         </section>
+  [90m932 |[0m
+[31m[1m>[0m [90m933 |[0m       </div>
+  [90m    |[0m         [31m[1m^^^[0m
+  [90m934 |[0m     </div>
+  [90m935 |[0m   );
+  [90m936 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/quote-sheet-preview.tsx [Client Component Browser]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Client Component Browser]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Server Component]
+    ./src/app/(dashboard)/quotes/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/quote-sheet-preview.tsx [Client Component SSR]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Client Component SSR]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Server Component]
+    ./src/app/(dashboard)/quotes/[id]/page.tsx [Server Component]
+
+
+⨯ ./src/components/quote-sheet-preview.tsx:933:9
+Expected '</', got 'ident'
+  [90m931 |[0m         </section>
+  [90m932 |[0m
+[31m[1m>[0m [90m933 |[0m       </div>
+  [90m    |[0m         [31m[1m^^^[0m
+  [90m934 |[0m     </div>
+  [90m935 |[0m   );
+  [90m936 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/quote-sheet-preview.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/quote-sheet-preview.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+
+⨯ ./src/components/quote-sheet-preview.tsx:933:9
+Expected '</', got 'ident'
+  [90m931 |[0m         </section>
+  [90m932 |[0m
+[31m[1m>[0m [90m933 |[0m       </div>
+  [90m    |[0m         [31m[1m^^^[0m
+  [90m934 |[0m     </div>
+  [90m935 |[0m   );
+  [90m936 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/quote-sheet-preview.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/quote-sheet-preview.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+
+⨯ ./src/components/quote-sheet-preview.tsx:933:9
+Expected '</', got 'ident'
+  [90m931 |[0m         </section>
+  [90m932 |[0m
+[31m[1m>[0m [90m933 |[0m       </div>
+  [90m    |[0m         [31m[1m^^^[0m
+  [90m934 |[0m     </div>
+  [90m935 |[0m   );
+  [90m936 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/quote-sheet-preview.tsx [Client Component Browser]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Client Component Browser]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Server Component]
+    ./src/app/(dashboard)/quotes/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/quote-sheet-preview.tsx [Client Component SSR]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Client Component SSR]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Server Component]
+    ./src/app/(dashboard)/quotes/[id]/page.tsx [Server Component]
+
+
+⨯ ./src/components/quote-sheet-preview.tsx:933:9
+Expected '</', got 'ident'
+  [90m931 |[0m         </section>
+  [90m932 |[0m
+[31m[1m>[0m [90m933 |[0m       </div>
+  [90m    |[0m         [31m[1m^^^[0m
+  [90m934 |[0m     </div>
+  [90m935 |[0m   );
+  [90m936 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/quote-sheet-preview.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/quote-sheet-preview.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+
+⨯ ./src/components/quote-sheet-preview.tsx:933:9
+Expected '</', got 'ident'
+  [90m931 |[0m         </section>
+  [90m932 |[0m
+[31m[1m>[0m [90m933 |[0m       </div>
+  [90m    |[0m         [31m[1m^^^[0m
+  [90m934 |[0m     </div>
+  [90m935 |[0m   );
+  [90m936 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/quote-sheet-preview.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component Browser]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/quote-sheet-preview.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Client Component SSR]
+    ./src/app/q/[token]/quote-portal-client.tsx [Server Component]
+    ./src/app/q/[token]/page.tsx [Server Component]
+
+
+⨯ ./src/components/quote-sheet-preview.tsx:933:9
+Expected '</', got 'ident'
+  [90m931 |[0m         </section>
+  [90m932 |[0m
+[31m[1m>[0m [90m933 |[0m       </div>
+  [90m    |[0m         [31m[1m^^^[0m
+  [90m934 |[0m     </div>
+  [90m935 |[0m   );
+  [90m936 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/quote-sheet-preview.tsx [Client Component Browser]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Client Component Browser]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Server Component]
+    ./src/app/(dashboard)/quotes/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/quote-sheet-preview.tsx [Client Component SSR]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Client Component SSR]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Server Component]
+    ./src/app/(dashboard)/quotes/[id]/page.tsx [Server Component]
+
+
+[browser] Uncaught Error: ./src/components/quote-sheet-preview.tsx:933:9
+Expected '</', got 'ident'
+  931 |         </section>
+  932 |
+> 933 |       </div>
+      |         ^^^
+  934 |     </div>
+  935 |   );
+  936 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/quote-sheet-preview.tsx [Client Component Browser]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Client Component Browser]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Server Component]
+    ./src/app/(dashboard)/quotes/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/quote-sheet-preview.tsx [Client Component SSR]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Client Component SSR]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Server Component]
+    ./src/app/(dashboard)/quotes/[id]/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/components/quote-sheet-preview.tsx:933:9)
+    at <unknown> (Error: (./src/components/quote-sheet-preview.tsx:933:9)
+[browser] Uncaught Error: ./src/components/quote-sheet-preview.tsx:933:9
+Expected '</', got 'ident'
+  931 |         </section>
+  932 |
+> 933 |       </div>
+      |         ^^^
+  934 |     </div>
+  935 |   );
+  936 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/quote-sheet-preview.tsx [Client Component Browser]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Client Component Browser]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Server Component]
+    ./src/app/(dashboard)/quotes/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/quote-sheet-preview.tsx [Client Component SSR]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Client Component SSR]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Server Component]
+    ./src/app/(dashboard)/quotes/[id]/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/components/quote-sheet-preview.tsx:933:9)
+    at <unknown> (Error: (./src/components/quote-sheet-preview.tsx:933:9)
+[browser] Uncaught Error: ./src/components/quote-sheet-preview.tsx:933:9
+Expected '</', got 'ident'
+  931 |         </section>
+  932 |
+> 933 |       </div>
+      |         ^^^
+  934 |     </div>
+  935 |   );
+  936 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/quote-sheet-preview.tsx [Client Component Browser]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Client Component Browser]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Server Component]
+    ./src/app/(dashboard)/quotes/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/quote-sheet-preview.tsx [Client Component SSR]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Client Component SSR]
+    ./src/app/(dashboard)/quotes/[id]/quote-detail-client.tsx [Server Component]
+    ./src/app/(dashboard)/quotes/[id]/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/components/quote-sheet-preview.tsx:933:9)
+    at <unknown> (Error: (./src/components/quote-sheet-preview.tsx:933:9)
