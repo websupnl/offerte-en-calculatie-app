@@ -35,7 +35,7 @@ async function queryOne<T = Record<string, unknown>>(
 const quoteItemInputSchema = z.object({
   description: z.string().describe("Omschrijving van precies één losse offerteregel. Zet geen meerdere onderdelen of bulletlijst in één omschrijving."),
   qty: z.number().default(1).describe("Aantal voor deze ene regel"),
-  unit_price: z.number().describe("Prijs per eenheid excl. btw voor deze ene regel. Gebruik 0 for inbegrepen subregels; die worden in de offerte als 'Inbegrepen' getoond zonder €0,00."),
+  unit_price: z.number().describe("Prijs per eenheid excl. btw voor deze ene regel. Gebruik 0 alleen voor inhoudelijke pakketregels zonder losse prijs; de offerte toont geen prijs per regel, alleen het totaal incl. btw onder de tabel."),
   cost_price: z.number().optional().describe("Inkoopprijs excl. btw"),
   vat_rate: z.number().default(21).describe("BTW-percentage voor deze ene regel"),
   indent: z.number().min(0).max(1).default(0).describe("Inspringen (1 voor sub-regel)"),
@@ -512,7 +512,7 @@ function createMcpServer() {
 
   server.tool(
     "create_quote",
-    "Maak een nieuwe offerte aan voor een klant, inclusief offerteregels en technische details. Belangrijk: zet elk los onderdeel als apart object in items[]. Gebruik één betaalde hoofdregel voor de prijs en losse inbegrepen subregels met unit_price 0 voor wat erbij hoort.",
+    "Maak een nieuwe offerte aan voor een klant, inclusief offerteregels en technische details. Belangrijk: intro is een persoonlijke brief namens Daan Koolhaas aan de klant; zet adres, compatibiliteit, voorwaarden en technische randvoorwaarden in assumptions/technical_notes/exclusions, niet in intro. Zet in items[] één betaalde hoofdregel voor de totaalprijs en losse pakketregels met unit_price 0 voor inhoudelijke onderdelen. Gebruik options alleen voor kleine optionele meerwerkkeuzes; grote alternatieve systemen horen liever in choice_groups of in een aparte offerte.",
     {
       company_slug: z.string().describe("Bedrijfsslug: 'websup' of 'koolhaas'"),
       customer_id: z.string().describe("ID van de klant (gebruik list_customers om te vinden)"),
@@ -520,16 +520,16 @@ function createMcpServer() {
       category: z.string().optional().default("Maatwerk project").describe("Categorie/type project"),
       tagline: z.string().optional().describe("Ondertitel, bijv. 'Ontwerp · Bouw · Plaatsing'"),
       itemsHeader: z.string().optional().describe("Korte neutrale titel voor de prijstabel."),
-      intro: z.string().optional().describe("Inleidende tekst"),
+      intro: z.string().optional().describe("Persoonlijke inleidende brief namens Daan Koolhaas. Begin met 'Beste [klantnaam],' en bedank voor de aanvraag. Schrijf in ik-vorm, niet als generieke technische samenvatting. Geen adres, bronnen, compatibiliteitslijst of voorwaarden hierin."),
       outro: z.string().optional().describe("Slottekst"),
       notes: z.string().optional().describe("Opmerkingen/interne of zichtbare notities"),
       quote_type: z.string().optional().default("GENERAL").describe("Type offerte (GENERAL, BATTERY, SOLAR, WEB)"),
       flow: z.array(z.object({ n: z.number(), t: z.string(), d: z.string() })).optional().describe("Processtappen voor pagina 3"),
       approach: z.array(z.object({ n: z.string(), t: z.string(), d: z.string() })).optional().describe("Werkwijze/fases voor pagina 3"),
-      options: z.array(z.object({ t: z.string(), d: z.string(), tag: z.string() })).optional().describe("Optionele uitbreidingen"),
-      exclusions: z.array(z.string()).optional().describe("Niet inbegrepen / uitsluitingen"),
-      assumptions: z.array(z.string()).optional().describe("Technische aannames"),
-      technical_notes: z.array(z.string()).optional().describe("Interne technische notities"),
+      options: z.array(z.object({ t: z.string(), d: z.string(), tag: z.string() })).optional().describe("Kleine optionele uitbreidingen/meerwerk, bijvoorbeeld laadkabel, montagebeugel, back-upfunctie of extra monitoring. Geen volledige alternatieve systeemontwerpen met lange specificaties."),
+      exclusions: z.array(z.string()).optional().describe("Wat niet binnen de offerte valt, als rustige concrete tekstregels. Zet hier beperkingen, voorwaarden en buiten-scope werk."),
+      assumptions: z.array(z.string()).optional().describe("Uitgangspunten voor deze offerte. Zet hier technische basis, adres/situatie alleen wanneer relevant, compatibiliteit en aannames."),
+      technical_notes: z.array(z.string()).optional().describe("Technische notities/randvoorwaarden die zichtbaar als uitgangspunten mogen worden getoond."),
       customer_responsibilities: z.array(z.string()).optional().describe("Verantwoordelijkheden van de klant"),
       planning: z.object({
         leadTime: z.string().optional(),
@@ -552,17 +552,28 @@ function createMcpServer() {
         id: z.string(),
         title: z.string(),
         type: z.enum(["SINGLE_SELECT", "MULTI_SELECT"]),
+        description: z.string().optional(),
+        recommendedChoiceId: z.string().optional(),
+        choices: z.array(z.object({
+          id: z.string(),
+          label: z.string().optional(),
+          title: z.string(),
+          summary: z.string().optional(),
+          tag: z.string().optional(),
+          items: z.array(quoteItemInputSchema),
+        })).optional(),
       })).optional().describe("Interactieve keuze-groepen voor alternatieven"),
       internal_advice: z.string().optional().describe("Uitgebreid blok met technisch advies (intern)"),
       valid_days: z.number().optional().default(30).describe("Geldigheidsduur in dagen"),
       attachments: z.array(z.object({
         image_url: z.string().optional().describe("Publieke image URL of data-URI"),
+        live_url: z.string().optional().describe("Optionele live demo/prototype URL"),
         image_base64: z.string().optional().describe("Ruwe base64 van een afbeelding"),
         mime_type: z.string().optional().default("image/png").describe("MIME type"),
         title: z.string().optional().describe("Titel"),
         caption: z.string().optional().describe("Caption"),
       })).optional().describe("Optionele ontwerpen/mockups"),
-      items: z.array(quoteItemInputSchema).describe("Offerteregels."),
+      items: z.array(quoteItemInputSchema).describe("Offerteregels. Gebruik geen losse prijzen voor pakketonderdelen; één hoofdregel met prijs, daarna nulprijsregels voor inhoudelijke onderdelen."),
     },
     async ({ 
       company_slug, customer_id, title, category, tagline, itemsHeader, intro, outro, notes, 
@@ -612,14 +623,14 @@ function createMcpServer() {
           "totalExVat", "totalVat", "totalIncVat", "quoteType", assumptions, "technicalNotes", 
           "customerResponsibilities", planning, commercial, "batteryAdvice", "choiceGroups", "internalAdvice",
           "createdAt", "updatedAt")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16::jsonb,'DRAFT',$17,$18,$19,$20,$22,$23::jsonb,$24::jsonb,$25::jsonb,$26::jsonb,$27::jsonb,$28::jsonb,$29::jsonb,$30,$31,$31)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16::jsonb,'DRAFT',$17,$18,$19,$20,$21,$22::jsonb,$23::jsonb,$24::jsonb,$25::jsonb,$26::jsonb,$27::jsonb,$28::jsonb,$29,$30,$30)`,
         [quoteId, co.id, customer_id, user.id, number, quoteTitle, quoteCategory,
          quoteTagline, quoteItemsHeader, intro ?? null, outro ?? null, notes ?? null,
          JSON.stringify(quoteFlow), JSON.stringify(quoteApproach), JSON.stringify(quoteOptions), JSON.stringify(quoteExclusions),
-         validUntilDate, totalExVat.toFixed(2), totalVat.toFixed(2), totalIncVat.toFixed(2), now,
+         validUntilDate, totalExVat.toFixed(2), totalVat.toFixed(2), totalIncVat.toFixed(2),
          quote_type ?? 'GENERAL', JSON.stringify(assumptions ?? []), JSON.stringify(technical_notes ?? []),
          JSON.stringify(customer_responsibilities ?? []), JSON.stringify(planning ?? {}), JSON.stringify(commercial ?? {}),
-         JSON.stringify(battery_advice ?? {}), JSON.stringify(choice_groups ?? []), internal_advice ?? null]
+         JSON.stringify(battery_advice ?? {}), JSON.stringify(choice_groups ?? []), internal_advice ?? null, now]
       );
 
       for (let i = 0; i < items.length; i++) {
@@ -643,9 +654,9 @@ function createMcpServer() {
           );
           if (!imageUrl) continue;
           await query(
-            `INSERT INTO "QuoteAttachment" (id, "quoteId", title, "imageUrl", caption, "sortOrder", "createdAt", "updatedAt")
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$7)`,
-            [crypto.randomUUID(), quoteId, attachment.title ?? null, imageUrl, attachment.caption ?? null, i, now]
+            `INSERT INTO "QuoteAttachment" (id, "quoteId", title, "imageUrl", "liveUrl", caption, "sortOrder", "createdAt", "updatedAt")
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8)`,
+            [crypto.randomUUID(), quoteId, attachment.title ?? null, imageUrl, attachment.live_url ?? null, attachment.caption ?? null, i, now]
           );
         }
       }

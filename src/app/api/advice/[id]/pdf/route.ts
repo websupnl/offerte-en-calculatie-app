@@ -27,14 +27,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     },
   });
 
-  if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!doc?.quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Verify access via company
   if (doc.quote.companyId !== session.user.activeCompanyId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const companySlug = doc.quote.company.slug;
+  const companySlug = doc.quote.company.slug ?? "websup";
   const branding = DEFAULT_BRANDING[companySlug] ?? DEFAULT_BRANDING.websup;
 
   const element = createElement(AdvicePDF, {
@@ -43,7 +43,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     companyTagline: branding.tagline ?? "",
     customerName: doc.quote.customer.name,
     adviceType: doc.type,
-    content: doc.content,
+    content: doc.content ?? "",
     createdAt: doc.createdAt.toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" }),
   });
 

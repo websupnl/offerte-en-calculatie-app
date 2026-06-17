@@ -108,12 +108,12 @@ export function AdviceBuilder({
 
         <div className="flex items-center gap-3">
           <Popover open={customerPickerOpen} onOpenChange={setCustomerPickerOpen}>
-            <PopoverTrigger asChild>
+            <PopoverTrigger render={
               <Button variant="outline" className="w-[240px] justify-between font-medium">
                 <span className="truncate">{customer?.name || "Selecteer klant"}</span>
                 <ChevronDown className="h-4 w-4 opacity-50" />
               </Button>
-            </PopoverTrigger>
+            } />
             <PopoverContent align="end" className="w-[300px] p-0">
               <div className="p-2 border-b border-slate-100">
                 <Input

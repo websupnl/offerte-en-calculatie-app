@@ -48,6 +48,7 @@ const schema = z.object({
   planning: z.any().optional(),
   commercial: z.any().optional(),
   batteryAdvice: z.any().optional(),
+  choiceGroups: z.any().optional(),
   internalAdvice: z.string().nullable().optional(),
   items: z.array(itemSchema).optional(),
   attachments: z.array(attachmentSchema).optional(),

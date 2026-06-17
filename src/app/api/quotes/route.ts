@@ -46,6 +46,7 @@ const schema = z.object({
   planning: z.any().optional(),
   commercial: z.any().optional(),
   batteryAdvice: z.any().optional(),
+  choiceGroups: z.any().optional(),
   internalAdvice: z.string().nullable().optional(),
   attachments: z.array(attachmentSchema).optional(),
   items: z.array(itemSchema).min(1, "Voeg minimaal één regel toe"),
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
     customerId, title, category, tagline, itemsHeader, validUntil, 
     intro, outro, notes, quoteType, flow, approach, options, exclusions,
     assumptions, technicalNotes, customerResponsibilities,
-    planning, commercial, batteryAdvice, internalAdvice,
+    planning, commercial, batteryAdvice, choiceGroups, internalAdvice,
     attachments, items 
   } = parsed.data;
 
@@ -109,6 +110,7 @@ export async function POST(req: NextRequest) {
       planning,
       commercial,
       batteryAdvice,
+      choiceGroups,
       internalAdvice,
       totalExVat,
       totalVat,

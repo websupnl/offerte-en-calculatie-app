@@ -3,9 +3,7 @@
 import {
   Check,
   Layers,
-  X,
   PlusCircle,
-  MinusCircle,
   Sparkles,
   Loader2,
   Trash2,
@@ -13,7 +11,7 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import "@/app/q/[token]/portal.css";
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 // ─── Shared Components (Outside to prevent focus loss) ──────────────────────
@@ -94,10 +92,23 @@ type QuoteItem = {
   choiceGroupId?: string | null;
 };
 
+type ChoiceItem = Omit<QuoteItem, "id"> & { id?: string };
+type Choice = {
+  id: string;
+  label?: string;
+  title: string;
+  summary?: string;
+  tag?: string;
+  items: ChoiceItem[];
+};
+
 type ChoiceGroup = {
   id: string;
   title: string;
   type: "SINGLE_SELECT" | "MULTI_SELECT";
+  description?: string;
+  recommendedChoiceId?: string;
+  choices?: Choice[];
 };
 
 type FlowItem = { n: number; t: string; d: string };
@@ -125,10 +136,48 @@ type Quote = {
   approach?: ApproachStep[];
   options?: QuoteOption[];
   exclusions?: string[];
+  assumptions?: string[];
+  technicalNotes?: string[];
+  customerResponsibilities?: string[];
   attachments?: QuoteAttachment[];
   adviceDocuments?: { id: string; type: string }[];
   company?: { name?: string | null; slug?: string | null };
   choiceGroups?: ChoiceGroup[];
+};
+
+const createPersonalIntro = (quote: Quote, brandName: string) => {
+  const customerName = quote.customer.name || "klant";
+  const projectTitle = quote.title || quote.category || "deze aanvraag";
+  const itemSummary = quote.items
+    .filter((item) => Number(item.unitPrice) > 0 || Number(item.total) > 0)
+    .slice(0, 2)
+    .map((item) => item.description.toLowerCase())
+    .join(" en ");
+
+  return [
+    `Beste ${customerName},`,
+    "",
+    `Bedankt voor uw aanvraag. In deze offerte heb ik het voorstel voor ${projectTitle.toLowerCase()} overzichtelijk uitgewerkt, inclusief de onderdelen, werkzaamheden en het totaalbedrag.`,
+    itemSummary
+      ? `Ik ben uitgegaan van ${itemSummary}, met de aanvullende onderdelen zoals opgenomen in het overzicht.`
+      : "Ik heb de offerte zo opgebouwd dat u snel ziet wat er wordt geleverd en welke afspraken daarbij horen.",
+    "Heeft u na het lezen nog vragen of wilt u iets aanpassen, dan hoor ik dat graag.",
+    "",
+    "Met vriendelijke groet,",
+    "Daan Koolhaas",
+    brandName,
+  ].join("\n");
+};
+
+const isMisplacedIntroLine = (value: string | null | undefined, customerName: string) => {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) return false;
+  const normalizedCustomer = customerName.trim().toLowerCase();
+  return (
+    normalized.startsWith(`voor ${normalizedCustomer},`) ||
+    normalized.startsWith(`voor ${normalizedCustomer}.`) ||
+    (normalized.startsWith("op basis van") && normalized.includes("adviseren wij"))
+  );
 };
 
 interface QuoteSheetPreviewProps {
@@ -273,25 +322,28 @@ export function QuoteSheetPreview({
   isEditable = false,
   onUpdate,
   onUpdateItem,
-  onAddItem,
-  onRemoveItem,
   selectedChoiceIds: externalSelectedChoiceIds,
   onChoiceSelect
 }: QuoteSheetPreviewProps) {
   const [internalSelectedChoiceIds, setInternalSelectedChoiceIds] = useState<Record<string, string>>({});
-  const selectedChoiceIds = externalSelectedChoiceIds || internalSelectedChoiceIds;
-
-  // Set initial selections for choice groups
-  useEffect(() => {
-    if (quote.choiceGroups?.length && Object.keys(selectedChoiceIds).length === 0) {
-      const defaults: Record<string, string> = {};
-      quote.choiceGroups.forEach(group => {
-        const firstItem = quote.items.find(i => i.choiceGroupId === group.id && (i.indent ?? 0) === 0);
-        if (firstItem) defaults[group.id] = firstItem.id;
-      });
-      setInternalSelectedChoiceIds(defaults);
-    }
+  const defaultSelectedChoiceIds = useMemo(() => {
+    const defaults: Record<string, string> = {};
+    quote.choiceGroups?.forEach((group) => {
+      const defaultChoice = group.choices?.find((choice) => choice.id === group.recommendedChoiceId) ?? group.choices?.[0];
+      if (defaultChoice) {
+        defaults[group.id] = defaultChoice.id;
+        return;
+      }
+      const firstItem = quote.items.find((item) => item.choiceGroupId === group.id && (item.indent ?? 0) === 0);
+      if (firstItem) defaults[group.id] = firstItem.id;
+    });
+    return defaults;
   }, [quote.choiceGroups, quote.items]);
+  const selectedChoiceIds = externalSelectedChoiceIds && Object.keys(externalSelectedChoiceIds).length > 0
+    ? externalSelectedChoiceIds
+    : Object.keys(internalSelectedChoiceIds).length > 0
+      ? internalSelectedChoiceIds
+      : defaultSelectedChoiceIds;
 
   const handleChoiceSelect = (groupId: string, choiceId: string) => {
     if (onChoiceSelect) {
@@ -308,6 +360,9 @@ export function QuoteSheetPreview({
   
   // Choice Logic
   const choiceGroups = quote.choiceGroups || [];
+  const choiceLineTotal = (item: ChoiceItem) => Number(item.qty) * Number(item.unitPrice);
+  const choiceTotal = (choice: Choice) => choice.items.reduce((acc, item) => acc + choiceLineTotal(item), 0);
+  const choiceVat = (choice: Choice) => choice.items.reduce((acc, item) => acc + choiceLineTotal(item) * (Number(item.vatRate) / 100), 0);
   
   const isItemVisible = (item: QuoteItem) => {
     if (!item.choiceGroupId) return true;
@@ -329,33 +384,45 @@ export function QuoteSheetPreview({
         vat += Number(item.total) * (Number(item.vatRate) / 100);
       }
     });
+
+    choiceGroups.forEach((group) => {
+      const selectedId = selectedChoiceIds[group.id];
+      const selectedChoice = group.choices?.find((choice) => choice.id === selectedId);
+      if (!selectedChoice) return;
+      ex += choiceTotal(selectedChoice);
+      vat += choiceVat(selectedChoice);
+    });
     
     return { ex, vat, inc: ex + vat };
   };
 
-  const totals = isEditable ? {
-    ex: Number(quote.totalExVat),
-    vat: Number(quote.totalVat),
-    inc: Number(quote.totalIncVat)
-  } : calculateTotals();
+  const totals = calculateTotals();
 
   const brandKey = isKoolhaas ? "koolhaas" : "websup";
   const flow = quote.flow?.length ? quote.flow : DEFAULT_FLOW[brandKey];
   const approach = quote.approach?.length ? quote.approach : DEFAULT_APPROACH[brandKey];
   const options = quote.options?.length ? quote.options : DEFAULT_OPTIONS[brandKey];
   const exclusions = quote.exclusions?.length ? quote.exclusions : DEFAULT_EXCLUSIONS[brandKey];
+  const technicalNotesField = quote.technicalNotes?.length ? "technicalNotes" : "assumptions";
+  const technicalNotes = isKoolhaas
+    ? (quote.technicalNotes?.length ? quote.technicalNotes : quote.assumptions ?? [])
+        .filter(Boolean)
+        .filter((item) => !isMisplacedIntroLine(item, quote.customer.name))
+    : [];
+  const customerResponsibilities = isKoolhaas ? (quote.customerResponsibilities ?? []).filter(Boolean) : [];
   const attachments = quote.attachments ?? [];
   const attachmentPages = Math.ceil(attachments.length / 2);
-  const attachmentPairs = Array.from({ length: attachmentPages }, (_, index) =>
-    attachments.slice(index * 2, index * 2 + 2)
-  );
+  const validUntilLabel = quote.validUntil ? formatDate(quote.validUntil) : null;
+  const hasOptionsPage = options.length > 0;
+  const hasTermsPage = Boolean(exclusions.length || technicalNotes.length || customerResponsibilities.length || quote.outro);
   
-  const includedSubItemCount = visibleItems.filter((item) => (item.indent ?? 0) > 0 || (Number(item.unitPrice) === 0 && Number(item.total) === 0)).length;
-  const itemsOverflow = visibleItems.length > 6;
-  const totalPages = 4 + attachmentPages + (itemsOverflow ? 1 : 0);
+  const totalPages = 4 + (hasOptionsPage ? 1 : 0) + (hasTermsPage ? 1 : 0);
   const pageLabel = (page: number) =>
     `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
-  const coverHeading = isKoolhaas ? (quote.category || quote.title || brand.defaultTitle) : "Offerte";
+  const coverHeading = isKoolhaas ? (quote.title || brand.defaultTitle) : "Offerte";
+  const introText = quote.intro?.trim() && !isMisplacedIntroLine(quote.intro, quote.customer.name)
+    ? quote.intro
+    : createPersonalIntro(quote, brand.name);
   const [generating, setGenerating] = useState<string | null>(null);
 
   const handleAiGen = async (section: string) => {
@@ -442,9 +509,93 @@ export function QuoteSheetPreview({
         {!isKoolhaas && <span>{brand.website}</span>}
         <span>{brand.email}</span>
         <span>{brand.phone}</span>
-        <span>Geldig tot {quote.validUntil ? formatDate(quote.validUntil) : "selecteer datum"}</span>
+        {validUntilLabel && <span>Geldig tot {validUntilLabel}</span>}
         <span>{pageNo}</span>
       </div>
+    </div>
+  );
+
+  const updateOption = (index: number, updates: Partial<QuoteOption>) => {
+    const nextOptions = options.map((option, optionIndex) =>
+      optionIndex === index ? { ...option, ...updates } : option
+    );
+    onUpdate?.({ options: nextOptions });
+  };
+
+  const addOption = () => {
+    onUpdate?.({
+      options: [
+        ...options,
+        { t: "Nieuw optioneel meerwerk", d: "Omschrijving van deze optie.", tag: "Optioneel" },
+      ],
+    });
+  };
+
+  const removeOption = (index: number) => {
+    onUpdate?.({ options: options.filter((_, optionIndex) => optionIndex !== index) });
+  };
+
+  const updateTextList = (
+    field: "exclusions" | "assumptions" | "technicalNotes" | "customerResponsibilities",
+    values: string[],
+    index: number,
+    value: string
+  ) => {
+    onUpdate?.({ [field]: values.map((item, itemIndex) => (itemIndex === index ? value : item)) });
+  };
+
+  const addTextListItem = (
+    field: "exclusions" | "assumptions" | "technicalNotes" | "customerResponsibilities",
+    values: string[],
+    fallback: string
+  ) => {
+    onUpdate?.({ [field]: [...values, fallback] });
+  };
+
+  const removeTextListItem = (
+    field: "exclusions" | "assumptions" | "technicalNotes" | "customerResponsibilities",
+    values: string[],
+    index: number
+  ) => {
+    onUpdate?.({ [field]: values.filter((_, itemIndex) => itemIndex !== index) });
+  };
+
+  const renderTextList = (
+    field: "exclusions" | "assumptions" | "technicalNotes" | "customerResponsibilities",
+    values: string[],
+    fallback: string
+  ) => (
+    <div className="doc-text-list">
+      {values.map((item, index) => (
+        <div key={index} className="doc-text-row">
+          <InlineTextarea
+            isEditable={Boolean(isEditable)}
+            value={item}
+            onChange={(value) => updateTextList(field, values, index, value)}
+            className="doc-text-line"
+          />
+          {isEditable && (
+            <button
+              type="button"
+              className="inline-delete"
+              onClick={() => removeTextListItem(field, values, index)}
+              aria-label="Regel verwijderen"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
+        </div>
+      ))}
+      {isEditable && (
+        <button
+          type="button"
+          className="doc-edit-btn doc-list-add"
+          onClick={() => addTextListItem(field, values, fallback)}
+        >
+          <PlusCircle size={14} />
+          Regel
+        </button>
+      )}
     </div>
   );
 
@@ -455,15 +606,52 @@ export function QuoteSheetPreview({
           <span className="eyebrow">{brand.optionsEyebrow}</span>
           <h2 className="h2">{brand.optionsTitle}</h2>
         </div>
+        {isEditable && (
+          <button type="button" className="doc-edit-btn" onClick={addOption}>
+            <PlusCircle size={14} />
+            Optie
+          </button>
+        )}
       </div>
       <div className="opts">
         {options.map((o, idx) => (
           <div key={idx} className="opt group relative">
+            {isEditable && (
+              <button
+                type="button"
+                className="doc-remove-btn"
+                onClick={() => removeOption(idx)}
+                aria-label="Optioneel meerwerk verwijderen"
+              >
+                <Trash2 size={13} />
+              </button>
+            )}
             <span className="opt-ic"><Layers size={15} /></span>
             <div className="flex-1">
-              <h4 className="font-bold">{o.t}</h4>
-              <p className="text-xs">{o.d}</p>
-              <span className="opt-tag">{o.tag}</span>
+              <h4 className="font-bold">
+                <InlineInput
+                  value={o.t}
+                  onChange={(value) => updateOption(idx, { t: value })}
+                  placeholder="Titel optioneel meerwerk"
+                  className="font-bold"
+                  isEditable={Boolean(isEditable)}
+                />
+              </h4>
+              <InlineTextarea
+                value={o.d}
+                onChange={(value) => updateOption(idx, { d: value })}
+                placeholder="Omschrijving optioneel meerwerk"
+                className="text-xs"
+                isEditable={Boolean(isEditable)}
+              />
+              <span className="opt-tag">
+                <InlineInput
+                  value={o.tag}
+                  onChange={(value) => updateOption(idx, { tag: value })}
+                  placeholder="Label"
+                  isEditable={Boolean(isEditable)}
+                />
+              </span>
             </div>
           </div>
         ))}
@@ -487,7 +675,7 @@ export function QuoteSheetPreview({
                     <dl>
                       <dt>Offertenummer</dt> <dd>{quote.number || "CONCEPT"}</dd>
                       <dt>Datum</dt>         <dd>{formatDate(today)}</dd>
-                      <dt>Geldig tot</dt>    <dd>{quote.validUntil ? formatDate(quote.validUntil) : "Selecteer datum"}</dd>
+                      {validUntilLabel && <><dt>Geldig tot</dt><dd>{validUntilLabel}</dd></>}
                       <dt>Contactpersoon</dt><dd>Daan Koolhaas</dd>
                     </dl>
                   </div>
@@ -504,8 +692,8 @@ export function QuoteSheetPreview({
                     <h1 className="cov-h1">{coverHeading}</h1>
                     <InlineInput 
                       isEditable={isEditable} 
-                      value={quote.title || brand.defaultTitle} 
-                      onChange={(v) => onUpdate?.({ title: v })}
+                      value={quote.tagline || quote.category || brand.defaultCategory} 
+                      onChange={(v) => onUpdate?.({ tagline: v })}
                       className="cov-project"
                     />
                     <div className="cov-for">
@@ -543,7 +731,7 @@ export function QuoteSheetPreview({
             </div>
             <InlineTextarea 
               isEditable={isEditable} 
-              value={quote.intro || ""} 
+              value={introText} 
               onChange={(v) => onUpdate?.({ intro: v })} 
               className="letter" 
             />
@@ -568,13 +756,31 @@ export function QuoteSheetPreview({
               <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
             </div>
 
-            {/* CHOICE GROUPS (Tesla Style) */}
-            {!isEditable && choiceGroups.map(group => (
+            {/* CHOICE GROUPS */}
+            {choiceGroups.map(group => (
               <div key={group.id} className="choice-section mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <span className="eyebrow text-blue-600 mb-4 block">{group.title}</span>
+                <div className="mb-4">
+                  <span className="eyebrow text-blue-600 block">{group.title}</span>
+                  {group.description && <p className="mt-1 text-sm text-slate-500">{group.description}</p>}
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {quote.items.filter(i => i.choiceGroupId === group.id && (i.indent ?? 0) === 0).map(choice => {
+                  {(group.choices?.length
+                    ? group.choices
+                    : quote.items
+                        .filter(i => i.choiceGroupId === group.id && (i.indent ?? 0) === 0)
+                        .map((item): Choice => ({
+                          id: item.id,
+                          label: undefined,
+                          title: item.description,
+                          summary: "",
+                          items: [item],
+                        }))
+                  ).map(choice => {
                     const isActive = selectedChoiceIds[group.id] === choice.id;
+                    const total = choiceTotal(choice);
+                    const included = choice.items.filter((item) => Number(item.unitPrice) === 0);
+                    const paidItems = choice.items.filter((item) => Number(item.unitPrice) > 0);
+                    const isRecommended = group.recommendedChoiceId === choice.id || choice.label?.toLowerCase() === "aanbevolen";
                     return (
                       <div 
                         key={choice.id} 
@@ -590,14 +796,30 @@ export function QuoteSheetPreview({
                             <CheckCircle2 size={20} />
                           </div>
                           <span className={`text-xl font-black ${isActive ? 'text-blue-600' : 'text-slate-900'}`}>
-                            {formatCurrency(Number(choice.unitPrice))}
+                            {formatCurrency(total)}
                           </span>
                         </div>
-                        <h4 className="font-bold text-slate-900 mb-2">{choice.description}</h4>
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <h4 className="font-bold text-slate-900">{choice.title}</h4>
+                          {(choice.label || isRecommended) && (
+                            <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-widest ${
+                              isRecommended ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"
+                            }`}>
+                              {choice.label || "Aanbevolen"}
+                            </span>
+                          )}
+                        </div>
+                        {choice.summary && <p className="mb-3 text-xs text-slate-500">{choice.summary}</p>}
                         <div className="space-y-1">
-                          {quote.items.filter(i => i.indent === 1 && i.id.startsWith(choice.id.slice(0,5))).map(sub => (
-                            <div key={sub.id} className="flex items-center gap-2 text-xs text-slate-500">
-                              <Check size={10} className="text-blue-500" /> {sub.description}
+                          {paidItems.map((line, index) => (
+                            <div key={`paid-${choice.id}-${index}`} className="flex items-center justify-between gap-2 text-xs text-slate-600">
+                              <span className="flex items-center gap-2"><Check size={10} className="text-blue-500" /> {line.description}</span>
+                              <span className="font-bold">{formatCurrency(choiceLineTotal(line))}</span>
+                            </div>
+                          ))}
+                          {included.map((line, index) => (
+                            <div key={`included-${choice.id}-${index}`} className="flex items-center gap-2 text-xs text-slate-500">
+                              <Check size={10} className="text-blue-500" /> {line.description}
                             </div>
                           ))}
                         </div>
@@ -617,21 +839,19 @@ export function QuoteSheetPreview({
               <div className="article-table-head">
                 <div>
                   <span className="eyebrow">{isKoolhaas ? "Materialen" : "Diensten"}</span>
-                  <InlineInput 
-                    isEditable={isEditable} 
-                    value={quote.itemsHeader || (isKoolhaas ? "Materiaaloverzicht" : "Prijsopbouw")} 
-                    onChange={(v) => onUpdate?.({ itemsHeader: v })}
-                    className="h3-inline"
-                  />
+                  <div className="article-table-title">
+                    <InlineInput 
+                      isEditable={isEditable} 
+                      value={quote.itemsHeader || (isKoolhaas ? "Materiaaloverzicht" : "Prijsopbouw")} 
+                      onChange={(v) => onUpdate?.({ itemsHeader: v })}
+                    />
+                  </div>
                 </div>
               </div>
               <table className="article-table">
                 <thead>
                   <tr>
                     <th>Omschrijving</th>
-                    <th>Aantal</th>
-                    <th>Prijs</th>
-                    <th>Totaal</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -640,14 +860,16 @@ export function QuoteSheetPreview({
                     if (isSubItem) {
                       return (
                         <tr key={item.id} className="article-sub-row">
-                          <td colSpan={4}>
+                          <td>
                             <span className="article-sub-dot"><Check size={9} strokeWidth={3} /></span>
-                            <InlineTextarea 
-                              isEditable={isEditable} 
-                              value={item.description} 
-                              onChange={(v) => onUpdateItem?.(item.id, { description: v })}
-                              className="article-description"
-                            />
+                            <span className="article-sub-content">
+                              <InlineTextarea
+                                isEditable={isEditable}
+                                value={item.description}
+                                onChange={(v) => onUpdateItem?.(item.id, { description: v })}
+                                className="article-description"
+                              />
+                            </span>
                           </td>
                         </tr>
                       );
@@ -662,40 +884,108 @@ export function QuoteSheetPreview({
                             onChange={(v) => onUpdateItem?.(item.id, { description: v })}
                           />
                         </td>
-                        <td>{Number(item.qty).toLocaleString('nl-NL')}</td>
-                        <td>{formatCurrency(Number(item.unitPrice))}</td>
-                        <td>{formatCurrency(Number(item.total))}</td>
                       </tr>
                     );
                   })}
                 </tbody>
                 <tfoot>
-                  <tr>
-                    <td colSpan={3}>Totaal excl. btw</td>
-                    <td>{formatCurrency(Number(totals.ex))}</td>
-                  </tr>
-                  <tr>
-                    <td colSpan={3}>Btw</td>
-                    <td>{formatCurrency(Number(totals.vat))}</td>
-                  </tr>
                   <tr className="grand-total">
-                    <td colSpan={3}>Totaal incl. btw</td>
-                    <td>{formatCurrency(Number(totals.inc))}</td>
+                    <td>
+                      <span>Totaal incl. btw</span>
+                      <strong>{formatCurrency(Number(totals.inc))}</strong>
+                    </td>
                   </tr>
                 </tfoot>
               </table>
             </div>
 
-            {!itemsOverflow && (
-              <>
-                <div className="div"></div>
-                {optionsBlock}
-              </>
-            )}
             <div className="spacer"></div>
             {renderPageFooter(pageLabel(3 + attachmentPages))}
           </div>
         </section>
+
+        {hasOptionsPage && (
+          <section className="sheet">
+            <div className="bar"></div>
+            <div className="pad">
+              <div className="ph">
+                {renderHeaderLogo()}
+                <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
+              </div>
+
+              {optionsBlock}
+
+              <div className="spacer"></div>
+              {renderPageFooter(pageLabel(4))}
+            </div>
+          </section>
+        )}
+
+        {hasTermsPage && (
+          <section className="sheet">
+            <div className="bar"></div>
+            <div className="pad">
+              <div className="ph">
+                {renderHeaderLogo()}
+                <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
+              </div>
+
+              {technicalNotes.length > 0 && (
+                <>
+                  <div className="row-badge">
+                    <div>
+                      <span className="eyebrow">Technische basis</span>
+                      <h2 className="h2">Uitgangspunten voor deze offerte.</h2>
+                    </div>
+                  </div>
+                  {renderTextList(technicalNotesField, technicalNotes, "Nieuw uitgangspunt voor deze offerte.")}
+                </>
+              )}
+
+              {customerResponsibilities.length > 0 && (
+                <>
+                  <div className="div"></div>
+                  <div className="row-badge">
+                    <div>
+                      <span className="eyebrow">Door opdrachtgever</span>
+                      <h2 className="h2">Afstemming en voorbereiding.</h2>
+                    </div>
+                  </div>
+                  {renderTextList("customerResponsibilities", customerResponsibilities, "Nieuwe afspraak voor voorbereiding door opdrachtgever.")}
+                </>
+              )}
+
+              {exclusions.length > 0 && (
+                <>
+                  <div className="div"></div>
+                  <div className="row-badge">
+                    <div>
+                      <span className="eyebrow">{brand.exclusionsEyebrow}</span>
+                      <h2 className="h2">{brand.exclusionsTitle}</h2>
+                    </div>
+                  </div>
+                  {renderTextList("exclusions", exclusions, "Nieuwe uitsluiting of randvoorwaarde.")}
+                </>
+              )}
+
+              {quote.outro && (
+                <>
+                  <div className="div"></div>
+                  <span className="eyebrow">Voorwaarden</span>
+                  <InlineTextarea
+                    isEditable={isEditable}
+                    value={quote.outro}
+                    onChange={(v) => onUpdate?.({ outro: v })}
+                    className="letter"
+                  />
+                </>
+              )}
+
+              <div className="spacer"></div>
+              {renderPageFooter(pageLabel(4 + (hasOptionsPage ? 1 : 0)))}
+            </div>
+          </section>
+        )}
 
         {/* ── PAGINA 5: SIGN ── */}
         <section className="sheet">
@@ -705,7 +995,6 @@ export function QuoteSheetPreview({
               {renderHeaderLogo()}
               <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
             </div>
-            
             <span className="eyebrow">Akkoord voor uitvoering</span>
             <h2 className="h2">{brand.closingTitle}</h2>
 
@@ -733,7 +1022,7 @@ export function QuoteSheetPreview({
             </div>
 
             <div className="spacer"></div>
-            {renderPageFooter(pageLabel(4 + attachmentPages + (itemsOverflow ? 1 : 0)))}
+            {renderPageFooter(pageLabel(totalPages))}
           </div>
         </section>
       </div>

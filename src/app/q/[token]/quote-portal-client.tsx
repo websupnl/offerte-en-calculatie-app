@@ -219,11 +219,13 @@ export function QuotePortalClient({
               <span>Totaal incl. btw</span>
               <b>{formatCurrency(Number(displayedTotal))}</b>
             </div>
-            <div className="portal-stat">
-              <Clock />
-              <span>{isExpired ? "Verlopen op" : "Geldig tot"}</span>
-              <b>{quote.validUntil ? formatDate(quote.validUntil) : "In overleg"}</b>
-            </div>
+            {quote.validUntil && (
+              <div className="portal-stat">
+                <Clock />
+                <span>{isExpired ? "Verlopen op" : "Geldig tot"}</span>
+                <b>{formatDate(quote.validUntil)}</b>
+              </div>
+            )}
             <div className={`portal-status-pill ${submitted === "accepted" ? "is-accepted" : isExpired ? "is-expired" : ""}`}>
               {statusLabel}
             </div>
@@ -403,7 +405,7 @@ export function QuotePortalClient({
 
                   <p className="portal-security-note">
                     <Shield />
-                    Beveiligid met SSL-encryptie. Elektronisch akkoord is rechtsgeldig.
+                    Beveiligd met SSL-encryptie. Elektronisch akkoord is rechtsgeldig.
                   </p>
                 </div>
               )}

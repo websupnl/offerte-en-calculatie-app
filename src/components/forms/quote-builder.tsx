@@ -55,6 +55,30 @@ type QuoteItem = {
   vatRate: number;
   total: number;
   indent: number;
+  choiceGroupId?: string | null;
+};
+
+type ChoiceItem = Omit<QuoteItem, "id" | "productId" | "total"> & {
+  id?: string;
+  total?: number;
+};
+
+type Choice = {
+  id: string;
+  label?: string;
+  title: string;
+  summary?: string;
+  tag?: string;
+  items: ChoiceItem[];
+};
+
+type ChoiceGroup = {
+  id: string;
+  title: string;
+  description?: string;
+  type: "SINGLE_SELECT" | "MULTI_SELECT";
+  recommendedChoiceId?: string;
+  choices: Choice[];
 };
 
 type QuoteAttachment = {
@@ -80,6 +104,49 @@ type GeneratedQuoteItem = {
   unit_price?: number | string | null;
   vatRate?: number | string | null;
   vat_rate?: number | string | null;
+  costPrice?: number | string | null;
+  cost_price?: number | string | null;
+  indent?: number | string | null;
+  choiceGroupId?: string | null;
+  choice_group_id?: string | null;
+  type?: string | null;
+};
+
+type QuoteImportPreview = {
+  source: "json" | "ai";
+  quote: {
+    quoteType?: string;
+    title?: string;
+    category?: string;
+    tagline?: string;
+    intro?: string;
+    itemsHeader?: string;
+    items: GeneratedQuoteItem[];
+    options?: Array<{ t: string; d: string; tag: string }>;
+    exclusions?: string[];
+    outro?: string;
+    notes?: string;
+    flow?: Array<{ n: number | string; t: string; d: string }>;
+    approach?: Array<{ n: number | string; t: string; d: string }>;
+    validDays?: number;
+    attachments?: InitialQuoteAttachment[];
+    assumptions?: string[];
+    technicalNotes?: string[];
+    customerResponsibilities?: string[];
+    planning?: { leadTime?: string; executionDuration?: string; preferredDate?: string };
+    commercial?: { validDays?: number; paymentTerms?: string; warranty?: string };
+    batteryAdvice?: Record<string, unknown>;
+    choiceGroups?: ChoiceGroup[];
+    internalAdvice?: string;
+  };
+  warnings: string[];
+  unknownFields: string[];
+  totals: {
+    totalExVat: number;
+    totalVat: number;
+    totalIncVat: number;
+    includedItemCount: number;
+  };
 };
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
@@ -150,6 +217,9 @@ const KOOLHAAS_EXCLUSIONS = [
   "Aanpassingen buiten de beschreven installatie en materialen",
 ];
 
+const PLANNING_DEFAULTS = { leadTime: "", executionDuration: "", preferredDate: "" };
+const COMMERCIAL_DEFAULTS = { validDays: 30, paymentTerms: "", warranty: "" };
+
 function genId() {
   return Math.random().toString(36).slice(2);
 }
@@ -175,9 +245,12 @@ function normalizeGeneratedItems(items: GeneratedQuoteItem[]): QuoteItem[] {
         description: part,
         qty: Number(item.qty ?? 1),
         unitPrice: index === 0 ? Number(item.unitPrice ?? item.unit_price ?? 0) : 0,
+        costPrice: item.costPrice === undefined && item.cost_price === undefined ? undefined : Number(item.costPrice ?? item.cost_price ?? 0),
         vatRate: Number(item.vatRate ?? item.vat_rate ?? 21),
         total: index === 0 ? Number(item.qty ?? 1) * Number(item.unitPrice ?? item.unit_price ?? 0) : 0,
-        indent: index === 0 ? 0 : 1,
+        indent: index === 0 ? Number(item.indent ?? 0) : 1,
+        choiceGroupId: item.choiceGroupId ?? item.choice_group_id ?? null,
+        type: item.type ?? undefined,
       }));
   });
 }
@@ -242,16 +315,16 @@ export function QuoteBuilder({
   const [outro, setOutro] = useState(initialQuote?.outro || "");
   const [notes, setNotes] = useState(initialQuote?.notes || "");
   const [quoteType, setQuoteType] = useState(initialQuote?.quoteType || (initialAdvice ? "BATTERY" : "GENERAL"));
-  const [assumptions, setAssumptions] = useState(initialQuote?.assumptions || (initialAdvice?.currentDevs || []));
-  const [technicalNotes, setTechnicalNotes] = useState(initialQuote?.technicalNotes || []);
-  const [customerResponsibilities, setCustomerResponsibilities] = useState(initialQuote?.customerResponsibilities || []);
-  const [planning, setPlanning] = useState(initialQuote?.planning || { leadTime: "", executionDuration: "", preferredDate: "" });
-  const [commercial, setCommercial] = useState(initialQuote?.commercial || { validDays: 30, paymentTerms: "", warranty: "" });
+  const [assumptions, setAssumptions] = useState<string[]>(initialQuote?.assumptions || (initialAdvice?.currentDevs || []));
+  const [technicalNotes, setTechnicalNotes] = useState<string[]>(initialQuote?.technicalNotes || []);
+  const [customerResponsibilities, setCustomerResponsibilities] = useState<string[]>(initialQuote?.customerResponsibilities || []);
+  const [planning, setPlanning] = useState(initialQuote?.planning || PLANNING_DEFAULTS);
+  const [commercial, setCommercial] = useState(initialQuote?.commercial || COMMERCIAL_DEFAULTS);
   const [batteryAdvice, setBatteryAdvice] = useState(initialQuote?.batteryAdvice || {
     nominalCapacityKwh: initialAdvice?.calculation?.resultKwh || 0,
     recommendedScenario: initialAdvice?.scenarios[1]?.name || ""
   });
-  const [choiceGroups, setChoiceGroups] = useState<any[]>(initialQuote?.choiceGroups || []);
+  const [choiceGroups, setChoiceGroups] = useState<ChoiceGroup[]>(initialQuote?.choiceGroups || []);
   const [internalAdvice, setInternalAdvice] = useState(initialQuote?.internalAdvice || initialAdvice?.analysis || "");
   
   const [flow, setFlow] = useState(initialQuote?.flow || (isKoolhaas ? KOOLHAAS_FLOW : DEFAULT_FLOW));
@@ -265,6 +338,11 @@ export function QuoteBuilder({
   const [aiLoading, setAiLoading] = useState(false);
   const [visionLoading, setVisionLoading] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
+  const [creationMode, setCreationMode] = useState<"manual" | "ai" | null>(
+    initialQuote || initialAdvice ? "manual" : null
+  );
+  const [importPreview, setImportPreview] = useState<QuoteImportPreview | null>(null);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
   const [priceDisplayMode, setPriceDisplayMode] = useState<"incl" | "excl">("incl");
   const [dragItemId, setDragItemId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ id: string; position: "before" | "after"; indent: number } | null>(null);
@@ -296,6 +374,10 @@ export function QuoteBuilder({
     totalIncVat,
     items,
     attachments,
+    choiceGroups,
+    assumptions,
+    technicalNotes,
+    customerResponsibilities,
     flow,
     approach,
     options,
@@ -312,45 +394,75 @@ export function QuoteBuilder({
   async function handleAiMagic() {
     if (!aiInput.trim()) return toast.error("Plak eerst een gesprek of aantekeningen");
     setAiLoading(true);
+    setImportErrors([]);
+    setImportPreview(null);
     try {
       const res = await fetch("/api/ai/extract-quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: aiInput, customerName: customer?.name || "de klant" }),
+        body: JSON.stringify({ prompt: aiInput, customerName: customer?.name || "de klant", intent: "quoteImport" }),
       });
-      if (!res.ok) throw new Error();
       const data = await res.json();
-      
-      // Apply AI results
-      if (data.title) setTitle(data.title);
-      if (data.category) setCategory(data.category);
-      if (data.tagline) setTagline(data.tagline);
-      if (data.intro) setIntro(data.intro);
-      if (data.itemsHeader) setItemsHeader(data.itemsHeader);
-      if (data.items) setItems(normalizeGeneratedItems(data.items));
-      if (data.flow) setFlow(data.flow);
-      if (data.approach) setApproach(data.approach);
-      if (data.options) setOptions(data.options);
-      if (data.exclusions) setExclusions(data.exclusions);
-      if (data.outro) setOutro(data.outro);
 
-      // Apply New expert fields
-      if (data.quoteType) setQuoteType(data.quoteType);
-      if (data.assumptions) setAssumptions(data.assumptions);
-      if (data.technicalNotes) setTechnicalNotes(data.technicalNotes);
-      if (data.customerResponsibilities) setCustomerResponsibilities(data.customerResponsibilities);
-      if (data.planning) setPlanning(data.planning);
-      if (data.commercial) setCommercial(data.commercial);
-      if (data.batteryAdvice) setBatteryAdvice(data.batteryAdvice);
-      if (data.internalAdvice) setInternalAdvice(data.internalAdvice);
+      if (!res.ok || !data.ok) {
+        setImportErrors(data.errors || [data.error || "De offerte kon niet worden verwerkt."]);
+        return;
+      }
 
-      toast.success("AI Magic toegepast! Controleer de velden.");
-      setShowAiModal(false);
+      setImportPreview(data as QuoteImportPreview);
     } catch {
-      toast.error("AI Magic is mislukt. Probeer het opnieuw.");
+      setImportErrors(["AI Magic is mislukt. Probeer het opnieuw."]);
     } finally {
       setAiLoading(false);
     }
+  }
+
+  function applyImportPreview() {
+    if (!importPreview) return;
+    const data = importPreview.quote;
+
+    if (data.title) setTitle(data.title);
+    if (data.category) setCategory(data.category);
+    if (data.tagline) setTagline(data.tagline);
+    if (data.intro !== undefined) setIntro(data.intro);
+    if (data.itemsHeader) setItemsHeader(data.itemsHeader);
+    if (data.items) setItems(normalizeGeneratedItems(data.items));
+    if (data.flow) setFlow(data.flow as typeof DEFAULT_FLOW);
+    if (data.approach) setApproach(data.approach as typeof DEFAULT_APPROACH);
+    if (data.options) setOptions(data.options);
+    if (data.exclusions) setExclusions(data.exclusions);
+    if (data.outro !== undefined) setOutro(data.outro);
+    if (data.notes !== undefined) setNotes(data.notes);
+    if (data.quoteType) setQuoteType(data.quoteType);
+    if (data.assumptions) setAssumptions(data.assumptions);
+    if (data.technicalNotes) setTechnicalNotes(data.technicalNotes);
+    if (data.customerResponsibilities) setCustomerResponsibilities(data.customerResponsibilities);
+    if (data.planning) setPlanning({ ...PLANNING_DEFAULTS, ...data.planning });
+    if (data.commercial) setCommercial({ ...COMMERCIAL_DEFAULTS, ...data.commercial });
+    if (data.batteryAdvice) setBatteryAdvice(data.batteryAdvice);
+    if (data.choiceGroups) setChoiceGroups(data.choiceGroups);
+    if (data.internalAdvice !== undefined) setInternalAdvice(data.internalAdvice);
+    if (data.attachments) {
+      setAttachments(data.attachments.map((attachment) => ({
+        id: attachment.id || genId(),
+        title: attachment.title || "",
+        imageUrl: attachment.imageUrl || "",
+        liveUrl: attachment.liveUrl || "",
+        caption: attachment.caption || "",
+      })));
+    }
+
+    const validDays = data.validDays ?? data.commercial?.validDays;
+    if (validDays) {
+      setValidUntil(new Date(Date.now() + validDays * 86400000).toISOString().split("T")[0]);
+    }
+
+    toast.success("Offerte ingevuld. Controleer het concept.");
+    setCreationMode("manual");
+    setAiInput("");
+    setImportPreview(null);
+    setImportErrors([]);
+    setShowAiModal(false);
   }
 
   async function handleVisionScan(event: React.ChangeEvent<HTMLInputElement>) {
@@ -386,7 +498,7 @@ export function QuoteBuilder({
       }
 
       if (data.findings?.length) {
-        setTechnicalNotes(prev => [...prev as string[], ...data.findings]);
+        setTechnicalNotes((prev) => [...prev, ...data.findings]);
       }
 
       toast.success("Foto geanalyseerd! Materialen toegevoegd.", { id: toastId });
@@ -427,6 +539,7 @@ export function QuoteBuilder({
           commercial,
           batteryAdvice,
           internalAdvice,
+          choiceGroups,
           flow,
           approach,
           options,
@@ -471,6 +584,142 @@ export function QuoteBuilder({
         return newItem;
       })
     );
+  }
+
+  function handlePreviewItemUpdate(id: string, updates: {
+    description?: string;
+    qty?: string | number;
+    unitPrice?: string | number;
+    vatRate?: string | number;
+    total?: string | number;
+    indent?: number;
+    choiceGroupId?: string | null;
+  }) {
+    updateItem(id, {
+      ...updates,
+      qty: updates.qty === undefined ? undefined : Number(updates.qty),
+      unitPrice: updates.unitPrice === undefined ? undefined : Number(updates.unitPrice),
+      vatRate: updates.vatRate === undefined ? undefined : Number(updates.vatRate),
+      total: updates.total === undefined ? undefined : Number(updates.total),
+    });
+  }
+
+  function choiceItemTotal(item: ChoiceItem) {
+    return Number(item.qty || 0) * Number(item.unitPrice || 0);
+  }
+
+  function addChoiceGroup() {
+    const id = `group-${genId()}`;
+    const firstChoiceId = `choice-${genId()}`;
+    setChoiceGroups((prev) => [
+      ...prev,
+      {
+        id,
+        title: "Kies uw optie",
+        description: "",
+        type: "SINGLE_SELECT",
+        recommendedChoiceId: firstChoiceId,
+        choices: [
+          {
+            id: firstChoiceId,
+            label: "Aanbevolen",
+            title: "Optie 1",
+            summary: "",
+            items: [
+              { description: "Hoofdregel", qty: 1, unitPrice: 0, vatRate: 21, indent: 0 },
+            ],
+          },
+        ],
+      },
+    ]);
+  }
+
+  function updateChoiceGroup(groupId: string, updates: Partial<ChoiceGroup>) {
+    setChoiceGroups((prev) => prev.map((group) => group.id === groupId ? { ...group, ...updates } : group));
+  }
+
+  function removeChoiceGroup(groupId: string) {
+    setChoiceGroups((prev) => prev.filter((group) => group.id !== groupId));
+  }
+
+  function addChoice(groupId: string) {
+    const choiceId = `choice-${genId()}`;
+    setChoiceGroups((prev) => prev.map((group) => {
+      if (group.id !== groupId) return group;
+      return {
+        ...group,
+        choices: [
+          ...group.choices,
+          {
+            id: choiceId,
+            label: "Alternatief",
+            title: `Optie ${group.choices.length + 1}`,
+            summary: "",
+            items: [{ description: "Hoofdregel", qty: 1, unitPrice: 0, vatRate: 21, indent: 0 }],
+          },
+        ],
+      };
+    }));
+  }
+
+  function updateChoice(groupId: string, choiceId: string, updates: Partial<Choice>) {
+    setChoiceGroups((prev) => prev.map((group) => {
+      if (group.id !== groupId) return group;
+      return {
+        ...group,
+        choices: group.choices.map((choice) => choice.id === choiceId ? { ...choice, ...updates } : choice),
+      };
+    }));
+  }
+
+  function removeChoice(groupId: string, choiceId: string) {
+    setChoiceGroups((prev) => prev.map((group) => {
+      if (group.id !== groupId) return group;
+      const choices = group.choices.filter((choice) => choice.id !== choiceId);
+      return {
+        ...group,
+        choices,
+        recommendedChoiceId: group.recommendedChoiceId === choiceId ? choices[0]?.id : group.recommendedChoiceId,
+      };
+    }));
+  }
+
+  function addChoiceItem(groupId: string, choiceId: string) {
+    updateChoice(groupId, choiceId, {
+      items: [
+        ...(choiceGroups.find((group) => group.id === groupId)?.choices.find((choice) => choice.id === choiceId)?.items ?? []),
+        { description: "Inbegrepen onderdeel", qty: 1, unitPrice: 0, vatRate: 21, indent: 1 },
+      ],
+    });
+  }
+
+  function updateChoiceItem(groupId: string, choiceId: string, itemIndex: number, updates: Partial<ChoiceItem>) {
+    setChoiceGroups((prev) => prev.map((group) => {
+      if (group.id !== groupId) return group;
+      return {
+        ...group,
+        choices: group.choices.map((choice) => {
+          if (choice.id !== choiceId) return choice;
+          return {
+            ...choice,
+            items: choice.items.map((item, index) => index === itemIndex ? { ...item, ...updates } : item),
+          };
+        }),
+      };
+    }));
+  }
+
+  function removeChoiceItem(groupId: string, choiceId: string, itemIndex: number) {
+    setChoiceGroups((prev) => prev.map((group) => {
+      if (group.id !== groupId) return group;
+      return {
+        ...group,
+        choices: group.choices.map((choice) => {
+          if (choice.id !== choiceId) return choice;
+          return { ...choice, items: choice.items.filter((_, index) => index !== itemIndex) };
+        }),
+      };
+    }));
   }
 
   function removeItem(id: string) {
@@ -604,6 +853,173 @@ export function QuoteBuilder({
     if (updates.exclusions !== undefined) setExclusions(updates.exclusions);
   };
 
+  const importDialogContent = (
+    <DialogContent className="max-h-[90vh] max-w-2xl overflow-hidden">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-orange-500" />
+          Offerte importeren
+        </DialogTitle>
+        <DialogDescription>
+          Plak hier een volledige offerte uit ChatGPT. Geldige JSON wordt direct verwerkt; gewone tekst wordt eerst door AI omgezet.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="max-h-[calc(90vh-120px)] space-y-4 overflow-y-auto py-4 pr-2">
+        {!importPreview ? (
+          <>
+            <Textarea
+              placeholder='Plak hier je offerte-JSON of gewone tekst. Bijvoorbeeld: {"title":"...","items":[...]}'
+              rows={12}
+              value={aiInput}
+              onChange={(e) => setAiInput(e.target.value)}
+              className="h-[360px] max-h-[45vh] resize-none overflow-y-auto font-mono text-xs leading-relaxed"
+            />
+            {importErrors.length > 0 && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                <p className="font-bold">Import niet gelukt</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  {importErrors.map((error, index) => <li key={index}>{error}</li>)}
+                </ul>
+              </div>
+            )}
+            <Button
+              onClick={handleAiMagic}
+              disabled={aiLoading}
+              className="w-full bg-orange-600 hover:bg-orange-700 h-12 text-lg font-bold gap-2"
+            >
+              {aiLoading ? <Loader2 className="animate-spin h-5 w-5" /> : <Wand2 className="h-5 w-5" />}
+              Offerte verwerken
+            </Button>
+          </>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Preview ({importPreview.source === "json" ? "JSON" : "AI"})
+                  </p>
+                  <h3 className="mt-1 text-lg font-bold text-slate-900">{importPreview.quote.title || "Zonder titel"}</h3>
+                  {importPreview.quote.intro && (
+                    <p className="mt-2 line-clamp-3 text-sm text-slate-600">{importPreview.quote.intro}</p>
+                  )}
+                </div>
+                <div className="text-right text-sm">
+                  <p className="font-bold text-slate-900">{formatCurrency(importPreview.totals.totalIncVat)}</p>
+                  <p className="text-xs text-slate-500">incl. btw</p>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-slate-500">Prijsregels:</span> <b>{importPreview.quote.items.length}</b></div>
+                <div><span className="text-slate-500">Inbegrepen:</span> <b>{importPreview.totals.includedItemCount}</b></div>
+                <div><span className="text-slate-500">Excl. btw:</span> <b>{formatCurrency(importPreview.totals.totalExVat)}</b></div>
+                <div><span className="text-slate-500">Btw:</span> <b>{formatCurrency(importPreview.totals.totalVat)}</b></div>
+                <div><span className="text-slate-500">Opties:</span> <b>{importPreview.quote.options?.length ?? 0}</b></div>
+                <div><span className="text-slate-500">Uitsluitingen:</span> <b>{importPreview.quote.exclusions?.length ?? 0}</b></div>
+              </div>
+            </div>
+
+            {(importPreview.warnings.length > 0 || importPreview.unknownFields.length > 0) && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                <p className="font-bold">Controleer voor import</p>
+                {importPreview.warnings.length > 0 && (
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    {importPreview.warnings.map((warning, index) => <li key={`w-${index}`}>{warning}</li>)}
+                  </ul>
+                )}
+                {importPreview.unknownFields.length > 0 && (
+                  <div className="mt-2">
+                    <p className="font-semibold">Niet-herkende velden:</p>
+                    <p className="mt-1 break-words text-xs">{importPreview.unknownFields.join(", ")}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setImportPreview(null)}>
+                Terug naar invoer
+              </Button>
+              <Button className="flex-1 bg-orange-600 hover:bg-orange-700" onClick={applyImportPreview}>
+                Offerte invullen
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </DialogContent>
+  );
+
+  if (!creationMode) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <header className="sticky top-0 z-[100] bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={() => router.back()}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Terug
+            </Button>
+            <div className="h-6 w-px bg-slate-200" />
+            <div className="leading-tight">
+              <h1 className="font-bold text-slate-900">Nieuwe offerte maken</h1>
+              <p className="text-xs text-slate-400">Kies hoe je wilt beginnen</p>
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto flex min-h-[calc(100vh-64px)] max-w-5xl items-center px-6 py-10">
+          <div className="w-full">
+            <div className="mb-6 max-w-2xl">
+              <p className="text-sm font-black uppercase tracking-widest text-slate-400">Startpunt</p>
+              <h2 className="mt-2 text-3xl font-black text-slate-950">Hoe wil je de offerte opbouwen?</h2>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setCreationMode("manual")}
+                className="group rounded-lg border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md"
+              >
+                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <h3 className="text-xl font-black text-slate-950">Handmatig starten</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Open de normale editor met standaardregels, teksten en opties.
+                </p>
+                <div className="mt-6 inline-flex items-center text-sm font-bold text-slate-900">
+                  Editor openen <ChevronRight className="ml-2 h-4 w-4 transition group-hover:translate-x-0.5" />
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setImportErrors([]);
+                  setImportPreview(null);
+                  setShowAiModal(true);
+                }}
+                className="group rounded-lg border border-orange-200 bg-orange-50/60 p-6 text-left shadow-sm transition hover:border-orange-300 hover:bg-orange-50 hover:shadow-md"
+              >
+                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-orange-100 text-orange-700">
+                  <Wand2 className="h-5 w-5" />
+                </div>
+                <h3 className="text-xl font-black text-slate-950">Via ChatGPT plakken</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Plak een complete JSON-offerte of gewone tekst. Na de preview wordt de editor automatisch ingevuld.
+                </p>
+                <div className="mt-6 inline-flex items-center text-sm font-bold text-orange-700">
+                  Offerte plakken <ChevronRight className="ml-2 h-4 w-4 transition group-hover:translate-x-0.5" />
+                </div>
+              </button>
+            </div>
+            <Dialog open={showAiModal} onOpenChange={setShowAiModal}>
+              {importDialogContent}
+            </Dialog>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* ── Top Toolbar ── */}
@@ -622,54 +1038,24 @@ export function QuoteBuilder({
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="cursor-pointer">
-            <Button variant="outline" asChild className="text-blue-600 border-blue-200 hover:bg-blue-50 bg-blue-50/50 font-bold gap-2">
-              <div>
-                {visionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-                Scan Situatie
-              </div>
-            </Button>
+          <label className="inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50/50 px-2.5 text-sm font-bold text-blue-600 transition-colors hover:bg-blue-50">
+            {visionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+            Scan Situatie
             <input type="file" accept="image/*" className="sr-only" onChange={handleVisionScan} disabled={visionLoading} />
           </label>
 
-          <Dialog open={showAiModal} onOpenChange={setShowAiModal}>
-
-            <DialogTrigger render={
-              <Button variant="outline" className="text-orange-600 border-orange-200 hover:bg-orange-50 bg-orange-50/50 font-bold gap-2">
-                <Wand2 className="h-4 w-4" /> AI Magic
-              </Button>
-            } />
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-orange-500" />
-                  AI Magic: Gesprek omzetten naar offerte
-                </DialogTitle>
-                <DialogDescription>
-                  Plak hier je ChatGPT gesprek of ruwe aantekeningen. De AI vult de hele offerte (5 pagina's) automatisch voor je in op basis van de besproken details.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <Textarea 
-                  placeholder="Bijv: 'De klant wil een website met 5 pagina's...'" 
-                  rows={12} 
-                  value={aiInput}
-                  onChange={(e) => setAiInput(e.target.value)}
-                  className="resize-none"
-                />
-                <Button 
-                  onClick={handleAiMagic} 
-                  disabled={aiLoading} 
-                  className="w-full bg-orange-600 hover:bg-orange-700 h-12 text-lg font-bold gap-2"
-                >
-                  {aiLoading ? <Loader2 className="animate-spin h-5 w-5" /> : <Wand2 className="h-5 w-5" />}
-                  Genereer Offerte
+          {initialQuote && (
+            <Dialog open={showAiModal} onOpenChange={setShowAiModal}>
+              <DialogTrigger render={
+                <Button variant="outline" className="text-orange-600 border-orange-200 hover:bg-orange-50 bg-orange-50/50 font-bold gap-2">
+                  <Wand2 className="h-4 w-4" /> Importeer
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              } />
+              {importDialogContent}
+            </Dialog>
+          )}
 
-          <div className="h-6 w-px bg-slate-200 mx-2" />
+          {initialQuote && <div className="h-6 w-px bg-slate-200 mx-2" />}
 
           <div className="flex items-center gap-2 mr-4">
             <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Naam:</Label>
@@ -751,7 +1137,7 @@ export function QuoteBuilder({
             companySlug={companySlug}
             isEditable={true} 
             onUpdate={handleUpdate}
-            onUpdateItem={updateItem}
+            onUpdateItem={handlePreviewItemUpdate}
             onAddItem={addItem}
             onRemoveItem={removeItem}
           />
@@ -857,6 +1243,138 @@ export function QuoteBuilder({
                       </div>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-bold flex items-center justify-between">
+                    Keuzeblokken
+                    <Button size="sm" variant="outline" onClick={addChoiceGroup} className="h-8">
+                      <Plus className="h-3 w-3 mr-1" /> Blok
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {choiceGroups.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
+                      Voeg hier merk- of modelkeuzes toe, zoals twee batterijmerken of laadpalen.
+                    </div>
+                  ) : (
+                    choiceGroups.map((group) => (
+                      <div key={group.id} className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
+                        <div className="flex items-start gap-2">
+                          <div className="grid flex-1 grid-cols-2 gap-2">
+                            <Input
+                              value={group.title}
+                              onChange={(e) => updateChoiceGroup(group.id, { title: e.target.value })}
+                              className="h-8 text-sm font-bold"
+                              placeholder="Bijv. Kies uw thuisbatterij"
+                            />
+                            <Select value={group.recommendedChoiceId || ""} onValueChange={(value) => updateChoiceGroup(group.id, { recommendedChoiceId: value || undefined })}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Aanbevolen keuze" /></SelectTrigger>
+                              <SelectContent>
+                                {group.choices.map((choice) => (
+                                  <SelectItem key={choice.id} value={choice.id}>{choice.title}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Button size="icon" variant="ghost" onClick={() => removeChoiceGroup(group.id)} className="h-8 w-8 text-red-500">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <Input
+                          value={group.description || ""}
+                          onChange={(e) => updateChoiceGroup(group.id, { description: e.target.value })}
+                          className="h-8 text-sm"
+                          placeholder="Korte uitleg bij deze keuze"
+                        />
+
+                        <div className="space-y-3">
+                          {group.choices.map((choice) => {
+                            const choiceExVat = choice.items.reduce((acc, item) => acc + choiceItemTotal(item), 0);
+                            const choiceVat = choice.items.reduce((acc, item) => acc + choiceItemTotal(item) * (Number(item.vatRate) / 100), 0);
+                            return (
+                              <div key={choice.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3 space-y-3">
+                                <div className="flex items-start gap-2">
+                                  <div className="grid flex-1 grid-cols-[1fr_110px] gap-2">
+                                    <Input
+                                      value={choice.title}
+                                      onChange={(e) => updateChoice(group.id, choice.id, { title: e.target.value })}
+                                      className="h-8 bg-white text-sm font-bold"
+                                      placeholder="Bijv. Sigenergy 8 kWh"
+                                    />
+                                    <Input
+                                      value={choice.label || ""}
+                                      onChange={(e) => updateChoice(group.id, choice.id, { label: e.target.value })}
+                                      className="h-8 bg-white text-xs"
+                                      placeholder="Aanbevolen"
+                                    />
+                                  </div>
+                                  <Button size="icon" variant="ghost" onClick={() => removeChoice(group.id, choice.id)} className="h-8 w-8 text-red-500">
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                <Textarea
+                                  value={choice.summary || ""}
+                                  onChange={(e) => updateChoice(group.id, choice.id, { summary: e.target.value })}
+                                  rows={2}
+                                  className="resize-none bg-white text-sm"
+                                  placeholder="Waarom deze keuze logisch is"
+                                />
+                                <div className="space-y-2">
+                                  {choice.items.map((item, itemIndex) => (
+                                    <div key={itemIndex} className="grid grid-cols-[1fr_54px_82px_64px_32px] gap-2">
+                                      <Input
+                                        value={item.description}
+                                        onChange={(e) => updateChoiceItem(group.id, choice.id, itemIndex, { description: e.target.value })}
+                                        className="h-8 bg-white text-xs"
+                                        placeholder="Regel"
+                                      />
+                                      <Input
+                                        type="number"
+                                        value={item.qty}
+                                        onChange={(e) => updateChoiceItem(group.id, choice.id, itemIndex, { qty: Number(e.target.value) })}
+                                        className="h-8 bg-white px-2 text-xs"
+                                      />
+                                      <Input
+                                        type="number"
+                                        value={item.unitPrice}
+                                        onChange={(e) => updateChoiceItem(group.id, choice.id, itemIndex, { unitPrice: Number(e.target.value) })}
+                                        className="h-8 bg-white px-2 text-xs"
+                                      />
+                                      <Input
+                                        type="number"
+                                        value={item.vatRate}
+                                        onChange={(e) => updateChoiceItem(group.id, choice.id, itemIndex, { vatRate: Number(e.target.value) })}
+                                        className="h-8 bg-white px-2 text-xs"
+                                      />
+                                      <Button size="icon" variant="ghost" onClick={() => removeChoiceItem(group.id, choice.id, itemIndex)} className="h-8 w-8 text-red-500">
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="flex items-center justify-between gap-3">
+                                  <Button size="sm" variant="outline" onClick={() => addChoiceItem(group.id, choice.id)} className="h-7 text-xs">
+                                    <Plus className="h-3 w-3 mr-1" /> Regel
+                                  </Button>
+                                  <div className="text-right text-xs text-slate-500">
+                                    <span className="font-bold text-slate-900">{formatCurrency(choiceExVat + choiceVat)}</span> incl. btw
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <Button size="sm" variant="outline" onClick={() => addChoice(group.id)} className="h-8 w-full">
+                          <Plus className="h-3 w-3 mr-1" /> Keuze toevoegen
+                        </Button>
+                      </div>
+                    ))
+                  )}
                 </CardContent>
               </Card>
 

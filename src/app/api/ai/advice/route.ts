@@ -55,6 +55,8 @@ export async function POST(req: NextRequest) {
   const doc = await prisma.adviceDocument.create({
     data: {
       quoteId,
+      customerId: quote.customerId,
+      companyId: quote.companyId,
       type,
       inputData: JSON.parse(JSON.stringify(customerData)),
       content,

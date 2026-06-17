@@ -28,12 +28,12 @@ export default async function AdviceListPage() {
           <h1 className="text-2xl font-bold">Technisch Advies</h1>
           <p className="text-muted-foreground">Onderbouwingen en technische rapportages voor klanten.</p>
         </div>
-        <Button asChild className="bg-blue-600 hover:bg-blue-700">
-          <Link href="/advice/new">
+        <Link href="/advice/new">
+          <Button className="bg-blue-600 hover:bg-blue-700">
             <Plus className="mr-2 h-4 w-4" />
             Nieuw advies
-          </Link>
-        </Button>
+          </Button>
+        </Link>
       </div>
 
       <div className="grid gap-4">
@@ -45,9 +45,9 @@ export default async function AdviceListPage() {
               <p className="text-slate-500 max-w-xs mx-auto mt-2">
                 Maak je eerste technische onderbouwing om klanten te overtuigen met data.
               </p>
-              <Button asChild variant="outline" className="mt-6">
-                <Link href="/advice/new">Start eerste advies</Link>
-              </Button>
+              <Link href="/advice/new" className="mt-6">
+                <Button variant="outline">Start eerste advies</Button>
+              </Link>
             </CardContent>
           </Card>
         ) : (
