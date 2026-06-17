@@ -14,6 +14,9 @@ export default async function SettingsPage() {
   const settings = (company.settings ?? {}) as Record<string, unknown>;
   const branding = (company.branding ?? {}) as Record<string, unknown>;
 
+  const rawApiKey = (settings.openaiApiKey as string) ?? "";
+  const maskedApiKey = rawApiKey ? `${rawApiKey.slice(0, 3)}...${rawApiKey.slice(-4)}` : "";
+
   return (
     <SettingsClient
       companyId={companyId}
@@ -25,7 +28,7 @@ export default async function SettingsPage() {
         quoteIntroDefault: (settings.quoteIntroDefault as string) ?? DEFAULT_SETTINGS.quoteIntroDefault,
         quoteOutroDefault: (settings.quoteOutroDefault as string) ?? DEFAULT_SETTINGS.quoteOutroDefault,
         paymentTerms: (settings.paymentTerms as string) ?? DEFAULT_SETTINGS.paymentTerms,
-        openaiApiKey: (settings.openaiApiKey as string) ?? "",
+        openaiApiKey: maskedApiKey,
         emailFrom: (settings.emailFrom as string) ?? "",
         notifyEmail: (settings.notifyEmail as string) ?? "",
         aiSystemPrompts: (settings.aiSystemPrompts as Record<string, string>) ?? DEFAULT_SETTINGS.aiSystemPrompts,

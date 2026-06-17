@@ -32,6 +32,29 @@ async function queryOne<T = Record<string, unknown>>(
   return rows[0] ?? null;
 }
 
+const quoteItemInputSchema = z.object({
+  description: z.string().describe("Omschrijving van precies één losse offerteregel. Zet geen meerdere onderdelen of bulletlijst in één omschrijving."),
+  qty: z.number().default(1).describe("Aantal voor deze ene regel"),
+  unit_price: z.number().describe("Prijs per eenheid excl. btw voor deze ene regel. Gebruik 0 for inbegrepen subregels; die worden in de offerte als 'Inbegrepen' getoond zonder €0,00."),
+  cost_price: z.number().optional().describe("Inkoopprijs excl. btw"),
+  vat_rate: z.number().default(21).describe("BTW-percentage voor deze ene regel"),
+  indent: z.number().min(0).max(1).default(0).describe("Inspringen (1 voor sub-regel)"),
+  choice_group_id: z.string().optional().describe("ID van de keuze-groep (optioneel)"),
+});
+
+async function recalculateQuoteTotals(quoteId: string): Promise<void> {
+  await query(
+    `UPDATE "Quote" SET
+      "totalExVat"  = COALESCE((SELECT SUM(qty * "unitPrice") FROM "QuoteItem" WHERE "quoteId" = $1), 0),
+      "totalVat"    = COALESCE((SELECT SUM(qty * "unitPrice" * "vatRate" / 100) FROM "QuoteItem" WHERE "quoteId" = $1), 0),
+      "totalIncVat" = COALESCE((SELECT SUM(qty * "unitPrice" * (1 + "vatRate" / 100)) FROM "QuoteItem" WHERE "quoteId" = $1), 0),
+      "pdfUrl"      = NULL,
+      "updatedAt"   = NOW()
+     WHERE id = $1`,
+    [quoteId]
+  );
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function generateQuoteNumber(companySlug = "websup"): string {
@@ -111,7 +134,7 @@ function defaultTemplateFields(companySlug: string) {
     title: "Maatwerk offerte-aanvraagmodule laadpalen",
     category: "Maatwerk module · WordPress",
     tagline: "Ontwerp · Bouw · Plaatsing",
-    itemsHeader: "Onderdelen binnen fase 1.",
+    itemsHeader: "Prijsopbouw",
     flow: [
       { n: 1, t: "Locatie & situatie", d: "Adres, type woning of pand en de gewenste plek voor de laadpaal." },
       { n: 2, t: "Meterkast & aansluiting", d: "Foto meterkast, close-up slimme meter en het aantal fasen." },
@@ -299,7 +322,7 @@ function createMcpServer() {
       const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
       if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
 
-      let sql = `SELECT id, name, description, category, unit, "basePrice", "vatRate" FROM "Product" WHERE "companyId" = $1`;
+      let sql = `SELECT id, name, description, category, unit, "basePrice", "vatRate", "costPrice" FROM "Product" WHERE "companyId" = $1`;
       const params: unknown[] = [co.id];
       if (active_only !== false) { sql += ` AND active = true`; }
       if (category) { sql += ` AND LOWER(category) = $${params.length + 1}`; params.push(category.toLowerCase()); }
@@ -320,19 +343,20 @@ function createMcpServer() {
       description: z.string().optional().describe("Omschrijving"),
       unit: z.string().optional().default("stuk").describe("Eenheid, bijv. 'stuk', 'uur', 'meter'"),
       base_price: z.number().describe("Basisprijs excl. btw"),
+      cost_price: z.number().optional().describe("Inkoopprijs excl. btw"),
       vat_rate: z.number().optional().default(21).describe("BTW-percentage"),
       specs: z.record(z.string(), z.unknown()).optional().describe("Extra specs als JSON"),
     },
-    async ({ company_slug, name, category, description, unit, base_price, vat_rate, specs }) => {
+    async ({ company_slug, name, category, description, unit, base_price, cost_price, vat_rate, specs }) => {
       const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
       if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
 
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
       await query(
-        `INSERT INTO "Product" (id, "companyId", name, category, description, unit, "basePrice", "vatRate", specs, active, "sortOrder", "createdAt", "updatedAt")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,true,0,$10,$10)`,
-        [id, co.id, name, category, description ?? null, unit ?? "stuk", base_price.toFixed(2), (vat_rate ?? 21).toFixed(2), JSON.stringify(specs ?? {}), now]
+        `INSERT INTO "Product" (id, "companyId", name, category, description, unit, "basePrice", "costPrice", "vatRate", specs, active, "sortOrder", "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,true,0,$11,$11)`,
+        [id, co.id, name, category, description ?? null, unit ?? "stuk", base_price.toFixed(2), cost_price ? cost_price.toFixed(2) : null, (vat_rate ?? 21).toFixed(2), JSON.stringify(specs ?? {}), now]
       );
       return { content: [{ type: "text", text: `Product aangemaakt: "${name}" (ID: ${id})` }] };
     }
@@ -348,13 +372,15 @@ function createMcpServer() {
       description: z.string().optional(),
       unit: z.string().optional(),
       base_price: z.number().optional(),
+      cost_price: z.number().optional(),
       vat_rate: z.number().optional(),
       active: z.boolean().optional().describe("Actief of inactief"),
       specs: z.record(z.string(), z.unknown()).optional(),
     },
-    async ({ product_id, name, category, description, unit, base_price, vat_rate, active, specs }) => {
+    async ({ product_id, name, category, description, unit, base_price, cost_price, vat_rate, active, specs }) => {
       const map: Record<string, unknown> = { name, category, description, unit, active };
       if (base_price !== undefined) map["basePrice"] = base_price.toFixed(2);
+      if (cost_price !== undefined) map["costPrice"] = cost_price.toFixed(2);
       if (vat_rate !== undefined) map["vatRate"] = vat_rate.toFixed(2);
       if (specs !== undefined) map["specs"] = JSON.stringify(specs);
 
@@ -442,8 +468,8 @@ function createMcpServer() {
       );
       if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
 
-      const items = await query<{ productId: string; name: string; basePrice: string; vatRate: string; unit: string; qty: string }>(
-        `SELECT p.id AS "productId", p.name, p."basePrice", p."vatRate", p.unit, psi.qty
+      const items = await query<{ productId: string; name: string; basePrice: string; costPrice: string; vatRate: string; unit: string; qty: string }>(
+        `SELECT p.id AS "productId", p.name, p."basePrice", p."costPrice", p."vatRate", p.unit, psi.qty
          FROM "ProductSetItem" psi
          JOIN "Product" p ON p.id = psi."productId"
          WHERE psi."setId" = $1 ORDER BY psi."sortOrder"`,
@@ -462,11 +488,11 @@ function createMcpServer() {
         const qty = Number(item.qty);
         const vatRate = Number(item.vatRate);
         await query(
-          `INSERT INTO "QuoteItem" (id, "quoteId", "productId", description, qty, "unitPrice", "vatRate", total, "sortOrder")
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          `INSERT INTO "QuoteItem" (id, "quoteId", "productId", description, qty, "unitPrice", "vatRate", total, "sortOrder", "costPrice", indent, "choiceGroupId")
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
           [crypto.randomUUID(), quote_id, item.productId, item.name,
            qty.toFixed(2), unitPrice.toFixed(2), vatRate.toFixed(2),
-           (qty * unitPrice).toFixed(2), sortOrder++]
+           (qty * unitPrice).toFixed(2), sortOrder++, item.costPrice ? Number(item.costPrice).toFixed(2) : null, 0, null]
         );
       }
 
@@ -486,37 +512,64 @@ function createMcpServer() {
 
   server.tool(
     "create_quote",
-    "Maak een nieuwe offerte aan voor een klant, inclusief regels",
+    "Maak een nieuwe offerte aan voor een klant, inclusief offerteregels en technische details. Belangrijk: zet elk los onderdeel als apart object in items[]. Gebruik één betaalde hoofdregel voor de prijs en losse inbegrepen subregels met unit_price 0 voor wat erbij hoort.",
     {
       company_slug: z.string().describe("Bedrijfsslug: 'websup' of 'koolhaas'"),
       customer_id: z.string().describe("ID van de klant (gebruik list_customers om te vinden)"),
       title: z.string().optional().default("Persoonlijk voorstel").describe("Titel van de offerte"),
       category: z.string().optional().default("Maatwerk project").describe("Categorie/type project"),
       tagline: z.string().optional().describe("Ondertitel, bijv. 'Ontwerp · Bouw · Plaatsing'"),
-      itemsHeader: z.string().optional().describe("Kop boven de lijst met werkzaamheden/onderdelen"),
+      itemsHeader: z.string().optional().describe("Korte neutrale titel voor de prijstabel."),
       intro: z.string().optional().describe("Inleidende tekst"),
       outro: z.string().optional().describe("Slottekst"),
-      notes: z.string().optional().describe("Opmerkingen/interne of zichtbare notities voor de offerte"),
+      notes: z.string().optional().describe("Opmerkingen/interne of zichtbare notities"),
+      quote_type: z.string().optional().default("GENERAL").describe("Type offerte (GENERAL, BATTERY, SOLAR, WEB)"),
       flow: z.array(z.object({ n: z.number(), t: z.string(), d: z.string() })).optional().describe("Processtappen voor pagina 3"),
       approach: z.array(z.object({ n: z.string(), t: z.string(), d: z.string() })).optional().describe("Werkwijze/fases voor pagina 3"),
-      options: z.array(z.object({ t: z.string(), d: z.string(), tag: z.string() })).optional().describe("Optionele uitbreidingen of meerwerk"),
+      options: z.array(z.object({ t: z.string(), d: z.string(), tag: z.string() })).optional().describe("Optionele uitbreidingen"),
       exclusions: z.array(z.string()).optional().describe("Niet inbegrepen / uitsluitingen"),
+      assumptions: z.array(z.string()).optional().describe("Technische aannames"),
+      technical_notes: z.array(z.string()).optional().describe("Interne technische notities"),
+      customer_responsibilities: z.array(z.string()).optional().describe("Verantwoordelijkheden van de klant"),
+      planning: z.object({
+        leadTime: z.string().optional(),
+        executionDuration: z.string().optional(),
+        preferredDate: z.string().optional(),
+      }).optional().describe("Planning informatie"),
+      commercial: z.object({
+        validDays: z.number().optional(),
+        paymentTerms: z.string().optional(),
+        warranty: z.string().optional(),
+      }).optional().describe("Commerciële voorwaarden"),
+      battery_advice: z.object({
+        nominalCapacityKwh: z.number().optional(),
+        usableCapacityKwh: z.number().optional(),
+        backupReservePercent: z.number().optional(),
+        chargePowerKw: z.number().optional(),
+        recommendedScenario: z.string().optional(),
+      }).optional().describe("Thuisbatterij adviesgegevens"),
+      choice_groups: z.array(z.object({
+        id: z.string(),
+        title: z.string(),
+        type: z.enum(["SINGLE_SELECT", "MULTI_SELECT"]),
+      })).optional().describe("Interactieve keuze-groepen voor alternatieven"),
+      internal_advice: z.string().optional().describe("Uitgebreid blok met technisch advies (intern)"),
       valid_days: z.number().optional().default(30).describe("Geldigheidsduur in dagen"),
       attachments: z.array(z.object({
         image_url: z.string().optional().describe("Publieke image URL of data-URI"),
-        image_base64: z.string().optional().describe("Ruwe base64 van een afbeelding; wordt opgeslagen als bestand in public/uploads"),
-        mime_type: z.string().optional().default("image/png").describe("MIME type bij image_base64"),
-        title: z.string().optional().describe("Titel onder/bij de afbeelding"),
-        caption: z.string().optional().describe("Caption onder de afbeelding"),
-      })).optional().describe("Optionele ontwerpen/mockups voor de offerte"),
-      items: z.array(z.object({
-        description: z.string().describe("Omschrijving van het item"),
-        qty: z.number().default(1).describe("Aantal"),
-        unit_price: z.number().describe("Prijs per eenheid excl. btw"),
-        vat_rate: z.number().default(21).describe("BTW-percentage"),
-      })).describe("Offerteregels"),
+        image_base64: z.string().optional().describe("Ruwe base64 van een afbeelding"),
+        mime_type: z.string().optional().default("image/png").describe("MIME type"),
+        title: z.string().optional().describe("Titel"),
+        caption: z.string().optional().describe("Caption"),
+      })).optional().describe("Optionele ontwerpen/mockups"),
+      items: z.array(quoteItemInputSchema).describe("Offerteregels."),
     },
-    async ({ company_slug, customer_id, title, category, tagline, itemsHeader, intro, outro, notes, flow, approach, options, exclusions, valid_days, attachments, items }) => {
+    async ({ 
+      company_slug, customer_id, title, category, tagline, itemsHeader, intro, outro, notes, 
+      quote_type, flow, approach, options, exclusions, assumptions, technical_notes, 
+      customer_responsibilities, planning, commercial, battery_advice, choice_groups, 
+      internal_advice, valid_days, attachments, items 
+    }) => {
       const defaults = defaultTemplateFields(company_slug);
       const quoteTitle = title === "Persoonlijk voorstel" ? defaults.title : title;
       const quoteCategory = category === "Maatwerk project" ? defaults.category : category;
@@ -549,30 +602,36 @@ function createMcpServer() {
       const totalIncVat = totalExVat + totalVat;
 
       const now = new Date().toISOString();
-      const validUntil = new Date(Date.now() + (valid_days ?? 30) * 86400000).toISOString();
+      const validUntilDate = new Date(Date.now() + (valid_days ?? 30) * 86400000).toISOString();
       const quoteId = crypto.randomUUID();
       const number = generateQuoteNumber(company_slug);
 
       await query(
         `INSERT INTO "Quote" (id, "companyId", "customerId", "createdById", number, title, category, tagline,
           "itemsHeader", intro, outro, notes, flow, approach, options, exclusions, status, "validUntil",
-          "totalExVat", "totalVat", "totalIncVat", "createdAt", "updatedAt")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16::jsonb,'DRAFT',$17,$18,$19,$20,$21,$21)`,
+          "totalExVat", "totalVat", "totalIncVat", "quoteType", assumptions, "technicalNotes", 
+          "customerResponsibilities", planning, commercial, "batteryAdvice", "choiceGroups", "internalAdvice",
+          "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16::jsonb,'DRAFT',$17,$18,$19,$20,$22,$23::jsonb,$24::jsonb,$25::jsonb,$26::jsonb,$27::jsonb,$28::jsonb,$29::jsonb,$30,$31,$31)`,
         [quoteId, co.id, customer_id, user.id, number, quoteTitle, quoteCategory,
          quoteTagline, quoteItemsHeader, intro ?? null, outro ?? null, notes ?? null,
          JSON.stringify(quoteFlow), JSON.stringify(quoteApproach), JSON.stringify(quoteOptions), JSON.stringify(quoteExclusions),
-         validUntil, totalExVat.toFixed(2), totalVat.toFixed(2), totalIncVat.toFixed(2), now]
+         validUntilDate, totalExVat.toFixed(2), totalVat.toFixed(2), totalIncVat.toFixed(2), now,
+         quote_type ?? 'GENERAL', JSON.stringify(assumptions ?? []), JSON.stringify(technical_notes ?? []),
+         JSON.stringify(customer_responsibilities ?? []), JSON.stringify(planning ?? {}), JSON.stringify(commercial ?? {}),
+         JSON.stringify(battery_advice ?? {}), JSON.stringify(choice_groups ?? []), internal_advice ?? null]
       );
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const lineTotal = item.qty * item.unit_price;
         await query(
-          `INSERT INTO "QuoteItem" (id, "quoteId", description, qty, "unitPrice", "vatRate", total, "sortOrder")
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          `INSERT INTO "QuoteItem" (id, "quoteId", description, qty, "unitPrice", "vatRate", total, "sortOrder", "costPrice", indent, "choiceGroupId")
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
           [crypto.randomUUID(), quoteId, item.description,
            item.qty.toFixed(2), item.unit_price.toFixed(2),
-           item.vat_rate.toFixed(2), lineTotal.toFixed(2), i]
+           item.vat_rate.toFixed(2), lineTotal.toFixed(2), i,
+           item.cost_price ? item.cost_price.toFixed(2) : null, item.indent ?? 0, item.choice_group_id ?? null]
         );
       }
 
@@ -647,7 +706,7 @@ function createMcpServer() {
       if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
 
       const items = await query(
-        `SELECT id, description, qty, "unitPrice", "vatRate", total, "sortOrder"
+        `SELECT id, description, qty, "unitPrice", "vatRate", total, "sortOrder", "costPrice", indent, "choiceGroupId"
          FROM "QuoteItem" WHERE "quoteId" = $1 ORDER BY "sortOrder"`,
         [quote_id]
       );
@@ -735,7 +794,7 @@ function createMcpServer() {
 
   server.tool(
     "update_quote",
-    "Pas velden van een bestaande offerte aan (titel, intro, status, etc.)",
+    "Pas velden van een bestaande offerte aan (titel, intro, status, technische details, etc.)",
     {
       quote_id: z.string().describe("Quote ID"),
       title: z.string().optional(),
@@ -746,16 +805,35 @@ function createMcpServer() {
       outro: z.string().optional(),
       status: z.enum(["DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"]).optional(),
       notes: z.string().optional(),
+      quote_type: z.string().optional(),
       flow: z.array(z.object({ n: z.number(), t: z.string(), d: z.string() })).optional(),
       approach: z.array(z.object({ n: z.string(), t: z.string(), d: z.string() })).optional(),
       options: z.array(z.object({ t: z.string(), d: z.string(), tag: z.string() })).optional(),
       exclusions: z.array(z.string()).optional(),
+      assumptions: z.array(z.string()).optional(),
+      technical_notes: z.array(z.string()).optional(),
+      customer_responsibilities: z.array(z.string()).optional(),
+      planning: z.record(z.string(), z.unknown()).optional(),
+      commercial: z.record(z.string(), z.unknown()).optional(),
+      battery_advice: z.record(z.string(), z.unknown()).optional(),
+      choice_groups: z.array(z.any()).optional(),
+      internal_advice: z.string().optional(),
     },
     async ({ quote_id, ...updates }) => {
-      const fields = Object.entries(updates).filter(([, v]) => v !== undefined);
+      const map: Record<string, any> = { ...updates };
+      
+      // Map underscores to camelCase for DB
+      if (updates.quote_type !== undefined) { map["quoteType"] = updates.quote_type; delete map.quote_type; }
+      if (updates.technical_notes !== undefined) { map["technicalNotes"] = updates.technical_notes; delete map.technical_notes; }
+      if (updates.customer_responsibilities !== undefined) { map["customerResponsibilities"] = updates.customer_responsibilities; delete map.customer_responsibilities; }
+      if (updates.battery_advice !== undefined) { map["batteryAdvice"] = updates.battery_advice; delete map.battery_advice; }
+      if (updates.choice_groups !== undefined) { map["choiceGroups"] = updates.choice_groups; delete map.choice_groups; }
+      if (updates.internal_advice !== undefined) { map["internalAdvice"] = updates.internal_advice; delete map.internal_advice; }
+
+      const fields = Object.entries(map).filter(([, v]) => v !== undefined);
       if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
 
-      const jsonFields = new Set(["flow", "approach", "options", "exclusions"]);
+      const jsonFields = new Set(["flow", "approach", "options", "exclusions", "assumptions", "technicalNotes", "customerResponsibilities", "planning", "commercial", "batteryAdvice", "choiceGroups"]);
       const setClauses = fields.map(([k], i) => `"${k}" = $${i + 2}${jsonFields.has(k) ? "::jsonb" : ""}`);
       const values = [
         quote_id,
@@ -808,15 +886,18 @@ function createMcpServer() {
 
   server.tool(
     "add_quote_item",
-    "Voeg een regel toe aan een bestaande offerte en herbereken de totalen",
+    "Voeg één offerteregel toe aan een bestaande offerte en herbereken de totalen. Gebruik unit_price 0 voor een inbegrepen subregel die zonder €0,00 wordt getoond. Gebruik add_quote_items wanneer je meerdere onderdelen tegelijk hebt.",
     {
       quote_id: z.string().describe("Quote ID"),
-      description: z.string().describe("Omschrijving"),
+      description: z.string().describe("Omschrijving van precies één losse offerteregel. Geen bulletlijst of meerdere onderdelen in één tekst."),
       qty: z.number().default(1).describe("Aantal"),
-      unit_price: z.number().describe("Prijs excl. btw"),
+      unit_price: z.number().describe("Prijs excl. btw. Gebruik 0 voor inbegrepen subregels; de offerte toont dan 'Inbegrepen' in plaats van €0,00."),
+      cost_price: z.number().optional().describe("Inkoopprijs excl. btw"),
       vat_rate: z.number().default(21).describe("BTW-percentage"),
+      indent: z.number().min(0).max(1).default(0).describe("Inspringen (1 voor sub-regel)"),
+      choice_group_id: z.string().optional().describe("Koppeling aan keuze-groep"),
     },
-    async ({ quote_id, description, qty, unit_price, vat_rate }) => {
+    async ({ quote_id, description, qty, unit_price, cost_price, vat_rate, indent, choice_group_id }) => {
       const quote = await queryOne<{ id: string }>(`SELECT id FROM "Quote" WHERE id = $1`, [quote_id]);
       if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
 
@@ -829,22 +910,15 @@ function createMcpServer() {
       );
 
       await query(
-        `INSERT INTO "QuoteItem" (id, "quoteId", description, qty, "unitPrice", "vatRate", total, "sortOrder")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        `INSERT INTO "QuoteItem" (id, "quoteId", description, qty, "unitPrice", "vatRate", total, "sortOrder", "costPrice", indent, "choiceGroupId")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
         [crypto.randomUUID(), quote_id, description,
          qty.toFixed(2), unit_price.toFixed(2), vat_rate.toFixed(2),
-         lineTotal.toFixed(2), (maxSort?.max ?? -1) + 1]
+         lineTotal.toFixed(2), (maxSort?.max ?? -1) + 1,
+         cost_price ? cost_price.toFixed(2) : null, indent ?? 0, choice_group_id ?? null]
       );
 
-      await query(
-        `UPDATE "Quote" SET
-          "totalExVat"  = (SELECT SUM(qty * "unitPrice") FROM "QuoteItem" WHERE "quoteId" = $1),
-          "totalVat"    = (SELECT SUM(qty * "unitPrice" * "vatRate" / 100) FROM "QuoteItem" WHERE "quoteId" = $1),
-          "totalIncVat" = (SELECT SUM(qty * "unitPrice" * (1 + "vatRate" / 100)) FROM "QuoteItem" WHERE "quoteId" = $1),
-          "updatedAt"   = NOW()
-         WHERE id = $1`,
-        [quote_id]
-      );
+      await recalculateQuoteTotals(quote_id);
 
       return {
         content: [{
@@ -856,16 +930,61 @@ function createMcpServer() {
   );
 
   server.tool(
+    "add_quote_items",
+    "Voeg meerdere losse offerteregels toe aan een bestaande offerte. Gebruik deze tool voor lijsten met onderdelen/materialen/diensten; elk onderdeel moet een apart item in items[] zijn. Voor pakketten: één betaalde hoofdregel, daarna inbegrepen subregels met unit_price 0.",
+    {
+      quote_id: z.string().describe("Quote ID"),
+      items: z.array(quoteItemInputSchema).min(1).describe("Meerdere losse offerteregels. Maak voor elk onderdeel een apart object. Gebruik unit_price 0 voor inbegrepen subregels zodat er geen €0,00 in de offerte staat."),
+    },
+    async ({ quote_id, items }) => {
+      const quote = await queryOne<{ id: string }>(`SELECT id FROM "Quote" WHERE id = $1`, [quote_id]);
+      if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+
+      const maxSort = await queryOne<{ max: number }>(
+        `SELECT COALESCE(MAX("sortOrder"), -1) AS max FROM "QuoteItem" WHERE "quoteId" = $1`,
+        [quote_id]
+      );
+      let sortOrder = (maxSort?.max ?? -1) + 1;
+      let addedTotal = 0;
+
+      for (const item of items) {
+        const lineTotal = item.qty * item.unit_price;
+        addedTotal += lineTotal;
+        await query(
+          `INSERT INTO "QuoteItem" (id, "quoteId", description, qty, "unitPrice", "vatRate", total, "sortOrder", "costPrice", indent, "choiceGroupId")
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [crypto.randomUUID(), quote_id, item.description,
+           item.qty.toFixed(2), item.unit_price.toFixed(2),
+           item.vat_rate.toFixed(2), lineTotal.toFixed(2), sortOrder++,
+           item.cost_price ? item.cost_price.toFixed(2) : null, item.indent ?? 0, item.choice_group_id ?? null]
+        );
+      }
+
+      await recalculateQuoteTotals(quote_id);
+
+      return {
+        content: [{
+          type: "text",
+          text: `${items.length} losse offerteregels toegevoegd. Totaal toegevoegd excl. btw: €${addedTotal.toFixed(2)}. Totalen herberekend.`,
+        }],
+      };
+    }
+  );
+
+  server.tool(
     "update_quote_item",
-    "Pas een bestaande offerteregel aan (omschrijving, aantal, prijs, btw). Herberekent automatisch de totalen.",
+    "Pas een bestaande offerteregel aan (omschrijving, aantal, prijs, btw, inspringen, keuze-groep). Herberekent automatisch de totalen.",
     {
       item_id: z.string().describe("ID van de offerteregel"),
       description: z.string().optional().describe("Nieuwe omschrijving"),
       qty: z.number().optional().describe("Nieuw aantal"),
       unit_price: z.number().optional().describe("Nieuwe prijs excl. btw"),
+      cost_price: z.number().optional().describe("Nieuwe inkoopprijs excl. btw"),
       vat_rate: z.number().optional().describe("Nieuw BTW-percentage"),
+      indent: z.number().min(0).max(1).optional().describe("Inspringen"),
+      choice_group_id: z.string().optional().describe("Koppeling aan keuze-groep"),
     },
-    async ({ item_id, description, qty, unit_price, vat_rate }) => {
+    async ({ item_id, description, qty, unit_price, cost_price, vat_rate, indent, choice_group_id }) => {
       const item = await queryOne<{ id: string; quoteId: string; qty: string; unitPrice: string; vatRate: string }>(
         `SELECT id, "quoteId", qty, "unitPrice", "vatRate" FROM "QuoteItem" WHERE id = $1`,
         [item_id]
@@ -877,7 +996,10 @@ function createMcpServer() {
       if (description !== undefined) { fields.push(`description = $${params.length + 1}`); params.push(description); }
       if (qty !== undefined) { fields.push(`qty = $${params.length + 1}`); params.push(qty.toFixed(2)); }
       if (unit_price !== undefined) { fields.push(`"unitPrice" = $${params.length + 1}`); params.push(unit_price.toFixed(2)); }
+      if (cost_price !== undefined) { fields.push(`"costPrice" = $${params.length + 1}`); params.push(cost_price.toFixed(2)); }
       if (vat_rate !== undefined) { fields.push(`"vatRate" = $${params.length + 1}`); params.push(vat_rate.toFixed(2)); }
+      if (indent !== undefined) { fields.push(`indent = $${params.length + 1}`); params.push(indent); }
+      if (choice_group_id !== undefined) { fields.push(`"choiceGroupId" = $${params.length + 1}`); params.push(choice_group_id); }
 
       if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
 
@@ -889,15 +1011,7 @@ function createMcpServer() {
 
       await query(`UPDATE "QuoteItem" SET ${fields.join(", ")} WHERE id = $1`, params);
 
-      await query(
-        `UPDATE "Quote" SET
-          "totalExVat"  = (SELECT SUM(qty * "unitPrice") FROM "QuoteItem" WHERE "quoteId" = $1),
-          "totalVat"    = (SELECT SUM(qty * "unitPrice" * "vatRate" / 100) FROM "QuoteItem" WHERE "quoteId" = $1),
-          "totalIncVat" = (SELECT SUM(qty * "unitPrice" * (1 + "vatRate" / 100)) FROM "QuoteItem" WHERE "quoteId" = $1),
-          "updatedAt"   = NOW()
-         WHERE id = $1`,
-        [item.quoteId]
-      );
+      await recalculateQuoteTotals(item.quoteId);
 
       return { content: [{ type: "text", text: `Offerteregel bijgewerkt en totalen herberekend.` }] };
     }
@@ -1092,7 +1206,7 @@ function createMcpServer() {
 
       const results = await query(sql, params);
       if (results.length === 0) {
-        return { content: [{ type: "text", text: `Niets gevonden voor '${q}'. Zoek op internet en sla daarna op met save_datasheet.` }] };
+        return { content: [{ type: "text", text: `Niets gevonden for '${q}'. Zoek op internet en sla daarna op met save_datasheet.` }] };
       }
       return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
     }

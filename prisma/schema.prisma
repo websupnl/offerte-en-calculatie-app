@@ -83,6 +83,7 @@ model Company {
   quotes      Quote[]
   datasheets  Datasheet[]
   findings    ResearchFinding[]
+  adviceReports AdviceDocument[]
 }
 
 model CompanyUser {
@@ -114,6 +115,7 @@ model Customer {
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   quotes  Quote[]
+  adviceReports AdviceDocument[]
 }
 
 // ─── Products & Sets ───────────────────────────────────────────────────────
@@ -126,6 +128,7 @@ model Product {
   description String?  @db.Text
   unit        String   @default("stuk")
   basePrice   Decimal  @default(0) @db.Decimal(10, 2)
+  costPrice   Decimal? @db.Decimal(10, 2)
   vatRate     Decimal  @default(21) @db.Decimal(5, 2)
   specs       Json     @default("{}")
   active      Boolean  @default(true)
@@ -177,6 +180,7 @@ model Quote {
   tagline     String?     @default("Ontwerp · Bouw · Plaatsing")
   itemsHeader String?     @default("Onderdelen binnen fase 1.")
   status      QuoteStatus @default(DRAFT)
+  quoteType   String?     @default("GENERAL")
   validUntil  DateTime?
   intro       String?     @db.Text
   outro       String?     @db.Text
@@ -190,6 +194,15 @@ model Quote {
   approach    Json?       @default("[]")
   options     Json?       @default("[]")
   exclusions  Json?       @default("[]")
+  assumptions Json?       @default("[]")
+  technicalNotes Json?    @default("[]")
+  customerResponsibilities Json? @default("[]")
+  planning    Json?       @default("{}")
+  commercial  Json?       @default("{}")
+  batteryAdvice Json?     @default("{}")
+  choiceGroups Json?      @default("[]")      // [{ id: "g1", title: "Kies uw optie", type: "SINGLE_SELECT" }]
+  internalAdvice String?  @db.Text
+  version     Int         @default(1)
   pdfUrl      String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -220,9 +233,13 @@ model QuoteItem {
   description String  @db.Text
   qty         Decimal @default(1) @db.Decimal(10, 2)
   unitPrice   Decimal @db.Decimal(10, 2)
+  costPrice   Decimal? @db.Decimal(10, 2)
   vatRate     Decimal @default(21) @db.Decimal(5, 2)
   total       Decimal @db.Decimal(10, 2)
   sortOrder   Int     @default(0)
+  indent      Int     @default(0)
+  type        String? @default("main")
+  choiceGroupId String?
 
   quote   Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
@@ -235,6 +252,7 @@ model QuoteAttachment {
   quoteId   String
   title     String?
   imageUrl  String   @db.Text
+  liveUrl   String?  @db.Text
   caption   String?  @db.Text
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
@@ -244,15 +262,41 @@ model QuoteAttachment {
 }
 
 model AdviceDocument {
-  id        String     @id @default(cuid())
-  quoteId   String
-  type      AdviceType
-  inputData Json
-  content   String     @db.Text
-  pdfUrl    String?
-  createdAt DateTime   @default(now())
+  id          String     @id @default(cuid())
+  quoteId     String?    // Optioneel: pas gekoppeld na generatie offerte
+  customerId  String
+  companyId   String
+  type        AdviceType @default(BATTERY)
+  status      String     @default("DRAFT") // DRAFT, SENT, CONVERTED
+  title       String     @default("Energie-advies Thuisbatterij")
+  
+  // Intake & Situatie
+  inputData   Json?      // Ruwe intake data
+  consumption Json?      // { annualKwh, nightKwh, solarWp, exportedKwh, phase: 1|3 }
+  
+  // Analyse & Onderbouwing
+  summary     String?    @db.Text
+  analysis    String?    @db.Text
+  calculation Json?      // De stappen van de berekening
+  
+  // Scenario's & Aanbeveling
+  scenarios   Json?      // Array van scenario's (Basis, Comfort, Maximaal)
+  recommendation String? @db.Text
+  
+  // Specifieke Modules
+  financial   Json?      // { conservative, realistic, optimistic }
+  backup      Json?      // Back-up analyse
+  ems         Json?      // EMS analyse & noodzaak
+  currentDevs Json?      // Actuele ontwikkelingen (salderen etc)
+  
+  content     String?    @db.Text // Volledige gegenereerde tekst (fallback)
+  pdfUrl      String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
-  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  quote    Quote?    @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  customer Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
 
 enum AdviceType {

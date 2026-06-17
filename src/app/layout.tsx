@@ -34,12 +34,14 @@ export default function RootLayout({
     <html
       lang="nl"
       className={`${inter.variable} ${bricolageGrotesque.variable} ${nunito.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+
         <SessionProvider>
           <CompanyProvider>{children}</CompanyProvider>
         </SessionProvider>
-        <Toaster richColors position="top-right" />
+        <Toaster richColors position="bottom-right" />
       </body>
     </html>
   );

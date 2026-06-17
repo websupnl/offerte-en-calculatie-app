@@ -60,10 +60,17 @@ export function SettingsClient({
   async function saveSettings() {
     setSaving(true);
     try {
+      // Don't send the masked key if it hasn't changed
+      const isMasked = settings.openaiApiKey.includes("...");
+      const finalSettings = {
+        ...settings,
+        openaiApiKey: isMasked ? initialSettings.openaiApiKey : settings.openaiApiKey,
+      };
+
       await fetch(`/api/company/${companyId}/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settings, branding }),
+        body: JSON.stringify({ settings: finalSettings, branding }),
       });
       toast.success("Instellingen opgeslagen");
     } catch {
@@ -72,6 +79,7 @@ export function SettingsClient({
       setSaving(false);
     }
   }
+
 
   const isKoolhaas = companySlug === "koolhaas";
 

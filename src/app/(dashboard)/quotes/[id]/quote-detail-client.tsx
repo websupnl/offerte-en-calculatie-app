@@ -51,6 +51,7 @@ type AdviceDocument = {
 type Quote = {
   id: string;
   number: string;
+  title: string | null;
   status: string;
   validUntil: string | null;
   intro: string | null;
@@ -154,13 +155,13 @@ export function QuoteDetailClient({
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold">{quote.number}</h1>
+              <h1 className="text-2xl font-bold">{quote.title || quote.number}</h1>
               <Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>
                 {QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground">
-              {quote.customer.name} · {formatDate(quote.createdAt)}
+              {quote.number} · {quote.customer.name} · {formatDate(quote.createdAt)}
             </p>
           </div>
         </div>

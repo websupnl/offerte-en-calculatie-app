@@ -1,6 +1,8 @@
 import { PrismaClient } from "@/generated/prisma";
 import { PrismaPg } from "@prisma/adapter-pg";
 
+// Re-triggering build for schema changes
+
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL!;
   const adapter = new PrismaPg({ connectionString });

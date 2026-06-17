@@ -10,14 +10,20 @@ const itemSchema = z.object({
   description: z.string().min(1),
   qty: z.coerce.number().min(0),
   unitPrice: z.coerce.number().min(0),
+  costPrice: z.coerce.number().nullable().optional(),
   vatRate: z.coerce.number().default(21),
+  indent: z.coerce.number().int().min(0).max(1).default(0),
+  type: z.string().optional().default("main"),
 });
 
 const attachmentSchema = z.object({
   id: z.string().optional(),
   title: z.string().optional().nullable(),
-  imageUrl: z.string().min(1),
+  imageUrl: z.string().optional().default(""),
+  liveUrl: z.string().optional().nullable(),
   caption: z.string().optional().nullable(),
+}).refine((attachment) => attachment.imageUrl.trim() || attachment.liveUrl?.trim(), {
+  message: "Voeg een screenshot of live link toe",
 });
 
 const schema = z.object({
@@ -27,6 +33,7 @@ const schema = z.object({
   tagline: z.string().optional(),
   itemsHeader: z.string().optional(),
   status: z.enum(["DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"]).optional(),
+  quoteType: z.string().optional(),
   validUntil: z.string().nullable().optional().transform((v) => (v === "" ? null : v)),
   intro: z.string().optional(),
   outro: z.string().optional(),
@@ -35,6 +42,13 @@ const schema = z.object({
   approach: z.any().optional(),
   options: z.any().optional(),
   exclusions: z.any().optional(),
+  assumptions: z.any().optional(),
+  technicalNotes: z.any().optional(),
+  customerResponsibilities: z.any().optional(),
+  planning: z.any().optional(),
+  commercial: z.any().optional(),
+  batteryAdvice: z.any().optional(),
+  internalAdvice: z.string().nullable().optional(),
   items: z.array(itemSchema).optional(),
   attachments: z.array(attachmentSchema).optional(),
 });
@@ -127,14 +141,31 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   return NextResponse.json({ ok: true });
 }
 
+import { del } from "@vercel/blob";
+
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  
+  const quote = await prisma.quote.findFirst({
+    where: { id, companyId: session.user.activeCompanyId },
+    select: { pdfUrl: true },
+  });
+
+  if (quote?.pdfUrl) {
+    try {
+      await del(quote.pdfUrl);
+    } catch (err) {
+      console.error("[DELETE] Failed to delete blob:", err);
+    }
+  }
+
   await prisma.quote.deleteMany({
     where: { id, companyId: session.user.activeCompanyId },
   });
 
   return NextResponse.json({ ok: true });
 }
+

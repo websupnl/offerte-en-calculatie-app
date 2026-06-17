@@ -87,6 +87,7 @@ const publicImageDataUri = (imageUrl: string): string => {
 
 // Profile photo — used on cover and signature avatar
 const PROFILE_PHOTO = logoDataUri("daan-koolhaas.jpg");
+const SIGNATURE_IMAGE = publicImageDataUri("/signatures/daan-koolhaas-signature.png");
 
 type BrandConfig = {
   key: BrandKey;
@@ -153,8 +154,8 @@ const BRANDS: Record<BrandKey, BrandConfig> = {
     phaseLabel: "Fase 1",
     summaryGoal: "Complete, gestructureerde aanvragen - minder navraag achteraf",
     delivery: "Indicatie 4-6 weken na akkoord",
-    itemsHeader: "Diensten en onderdelen.",
-    itemsEyebrow: "Wat wordt er opgeleverd",
+    itemsHeader: "Prijsopbouw",
+    itemsEyebrow: "Inbegrepen",
     processEyebrow: "Het proces",
     processTitle: "In duidelijke stappen.",
     approachEyebrow: "De werkwijze",
@@ -219,7 +220,7 @@ const BRANDS: Record<BrandKey, BrandConfig> = {
     summaryGoal: "Eigen zonnestroom opslaan en slim verbruiken",
     delivery: "Installatie in 1 dag - ca. 2-3 weken na akkoord",
     itemsHeader: "Wat wordt er geinstalleerd.",
-    itemsEyebrow: "Wat wordt er geleverd",
+    itemsEyebrow: "Inbegrepen",
     processEyebrow: "Planning",
     processTitle: "Van akkoord tot werkende installatie.",
     approachEyebrow: "Werkwijze",
@@ -287,7 +288,7 @@ function PageHeader({ brand, quoteNumber, customerName }: { brand: BrandConfig; 
   return (
     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
       {brand.key === "websup" && brand.logoColor ? (
-        <Image src={brand.logoColor} style={{ height: 16, width: 72, objectFit: "contain", objectPositionX: "0%" }} />
+        <Image src={brand.logoColor} style={{ height: 22, width: 102, objectFit: "contain", objectPositionX: "0%" }} />
       ) : brand.key === "websup" ? (
         <View style={{ flexDirection: "row", alignItems: "baseline", gap: 1 }}>
           <Text style={{ fontSize: 16, fontFamily: "Helvetica-Bold", color: brand.colors.primary }}>Webs</Text>
@@ -374,23 +375,19 @@ export function QuotePDF({
   const approach = approachProp.length ? approachProp : brand.approach;
   const options = optionsProp.length ? optionsProp : brand.options;
   const exclusions = exclusionsProp.length ? exclusionsProp : brand.exclusions;
-
   const title = titleProp || brand.defaultTitle;
   const category = categoryProp || brand.defaultCategory;
   const tagline = taglineProp || companyTagline || brand.defaultTagline;
 
   const PAD = 38;
   const innerPage = { padding: PAD, paddingTop: 30, paddingBottom: 50 };
-  const totalPages = 4 + attachments.length;
+  const attachmentPages = Math.ceil(attachments.length / 2);
+  const attachmentPairs = Array.from({ length: attachmentPages }, (_, index) =>
+    attachments.slice(index * 2, index * 2 + 2)
+  );
+  const totalPages = 4 + attachmentPages;
   const pageLabel = (page: number) =>
     `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
-  const valueTitle = isKoolhaas
-    ? "Een nette installatie zonder onduidelijkheid achteraf."
-    : "Een website die bezoekers sneller naar contact brengt.";
-  const valueCopy = isKoolhaas
-    ? "Je krijgt een duidelijke installatie met veilige montage, nette afwerking en uitleg bij oplevering. Vooraf is helder wat er wordt geplaatst en wat buiten de scope valt."
-    : "Bezoekers moeten snel kunnen zien wat je aanbiedt, eenvoudig vinden wat relevant is en zonder drempel contact opnemen. Jij kunt de belangrijkste inhoud zelf beheren, zonder technische kennis of afhankelijkheid voor kleine wijzigingen.";
-
   // Cover uses dark left panel for WebsUp, light for Koolhaas
   const coverDark = !isKoolhaas;
   const coverText = coverDark ? "#FFFFFF" : brand.colors.text;
@@ -419,7 +416,7 @@ export function QuotePDF({
             <View style={{ marginBottom: 44 }}>
               {brand.key === "websup" ? (
                 brand.logoWhite ? (
-                  <Image src={brand.logoWhite} style={{ height: 28, width: 120, objectFit: "contain", objectPositionX: "0%" }} />
+                  <Image src={brand.logoWhite} style={{ height: 34, width: 148, objectFit: "contain", objectPositionX: "0%" }} />
                 ) : (
                   <View style={{ flexDirection: "row", alignItems: "baseline", gap: 2 }}>
                     <Text style={{ fontSize: 30, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>Webs</Text>
@@ -433,13 +430,13 @@ export function QuotePDF({
 
             {/* Mid: main content */}
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 1.2, color: brand.colors.accent, marginBottom: 8 }}>
+              <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 1.3, color: brand.colors.accent, marginBottom: 10 }}>
                 {category}
               </Text>
               <Text style={{ fontSize: 52, fontFamily: "Helvetica-Bold", color: coverText, lineHeight: 1, marginBottom: 14 }}>
                 Offerte
               </Text>
-              <Text style={{ fontSize: 15, fontFamily: "Helvetica-Bold", color: coverText, lineHeight: 1.35, marginBottom: 24, maxWidth: 220 }}>
+              <Text style={{ fontSize: 18, fontFamily: "Helvetica-Bold", color: coverText, lineHeight: 1.25, marginBottom: 24, maxWidth: 235 }}>
                 {title}
               </Text>
 
@@ -476,7 +473,7 @@ export function QuotePDF({
             {PROFILE_PHOTO ? (
               <Image
                 src={PROFILE_PHOTO}
-                style={{ width: "100%", height: "100%", objectFit: "cover", objectPositionX: "50%", objectPositionY: "15%" }}
+                style={{ width: "100%", height: "100%", objectFit: "cover", objectPositionX: "50%", objectPositionY: "24%" }}
               />
             ) : (
               <View style={{ flex: 1, backgroundColor: coverDark ? "#0e0b16" : brand.colors.surface }} />
@@ -504,7 +501,7 @@ export function QuotePDF({
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 }}>
           <View style={{ width: 34, height: 34, borderRadius: 17, overflow: "hidden" }}>
             {PROFILE_PHOTO ? (
-              <Image src={PROFILE_PHOTO} style={{ width: 34, height: 34, objectFit: "cover", objectPositionY: "10%" }} />
+              <Image src={PROFILE_PHOTO} style={{ width: 32, height: 32, margin: 1, borderRadius: 16, objectFit: "cover", objectPositionY: "24%" }} />
             ) : (
               <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: brand.colors.accent, justifyContent: "center", alignItems: "center" }}>
                 <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>DK</Text>
@@ -515,39 +512,6 @@ export function QuotePDF({
             <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold" }}>Daan Koolhaas</Text>
             <Text style={{ fontSize: 7.5, color: brand.colors.muted }}>{brand.role}</Text>
           </View>
-        </View>
-
-        <Divider color={brand.colors.border} />
-
-        <View style={{ backgroundColor: brand.colors.surface, borderLeftWidth: 3, borderLeftColor: brand.colors.accent, borderRadius: 10, padding: 14, marginBottom: 14 }}>
-          <Eyebrow text={isKoolhaas ? "Wat dit oplevert" : "Wat ik voor je bouw"} color={brand.colors.accent} />
-          <Text style={{ fontSize: 15, fontFamily: "Helvetica-Bold", color: brand.colors.text, marginTop: 7, marginBottom: 6, lineHeight: 1.2 }}>
-            {valueTitle}
-          </Text>
-          <Text style={{ fontSize: 9, lineHeight: 1.55, color: brand.colors.muted }}>
-            {valueCopy}
-          </Text>
-        </View>
-
-        {/* Deliverables */}
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-          <View>
-            <Eyebrow text={brand.itemsEyebrow} color={brand.colors.accent} />
-            <H2 text={itemsHeader || brand.itemsHeader} />
-          </View>
-          <View style={{ backgroundColor: brand.colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
-            <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>{items.length} onderdelen</Text>
-          </View>
-        </View>
-        <View style={{ gap: 6 }}>
-          {items.map((item, i) => (
-            <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
-              <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: brand.colors.accent, justifyContent: "center", alignItems: "center", marginTop: 1 }}>
-                <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>v</Text>
-              </View>
-              <Text style={{ fontSize: 9, color: "#334155", flex: 1, lineHeight: 1.5 }}>{item.description}</Text>
-            </View>
-          ))}
         </View>
 
         <PageFooter tag="Offerte" page={pageLabel(2)} customerName={customerName} />
@@ -610,33 +574,38 @@ export function QuotePDF({
       </>
       )}
 
-      {attachments.map((attachment, i) => (
-        <Page key={i} size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
+      {attachmentPairs.map((pair, pageIndex) => (
+        <Page key={pageIndex} size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
           <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
           <PageHeader brand={brand} quoteNumber={quoteNumber} customerName={customerName} />
 
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 10 }}>
             <View>
               <Eyebrow text="Ontwerp & uitwerking" color={brand.colors.accent} />
-              <H2 text={attachment.title || (isKoolhaas ? "Technische indruk en plaatsing." : "Zo ziet de richting eruit.")} />
+              <H2 text={isKoolhaas ? "Technische indruk en plaatsing." : "Zo ziet de richting eruit."} />
             </View>
             <View style={{ backgroundColor: brand.colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
-              <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>{i + 1} / {attachments.length}</Text>
+              <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>{pageIndex + 1} / {attachmentPages}</Text>
             </View>
           </View>
 
-          <View style={{ flex: 1, borderWidth: 1, borderColor: brand.colors.border, borderRadius: 8, overflow: "hidden", backgroundColor: "#FFFFFF", justifyContent: "center", alignItems: "center" }}>
-            <Image src={publicImageDataUri(attachment.imageUrl)} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          <View style={{ flex: 1, flexDirection: "column", borderWidth: 1, borderColor: brand.colors.border, borderRadius: 8, overflow: "hidden" }}>
+            {pair.map((attachment, i) => (
+              <View key={i} style={{ flex: 1, minHeight: 0, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: brand.colors.border }}>
+                <View style={{ flex: 1, overflow: "hidden", backgroundColor: "#FFFFFF" }}>
+                  <Image src={publicImageDataUri(attachment.imageUrl)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                </View>
+                {(attachment.title || attachment.caption) && (
+                  <View style={{ marginTop: 8, minHeight: 34 }}>
+                    {attachment.title && <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>{attachment.title}</Text>}
+                    {attachment.caption && <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.35, marginTop: 3 }}>{attachment.caption}</Text>}
+                  </View>
+                )}
+              </View>
+            ))}
           </View>
 
-          {(attachment.title || attachment.caption) && (
-            <View style={{ marginTop: 8 }}>
-              {attachment.title && <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>{attachment.title}</Text>}
-              {attachment.caption && <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.35, marginTop: 3 }}>{attachment.caption}</Text>}
-            </View>
-          )}
-
-          <PageFooter tag="Offerte" page={pageLabel(3 + i)} customerName={customerName} />
+          <PageFooter tag="Offerte" page={pageLabel(3 + pageIndex)} customerName={customerName} />
         </Page>
       ))}
 
@@ -657,14 +626,29 @@ export function QuotePDF({
             <Text style={{ width: 78, padding: 9, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted, textAlign: "right", textTransform: "uppercase" }}>Prijs</Text>
             <Text style={{ width: 78, padding: 9, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted, textAlign: "right", textTransform: "uppercase" }}>Totaal</Text>
           </View>
-          {items.map((item, i) => (
-            <View key={i} style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: brand.colors.border }}>
-              <Text style={{ flex: 1, padding: 9, fontSize: 8.5, color: "#334155", lineHeight: 1.35 }}>{item.description}</Text>
-              <Text style={{ width: 58, padding: 9, fontSize: 8.5, color: "#334155", textAlign: "right" }}>{formatAmt(item.qty)}</Text>
-              <Text style={{ width: 78, padding: 9, fontSize: 8.5, color: "#334155", textAlign: "right" }}>{formatEur(item.unitPrice)}</Text>
-              <Text style={{ width: 78, padding: 9, fontSize: 8.5, color: "#334155", textAlign: "right" }}>{formatEur(item.total)}</Text>
-            </View>
-          ))}
+          {items.map((item, i) => {
+            const isIncludedSubItem = Number((item as { indent?: number }).indent ?? 0) > 0 || (Number(item.unitPrice) === 0 && Number(item.total) === 0);
+
+            if (isIncludedSubItem) {
+              return (
+                <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 9, paddingVertical: 8, backgroundColor: brand.colors.surface, borderBottomWidth: 1, borderBottomColor: brand.colors.border }}>
+                  <View style={{ width: 15, height: 15, borderRadius: 7.5, backgroundColor: brand.colors.accent, justifyContent: "center", alignItems: "center" }}>
+                    <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>v</Text>
+                  </View>
+                  <Text style={{ flex: 1, fontSize: 10, color: "#334155", lineHeight: 1.35 }}>{item.description}</Text>
+                </View>
+              );
+            }
+
+            return (
+              <View key={i} style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: brand.colors.border }}>
+                <Text style={{ flex: 1, padding: 9, fontSize: 8.5, color: "#334155", lineHeight: 1.35 }}>{item.description}</Text>
+                <Text style={{ width: 58, padding: 9, fontSize: 8.5, color: "#334155", textAlign: "right" }}>{formatAmt(item.qty)}</Text>
+                <Text style={{ width: 78, padding: 9, fontSize: 8.5, color: "#334155", textAlign: "right" }}>{formatEur(item.unitPrice)}</Text>
+                <Text style={{ width: 78, padding: 9, fontSize: 8.5, color: "#334155", textAlign: "right" }}>{formatEur(item.total)}</Text>
+              </View>
+            );
+          })}
           {[
             ["Totaal excl. btw", formatEur(totalExVat), false],
             ["Btw", formatEur(totalVat), false],
@@ -749,7 +733,7 @@ export function QuotePDF({
           ))}
         </View>
 
-        <PageFooter tag="Offerte" page={pageLabel(3 + attachments.length)} customerName={customerName} />
+        <PageFooter tag="Offerte" page={pageLabel(3 + attachmentPages)} customerName={customerName} />
       </Page>
 
       {/* ════════════════════════════════════════════════════════
@@ -808,7 +792,12 @@ export function QuotePDF({
           {/* Contractor sign box */}
           <View style={{ flex: 1, borderWidth: 1, borderColor: brand.colors.border, borderRadius: 10, padding: 14, position: "relative" }}>
             <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", textTransform: "uppercase", color: "#94A3B8", marginBottom: 3 }}>Namens opdrachtnemer</Text>
-            <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", marginBottom: 20 }}>{brand.contractor}</Text>
+            <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", marginBottom: 4 }}>{brand.contractor}</Text>
+            {SIGNATURE_IMAGE ? (
+              <Image src={SIGNATURE_IMAGE} style={{ height: 90, width: "auto", maxWidth: 260, objectFit: "contain", marginBottom: 4 }} />
+            ) : (
+              <View style={{ height: 90, marginBottom: 4 }} />
+            )}
             <View style={{ borderBottomWidth: 1, borderBottomColor: brand.colors.border, marginBottom: 4 }} />
             <Text style={{ fontSize: 7, color: "#94A3B8" }}>Naam / Datum</Text>
             <View style={{ position: "absolute", top: 8, right: 10, transform: "rotate(10deg)" }}>
@@ -830,7 +819,7 @@ export function QuotePDF({
           </View>
         </View>
 
-        <PageFooter tag="Offerte" page={pageLabel(4 + attachments.length)} customerName={customerName} />
+        <PageFooter tag="Offerte" page={pageLabel(4 + attachmentPages)} customerName={customerName} />
       </Page>
 
     </Document>

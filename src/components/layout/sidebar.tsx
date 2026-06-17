@@ -15,8 +15,9 @@ import {
   LogOut,
   ChevronDown,
   Building2,
-  Zap,
   Brain,
+  TrendingUp,
+  ShieldCheck,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -27,6 +28,8 @@ import {
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/dashboard", label: "The Accountant", icon: TrendingUp },
+  { href: "/advice", label: "Technisch Advies", icon: ShieldCheck },
   { href: "/quotes", label: "Offertes", icon: FileText },
   { href: "/customers", label: "Klanten", icon: Users },
   { href: "/admin/products", label: "Producten", icon: Package },
@@ -38,8 +41,10 @@ export function Sidebar() {
   const pathname = usePathname();
   const { activeCompany, companies, switchCompany } = useCompany();
 
-  const companyColor =
-    activeCompany?.slug === "koolhaas" ? "text-green-600" : "text-indigo-600";
+  const logoSrc =
+    activeCompany?.slug === "koolhaas"
+      ? "/logos/koolhaas-logo-tight.png"
+      : "/logos/websup-cover.png";
 
   return (
     <aside className="w-64 min-h-screen flex flex-col bg-card border-r">
@@ -47,23 +52,17 @@ export function Sidebar() {
       <div className="p-4 border-b">
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left bg-transparent border-0 cursor-pointer"
+            aria-label={`Bedrijf wisselen: ${activeCompany?.name ?? "selecteer bedrijf"}`}
+            className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted transition-colors text-left bg-transparent border-0 cursor-pointer"
           >
-            <div className={cn("p-1.5 rounded-md bg-primary/10", companyColor)}>
-              {activeCompany?.slug === "koolhaas" ? (
-                <Zap className="h-4 w-4" />
-              ) : (
-                <Building2 className="h-4 w-4" />
-              )}
+            <div className="grid h-16 w-44 place-items-start">
+              <img
+                src={logoSrc}
+                alt={activeCompany?.name ?? "Bedrijf"}
+                className="h-16 max-w-44 object-contain object-left"
+              />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate">
-                {activeCompany?.name ?? "Selecteer bedrijf"}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {activeCompany?.slug}
-              </p>
-            </div>
+            <div className="flex-1 min-w-0" />
             <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">

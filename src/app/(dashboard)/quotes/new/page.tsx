@@ -3,14 +3,19 @@ import { prisma } from "@/lib/prisma";
 import { QuoteBuilder } from "@/components/forms/quote-builder";
 import { redirect } from "next/navigation";
 
-export default async function NewQuotePage() {
+export default async function NewQuotePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ adviceId?: string }>;
+}) {
+  const { adviceId } = await searchParams;
   const session = await auth();
   const companyId = session?.user?.activeCompanyId;
   if (!companyId) redirect("/dashboard");
 
   const companySlug = session?.user?.companies?.find((c) => c.id === companyId)?.slug ?? "websup";
 
-  const [customers, products, productSets] = await Promise.all([
+  const [customers, products, productSets, adviceReport] = await Promise.all([
     prisma.customer.findMany({
       where: { companyId },
       orderBy: { name: "asc" },
@@ -28,11 +33,20 @@ export default async function NewQuotePage() {
         },
       },
     }),
+    adviceId ? prisma.adviceDocument.findUnique({
+      where: { id: adviceId },
+      include: { customer: true }
+    }) : null
   ]);
 
   const company = await prisma.company.findUnique({ where: { id: companyId } });
 
-  const serialized = JSON.parse(JSON.stringify({ customers, products, productSets }));
+  const serialized = JSON.parse(JSON.stringify({ 
+    customers, 
+    products, 
+    productSets,
+    initialAdvice: adviceReport
+  }));
 
   return (
     <QuoteBuilder
@@ -41,6 +55,7 @@ export default async function NewQuotePage() {
       productSets={serialized.productSets}
       companySlug={companySlug}
       companyName={company?.name ?? ""}
+      initialAdvice={serialized.initialAdvice}
     />
   );
 }

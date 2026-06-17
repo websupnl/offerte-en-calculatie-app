@@ -1,51 +1,83 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { OpenAI } from "openai";
+import { z } from "zod";
+
+const schema = z.object({
+  prompt: z.string().min(1),
+  customerName: z.string().optional().default("de klant"),
+});
 
 export async function POST(req: NextRequest) {
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const companyId = session.user.activeCompanyId;
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+  });
+
+  if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
+
+  const settings = (company.settings ?? {}) as Record<string, any>;
+  const apiKey = settings.openaiApiKey || process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    return NextResponse.json({ error: "OpenAI API key missing" }, { status: 500 });
+  }
+
+  const openai = new OpenAI({ apiKey });
+
   try {
-    const { prompt, customerName } = await req.json();
+    const body = await req.json();
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
+    const { prompt, customerName } = parsed.data;
+    const userName = session.user.name || "Daan Koolhaas";
+    const companyName = company.name || "WebsUp.nl";
 
     const systemPrompt = `
-      Je bent een expert in het opstellen van zakelijke offertes voor WebsUp.nl. 
+      Je bent een expert in het opstellen van professionele offertes en technisch advies voor ${companyName}.
       De gebruiker geeft je ruwe aantekeningen, een ChatGPT gesprek of projectdetails.
-      Extraheer en genereer alle benodigde velden voor een korte, duidelijke offerte.
-      Schrijf voor niet-technische klanten: verkoop het resultaat en het probleem dat wordt opgelost, niet alleen de techniek.
-      Koppel website-onderdelen aan klantwaarde, bijvoorbeeld: bezoekers kunnen sneller vinden wat beschikbaar is,
-      eenvoudiger vergelijken/contact opnemen, en de klant kan zelf zonder gedoe content of voorraad beheren.
-      Gebruik de taal van de klant (Nederlands).
+      
+      Je taak is om TWEE dingen te genereren:
+      1. Een heldere klantofferte (commercieel).
+      2. Een diepgaand intern technisch advies (voor ${userName}).
 
-      RETOURNEER UITSLUITEND JSON in dit formaat:
+      RETOURNEER UITSLUITEND JSON volgens dit schema:
       {
-        "title": "Projecttitel (bijv. Maatwerk website voor...)",
-        "category": "Categorie (bijv. Webdevelopment / WordPress)",
-        "tagline": "Drie kernwoorden gescheiden door dots (bijv. Ontwerp · Bouw · SEO)",
-        "intro": "Een persoonlijke inleidende brief aan de klant. Benoem doel, waarde en praktische uitkomst.",
-        "itemsHeader": "Klantgerichte titel voor wat inbegrepen is",
+        "quoteType": "GENERAL | BATTERY | SOLAR | WEB",
+        "title": "Projecttitel",
+        "category": "Hoofdcategorie",
+        "tagline": "Drie kernwoorden gescheiden door dots",
+        "choiceGroups": [
+          { "id": "g1", "title": "Kies uw oplossing", "type": "SINGLE_SELECT" }
+        ],
         "items": [
-          { "description": "Onderdeel omschrijving met klantwaarde, niet alleen technische feature", "qty": 1, "unitPrice": 0 }
+          { 
+            "description": "Omschrijving", 
+            "qty": 1, 
+            "unitPrice": 0, 
+            "costPrice": 0, 
+            "vatRate": 21,
+            "type": "main | option",
+            "choiceGroupId": "g1 (optioneel, indien onderdeel van een keuze-blok)" 
+          }
         ],
-        "options": [
-          { "t": "Optie titel", "d": "Beschrijving", "tag": "Prijs indicatie" }
-        ],
-        "exclusions": ["Uitsluiting 1", "Uitsluiting 2"],
-        "outro": "Een afsluitend slotwoord"
+        "options": [{ "t": "Titel", "d": "Beschrijving", "tag": "Prijs" }],
+        "exclusions": ["Wat is niet inbegrepen"],
+        "assumptions": ["Technische aannames"],
+        "internalAdvice": "Technisch advies blok...",
+        "outro": "Afsluitend slotwoord"
       }
+
+      TIP: Als de klant vraagt om opties of als er verschillende batterij-groottes zinvol zijn, maak dan gebruik van 'choiceGroups' en koppel de relevante items via 'choiceGroupId'.
 
       Context:
       Klantnaam: ${customerName}
-      Bedrijf: WebsUp.nl (Daan Koolhaas)
-
-      Vermijd:
-      - een lange proces/werkwijze-sectie;
-      - technische opsommingen zonder uitleg wat de klant eraan heeft;
-      - woorden als database of beheerpaneel zonder praktische betekenis.
+      Bedrijf: ${companyName} (${userName})
     `;
 
     const response = await openai.chat.completions.create({
@@ -66,3 +98,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "AI kon de gegevens niet extraheren." }, { status: 500 });
   }
 }
+

@@ -8,6 +8,8 @@ import {
   MinusCircle,
   Sparkles,
   Loader2,
+  Trash2,
+  CheckCircle2,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import "@/app/q/[token]/portal.css";
@@ -88,15 +90,20 @@ type QuoteItem = {
   unitPrice: string | number;
   vatRate: string | number;
   total: string | number;
+  indent?: number;
+  choiceGroupId?: string | null;
+};
+
+type ChoiceGroup = {
+  id: string;
+  title: string;
+  type: "SINGLE_SELECT" | "MULTI_SELECT";
 };
 
 type FlowItem = { n: number; t: string; d: string };
 type ApproachStep = { n: string; t: string; d: string };
 type QuoteOption = { t: string; d: string; tag: string };
-type QuoteAttachment = { id?: string; title?: string | null; imageUrl: string; caption?: string | null };
-type EditableArrayField = "flow" | "approach" | "options" | "exclusions";
-type EditableArrayValue = FlowItem | ApproachStep | QuoteOption | string;
-type EditableObjectValue = { n?: string | number; t?: string; d?: string; tag?: string };
+type QuoteAttachment = { id?: string; title?: string | null; imageUrl: string; liveUrl?: string | null; caption?: string | null };
 
 type Quote = {
   number: string;
@@ -121,6 +128,7 @@ type Quote = {
   attachments?: QuoteAttachment[];
   adviceDocuments?: { id: string; type: string }[];
   company?: { name?: string | null; slug?: string | null };
+  choiceGroups?: ChoiceGroup[];
 };
 
 interface QuoteSheetPreviewProps {
@@ -128,9 +136,11 @@ interface QuoteSheetPreviewProps {
   companySlug?: string;
   isEditable?: boolean;
   onUpdate?: (updates: Partial<Quote>) => void;
-  onUpdateItem?: (id: string, updates: Pick<QuoteItem, "description">) => void;
+  onUpdateItem?: (id: string, updates: Partial<QuoteItem>) => void;
   onAddItem?: () => void;
   onRemoveItem?: (id: string) => void;
+  selectedChoiceIds?: Record<string, string>;
+  onChoiceSelect?: (groupId: string, choiceId: string) => void;
 }
 
 const COMPANY_COPY = {
@@ -152,7 +162,7 @@ const COMPANY_COPY = {
     phaseLabel: "Fase 1",
     summaryGoal: "Complete, gestructureerde aanvragen - minder navraag achteraf",
     delivery: "Indicatie 4-6 weken na akkoord",
-    itemsHeader: "Onderdelen binnen fase 1.",
+    itemsHeader: "Prijsopbouw",
     processEyebrow: "Het proces",
     processTitle: "In duidelijke stappen.",
     approachEyebrow: "De werkwijze",
@@ -182,7 +192,7 @@ const COMPANY_COPY = {
     phaseLabel: "Installatie",
     summaryGoal: "Eigen zonnestroom opslaan en slim verbruiken",
     delivery: "Installatie in 1 dag - ca. 2-3 weken na akkoord",
-    itemsHeader: "Wat wordt er geinstalleerd",
+    itemsHeader: "Wat wordt er geïnstalleerd",
     processEyebrow: "Planning",
     processTitle: "Van akkoord tot werkende installatie.",
     approachEyebrow: "Werkwijze",
@@ -194,8 +204,8 @@ const COMPANY_COPY = {
     optionsEyebrow: "Optioneel meerwerk",
     optionsTitle: "Alleen waar het technisch logisch is.",
     exclusionsEyebrow: "Niet inbegrepen",
-    exclusionsTitle: "Duidelijke grenzen aan de scope.",
-    closingTitle: "Akkoord voor uitvoering",
+    exclusionsTitle: "Wat valt er buiten de offerte.",
+    closingTitle: "Onderteken om te starten.",
     contractor: "Koolhaas Installaties - Daan Koolhaas",
     footerLine: "Koolhaas Installaties - Daan Koolhaas - Friesland",
   },
@@ -264,40 +274,141 @@ export function QuoteSheetPreview({
   onUpdate,
   onUpdateItem,
   onAddItem,
-  onRemoveItem
+  onRemoveItem,
+  selectedChoiceIds: externalSelectedChoiceIds,
+  onChoiceSelect
 }: QuoteSheetPreviewProps) {
+  const [internalSelectedChoiceIds, setInternalSelectedChoiceIds] = useState<Record<string, string>>({});
+  const selectedChoiceIds = externalSelectedChoiceIds || internalSelectedChoiceIds;
+
+  // Set initial selections for choice groups
+  useEffect(() => {
+    if (quote.choiceGroups?.length && Object.keys(selectedChoiceIds).length === 0) {
+      const defaults: Record<string, string> = {};
+      quote.choiceGroups.forEach(group => {
+        const firstItem = quote.items.find(i => i.choiceGroupId === group.id && (i.indent ?? 0) === 0);
+        if (firstItem) defaults[group.id] = firstItem.id;
+      });
+      setInternalSelectedChoiceIds(defaults);
+    }
+  }, [quote.choiceGroups, quote.items]);
+
+  const handleChoiceSelect = (groupId: string, choiceId: string) => {
+    if (onChoiceSelect) {
+      onChoiceSelect(groupId, choiceId);
+    } else {
+      setInternalSelectedChoiceIds(prev => ({ ...prev, [groupId]: choiceId }));
+    }
+  };
+
   const today = new Date().toISOString();
   const activeSlug = companySlug || quote.company?.slug || "websup";
   const brand = activeSlug === "koolhaas" ? COMPANY_COPY.koolhaas : COMPANY_COPY.websup;
   const isKoolhaas = brand.slug === "koolhaas";
+  
+  // Choice Logic
+  const choiceGroups = quote.choiceGroups || [];
+  
+  const isItemVisible = (item: QuoteItem) => {
+    if (!item.choiceGroupId) return true;
+    if (isEditable) return true;
+    return selectedChoiceIds[item.choiceGroupId] === item.id || (item.indent ?? 0) > 0;
+  };
+
+  const visibleItems = quote.items.filter(isItemVisible);
+
+  const calculateTotals = () => {
+    let ex = 0;
+    let vat = 0;
+    
+    quote.items.forEach(item => {
+      const isBaseItem = !item.choiceGroupId;
+      const isSelectedChoice = item.choiceGroupId && selectedChoiceIds[item.choiceGroupId] === item.id;
+      if (isBaseItem || isSelectedChoice) {
+        ex += Number(item.total);
+        vat += Number(item.total) * (Number(item.vatRate) / 100);
+      }
+    });
+    
+    return { ex, vat, inc: ex + vat };
+  };
+
+  const totals = isEditable ? {
+    ex: Number(quote.totalExVat),
+    vat: Number(quote.totalVat),
+    inc: Number(quote.totalIncVat)
+  } : calculateTotals();
+
   const brandKey = isKoolhaas ? "koolhaas" : "websup";
   const flow = quote.flow?.length ? quote.flow : DEFAULT_FLOW[brandKey];
   const approach = quote.approach?.length ? quote.approach : DEFAULT_APPROACH[brandKey];
   const options = quote.options?.length ? quote.options : DEFAULT_OPTIONS[brandKey];
   const exclusions = quote.exclusions?.length ? quote.exclusions : DEFAULT_EXCLUSIONS[brandKey];
   const attachments = quote.attachments ?? [];
-  const totalPages = 4 + attachments.length;
+  const attachmentPages = Math.ceil(attachments.length / 2);
+  const attachmentPairs = Array.from({ length: attachmentPages }, (_, index) =>
+    attachments.slice(index * 2, index * 2 + 2)
+  );
+  
+  const includedSubItemCount = visibleItems.filter((item) => (item.indent ?? 0) > 0 || (Number(item.unitPrice) === 0 && Number(item.total) === 0)).length;
+  const itemsOverflow = visibleItems.length > 6;
+  const totalPages = 4 + attachmentPages + (itemsOverflow ? 1 : 0);
   const pageLabel = (page: number) =>
     `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
   const coverHeading = isKoolhaas ? (quote.category || quote.title || brand.defaultTitle) : "Offerte";
-  const primaryItem = quote.items[0]?.description || quote.title || brand.defaultTitle;
-  const valueTitle = isKoolhaas
-    ? "Een nette installatie zonder onduidelijkheid achteraf."
-    : "Een website die bezoekers sneller naar contact brengt.";
-  const valueCopy = isKoolhaas
-    ? "Je krijgt een duidelijke installatie met veilige montage, nette afwerking en uitleg bij oplevering. Vooraf is helder wat er wordt geplaatst en wat buiten de scope valt."
-    : "Bezoekers moeten snel kunnen zien wat je aanbiedt, eenvoudig vinden wat relevant is en zonder drempel contact opnemen. Jij kunt de belangrijkste inhoud zelf beheren, zonder technische kennis of afhankelijkheid voor kleine wijzigingen.";
   const [generating, setGenerating] = useState<string | null>(null);
 
   const handleAiGen = async (section: string) => {
     if (!onUpdate) return;
     setGenerating(section);
     try {
+      const sectionInstructions: Record<string, string> = {
+        intro: [
+          "Schrijf een persoonlijke inleiding in de ik-vorm namens Daan Koolhaas.",
+          "Begin niet met 'wij zijn verheugd' of andere generieke bureautaal.",
+          "Gebruik je/jij voor WebsUp-offertes en u/uw voor Koolhaas Installaties.",
+          "Maak het concreet op basis van klant, projecttitel, categorie, inbegrepen regels, opties en uitsluitingen.",
+          "Benoem kort wat de klant krijgt en waarom dat praktisch waardevol is.",
+          "Sluit niet af alsof het hele project al verkocht is; houd het als offerte-intro.",
+        ].join(" "),
+        outro: [
+          "Schrijf een kort persoonlijk slotwoord in de ik-vorm namens Daan Koolhaas.",
+          "Maak duidelijk dat vragen of aanpassingen welkom zijn.",
+        ].join(" "),
+        options: "Genereer alleen passende optionele uitbreidingen als losse objecten.",
+        exclusions: "Genereer alleen heldere uitsluitingen als losse strings.",
+        flow: "Genereer alleen concrete processtappen die passen bij deze offerte.",
+        approach: "Genereer alleen een praktische werkwijze die past bij deze offerte.",
+      };
+
+      const context = {
+        section,
+        instruction: sectionInstructions[section] ?? `Genereer alleen de sectie ${section}.`,
+        company: { slug: brand.slug, name: brand.name, role: brand.role, sender: "Daan Koolhaas" },
+        customer: quote.customer,
+        quote: {
+          number: quote.number,
+          title: quote.title,
+          category: quote.category,
+          tagline: quote.tagline,
+          itemsHeader: quote.itemsHeader,
+          intro: quote.intro,
+          outro: quote.outro,
+          totalExVat: quote.totalExVat,
+          totalIncVat: quote.totalIncVat,
+          items: quote.items,
+          flow,
+          approach,
+          options,
+          exclusions,
+        },
+      };
+
       const res = await fetch("/api/ai/extract-quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          prompt: `Genereer alleen de sectie '${section}' voor een offerte voor project '${quote.title}' voor klant '${quote.customer.name}'. De items zijn: ${quote.items.map(i => i.description).join(", ")}.`,
+          prompt: `Genereer of herschrijf alleen de sectie '${section}' voor deze offerte. Context:\n${JSON.stringify(context, null, 2)}`,
           customerName: quote.customer.name 
         }),
       });
@@ -313,53 +424,11 @@ export function QuoteSheetPreview({
     }
   };
 
-  // Helper for updating array fields
-  const updateArray = (field: Exclude<EditableArrayField, "exclusions">, index: number, value: EditableObjectValue) => {
-    if (!onUpdate) return;
-    const current = (quote[field] || []) as EditableObjectValue[];
-    const next = [...current];
-    next[index] = { ...next[index], ...value };
-    onUpdate({ [field]: next } as Partial<Quote>);
-  };
-
-  const removeFromArray = (field: EditableArrayField, index: number) => {
-    if (!onUpdate) return;
-    const current = (quote[field] || []) as EditableArrayValue[];
-    const next = current.filter((_, i) => i !== index);
-    onUpdate({ [field]: next } as Partial<Quote>);
-  };
-
-  const addToArray = (field: EditableArrayField, defaultValue: EditableArrayValue) => {
-    if (!onUpdate) return;
-    const current = (quote[field] || []) as EditableArrayValue[];
-    const next = [...current, defaultValue];
-    onUpdate({ [field]: next } as Partial<Quote>);
-  };
-
-  const updateExclusion = (index: number, value: string) => {
-    if (!onUpdate) return;
-    const next = [...(quote.exclusions || [])];
-    next[index] = value;
-    onUpdate({ exclusions: next });
-  };
-
   const renderHeaderLogo = (cover = false) => {
     if (isKoolhaas) {
-      return (
-        <img
-          src="/logos/koolhaas-logo-tight.png"
-          alt="Koolhaas Installaties"
-          className={cover ? "brand-logo brand-logo-cover" : "brand-logo"}
-        />
-      );
+      return <img src="/logos/koolhaas-logo-tight.png" alt="Koolhaas Installaties" className={cover ? "brand-logo brand-logo-cover" : "brand-logo"} />;
     }
-    return (
-      <img
-        src="/logos/websup-cover.png"
-        alt="WebsUp"
-        className={cover ? "brand-logo brand-logo-cover" : "brand-logo"}
-      />
-    );
+    return <img src="/logos/websup-cover.png" alt="WebsUp" className={cover ? "brand-logo brand-logo-cover" : "brand-logo"} />;
   };
 
   const renderPageFooter = (pageNo: string) => (
@@ -367,10 +436,10 @@ export function QuoteSheetPreview({
       {isKoolhaas ? (
         <img src="/logos/koolhaas-logo-tight.png" alt="Koolhaas Installaties" className="brand-logo doc-foot-brand-logo" />
       ) : (
-        <img src="/logos/websup-icon-w.png" alt="WebsUp" className="doc-foot-icon" />
+        <img src="/logos/websup-icon.png" alt="WebsUp" className="doc-foot-icon" />
       )}
       <div className="doc-foot-meta">
-        <span>{brand.website}</span>
+        {!isKoolhaas && <span>{brand.website}</span>}
         <span>{brand.email}</span>
         <span>{brand.phone}</span>
         <span>Geldig tot {quote.validUntil ? formatDate(quote.validUntil) : "selecteer datum"}</span>
@@ -379,11 +448,31 @@ export function QuoteSheetPreview({
     </div>
   );
 
+  const optionsBlock = (
+    <>
+      <div className="row-badge">
+        <div>
+          <span className="eyebrow">{brand.optionsEyebrow}</span>
+          <h2 className="h2">{brand.optionsTitle}</h2>
+        </div>
+      </div>
+      <div className="opts">
+        {options.map((o, idx) => (
+          <div key={idx} className="opt group relative">
+            <span className="opt-ic"><Layers size={15} /></span>
+            <div className="flex-1">
+              <h4 className="font-bold">{o.t}</h4>
+              <p className="text-xs">{o.d}</p>
+              <span className="opt-tag">{o.tag}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
   return (
-    <div
-      className={`portal-container ${isKoolhaas ? "portal-koolhaas" : "portal-websup"}`}
-      style={{ minHeight: 'auto', backgroundColor: 'transparent' }}
-    >
+    <div className={`portal-container ${isKoolhaas ? "portal-koolhaas" : "portal-websup"}`} style={{ minHeight: 'auto', backgroundColor: 'transparent' }}>
       <div className="doc-viewer" style={{ paddingBottom: 0 }}>
         
         {/* ── PAGINA 1: COVER ── */}
@@ -392,7 +481,6 @@ export function QuoteSheetPreview({
             <div className="cov-panel">
               <div className="bar"></div>
               <div className="cov-pad">
-                {/* BOVEN: logo + meta */}
                 <div className="cov-top">
                   {renderHeaderLogo(true)}
                   <div className="cov-meta">
@@ -404,47 +492,39 @@ export function QuoteSheetPreview({
                     </dl>
                   </div>
                 </div>
-
-                {/* Content: verticaal gecentreerd */}
                 <div className="cov-main">
                   <div className="cov-line" />
                   <div className="cov-mid">
-                    <span className="eyebrow inv">
-                      <InlineInput
-                        value={quote.category || brand.defaultCategory}
-                        onChange={(v) => onUpdate?.({ category: v })}
-                        isEditable={isEditable}
-                      />
-                    </span>
+                    <InlineInput 
+                      isEditable={isEditable} 
+                      value={quote.category || brand.defaultCategory} 
+                      onChange={(v) => onUpdate?.({ category: v })}
+                      className="eyebrow inv"
+                    />
                     <h1 className="cov-h1">{coverHeading}</h1>
-                    <div className="cov-project">
-                      <InlineInput
-                        value={quote.title || brand.defaultTitle}
-                        onChange={(v) => onUpdate?.({ title: v })}
-                        isEditable={isEditable}
-                      />
-                    </div>
+                    <InlineInput 
+                      isEditable={isEditable} 
+                      value={quote.title || brand.defaultTitle} 
+                      onChange={(v) => onUpdate?.({ title: v })}
+                      className="cov-project"
+                    />
                     <div className="cov-for">
                       <span>Voor</span>
                       <b>{quote.customer.name || "Klantnaam"}</b>
                     </div>
                   </div>
                 </div>
-
-                {/* FOOTER: contact */}
                 <div className="cov-foot">
                   {!isKoolhaas && <img src="/logos/websup-icon-w.png" alt="" className="cov-foot-icon" />}
-                  <span>{brand.website}</span>
                   <span>{brand.email}</span>
                   <span>{brand.phone}</span>
                 </div>
               </div>
             </div>
-
           </div>
         </section>
 
-        {/* ── PAGINA 2: INTRO + DELIVERABLES ── */}
+        {/* ── PAGINA 2: INTRO ── */}
         <section className="sheet">
           <div className="bar"></div>
           <div className="pad">
@@ -452,91 +532,34 @@ export function QuoteSheetPreview({
               {renderHeaderLogo()}
               <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
             </div>
-
-            <div className="flex justify-between items-start">
+            <div className="flex items-center justify-between mb-4">
               <span className="eyebrow">Persoonlijke toelichting</span>
               {isEditable && (
-                <button 
-                  onClick={() => handleAiGen('intro')} 
-                  disabled={!!generating}
-                  className="text-[10px] flex items-center gap-1 text-orange-500 font-bold uppercase tracking-wider hover:text-orange-600"
-                >
+                <button onClick={() => handleAiGen('intro')} disabled={!!generating} className="ai-gen-btn">
                   {generating === 'intro' ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                  AI Inleiding
+                  Magische tekst
                 </button>
               )}
             </div>
-            {!isKoolhaas && <h2 className="h2">Beste {quote.customer.name || "klant"},</h2>}
-            <div className="letter">
-              <InlineTextarea 
-                value={quote.intro || ""} 
-                onChange={(v) => onUpdate?.({ intro: v })}
-                placeholder="Typ hier de inleiding..."
-                isEditable={isEditable}
-              />
-            </div>
+            <InlineTextarea 
+              isEditable={isEditable} 
+              value={quote.intro || ""} 
+              onChange={(v) => onUpdate?.({ intro: v })} 
+              className="letter" 
+            />
             <div className="sig">
-              <div className="sig-av">
-                <img src="/logos/daan-koolhaas.jpg" alt="Daan Koolhaas" />
-              </div>
+              <div className="sig-av"><img src="/logos/daan-koolhaas.jpg" alt="Daan Koolhaas" /></div>
               <div>
                 <div className="sig-name">Daan Koolhaas</div>
                 <div className="sig-role">{brand.role}</div>
               </div>
             </div>
-
-            <div className="value-panel">
-              <span className="eyebrow">{isKoolhaas ? "Wat dit oplevert" : "Wat ik voor je bouw"}</span>
-              <h2 className="h2">{valueTitle}</h2>
-              <p>{valueCopy}</p>
-            </div>
-
-            <div className="included-block">
-              <div className="row-badge">
-                <div>
-                  <span className="eyebrow">Inbegrepen</span>
-                  <h2 className="h2">{quote.itemsHeader || brand.itemsHeader}</h2>
-                </div>
-                <span className="badge">{quote.items.length} onderdelen</span>
-              </div>
-              <ul className="included-list">
-                {quote.items.map((item) => (
-                  <li key={item.id}>
-                    <span className="ic-ok"><Check size={10} strokeWidth={3} /></span>
-                    <span>{item.description}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {isKoolhaas && (
-              <div className="scope-grid">
-                <div className="scope-card scope-card-main">
-                  <span>Hoofdinstallatie</span>
-                  <b>{primaryItem}</b>
-                  <p>Levering en montage van het thuisbatterijsysteem zoals opgenomen in de artikellijst.</p>
-                </div>
-                <div className="scope-card">
-                  <span>Aansluiting</span>
-                  <b>Meterkast en bekabeling</b>
-                  <p>Nette aansluiting, controle van beveiliging en afwerking van de kabelroute.</p>
-                </div>
-                <div className="scope-card">
-                  <span>Configuratie</span>
-                  <b>App en monitoring</b>
-                  <p>Inbedrijfstelling, basisuitleg en controle dat het systeem correct werkt.</p>
-                </div>
-              </div>
-            )}
             <div className="spacer"></div>
             {renderPageFooter(pageLabel(2))}
           </div>
         </section>
 
-        {false && (
-          <>
-
-        {/* ── PAGINA 3: FLOW + AANPAK ── */}
+        {/* ── PAGINA 4: INVESTERING + CHOICES ── */}
         <section className="sheet">
           <div className="bar"></div>
           <div className="pad">
@@ -545,175 +568,61 @@ export function QuoteSheetPreview({
               <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
             </div>
 
-            <div className="row-badge">
-              <div>
-                <span className="eyebrow">{brand.processEyebrow}</span>
-                <h2 className="h2">{brand.processTitle}</h2>
-              </div>
-              <div className="flex gap-3 items-center">
-                {isEditable && (
-                  <button 
-                    onClick={() => handleAiGen('flow')} 
-                    disabled={!!generating}
-                    className="text-[10px] flex items-center gap-1 text-orange-500 font-bold uppercase tracking-wider hover:text-orange-600"
-                  >
-                    {generating === 'flow' ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                    AI Flow
-                  </button>
-                )}
-                <span className="badge">{flow.length} stappen</span>
-                {isEditable && (
-                  <button onClick={() => addToArray('flow', { n: (quote.flow || []).length + 1, t: "Nieuwe stap", d: "Beschrijving..." })} className="text-orange-500 hover:text-orange-600">
-                    <PlusCircle size={20} />
-                  </button>
-                )}
-              </div>
-            </div>
-            
-            <div className="flow">
-              {flow.map((s, idx) => (
-                <div key={idx} className="flow-item group relative">
-                  <div className="fn">{s.n}</div>
-                  <div className="flex-1">
-                    <h4 className="font-bold">
-                      <InlineInput value={s.t} onChange={(v) => updateArray('flow', idx, { t: v })} isEditable={isEditable} />
-                    </h4>
-                    <InlineTextarea value={s.d} onChange={(v) => updateArray('flow', idx, { d: v })} isEditable={isEditable} className="text-xs" />
-                  </div>
-                  {isEditable && (
-                    <button onClick={() => removeFromArray('flow', idx)} className="absolute -left-8 top-1 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 transition-opacity">
-                      <MinusCircle size={16} />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {isKoolhaas ? (
-              <>
-                <div className="div"></div>
-                <span className="eyebrow">Praktisch op locatie</span>
-                <h2 className="h2">Waar we vooraf op letten.</h2>
-                <div className="install-note-row">
-                  <div><b>Meterkast</b><span>Ruimte, beveiliging en geschikte aansluiting.</span></div>
-                  <div><b>Opstelplek</b><span>Voldoende ruimte, ventilatie en bereikbaarheid.</span></div>
-                  <div><b>Bekabeling</b><span>Kabelroute en nette afwerking vooraf afgestemd.</span></div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="div"></div>
-
-                <div className="row-badge">
-                  <div>
-                    <span className="eyebrow">{brand.approachEyebrow}</span>
-                    <h2 className="h2">{brand.approachTitle}</h2>
-                  </div>
-                  <div className="flex gap-3 items-center">
-                    {isEditable && (
-                      <button
-                        onClick={() => handleAiGen('approach')}
-                        disabled={!!generating}
-                        className="text-[10px] flex items-center gap-1 text-orange-500 font-bold uppercase tracking-wider hover:text-orange-600"
+            {/* CHOICE GROUPS (Tesla Style) */}
+            {!isEditable && choiceGroups.map(group => (
+              <div key={group.id} className="choice-section mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <span className="eyebrow text-blue-600 mb-4 block">{group.title}</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {quote.items.filter(i => i.choiceGroupId === group.id && (i.indent ?? 0) === 0).map(choice => {
+                    const isActive = selectedChoiceIds[group.id] === choice.id;
+                    return (
+                      <div 
+                        key={choice.id} 
+                        onClick={() => handleChoiceSelect(group.id, choice.id)}
+                        className={`relative p-6 rounded-2xl border-2 transition-all cursor-pointer group ${
+                          isActive 
+                          ? 'border-blue-600 bg-blue-50/30 shadow-lg shadow-blue-100' 
+                          : 'border-slate-100 hover:border-slate-300 bg-white'
+                        }`}
                       >
-                        {generating === 'approach' ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                        AI Aanpak
-                      </button>
-                    )}
-                    {isEditable && (
-                      <button onClick={() => addToArray('approach', { n: "0" + ((quote.approach || []).length + 1), t: "Nieuwe fase", d: "Toelichting..." })} className="text-orange-500 hover:text-orange-600">
-                        <PlusCircle size={20} />
-                      </button>
-                    )}
-                  </div>
+                        <div className="flex justify-between items-start mb-4">
+                          <div className={`p-2 rounded-full ${isActive ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-300'}`}>
+                            <CheckCircle2 size={20} />
+                          </div>
+                          <span className={`text-xl font-black ${isActive ? 'text-blue-600' : 'text-slate-900'}`}>
+                            {formatCurrency(Number(choice.unitPrice))}
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-slate-900 mb-2">{choice.description}</h4>
+                        <div className="space-y-1">
+                          {quote.items.filter(i => i.indent === 1 && i.id.startsWith(choice.id.slice(0,5))).map(sub => (
+                            <div key={sub.id} className="flex items-center gap-2 text-xs text-slate-500">
+                              <Check size={10} className="text-blue-500" /> {sub.description}
+                            </div>
+                          ))}
+                        </div>
+                        {isActive && (
+                          <div className="absolute top-0 right-0 px-3 py-1 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-bl-xl rounded-tr-xl">
+                            Geselecteerd
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-
-                <div className="steps">
-                  {approach.map((s, idx) => (
-                    <div key={idx} className="step group relative">
-                      <div className="sn">{s.n}</div>
-                      <h4 className="font-bold">
-                        <InlineInput value={s.t} onChange={(v) => updateArray('approach', idx, { t: v })} isEditable={isEditable} />
-                      </h4>
-                      <InlineTextarea value={s.d} onChange={(v) => updateArray('approach', idx, { d: v })} isEditable={isEditable} className="text-[11px]" />
-                      {isEditable && (
-                        <button onClick={() => removeFromArray('approach', idx)} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 transition-opacity">
-                          <X size={14} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-            <div className="spacer"></div>
-            {renderPageFooter(pageLabel(3))}
-          </div>
-        </section>
-
-          </>
-        )}
-
-        {attachments.map((attachment, idx) => (
-          <section key={attachment.id ?? idx} className="sheet design-sheet">
-            <div className="bar"></div>
-            <div className="pad">
-              <div className="ph">
-                {renderHeaderLogo()}
-                <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
               </div>
-
-              <div className="row-badge">
-                <div>
-                  <span className="eyebrow">Ontwerp & uitwerking</span>
-                  <h2 className="h2">{attachment.title || (isKoolhaas ? "Technische indruk en plaatsing." : "Zo ziet de richting eruit.")}</h2>
-                </div>
-                <span className="badge">{idx + 1} / {attachments.length}</span>
-              </div>
-
-              <figure className="design-full">
-                <a className="design-full-frame" href={attachment.imageUrl} target="_blank" rel="noreferrer">
-                  <img src={attachment.imageUrl} alt={attachment.title || attachment.caption || `Ontwerp ${idx + 1}`} />
-                </a>
-                {(attachment.caption || attachment.title) && (
-                  <figcaption className="design-full-caption">
-                    {attachment.title && <b>{attachment.title}</b>}
-                    {attachment.caption && <span>{attachment.caption}</span>}
-                  </figcaption>
-                )}
-                <a className="design-open-link no-print" href={attachment.imageUrl} target="_blank" rel="noreferrer">
-                  Open afbeelding volledig
-                </a>
-              </figure>
-
-              <div className="spacer"></div>
-              {renderPageFooter(pageLabel(3 + idx))}
-            </div>
-          </section>
-        ))}
-
-        {/* ── PAGINA 4: INVESTERING + OPTIONS ── */}
-        <section className="sheet">
-          <div className="bar"></div>
-          <div className="pad">
-            <div className="ph">
-              {renderHeaderLogo()}
-              <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
-            </div>
+            ))}
 
             <div className="article-table-wrap">
               <div className="article-table-head">
                 <div>
                   <span className="eyebrow">{isKoolhaas ? "Materialen" : "Diensten"}</span>
-                  <h3>{quote.itemsHeader || brand.itemsHeader}</h3>
-                </div>
-                <div className="flex gap-2 items-center">
-                  <span className="badge">{quote.items.length} regels</span>
-                  {isEditable && (
-                    <button onClick={onAddItem} className="text-orange-500 hover:text-orange-600">
-                      <PlusCircle size={20} />
-                    </button>
-                  )}
+                  <InlineInput 
+                    isEditable={isEditable} 
+                    value={quote.itemsHeader || (isKoolhaas ? "Materiaaloverzicht" : "Prijsopbouw")} 
+                    onChange={(v) => onUpdate?.({ itemsHeader: v })}
+                    className="h3-inline"
+                  />
                 </div>
               </div>
               <table className="article-table">
@@ -726,96 +635,69 @@ export function QuoteSheetPreview({
                   </tr>
                 </thead>
                 <tbody>
-                  {quote.items.map((item) => (
-                    <tr key={item.id} className="group relative">
-                      <td>
-                        <InlineInput
-                          value={item.description}
-                          onChange={(v) => onUpdateItem?.(item.id, { description: v })}
-                          isEditable={isEditable}
-                        />
-                        {isEditable && (
-                          <button onClick={() => onRemoveItem?.(item.id)} className="absolute -left-6 top-3 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 transition-opacity">
-                            <MinusCircle size={16} />
-                          </button>
-                        )}
-                      </td>
-                      <td>{Number(item.qty).toLocaleString('nl-NL')}</td>
-                      <td>{formatCurrency(Number(item.unitPrice))}</td>
-                      <td>{formatCurrency(Number(item.total))}</td>
-                    </tr>
-                  ))}
+                  {visibleItems.map((item) => {
+                    const isSubItem = (item.indent ?? 0) > 0 || (Number(item.unitPrice) === 0 && Number(item.total) === 0);
+                    if (isSubItem) {
+                      return (
+                        <tr key={item.id} className="article-sub-row">
+                          <td colSpan={4}>
+                            <span className="article-sub-dot"><Check size={9} strokeWidth={3} /></span>
+                            <InlineTextarea 
+                              isEditable={isEditable} 
+                              value={item.description} 
+                              onChange={(v) => onUpdateItem?.(item.id, { description: v })}
+                              className="article-description"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    }
+                    return (
+                      <tr key={item.id} className={item.choiceGroupId ? "choice-item-row" : ""}>
+                        <td className="article-description">
+                          {item.choiceGroupId && isEditable && <span className="choice-badge">{item.choiceGroupId}</span>}
+                          <InlineTextarea 
+                            isEditable={isEditable} 
+                            value={item.description} 
+                            onChange={(v) => onUpdateItem?.(item.id, { description: v })}
+                          />
+                        </td>
+                        <td>{Number(item.qty).toLocaleString('nl-NL')}</td>
+                        <td>{formatCurrency(Number(item.unitPrice))}</td>
+                        <td>{formatCurrency(Number(item.total))}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr>
                     <td colSpan={3}>Totaal excl. btw</td>
-                    <td>{formatCurrency(Number(quote.totalExVat))}</td>
+                    <td>{formatCurrency(Number(totals.ex))}</td>
                   </tr>
                   <tr>
                     <td colSpan={3}>Btw</td>
-                    <td>{formatCurrency(Number(quote.totalVat))}</td>
+                    <td>{formatCurrency(Number(totals.vat))}</td>
                   </tr>
                   <tr className="grand-total">
                     <td colSpan={3}>Totaal incl. btw</td>
-                    <td>{formatCurrency(Number(quote.totalIncVat))}</td>
+                    <td>{formatCurrency(Number(totals.inc))}</td>
                   </tr>
                 </tfoot>
               </table>
             </div>
 
-            <div className="div"></div>
-
-            <div className="row-badge">
-              <div>
-                <span className="eyebrow">{brand.optionsEyebrow}</span>
-                <h2 className="h2">{brand.optionsTitle}</h2>
-              </div>
-              <div className="flex gap-3 items-center">
-                {isEditable && (
-                  <button 
-                    onClick={() => handleAiGen('options')} 
-                    disabled={!!generating}
-                    className="text-[10px] flex items-center gap-1 text-orange-500 font-bold uppercase tracking-wider hover:text-orange-600"
-                  >
-                    {generating === 'options' ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                    AI Opties
-                  </button>
-                )}
-                {isEditable && (
-                  <button onClick={() => addToArray('options', { t: "Nieuwe optie", d: "Beschrijving...", tag: "Op aanvraag" })} className="text-orange-500 hover:text-orange-600">
-                    <PlusCircle size={20} />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="opts">
-              {options.map((o, idx) => (
-                <div key={idx} className="opt group relative">
-                  <span className="opt-ic"><Layers size={15} /></span>
-                  <div className="flex-1">
-                    <h4 className="font-bold">
-                      <InlineInput value={o.t} onChange={(v) => updateArray('options', idx, { t: v })} isEditable={isEditable} />
-                    </h4>
-                    <InlineTextarea value={o.d} onChange={(v) => updateArray('options', idx, { d: v })} isEditable={isEditable} className="text-xs" />
-                    <span className="opt-tag">
-                      <InlineInput value={o.tag} onChange={(v) => updateArray('options', idx, { tag: v })} isEditable={isEditable} />
-                    </span>
-                  </div>
-                  {isEditable && (
-                    <button onClick={() => removeFromArray('options', idx)} className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 transition-opacity">
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
+            {!itemsOverflow && (
+              <>
+                <div className="div"></div>
+                {optionsBlock}
+              </>
+            )}
             <div className="spacer"></div>
-            {renderPageFooter(pageLabel(3 + attachments.length))}
+            {renderPageFooter(pageLabel(3 + attachmentPages))}
           </div>
         </section>
 
-        {/* ── PAGINA 5: EXCLUSIONS + SIGN ── */}
+        {/* ── PAGINA 5: SIGN ── */}
         <section className="sheet">
           <div className="bar"></div>
           <div className="pad">
@@ -823,101 +705,37 @@ export function QuoteSheetPreview({
               {renderHeaderLogo()}
               <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
             </div>
-
-            <div className="row-badge">
-              <div>
-                <span className="eyebrow">{brand.exclusionsEyebrow}</span>
-                <h2 className="h2">{brand.exclusionsTitle}</h2>
-              </div>
-              <div className="flex gap-3 items-center">
-                {isEditable && (
-                  <button 
-                    onClick={() => handleAiGen('exclusions')} 
-                    disabled={!!generating}
-                    className="text-[10px] flex items-center gap-1 text-orange-500 font-bold uppercase tracking-wider hover:text-orange-600"
-                  >
-                    {generating === 'exclusions' ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                    AI Uitsluitingen
-                  </button>
-                )}
-                {isEditable && (
-                  <button onClick={() => addToArray('exclusions', "Nieuwe uitsluiting...")} className="text-orange-500 hover:text-orange-600">
-                    <PlusCircle size={20} />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <ul className="excl">
-              {exclusions.map((item, idx) => (
-                <li key={idx} className="group relative">
-                  <span className="ic-x"><X size={9} strokeWidth={3} /></span>
-                  <InlineInput value={item} onChange={(v) => updateExclusion(idx, v)} isEditable={isEditable} />
-                  {isEditable && (
-                    <button onClick={() => removeFromArray('exclusions', idx)} className="absolute -right-6 top-0 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 transition-opacity">
-                      <X size={12} />
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-
-            <div className="div"></div>
-
-            <div className="flex justify-between items-start">
-              <span className="eyebrow">Slotwoord</span>
-              {isEditable && (
-                <button 
-                  onClick={() => handleAiGen('outro')} 
-                  disabled={!!generating}
-                  className="text-[10px] flex items-center gap-1 text-orange-500 font-bold uppercase tracking-wider hover:text-orange-600"
-                >
-                  {generating === 'outro' ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                  AI Slotwoord
-                </button>
-              )}
-            </div>
-            <div className="letter">
-              <InlineTextarea 
-                value={quote.outro || ""} 
-                onChange={(v) => onUpdate?.({ outro: v })}
-                placeholder="Typ hier het slotwoord..."
-                isEditable={isEditable}
-              />
-            </div>
-
-            <div className="div"></div>
-
+            
             <span className="eyebrow">Akkoord voor uitvoering</span>
             <h2 className="h2">{brand.closingTitle}</h2>
 
-            {quote.status === "ACCEPTED" && quote.acceptedAt && (
+            {quote.status === "ACCEPTED" && (
               <div className="acceptance-banner">
                 <Check size={15} strokeWidth={3} />
-                <span>Digitaal akkoord gegeven op {formatDate(quote.acceptedAt)} door {quote.customer.name || "opdrachtgever"}.</span>
+                <span>Digitaal akkoord gegeven door {quote.customer.name}.</span>
               </div>
             )}
             
             <div className="sign-grid">
               <div className="sign-box">
                 <div className="sign-who">Namens opdrachtgever</div>
-                <div className="sign-org">{quote.customer.name || "Klantnaam"}</div>
+                <div className="sign-org">{quote.customer.name}</div>
                 <div className="sign-line"><div className="sign-lbl">Naam</div><div className="sign-rule"></div></div>
                 <div className="sign-rule" style={{ marginTop: '40px', borderBottom: '1px solid var(--border-str)' }}></div>
               </div>
               <div className="sign-box">
                 <div className="sign-who">Namens opdrachtnemer</div>
                 <div className="sign-org">{brand.contractor}</div>
-                <div className="sign-line"><div className="sign-lbl">Naam</div><div className="sign-rule"></div></div>
-                <div className="sign-rule" style={{ marginTop: '40px', borderBottom: '1px solid var(--border-str)' }}></div>
+                <div className="sign-signature-slot">
+                  <img src="/signatures/daan-koolhaas-signature.png" alt="Handtekening" className="sign-signature-img" />
+                </div>
               </div>
             </div>
 
             <div className="spacer"></div>
-            {renderPageFooter(pageLabel(4 + attachments.length))}
+            {renderPageFooter(pageLabel(4 + attachmentPages + (itemsOverflow ? 1 : 0)))}
           </div>
         </section>
-
       </div>
     </div>
   );

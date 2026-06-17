@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     data: { status: "ACCEPTED" },
   });
 
-  // Notify company owner
+  // Notify company owner via Email
   const settings = (share.quote.company.settings ?? {}) as Record<string, unknown>;
   const notifyEmail = (settings.notifyEmail as string | undefined) ?? (settings.emailFrom as string | undefined);
   if (notifyEmail) {
@@ -41,6 +41,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       message: message || undefined,
     }).catch(() => {});
   }
+
+  // Notify company owner via Telegram
+  const telegramMsg = `
+✅ <b>OFFERTE GEACCEPTEERD!</b>
+👤 <b>Klant:</b> ${share.quote.customer.name}
+📄 <b>Offerte:</b> ${share.quote.number}
+💬 <b>Bericht:</b> ${message || "Geen bericht"}
+  `.trim();
+  
+  const { sendTelegramMessage } = await import("@/lib/notifications");
+  sendTelegramMessage(telegramMsg).catch(console.error);
+
 
   return NextResponse.json({ ok: true });
 }

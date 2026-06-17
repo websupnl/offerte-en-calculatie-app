@@ -26,6 +26,14 @@ type QuoteItem = {
   unitPrice: string | number;
   vatRate: string | number;
   total: string | number;
+  choiceGroupId?: string | null;
+  indent?: number;
+};
+
+type ChoiceGroup = {
+  id: string;
+  title: string;
+  type: "SINGLE_SELECT" | "MULTI_SELECT";
 };
 
 type FlowItem = { n: number; t: string; d: string };
@@ -56,6 +64,7 @@ type Quote = {
   exclusions?: string[];
   attachments?: QuoteAttachment[];
   adviceDocuments: { id: string; type: string }[];
+  choiceGroups?: ChoiceGroup[];
 };
 
 type Share = {
@@ -74,21 +83,39 @@ export function QuotePortalClient({
   companySlug: string;
   branding: Record<string, string>;
 }) {
+  const [selectedChoiceIds, setSelectedChoiceIds] = useState<Record<string, string>>({});
+  
+  // Totals Calculation based on selection
+  const calculateTotals = () => {
+    let ex = 0;
+    let vat = 0;
+    
+    quote.items.forEach(item => {
+      const isBaseItem = !item.choiceGroupId;
+      const isSelectedChoice = item.choiceGroupId && selectedChoiceIds[item.choiceGroupId] === item.id;
+      if (isBaseItem || isSelectedChoice) {
+        ex += Number(item.total);
+        vat += Number(item.total) * (Number(item.vatRate) / 100);
+      }
+    });
+    
+    return { ex, vat, inc: ex + vat };
+  };
+
+  const totals = calculateTotals();
+  const displayedTotal = totals.inc;
+
   const isKoolhaas = quote.company.slug === "koolhaas";
   const portalBrand = isKoolhaas
     ? {
         name: "Koolhaas Installaties",
         website: "koolhaasinstallaties.nl",
-        logo: <img src="/logos/koolhaas-white.png" alt="Koolhaas Installaties" />,
+        logo: <img src="/logos/koolhaas-lockup-white.png" alt="Koolhaas Installaties" />,
       }
     : {
         name: "WebsUp.nl",
         website: "websup.nl",
-        logo: (
-          <span className="portal-topbar-wordmark">
-            Webs<span className="grad-text">Up.</span>
-          </span>
-        ),
+        logo: <img src="/logos/websup-lockup-white.png" alt="WebsUp.nl" />,
       };
 
   const [signerName, setSignerName] = useState(quote.customer.name);
@@ -131,7 +158,7 @@ export function QuotePortalClient({
       const res = await fetch(`/api/portal/${share.token}/accept`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, signerName }),
+        body: JSON.stringify({ message, signerName, selectedChoiceIds }),
       });
       if (!res.ok) throw new Error();
       setSubmitted("accepted");
@@ -142,6 +169,10 @@ export function QuotePortalClient({
       setSubmitting(false);
     }
   }
+
+  const onChoiceSelect = (groupId: string, choiceId: string) => {
+    setSelectedChoiceIds(prev => ({ ...prev, [groupId]: choiceId }));
+  };
 
   async function handleDecline() {
     setSubmitting(true);
@@ -186,7 +217,7 @@ export function QuotePortalClient({
             <div className="portal-stat">
               <Euro />
               <span>Totaal incl. btw</span>
-              <b>{formatCurrency(Number(quote.totalIncVat))}</b>
+              <b>{formatCurrency(Number(displayedTotal))}</b>
             </div>
             <div className="portal-stat">
               <Clock />
@@ -201,7 +232,12 @@ export function QuotePortalClient({
 
         <div className="portal-layout">
           <div className="doc-viewer">
-            <QuoteSheetPreview quote={quote} companySlug={quote.company.slug} />
+            <QuoteSheetPreview 
+              quote={quote} 
+              companySlug={quote.company.slug} 
+              selectedChoiceIds={selectedChoiceIds}
+              onChoiceSelect={onChoiceSelect}
+            />
           </div>
 
           <aside className="sidebar no-print">
@@ -209,13 +245,10 @@ export function QuotePortalClient({
               <div className="portal-card portal-identity-card">
                 <div className="portal-card-head">
                   {isKoolhaas ? (
-                    <img src="/logos/koolhaas-logo.png" alt="Koolhaas Installaties" />
+                    <img src="/logos/koolhaas-logo-tight.png" alt="Koolhaas Installaties" />
                   ) : (
-                    <span className="portal-wordmark">
-                      Webs<span className="grad-text">Up.</span>
-                    </span>
+                    <img src="/logos/websup-cover.png" alt="WebsUp.nl" />
                   )}
-                  <p>{portalBrand.website}</p>
                 </div>
 
                 <div className="portal-meta-list">
@@ -241,11 +274,12 @@ export function QuotePortalClient({
 
               <div className="portal-card portal-total-card">
                 <div>
-                  <p>Totaalinvestering</p>
+                  <p>Totale investering</p>
                   <strong>
-                    <span className="grad-text">{formatCurrency(Number(quote.totalIncVat))}</span>
+                    {formatCurrency(Number(displayedTotal))}
+                    {" "}
+                    <small>incl. btw</small>
                   </strong>
-                  <span>incl. {formatCurrency(Number(quote.totalVat))} BTW</span>
                 </div>
               </div>
 
@@ -369,7 +403,7 @@ export function QuotePortalClient({
 
                   <p className="portal-security-note">
                     <Shield />
-                    Beveiligd met SSL-encryptie. Elektronisch akkoord is rechtsgeldig.
+                    Beveiligid met SSL-encryptie. Elektronisch akkoord is rechtsgeldig.
                   </p>
                 </div>
               )}
@@ -382,7 +416,7 @@ export function QuotePortalClient({
         <div className="portal-mobile-action no-print">
           <div>
             <span>Totaal incl. btw</span>
-            <b>{formatCurrency(Number(quote.totalIncVat))}</b>
+            <b>{formatCurrency(Number(displayedTotal))}</b>
           </div>
           <a href="#akkoord" className="btn-primary">
             Bekijk akkoord

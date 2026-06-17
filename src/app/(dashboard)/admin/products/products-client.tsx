@@ -25,6 +25,7 @@ const productSchema = z.object({
   description: z.string().optional(),
   unit: z.string().default("stuk"),
   basePrice: z.number().min(0),
+  costPrice: z.number().min(0).optional().nullable(),
   vatRate: z.number().default(21),
 });
 
@@ -37,6 +38,7 @@ type Product = {
   description: string | null;
   unit: string;
   basePrice: string | number;
+  costPrice: string | number | null;
   vatRate: string | number;
 };
 
@@ -117,6 +119,7 @@ export function ProductsClient({
     setValue("description", p.description ?? "");
     setValue("unit", p.unit);
     setValue("basePrice", Number(p.basePrice));
+    setValue("costPrice", p.costPrice ? Number(p.costPrice) : null);
     setValue("vatRate", Number(p.vatRate));
     setProductDialog(true);
   }
@@ -441,10 +444,14 @@ export function ProductsClient({
               <Label>Omschrijving</Label>
               <Textarea {...register("description")} rows={2} placeholder="Korte productomschrijving..." />
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div className="space-y-2">
-                <Label>Prijs (excl. BTW)</Label>
+                <Label>Verkoop (ex)</Label>
                 <Input {...register("basePrice", { valueAsNumber: true })} type="number" step="0.01" placeholder="0.00" />
+              </div>
+              <div className="space-y-2">
+                <Label>Inkoop (ex)</Label>
+                <Input {...register("costPrice", { valueAsNumber: true })} type="number" step="0.01" placeholder="0.00" />
               </div>
               <div className="space-y-2">
                 <Label>BTW %</Label>

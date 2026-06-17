@@ -12,6 +12,7 @@ import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
 type Quote = {
   id: string;
   number: string;
+  title: string | null;
   status: string;
   totalIncVat: string | number;
   createdAt: string;
@@ -35,6 +36,7 @@ export function QuotesListClient({ initialQuotes }: { initialQuotes: Quote[] }) 
   const filtered = initialQuotes.filter((q) => {
     const matchSearch =
       q.number.toLowerCase().includes(search.toLowerCase()) ||
+      (q.title?.toLowerCase().includes(search.toLowerCase()) ?? false) ||
       q.customer.name.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" || q.status === statusFilter;
     return matchSearch && matchStatus;
@@ -100,12 +102,12 @@ export function QuotesListClient({ initialQuotes }: { initialQuotes: Quote[] }) 
                 >
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <p className="font-semibold text-sm">{q.number}</p>
+                      <p className="font-semibold text-sm">{q.title || q.number}</p>
                       <Badge variant={STATUS_VARIANT[q.status] ?? "outline"} className="text-xs">
                         {QUOTE_STATUS_LABELS[q.status] ?? q.status}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground">{q.customer.name}</p>
+                    <p className="text-sm text-muted-foreground">{q.number} · {q.customer.name}</p>
                     <p className="text-xs text-muted-foreground">{formatDate(q.createdAt)}</p>
                   </div>
                   <div className="text-right">

@@ -9,14 +9,20 @@ const itemSchema = z.object({
   description: z.string().min(1),
   qty: z.coerce.number().min(0),
   unitPrice: z.coerce.number().min(0),
+  costPrice: z.coerce.number().nullable().optional(),
   vatRate: z.coerce.number().default(21),
+  indent: z.coerce.number().int().min(0).max(1).default(0),
+  type: z.string().optional().default("main"),
 });
 
 const attachmentSchema = z.object({
   id: z.string().optional(),
   title: z.string().optional().nullable(),
-  imageUrl: z.string().min(1),
+  imageUrl: z.string().optional().default(""),
+  liveUrl: z.string().optional().nullable(),
   caption: z.string().optional().nullable(),
+}).refine((attachment) => attachment.imageUrl.trim() || attachment.liveUrl?.trim(), {
+  message: "Voeg een screenshot of live link toe",
 });
 
 const schema = z.object({
@@ -26,6 +32,7 @@ const schema = z.object({
   tagline: z.string().optional(),
   itemsHeader: z.string().optional(),
   validUntil: z.string().optional(),
+  quoteType: z.string().optional(),
   intro: z.string().optional(),
   outro: z.string().optional(),
   notes: z.string().optional(),
@@ -33,31 +40,16 @@ const schema = z.object({
   approach: z.any().optional(),
   options: z.any().optional(),
   exclusions: z.any().optional(),
+  assumptions: z.any().optional(),
+  technicalNotes: z.any().optional(),
+  customerResponsibilities: z.any().optional(),
+  planning: z.any().optional(),
+  commercial: z.any().optional(),
+  batteryAdvice: z.any().optional(),
+  internalAdvice: z.string().nullable().optional(),
   attachments: z.array(attachmentSchema).optional(),
   items: z.array(itemSchema).min(1, "Voeg minimaal één regel toe"),
 });
-
-export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const companyId = session.user.activeCompanyId;
-  const status = req.nextUrl.searchParams.get("status");
-
-  const quotes = await prisma.quote.findMany({
-    where: {
-      companyId,
-      status: (status as "DRAFT" | "SENT" | "VIEWED" | "ACCEPTED" | "DECLINED" | "EXPIRED") || undefined,
-    },
-    orderBy: { createdAt: "desc" },
-    include: {
-      customer: { select: { id: true, name: true, email: true } },
-      _count: { select: { items: true, attachments: true } },
-    },
-  });
-
-  return NextResponse.json(quotes);
-}
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -68,7 +60,13 @@ export async function POST(req: NextRequest) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { customerId, title, category, tagline, itemsHeader, validUntil, intro, outro, notes, flow, approach, options, exclusions, attachments, items } = parsed.data;
+  const { 
+    customerId, title, category, tagline, itemsHeader, validUntil, 
+    intro, outro, notes, quoteType, flow, approach, options, exclusions,
+    assumptions, technicalNotes, customerResponsibilities,
+    planning, commercial, batteryAdvice, internalAdvice,
+    attachments, items 
+  } = parsed.data;
 
   const count = await prisma.quote.count({ where: { companyId } });
   const company = await prisma.company.findUnique({ where: { id: companyId } });
@@ -96,6 +94,7 @@ export async function POST(req: NextRequest) {
       category,
       tagline,
       itemsHeader,
+      quoteType,
       validUntil: validUntil ? new Date(validUntil) : undefined,
       intro,
       outro,
@@ -104,6 +103,13 @@ export async function POST(req: NextRequest) {
       approach,
       options,
       exclusions,
+      assumptions,
+      technicalNotes,
+      customerResponsibilities,
+      planning,
+      commercial,
+      batteryAdvice,
+      internalAdvice,
       totalExVat,
       totalVat,
       totalIncVat,
