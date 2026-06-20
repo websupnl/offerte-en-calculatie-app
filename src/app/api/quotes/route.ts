@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { generateQuoteNumber } from "@/lib/format";
+import { quoteChoiceGroupSchema, quoteOptionSchema } from "@/lib/quote-selection";
 
 const itemSchema = z.object({
   productId: z.string().optional(),
@@ -38,7 +39,7 @@ const schema = z.object({
   notes: z.string().optional(),
   flow: z.any().optional(),
   approach: z.any().optional(),
-  options: z.any().optional(),
+  options: z.array(quoteOptionSchema).optional(),
   exclusions: z.any().optional(),
   assumptions: z.any().optional(),
   technicalNotes: z.any().optional(),
@@ -46,7 +47,7 @@ const schema = z.object({
   planning: z.any().optional(),
   commercial: z.any().optional(),
   batteryAdvice: z.any().optional(),
-  choiceGroups: z.any().optional(),
+  choiceGroups: z.array(quoteChoiceGroupSchema).optional(),
   internalAdvice: z.string().nullable().optional(),
   attachments: z.array(attachmentSchema).optional(),
   items: z.array(itemSchema).min(1, "Voeg minimaal één regel toe"),

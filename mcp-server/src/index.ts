@@ -39,8 +39,71 @@ const quoteItemInputSchema = z.object({
   cost_price: z.number().optional().describe("Inkoopprijs excl. btw"),
   vat_rate: z.number().default(21).describe("BTW-percentage voor deze ene regel"),
   indent: z.number().min(0).max(1).default(0).describe("Inspringen (1 voor sub-regel)"),
-  choice_group_id: z.string().optional().describe("ID van de keuze-groep (optioneel)"),
 });
+
+const optionalWorkInputSchema = z.object({
+  id: z.string().describe("Stabiele unieke slug, bijvoorbeeld backup-gateway"),
+  title: z.string().describe("Korte klantgerichte titel"),
+  summary: z.string().describe("Maximaal twee korte zinnen; lange specificaties horen in details"),
+  tag: z.string().default("Optioneel"),
+  price_ex_vat: z.number().min(0).describe("Meerprijs exclusief btw"),
+  vat_rate: z.number().default(21),
+  details: z.array(z.string()).optional().default([]),
+  technical_condition: z.string().optional().describe("Voorwaarde waaronder dit meerwerk technisch toepasbaar is"),
+});
+
+const configurationInputSchema = z.object({
+  id: z.string().describe("Stabiele unieke slug voor de keuzegroep"),
+  title: z.string().describe("Concrete keuzevraag, bijvoorbeeld Kies uw batterijsysteem"),
+  description: z.string().optional(),
+  recommended_choice_id: z.string().optional(),
+  choices: z.array(z.object({
+    id: z.string().describe("Stabiele unieke slug voor deze configuratie"),
+    label: z.string().optional(),
+    title: z.string().describe("Merk/model of duidelijke configuratienaam; nooit Optie 1 of Hoofdregel"),
+    summary: z.string().optional().describe("Maximaal twee korte zinnen"),
+    tag: z.string().optional(),
+    items: z.array(quoteItemInputSchema).min(1),
+  })).min(2),
+});
+
+function normalizeOptionalWork(options: z.infer<typeof optionalWorkInputSchema>[]) {
+  return options.map((option) => ({
+    id: option.id,
+    t: option.title,
+    d: option.summary,
+    tag: option.tag,
+    price: option.price_ex_vat,
+    vatRate: option.vat_rate,
+    details: option.details,
+    technicalCondition: option.technical_condition,
+  }));
+}
+
+function normalizeConfigurations(groups: z.infer<typeof configurationInputSchema>[]) {
+  return groups.map((group) => ({
+    id: group.id,
+    title: group.title,
+    type: "SINGLE_SELECT" as const,
+    description: group.description,
+    recommendedChoiceId: group.recommended_choice_id,
+    choices: group.choices.map((choice) => ({
+      id: choice.id,
+      label: choice.label,
+      title: choice.title,
+      summary: choice.summary,
+      tag: choice.tag,
+      items: choice.items.map((item) => ({
+        description: item.description,
+        qty: item.qty,
+        unitPrice: item.unit_price,
+        costPrice: item.cost_price,
+        vatRate: item.vat_rate,
+        indent: item.indent,
+      })),
+    })),
+  }));
+}
 
 async function recalculateQuoteTotals(quoteId: string): Promise<void> {
   await query(
@@ -173,8 +236,31 @@ function defaultTemplateFields(companySlug: string) {
 function createMcpServer() {
   const server = new McpServer({
     name: "websup-quote-engine",
-    version: "1.0.0",
+    version: "1.1.0",
   });
+
+  server.tool(
+    "get_quote_contract",
+    "Geef de actuele veldbetekenis voor offertes. Gebruik dit vóór create_quote wanneer je twijfelt over basisregels, configuraties of meerwerk.",
+    {},
+    async () => ({
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          version: "2026-06-20",
+          items: "Vaste basis die bij iedere samenstelling hoort.",
+          configurations: "Minimaal twee volledige, onderling exclusieve systemen; klant kiest exact één per groep bij akkoord.",
+          optional_work: "Los aanvinkbaar meerwerk met expliciete prijs exclusief btw.",
+          rules: [
+            "Dupliceer prijzen nooit tussen items, configurations en optional_work.",
+            "Maak geen placeholders zoals Optie 1, Optie 2, Hoofdregel of Kies uw optie.",
+            "Maak geen configuratie of meerwerk wanneer de bron geen echte klantkeuze bevat.",
+            "Lever geen totalen aan; de app rekent server-side.",
+          ],
+        }, null, 2),
+      }],
+    })
+  );
 
   server.tool(
     "list_companies",
@@ -512,7 +598,7 @@ function createMcpServer() {
 
   server.tool(
     "create_quote",
-    "Maak een nieuwe offerte aan voor een klant, inclusief offerteregels en technische details. Belangrijk: intro is een persoonlijke brief namens Daan Koolhaas aan de klant; zet adres, compatibiliteit, voorwaarden en technische randvoorwaarden in assumptions/technical_notes/exclusions, niet in intro. Zet in items[] één betaalde hoofdregel voor de totaalprijs en losse pakketregels met unit_price 0 voor inhoudelijke onderdelen. Gebruik options alleen voor kleine optionele meerwerkkeuzes; grote alternatieve systemen horen liever in choice_groups of in een aparte offerte.",
+    "Maak een volledige offerte volgens hetzelfde contract als de plakimport. items bevat alleen de vaste basis. Zet volledige alternatieve systemen in configurations en selecteerbaar meerwerk in optional_work. Dubbel prijzen nooit tussen items, configurations en optional_work. Maak geen placeholders of verzonnen keuzes.",
     {
       company_slug: z.string().describe("Bedrijfsslug: 'websup' of 'koolhaas'"),
       customer_id: z.string().describe("ID van de klant (gebruik list_customers om te vinden)"),
@@ -526,7 +612,7 @@ function createMcpServer() {
       quote_type: z.string().optional().default("GENERAL").describe("Type offerte (GENERAL, BATTERY, SOLAR, WEB)"),
       flow: z.array(z.object({ n: z.number(), t: z.string(), d: z.string() })).optional().describe("Processtappen voor pagina 3"),
       approach: z.array(z.object({ n: z.string(), t: z.string(), d: z.string() })).optional().describe("Werkwijze/fases voor pagina 3"),
-      options: z.array(z.object({ t: z.string(), d: z.string(), tag: z.string() })).optional().describe("Kleine optionele uitbreidingen/meerwerk, bijvoorbeeld laadkabel, montagebeugel, back-upfunctie of extra monitoring. Geen volledige alternatieve systeemontwerpen met lange specificaties."),
+      optional_work: z.array(optionalWorkInputSchema).optional().describe("Selecteerbaar optioneel meerwerk met expliciete meerprijs. Laat leeg als er geen echte uitbreiding is."),
       exclusions: z.array(z.string()).optional().describe("Wat niet binnen de offerte valt, als rustige concrete tekstregels. Zet hier beperkingen, voorwaarden en buiten-scope werk."),
       assumptions: z.array(z.string()).optional().describe("Uitgangspunten voor deze offerte. Zet hier technische basis, adres/situatie alleen wanneer relevant, compatibiliteit en aannames."),
       technical_notes: z.array(z.string()).optional().describe("Technische notities/randvoorwaarden die zichtbaar als uitgangspunten mogen worden getoond."),
@@ -548,21 +634,7 @@ function createMcpServer() {
         chargePowerKw: z.number().optional(),
         recommendedScenario: z.string().optional(),
       }).optional().describe("Thuisbatterij adviesgegevens"),
-      choice_groups: z.array(z.object({
-        id: z.string(),
-        title: z.string(),
-        type: z.enum(["SINGLE_SELECT", "MULTI_SELECT"]),
-        description: z.string().optional(),
-        recommendedChoiceId: z.string().optional(),
-        choices: z.array(z.object({
-          id: z.string(),
-          label: z.string().optional(),
-          title: z.string(),
-          summary: z.string().optional(),
-          tag: z.string().optional(),
-          items: z.array(quoteItemInputSchema),
-        })).optional(),
-      })).optional().describe("Interactieve keuze-groepen voor alternatieven"),
+      configurations: z.array(configurationInputSchema).optional().describe("Volledige, onderling exclusieve systeemconfiguraties. Minimaal twee echte keuzes; laat anders leeg."),
       internal_advice: z.string().optional().describe("Uitgebreid blok met technisch advies (intern)"),
       valid_days: z.number().optional().default(30).describe("Geldigheidsduur in dagen"),
       attachments: z.array(z.object({
@@ -577,9 +649,9 @@ function createMcpServer() {
     },
     async ({ 
       company_slug, customer_id, title, category, tagline, itemsHeader, intro, outro, notes, 
-      quote_type, flow, approach, options, exclusions, assumptions, technical_notes, 
-      customer_responsibilities, planning, commercial, battery_advice, choice_groups, 
-      internal_advice, valid_days, attachments, items 
+      quote_type, flow, approach, optional_work, exclusions, assumptions, technical_notes,
+      customer_responsibilities, planning, commercial, battery_advice, configurations,
+      internal_advice, valid_days, attachments, items
     }) => {
       const defaults = defaultTemplateFields(company_slug);
       const quoteTitle = title === "Persoonlijk voorstel" ? defaults.title : title;
@@ -588,7 +660,8 @@ function createMcpServer() {
       const quoteItemsHeader = itemsHeader ?? defaults.itemsHeader;
       const quoteFlow = flow ?? defaults.flow;
       const quoteApproach = approach ?? defaults.approach;
-      const quoteOptions = options ?? defaults.options;
+      const quoteOptions = normalizeOptionalWork(optional_work ?? []);
+      const quoteConfigurations = normalizeConfigurations(configurations ?? []);
       const quoteExclusions = exclusions ?? defaults.exclusions;
 
       const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
@@ -630,7 +703,7 @@ function createMcpServer() {
          validUntilDate, totalExVat.toFixed(2), totalVat.toFixed(2), totalIncVat.toFixed(2),
          quote_type ?? 'GENERAL', JSON.stringify(assumptions ?? []), JSON.stringify(technical_notes ?? []),
          JSON.stringify(customer_responsibilities ?? []), JSON.stringify(planning ?? {}), JSON.stringify(commercial ?? {}),
-         JSON.stringify(battery_advice ?? {}), JSON.stringify(choice_groups ?? []), internal_advice ?? null, now]
+         JSON.stringify(battery_advice ?? {}), JSON.stringify(quoteConfigurations), internal_advice ?? null, now]
       );
 
       for (let i = 0; i < items.length; i++) {
@@ -642,7 +715,7 @@ function createMcpServer() {
           [crypto.randomUUID(), quoteId, item.description,
            item.qty.toFixed(2), item.unit_price.toFixed(2),
            item.vat_rate.toFixed(2), lineTotal.toFixed(2), i,
-           item.cost_price ? item.cost_price.toFixed(2) : null, item.indent ?? 0, item.choice_group_id ?? null]
+           item.cost_price ? item.cost_price.toFixed(2) : null, item.indent ?? 0, null]
         );
       }
 
@@ -814,12 +887,12 @@ function createMcpServer() {
       itemsHeader: z.string().optional(),
       intro: z.string().optional(),
       outro: z.string().optional(),
-      status: z.enum(["DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"]).optional(),
+      status: z.enum(["DRAFT", "SENT", "VIEWED", "DECLINED", "EXPIRED"]).optional().describe("ACCEPTED wordt uitsluitend door digitaal klantakkoord gezet"),
       notes: z.string().optional(),
       quote_type: z.string().optional(),
       flow: z.array(z.object({ n: z.number(), t: z.string(), d: z.string() })).optional(),
       approach: z.array(z.object({ n: z.string(), t: z.string(), d: z.string() })).optional(),
-      options: z.array(z.object({ t: z.string(), d: z.string(), tag: z.string() })).optional(),
+      optional_work: z.array(optionalWorkInputSchema).optional(),
       exclusions: z.array(z.string()).optional(),
       assumptions: z.array(z.string()).optional(),
       technical_notes: z.array(z.string()).optional(),
@@ -827,18 +900,19 @@ function createMcpServer() {
       planning: z.record(z.string(), z.unknown()).optional(),
       commercial: z.record(z.string(), z.unknown()).optional(),
       battery_advice: z.record(z.string(), z.unknown()).optional(),
-      choice_groups: z.array(z.any()).optional(),
+      configurations: z.array(configurationInputSchema).optional(),
       internal_advice: z.string().optional(),
     },
     async ({ quote_id, ...updates }) => {
-      const map: Record<string, any> = { ...updates };
+      const map: Record<string, unknown> = { ...updates };
       
       // Map underscores to camelCase for DB
       if (updates.quote_type !== undefined) { map["quoteType"] = updates.quote_type; delete map.quote_type; }
       if (updates.technical_notes !== undefined) { map["technicalNotes"] = updates.technical_notes; delete map.technical_notes; }
       if (updates.customer_responsibilities !== undefined) { map["customerResponsibilities"] = updates.customer_responsibilities; delete map.customer_responsibilities; }
       if (updates.battery_advice !== undefined) { map["batteryAdvice"] = updates.battery_advice; delete map.battery_advice; }
-      if (updates.choice_groups !== undefined) { map["choiceGroups"] = updates.choice_groups; delete map.choice_groups; }
+      if (updates.optional_work !== undefined) { map.options = normalizeOptionalWork(updates.optional_work); delete map.optional_work; }
+      if (updates.configurations !== undefined) { map["choiceGroups"] = normalizeConfigurations(updates.configurations); delete map.configurations; }
       if (updates.internal_advice !== undefined) { map["internalAdvice"] = updates.internal_advice; delete map.internal_advice; }
 
       const fields = Object.entries(map).filter(([, v]) => v !== undefined);
@@ -906,9 +980,8 @@ function createMcpServer() {
       cost_price: z.number().optional().describe("Inkoopprijs excl. btw"),
       vat_rate: z.number().default(21).describe("BTW-percentage"),
       indent: z.number().min(0).max(1).default(0).describe("Inspringen (1 voor sub-regel)"),
-      choice_group_id: z.string().optional().describe("Koppeling aan keuze-groep"),
     },
-    async ({ quote_id, description, qty, unit_price, cost_price, vat_rate, indent, choice_group_id }) => {
+    async ({ quote_id, description, qty, unit_price, cost_price, vat_rate, indent }) => {
       const quote = await queryOne<{ id: string }>(`SELECT id FROM "Quote" WHERE id = $1`, [quote_id]);
       if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
 
@@ -926,7 +999,7 @@ function createMcpServer() {
         [crypto.randomUUID(), quote_id, description,
          qty.toFixed(2), unit_price.toFixed(2), vat_rate.toFixed(2),
          lineTotal.toFixed(2), (maxSort?.max ?? -1) + 1,
-         cost_price ? cost_price.toFixed(2) : null, indent ?? 0, choice_group_id ?? null]
+         cost_price ? cost_price.toFixed(2) : null, indent ?? 0, null]
       );
 
       await recalculateQuoteTotals(quote_id);
@@ -967,7 +1040,7 @@ function createMcpServer() {
           [crypto.randomUUID(), quote_id, item.description,
            item.qty.toFixed(2), item.unit_price.toFixed(2),
            item.vat_rate.toFixed(2), lineTotal.toFixed(2), sortOrder++,
-           item.cost_price ? item.cost_price.toFixed(2) : null, item.indent ?? 0, item.choice_group_id ?? null]
+           item.cost_price ? item.cost_price.toFixed(2) : null, item.indent ?? 0, null]
         );
       }
 
@@ -993,9 +1066,8 @@ function createMcpServer() {
       cost_price: z.number().optional().describe("Nieuwe inkoopprijs excl. btw"),
       vat_rate: z.number().optional().describe("Nieuw BTW-percentage"),
       indent: z.number().min(0).max(1).optional().describe("Inspringen"),
-      choice_group_id: z.string().optional().describe("Koppeling aan keuze-groep"),
     },
-    async ({ item_id, description, qty, unit_price, cost_price, vat_rate, indent, choice_group_id }) => {
+    async ({ item_id, description, qty, unit_price, cost_price, vat_rate, indent }) => {
       const item = await queryOne<{ id: string; quoteId: string; qty: string; unitPrice: string; vatRate: string }>(
         `SELECT id, "quoteId", qty, "unitPrice", "vatRate" FROM "QuoteItem" WHERE id = $1`,
         [item_id]
@@ -1010,7 +1082,6 @@ function createMcpServer() {
       if (cost_price !== undefined) { fields.push(`"costPrice" = $${params.length + 1}`); params.push(cost_price.toFixed(2)); }
       if (vat_rate !== undefined) { fields.push(`"vatRate" = $${params.length + 1}`); params.push(vat_rate.toFixed(2)); }
       if (indent !== undefined) { fields.push(`indent = $${params.length + 1}`); params.push(indent); }
-      if (choice_group_id !== undefined) { fields.push(`"choiceGroupId" = $${params.length + 1}`); params.push(choice_group_id); }
 
       if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
 

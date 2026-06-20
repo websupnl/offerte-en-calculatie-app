@@ -19,7 +19,7 @@ import {
   Zap,
   Printer,
 } from "lucide-react";
-import { formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
+import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
 import { QuoteBuilder } from "@/components/forms/quote-builder";
 import { AdviceDocumentForm } from "@/components/forms/advice-document-form";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
@@ -65,7 +65,17 @@ type Quote = {
   items: QuoteItem[];
   attachments: QuoteAttachment[];
   adviceDocuments: AdviceDocument[];
-  share: { token: string; viewedAt: string | null; acceptedAt: string | null } | null;
+  share: {
+    token: string;
+    viewedAt: string | null;
+    acceptedAt: string | null;
+    signerName?: string | null;
+    acceptedTotalIncVat?: string | number | null;
+    acceptanceSnapshot?: {
+      selectedChoices?: Array<{ groupTitle: string; choice: { title: string } }>;
+      selectedOptions?: Array<{ t: string }>;
+    } | null;
+  } | null;
 };
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -209,10 +219,12 @@ export function QuoteDetailClient({
             <FileText className="mr-2 h-4 w-4" />
             Offerte
           </TabsTrigger>
-          <TabsTrigger value="edit">
-            <Pencil className="mr-2 h-4 w-4" />
-            Bewerken
-          </TabsTrigger>
+          {quote.status !== "ACCEPTED" && (
+            <TabsTrigger value="edit">
+              <Pencil className="mr-2 h-4 w-4" />
+              Bewerken
+            </TabsTrigger>
+          )}
           {companySlug === "koolhaas" && (
             <TabsTrigger value="advice">
               <Zap className="mr-2 h-4 w-4" />
@@ -228,7 +240,7 @@ export function QuoteDetailClient({
             <CardContent className="pt-4">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-medium text-muted-foreground">Status:</span>
-                {["DRAFT", "SENT", "ACCEPTED", "DECLINED"].map((s) => (
+                {(quote.status === "ACCEPTED" ? ["ACCEPTED"] : ["DRAFT", "SENT", "DECLINED"]).map((s) => (
                   <Button
                     key={s}
                     variant={quote.status === s ? "default" : "outline"}
@@ -242,6 +254,30 @@ export function QuoteDetailClient({
               </div>
             </CardContent>
           </Card>
+
+          {quote.share?.acceptedAt && (
+            <Card className="border-emerald-200 bg-emerald-50/50">
+              <CardContent className="grid gap-3 pt-4 text-sm md:grid-cols-[1fr_auto]">
+                <div>
+                  <p className="font-bold text-emerald-950">Definitieve opdracht</p>
+                  <p className="mt-1 text-emerald-800">
+                    Ondertekend door {quote.share.signerName || quote.customer.name} op {formatDate(quote.share.acceptedAt)}.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {quote.share.acceptanceSnapshot?.selectedChoices?.map(({ groupTitle, choice }) => (
+                      <Badge key={`${groupTitle}-${choice.title}`} variant="outline">{groupTitle}: {choice.title}</Badge>
+                    ))}
+                    {quote.share.acceptanceSnapshot?.selectedOptions?.map((option) => (
+                      <Badge key={option.t} variant="outline">Meerwerk: {option.t}</Badge>
+                    ))}
+                  </div>
+                </div>
+                <strong className="text-lg text-emerald-950">
+                  {formatCurrency(Number(quote.share.acceptedTotalIncVat ?? quote.totalIncVat))}
+                </strong>
+              </CardContent>
+            </Card>
+          )}
 
           <QuoteSheetPreview quote={quote as never} companySlug={companySlug} />
         </TabsContent>

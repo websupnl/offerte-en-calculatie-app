@@ -7,12 +7,17 @@ import {
   Sparkles,
   Loader2,
   Trash2,
-  CheckCircle2,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import "@/app/q/[token]/portal.css";
 import { useRef, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+  calculateQuoteSelectionTotals,
+  getRecommendedSelection,
+  type QuoteChoiceGroup,
+  type QuoteOption,
+} from "@/lib/quote-selection";
 
 // ─── Shared Components (Outside to prevent focus loss) ──────────────────────
 
@@ -89,31 +94,10 @@ type QuoteItem = {
   vatRate: string | number;
   total: string | number;
   indent?: number;
-  choiceGroupId?: string | null;
-};
-
-type ChoiceItem = Omit<QuoteItem, "id"> & { id?: string };
-type Choice = {
-  id: string;
-  label?: string;
-  title: string;
-  summary?: string;
-  tag?: string;
-  items: ChoiceItem[];
-};
-
-type ChoiceGroup = {
-  id: string;
-  title: string;
-  type: "SINGLE_SELECT" | "MULTI_SELECT";
-  description?: string;
-  recommendedChoiceId?: string;
-  choices?: Choice[];
 };
 
 type FlowItem = { n: number; t: string; d: string };
 type ApproachStep = { n: string; t: string; d: string };
-type QuoteOption = { t: string; d: string; tag: string };
 type QuoteAttachment = { id?: string; title?: string | null; imageUrl: string; liveUrl?: string | null; caption?: string | null };
 
 type Quote = {
@@ -142,7 +126,7 @@ type Quote = {
   attachments?: QuoteAttachment[];
   adviceDocuments?: { id: string; type: string }[];
   company?: { name?: string | null; slug?: string | null };
-  choiceGroups?: ChoiceGroup[];
+  choiceGroups?: QuoteChoiceGroup[];
 };
 
 const createPersonalIntro = (quote: Quote, brandName: string) => {
@@ -189,7 +173,7 @@ interface QuoteSheetPreviewProps {
   onAddItem?: () => void;
   onRemoveItem?: (id: string) => void;
   selectedChoiceIds?: Record<string, string>;
-  onChoiceSelect?: (groupId: string, choiceId: string) => void;
+  selectedOptionIds?: string[];
 }
 
 const COMPANY_COPY = {
@@ -290,17 +274,6 @@ const DEFAULT_APPROACH: Record<"websup" | "koolhaas", ApproachStep[]> = {
   ],
 };
 
-const DEFAULT_OPTIONS: Record<"websup" | "koolhaas", QuoteOption[]> = {
-  websup: [
-    { t: "Extra koppeling", d: "Een aanvullende koppeling met een extern systeem of formulier.", tag: "Op aanvraag" },
-    { t: "Doorontwikkeling", d: "Nieuwe functies na oplevering op basis van praktijkgebruik.", tag: "Los voorstel" },
-  ],
-  koolhaas: [
-    { t: "Extra energiemeting", d: "Aanvullende meetpunten wanneer dit technisch nodig is.", tag: "In overleg" },
-    { t: "Groepenkast aanpassing", d: "Meerwerk als de bestaande kast niet geschikt blijkt.", tag: "In overleg" },
-  ],
-};
-
 const DEFAULT_EXCLUSIONS: Record<"websup" | "koolhaas", string[]> = {
   websup: [
     "Werk buiten de beschreven scope",
@@ -323,35 +296,14 @@ export function QuoteSheetPreview({
   onUpdate,
   onUpdateItem,
   selectedChoiceIds: externalSelectedChoiceIds,
-  onChoiceSelect
+  selectedOptionIds = [],
 }: QuoteSheetPreviewProps) {
-  const [internalSelectedChoiceIds, setInternalSelectedChoiceIds] = useState<Record<string, string>>({});
   const defaultSelectedChoiceIds = useMemo(() => {
-    const defaults: Record<string, string> = {};
-    quote.choiceGroups?.forEach((group) => {
-      const defaultChoice = group.choices?.find((choice) => choice.id === group.recommendedChoiceId) ?? group.choices?.[0];
-      if (defaultChoice) {
-        defaults[group.id] = defaultChoice.id;
-        return;
-      }
-      const firstItem = quote.items.find((item) => item.choiceGroupId === group.id && (item.indent ?? 0) === 0);
-      if (firstItem) defaults[group.id] = firstItem.id;
-    });
-    return defaults;
-  }, [quote.choiceGroups, quote.items]);
-  const selectedChoiceIds = externalSelectedChoiceIds && Object.keys(externalSelectedChoiceIds).length > 0
+    return getRecommendedSelection(quote.choiceGroups ?? []).selectedChoiceIds;
+  }, [quote.choiceGroups]);
+  const selectedChoiceIds = externalSelectedChoiceIds !== undefined
     ? externalSelectedChoiceIds
-    : Object.keys(internalSelectedChoiceIds).length > 0
-      ? internalSelectedChoiceIds
-      : defaultSelectedChoiceIds;
-
-  const handleChoiceSelect = (groupId: string, choiceId: string) => {
-    if (onChoiceSelect) {
-      onChoiceSelect(groupId, choiceId);
-    } else {
-      setInternalSelectedChoiceIds(prev => ({ ...prev, [groupId]: choiceId }));
-    }
-  };
+    : defaultSelectedChoiceIds;
 
   const today = new Date().toISOString();
   const activeSlug = companySlug || quote.company?.slug || "websup";
@@ -360,48 +312,16 @@ export function QuoteSheetPreview({
   
   // Choice Logic
   const choiceGroups = quote.choiceGroups || [];
-  const choiceLineTotal = (item: ChoiceItem) => Number(item.qty) * Number(item.unitPrice);
-  const choiceTotal = (choice: Choice) => choice.items.reduce((acc, item) => acc + choiceLineTotal(item), 0);
-  const choiceVat = (choice: Choice) => choice.items.reduce((acc, item) => acc + choiceLineTotal(item) * (Number(item.vatRate) / 100), 0);
-  
-  const isItemVisible = (item: QuoteItem) => {
-    if (!item.choiceGroupId) return true;
-    if (isEditable) return true;
-    return selectedChoiceIds[item.choiceGroupId] === item.id || (item.indent ?? 0) > 0;
-  };
-
-  const visibleItems = quote.items.filter(isItemVisible);
-
-  const calculateTotals = () => {
-    let ex = 0;
-    let vat = 0;
-    
-    quote.items.forEach(item => {
-      const isBaseItem = !item.choiceGroupId;
-      const isSelectedChoice = item.choiceGroupId && selectedChoiceIds[item.choiceGroupId] === item.id;
-      if (isBaseItem || isSelectedChoice) {
-        ex += Number(item.total);
-        vat += Number(item.total) * (Number(item.vatRate) / 100);
-      }
-    });
-
-    choiceGroups.forEach((group) => {
-      const selectedId = selectedChoiceIds[group.id];
-      const selectedChoice = group.choices?.find((choice) => choice.id === selectedId);
-      if (!selectedChoice) return;
-      ex += choiceTotal(selectedChoice);
-      vat += choiceVat(selectedChoice);
-    });
-    
-    return { ex, vat, inc: ex + vat };
-  };
-
-  const totals = calculateTotals();
+  const visibleItems = quote.items;
 
   const brandKey = isKoolhaas ? "koolhaas" : "websup";
   const flow = quote.flow?.length ? quote.flow : DEFAULT_FLOW[brandKey];
   const approach = quote.approach?.length ? quote.approach : DEFAULT_APPROACH[brandKey];
-  const options = quote.options?.length ? quote.options : DEFAULT_OPTIONS[brandKey];
+  const options = quote.options ?? [];
+  const totals = calculateQuoteSelectionTotals(quote.items, choiceGroups, options, {
+    selectedChoiceIds,
+    selectedOptionIds,
+  });
   const exclusions = quote.exclusions?.length ? quote.exclusions : DEFAULT_EXCLUSIONS[brandKey];
   const technicalNotesField = quote.technicalNotes?.length ? "technicalNotes" : "assumptions";
   const technicalNotes = isKoolhaas
@@ -526,7 +446,7 @@ export function QuoteSheetPreview({
     onUpdate?.({
       options: [
         ...options,
-        { t: "Nieuw optioneel meerwerk", d: "Omschrijving van deze optie.", tag: "Optioneel" },
+        { id: `morework-${Date.now()}`, t: "Nieuw optioneel meerwerk", d: "Korte omschrijving van deze uitbreiding.", tag: "Optioneel", price: 0, vatRate: 21, details: [] },
       ],
     });
   };
@@ -652,6 +572,48 @@ export function QuoteSheetPreview({
                   isEditable={Boolean(isEditable)}
                 />
               </span>
+              <div className="mt-2 flex items-center gap-2 text-xs font-bold text-slate-900">
+                {isEditable ? (
+                  <>
+                    <span>€</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={o.price ?? ""}
+                      placeholder="Op aanvraag"
+                      onChange={(event) =>
+                        updateOption(idx, { price: event.target.value === "" ? null : Number(event.target.value) })
+                      }
+                      className="editable-input max-w-28"
+                      aria-label="Prijs optioneel meerwerk exclusief btw (leeg = op aanvraag)"
+                    />
+                    <span>excl. btw</span>
+                  </>
+                ) : o.price == null ? (
+                  <span>Prijs op aanvraag</span>
+                ) : (
+                  <span>+ {formatCurrency(o.price * (1 + o.vatRate / 100))} incl. btw</span>
+                )}
+              </div>
+              {isEditable && (
+                <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+                  <InlineTextarea
+                    value={o.technicalCondition || ""}
+                    onChange={(value) => updateOption(idx, { technicalCondition: value })}
+                    placeholder="Technische voorwaarde (optioneel)"
+                    className="text-xs"
+                    isEditable
+                  />
+                  <InlineTextarea
+                    value={o.details.join("\n")}
+                    onChange={(value) => updateOption(idx, { details: value.split("\n").map((line) => line.trim()).filter(Boolean) })}
+                    placeholder="Technische details, één regel per punt"
+                    className="text-xs"
+                    isEditable
+                  />
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -756,78 +718,37 @@ export function QuoteSheetPreview({
               <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
             </div>
 
-            {/* CHOICE GROUPS */}
+            {/* Systeemconfiguraties worden hier samengevat; kiezen gebeurt bij akkoord. */}
             {choiceGroups.map(group => (
-              <div key={group.id} className="choice-section mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div key={group.id} className="choice-section mb-8">
                 <div className="mb-4">
-                  <span className="eyebrow text-blue-600 block">{group.title}</span>
+                  <span className="eyebrow text-blue-600 block">Beschikbare configuraties</span>
+                  <h3 className="mt-1 text-lg font-bold text-slate-900">{group.title}</h3>
                   {group.description && <p className="mt-1 text-sm text-slate-500">{group.description}</p>}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {(group.choices?.length
-                    ? group.choices
-                    : quote.items
-                        .filter(i => i.choiceGroupId === group.id && (i.indent ?? 0) === 0)
-                        .map((item): Choice => ({
-                          id: item.id,
-                          label: undefined,
-                          title: item.description,
-                          summary: "",
-                          items: [item],
-                        }))
-                  ).map(choice => {
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {group.choices.map(choice => {
                     const isActive = selectedChoiceIds[group.id] === choice.id;
-                    const total = choiceTotal(choice);
-                    const included = choice.items.filter((item) => Number(item.unitPrice) === 0);
-                    const paidItems = choice.items.filter((item) => Number(item.unitPrice) > 0);
+                    const total = choice.items.reduce((sum, item) => {
+                      const line = Number(item.qty) * Number(item.unitPrice);
+                      return sum + line * (1 + Number(item.vatRate) / 100);
+                    }, 0);
                     const isRecommended = group.recommendedChoiceId === choice.id || choice.label?.toLowerCase() === "aanbevolen";
                     return (
-                      <div 
-                        key={choice.id} 
-                        onClick={() => handleChoiceSelect(group.id, choice.id)}
-                        className={`relative p-6 rounded-2xl border-2 transition-all cursor-pointer group ${
-                          isActive 
-                          ? 'border-blue-600 bg-blue-50/30 shadow-lg shadow-blue-100' 
-                          : 'border-slate-100 hover:border-slate-300 bg-white'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start mb-4">
-                          <div className={`p-2 rounded-full ${isActive ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-300'}`}>
-                            <CheckCircle2 size={20} />
-                          </div>
-                          <span className={`text-xl font-black ${isActive ? 'text-blue-600' : 'text-slate-900'}`}>
-                            {formatCurrency(total)}
-                          </span>
-                        </div>
-                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <div key={choice.id} className={`relative rounded-xl border p-4 ${isActive ? "border-blue-600 bg-blue-50/40" : "border-slate-200 bg-white"}`}>
+                        <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                           <h4 className="font-bold text-slate-900">{choice.title}</h4>
                           {(choice.label || isRecommended) && (
-                            <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-widest ${
-                              isRecommended ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"
-                            }`}>
+                            <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${isRecommended ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}>
                               {choice.label || "Aanbevolen"}
                             </span>
                           )}
                         </div>
-                        {choice.summary && <p className="mb-3 text-xs text-slate-500">{choice.summary}</p>}
-                        <div className="space-y-1">
-                          {paidItems.map((line, index) => (
-                            <div key={`paid-${choice.id}-${index}`} className="flex items-center justify-between gap-2 text-xs text-slate-600">
-                              <span className="flex items-center gap-2"><Check size={10} className="text-blue-500" /> {line.description}</span>
-                              <span className="font-bold">{formatCurrency(choiceLineTotal(line))}</span>
-                            </div>
-                          ))}
-                          {included.map((line, index) => (
-                            <div key={`included-${choice.id}-${index}`} className="flex items-center gap-2 text-xs text-slate-500">
-                              <Check size={10} className="text-blue-500" /> {line.description}
-                            </div>
-                          ))}
+                        {choice.summary && <p className="mb-3 text-xs leading-relaxed text-slate-500">{choice.summary}</p>}
+                        <div className="flex items-end justify-between gap-3">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isActive ? "Geselecteerd" : "Keuze bij akkoord"}</span>
+                          <strong className="text-sm text-slate-900">{formatCurrency(total)} incl. btw</strong>
                         </div>
-                        {isActive && (
-                          <div className="absolute top-0 right-0 px-3 py-1 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-bl-xl rounded-tr-xl">
-                            Geselecteerd
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -875,9 +796,8 @@ export function QuoteSheetPreview({
                       );
                     }
                     return (
-                      <tr key={item.id} className={item.choiceGroupId ? "choice-item-row" : ""}>
+                      <tr key={item.id}>
                         <td className="article-description">
-                          {item.choiceGroupId && isEditable && <span className="choice-badge">{item.choiceGroupId}</span>}
                           <InlineTextarea 
                             isEditable={isEditable} 
                             value={item.description} 
@@ -892,7 +812,7 @@ export function QuoteSheetPreview({
                   <tr className="grand-total">
                     <td>
                       <span>Totaal incl. btw</span>
-                      <strong>{formatCurrency(Number(totals.inc))}</strong>
+                      <strong>{formatCurrency(Number(totals.totalIncVat))}</strong>
                     </td>
                   </tr>
                 </tfoot>

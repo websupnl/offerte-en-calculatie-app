@@ -8,10 +8,10 @@ export default async function PortalPrintPage({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ auto?: string }>;
+  searchParams: Promise<{ auto?: string; choices?: string; options?: string }>;
 }) {
   const { token } = await params;
-  const { auto } = await searchParams;
+  const { auto, choices, options } = await searchParams;
 
   const share = await prisma.quoteShare.findUnique({
     where: { token },
@@ -30,6 +30,10 @@ export default async function PortalPrintPage({
   if (!share) notFound();
 
   const serialized = JSON.parse(JSON.stringify(share.quote));
+  const selectedChoiceIds = (share.selectedChoiceIds as Record<string, string> | null)
+    ?? parseJsonParam<Record<string, string>>(choices, {});
+  const selectedOptionIds = (share.selectedOptionIds as string[] | null)
+    ?? parseJsonParam<string[]>(options, []);
 
   return (
     <main className="print-document-page">
@@ -40,7 +44,18 @@ export default async function PortalPrintPage({
           acceptedAt: share.acceptedAt ? share.acceptedAt.toISOString() : null,
         }}
         companySlug={serialized.company.slug}
+        selectedChoiceIds={selectedChoiceIds}
+        selectedOptionIds={selectedOptionIds}
       />
     </main>
   );
+}
+
+function parseJsonParam<T>(value: string | undefined, fallback: T): T {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
 }

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
+import { quoteChoiceGroupSchema, quoteOptionSchema } from "@/lib/quote-selection";
 
 const itemSchema = z.object({
   id: z.string().optional(),
@@ -40,7 +41,7 @@ const schema = z.object({
   notes: z.string().optional(),
   flow: z.any().optional(),
   approach: z.any().optional(),
-  options: z.any().optional(),
+  options: z.array(quoteOptionSchema).optional(),
   exclusions: z.any().optional(),
   assumptions: z.any().optional(),
   technicalNotes: z.any().optional(),
@@ -48,7 +49,7 @@ const schema = z.object({
   planning: z.any().optional(),
   commercial: z.any().optional(),
   batteryAdvice: z.any().optional(),
-  choiceGroups: z.any().optional(),
+  choiceGroups: z.array(quoteChoiceGroupSchema).optional(),
   internalAdvice: z.string().nullable().optional(),
   items: z.array(itemSchema).optional(),
   attachments: z.array(attachmentSchema).optional(),
@@ -79,6 +80,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  const existingQuote = await prisma.quote.findFirst({
+    where: { id, companyId: session.user.activeCompanyId },
+    select: { status: true },
+  });
+  if (!existingQuote) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (existingQuote.status === "ACCEPTED") {
+    return NextResponse.json({ error: "Een geaccepteerde offerte is vergrendeld." }, { status: 409 });
+  }
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
@@ -169,4 +178,3 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   return NextResponse.json({ ok: true });
 }
-

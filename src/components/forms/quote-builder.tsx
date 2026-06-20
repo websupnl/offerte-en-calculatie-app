@@ -55,7 +55,6 @@ type QuoteItem = {
   vatRate: number;
   total: number;
   indent: number;
-  choiceGroupId?: string | null;
 };
 
 type ChoiceItem = Omit<QuoteItem, "id" | "productId" | "total"> & {
@@ -76,9 +75,20 @@ type ChoiceGroup = {
   id: string;
   title: string;
   description?: string;
-  type: "SINGLE_SELECT" | "MULTI_SELECT";
+  type: "SINGLE_SELECT";
   recommendedChoiceId?: string;
   choices: Choice[];
+};
+
+type QuoteOption = {
+  id: string;
+  t: string;
+  d: string;
+  tag: string;
+  price: number | null; // null = "Op aanvraag" (geen vaste prijs)
+  vatRate: number;
+  details: string[];
+  technicalCondition?: string;
 };
 
 type QuoteAttachment = {
@@ -107,8 +117,6 @@ type GeneratedQuoteItem = {
   costPrice?: number | string | null;
   cost_price?: number | string | null;
   indent?: number | string | null;
-  choiceGroupId?: string | null;
-  choice_group_id?: string | null;
   type?: string | null;
 };
 
@@ -122,7 +130,7 @@ type QuoteImportPreview = {
     intro?: string;
     itemsHeader?: string;
     items: GeneratedQuoteItem[];
-    options?: Array<{ t: string; d: string; tag: string }>;
+    optionalWork?: QuoteOption[];
     exclusions?: string[];
     outro?: string;
     notes?: string;
@@ -136,7 +144,7 @@ type QuoteImportPreview = {
     planning?: { leadTime?: string; executionDuration?: string; preferredDate?: string };
     commercial?: { validDays?: number; paymentTerms?: string; warranty?: string };
     batteryAdvice?: Record<string, unknown>;
-    choiceGroups?: ChoiceGroup[];
+    configurations?: ChoiceGroup[];
     internalAdvice?: string;
   };
   warnings: string[];
@@ -170,13 +178,6 @@ const DEFAULT_APPROACH = [
   { n: "06", t: "Livegang & nazorg", d: "Plaatsing, korte uitleg en ondersteuning na oplevering." },
 ];
 
-const DEFAULT_OPTIONS = [
-  { t: "Dashboardomgeving", d: "Alle aanvragen, foto's en statussen centraal op één scherm.", tag: "Aparte offerte" },
-  { t: "Extra dienst-flows", d: "Airco, warmtepomp, zonnepanelen, thuisbatterij, EMS — per dienst uitgebreid.", tag: "Per dienst" },
-  { t: "Foto-export naar dossier", d: "Aangeleverde foto's makkelijk toevoegen aan een dossier in Syntess.", tag: "Op aanvraag" },
-  { t: "Onderhoud & support", d: "Updates, monitoring en kleine aanpassingen na oplevering.", tag: "Maandelijks" },
-];
-
 const DEFAULT_EXCLUSIONS = [
   "Betaalde plugins of externe licenties",
   "Hosting en domeinnaam",
@@ -200,13 +201,6 @@ const KOOLHAAS_APPROACH = [
   { n: "03", t: "Veilige uitvoering", d: "Installatie volgens geldende normen, met nette montage en duidelijke kabelroutes." },
   { n: "04", t: "Inbedrijfstelling", d: "Systeem testen, instellingen nalopen en zorgen dat monitoring werkt." },
   { n: "05", t: "Oplevering", d: "Samen controleren we de installatie en krijgt u uitleg over gebruik en onderhoud." },
-];
-
-const KOOLHAAS_OPTIONS = [
-  { t: "Meterkast uitbreiding", d: "Extra groep, beveiliging of aanpassing als de bestaande situatie dat vraagt.", tag: "Na opname" },
-  { t: "Energiemanagement", d: "EMS voor slim sturen van batterij, zonnepanelen, laadpaal en grootverbruikers.", tag: "Optioneel" },
-  { t: "Extra monitoring", d: "Inzicht in verbruik, teruglevering en batterijgedrag via app of dashboard.", tag: "Op aanvraag" },
-  { t: "Onderhoudscontrole", d: "Periodieke controle op veiligheid, instellingen en prestaties.", tag: "Jaarlijks" },
 ];
 
 const KOOLHAAS_EXCLUSIONS = [
@@ -249,7 +243,6 @@ function normalizeGeneratedItems(items: GeneratedQuoteItem[]): QuoteItem[] {
         vatRate: Number(item.vatRate ?? item.vat_rate ?? 21),
         total: index === 0 ? Number(item.qty ?? 1) * Number(item.unitPrice ?? item.unit_price ?? 0) : 0,
         indent: index === 0 ? Number(item.indent ?? 0) : 1,
-        choiceGroupId: item.choiceGroupId ?? item.choice_group_id ?? null,
         type: item.type ?? undefined,
       }));
   });
@@ -329,7 +322,18 @@ export function QuoteBuilder({
   
   const [flow, setFlow] = useState(initialQuote?.flow || (isKoolhaas ? KOOLHAAS_FLOW : DEFAULT_FLOW));
   const [approach, setApproach] = useState(initialQuote?.approach || (isKoolhaas ? KOOLHAAS_APPROACH : DEFAULT_APPROACH));
-  const [options, setOptions] = useState(initialQuote?.options || (isKoolhaas ? KOOLHAAS_OPTIONS : DEFAULT_OPTIONS));
+  const [options, setOptions] = useState<QuoteOption[]>(
+    (initialQuote?.options || []).map((option: Partial<QuoteOption> & { t: string; d: string; tag: string }, index: number) => ({
+      id: option.id || `morework-${index + 1}`,
+      t: option.t,
+      d: option.d,
+      tag: option.tag || "Optioneel",
+      price: option.price == null ? null : Number(option.price),
+      vatRate: Number(option.vatRate || 21),
+      details: option.details || [],
+      technicalCondition: option.technicalCondition || "",
+    }))
+  );
   const [exclusions, setExclusions] = useState(initialQuote?.exclusions || (isKoolhaas ? KOOLHAAS_EXCLUSIONS : DEFAULT_EXCLUSIONS));
 
   // ─── UI State ───
@@ -429,7 +433,7 @@ export function QuoteBuilder({
     if (data.items) setItems(normalizeGeneratedItems(data.items));
     if (data.flow) setFlow(data.flow as typeof DEFAULT_FLOW);
     if (data.approach) setApproach(data.approach as typeof DEFAULT_APPROACH);
-    if (data.options) setOptions(data.options);
+    if (data.optionalWork) setOptions(data.optionalWork);
     if (data.exclusions) setExclusions(data.exclusions);
     if (data.outro !== undefined) setOutro(data.outro);
     if (data.notes !== undefined) setNotes(data.notes);
@@ -440,7 +444,7 @@ export function QuoteBuilder({
     if (data.planning) setPlanning({ ...PLANNING_DEFAULTS, ...data.planning });
     if (data.commercial) setCommercial({ ...COMMERCIAL_DEFAULTS, ...data.commercial });
     if (data.batteryAdvice) setBatteryAdvice(data.batteryAdvice);
-    if (data.choiceGroups) setChoiceGroups(data.choiceGroups);
+    if (data.configurations) setChoiceGroups(data.configurations);
     if (data.internalAdvice !== undefined) setInternalAdvice(data.internalAdvice);
     if (data.attachments) {
       setAttachments(data.attachments.map((attachment) => ({
@@ -512,6 +516,10 @@ export function QuoteBuilder({
   async function handleSave() {
     if (!customerId) return toast.error("Selecteer een klant");
     if (items.some((i) => !i.description)) return toast.error("Vul alle omschrijvingen in");
+    if (choiceGroups.some((group) => group.choices.length < 2)) return toast.error("Een configuratiekeuze heeft minimaal twee alternatieven nodig");
+    if (choiceGroups.some((group) => group.choices.some((choice) => /^(optie\s*\d+|hoofdregel)$/i.test(choice.title)))) {
+      return toast.error("Vervang alle placeholdernamen bij configuraties");
+    }
 
     setSaving(true);
     try {
@@ -593,7 +601,6 @@ export function QuoteBuilder({
     vatRate?: string | number;
     total?: string | number;
     indent?: number;
-    choiceGroupId?: string | null;
   }) {
     updateItem(id, {
       ...updates,
@@ -615,7 +622,7 @@ export function QuoteBuilder({
       ...prev,
       {
         id,
-        title: "Kies uw optie",
+        title: "Kies uw systeemconfiguratie",
         description: "",
         type: "SINGLE_SELECT",
         recommendedChoiceId: firstChoiceId,
@@ -623,11 +630,18 @@ export function QuoteBuilder({
           {
             id: firstChoiceId,
             label: "Aanbevolen",
-            title: "Optie 1",
+            title: "Configuratie A",
             summary: "",
             items: [
-              { description: "Hoofdregel", qty: 1, unitPrice: 0, vatRate: 21, indent: 0 },
+              { description: "Complete configuratie A", qty: 1, unitPrice: 0, vatRate: 21, indent: 0 },
             ],
+          },
+          {
+            id: `choice-${genId()}`,
+            label: "Alternatief",
+            title: "Configuratie B",
+            summary: "",
+            items: [{ description: "Complete configuratie B", qty: 1, unitPrice: 0, vatRate: 21, indent: 0 }],
           },
         ],
       },
@@ -653,9 +667,9 @@ export function QuoteBuilder({
           {
             id: choiceId,
             label: "Alternatief",
-            title: `Optie ${group.choices.length + 1}`,
+            title: `Configuratie ${group.choices.length + 1}`,
             summary: "",
-            items: [{ description: "Hoofdregel", qty: 1, unitPrice: 0, vatRate: 21, indent: 0 }],
+            items: [{ description: "Complete configuratie", qty: 1, unitPrice: 0, vatRate: 21, indent: 0 }],
           },
         ],
       };
@@ -906,7 +920,7 @@ export function QuoteBuilder({
                 </div>
                 <div className="text-right text-sm">
                   <p className="font-bold text-slate-900">{formatCurrency(importPreview.totals.totalIncVat)}</p>
-                  <p className="text-xs text-slate-500">incl. btw</p>
+                  <p className="text-xs text-slate-500">vaste basis incl. btw</p>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -914,7 +928,8 @@ export function QuoteBuilder({
                 <div><span className="text-slate-500">Inbegrepen:</span> <b>{importPreview.totals.includedItemCount}</b></div>
                 <div><span className="text-slate-500">Excl. btw:</span> <b>{formatCurrency(importPreview.totals.totalExVat)}</b></div>
                 <div><span className="text-slate-500">Btw:</span> <b>{formatCurrency(importPreview.totals.totalVat)}</b></div>
-                <div><span className="text-slate-500">Opties:</span> <b>{importPreview.quote.options?.length ?? 0}</b></div>
+                <div><span className="text-slate-500">Meerwerk:</span> <b>{importPreview.quote.optionalWork?.length ?? 0}</b></div>
+                <div><span className="text-slate-500">Configuraties:</span> <b>{importPreview.quote.configurations?.length ?? 0}</b></div>
                 <div><span className="text-slate-500">Uitsluitingen:</span> <b>{importPreview.quote.exclusions?.length ?? 0}</b></div>
               </div>
             </div>
@@ -1218,7 +1233,7 @@ export function QuoteBuilder({
                               rows={2}
                               className="min-h-16 resize-y text-sm"
                             />
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-2 gap-2">
                               <div className="space-y-1">
                                 <Label className="text-[10px] uppercase font-bold text-slate-400">Aantal</Label>
                                 <Input type="number" value={item.qty} onChange={(e) => updateItem(item.id, { qty: Number(e.target.value) })} className="h-8 text-sm" />
@@ -1226,10 +1241,6 @@ export function QuoteBuilder({
                               <div className="space-y-1">
                                 <Label className="text-[10px] uppercase font-bold text-slate-400">Stukprijs (Verk)</Label>
                                 <Input type="number" value={item.unitPrice} onChange={(e) => updateItem(item.id, { unitPrice: Number(e.target.value) })} className="h-8 text-sm" />
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="text-[10px] uppercase font-bold text-slate-400">Groep ID (Optie)</Label>
-                                <Input placeholder="bijv: g1" value={item.choiceGroupId || ""} onChange={(e) => updateItem(item.id, { choiceGroupId: e.target.value })} className="h-8 text-sm" />
                               </div>
                             </div>
                           </div>
@@ -1249,7 +1260,7 @@ export function QuoteBuilder({
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-bold flex items-center justify-between">
-                    Keuzeblokken
+                    Systeemconfiguraties
                     <Button size="sm" variant="outline" onClick={addChoiceGroup} className="h-8">
                       <Plus className="h-3 w-3 mr-1" /> Blok
                     </Button>
@@ -1258,7 +1269,7 @@ export function QuoteBuilder({
                 <CardContent className="space-y-4">
                   {choiceGroups.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
-                      Voeg hier merk- of modelkeuzes toe, zoals twee batterijmerken of laadpalen.
+                      Voeg alleen volwaardige alternatieven toe, zoals SolarEdge of Sigenergy. De klant kiest er één bij het accepteren.
                     </div>
                   ) : (
                     choiceGroups.map((group) => (
@@ -1269,10 +1280,10 @@ export function QuoteBuilder({
                               value={group.title}
                               onChange={(e) => updateChoiceGroup(group.id, { title: e.target.value })}
                               className="h-8 text-sm font-bold"
-                              placeholder="Bijv. Kies uw thuisbatterij"
+                              placeholder="Bijv. Kies uw batterijsysteem"
                             />
                             <Select value={group.recommendedChoiceId || ""} onValueChange={(value) => updateChoiceGroup(group.id, { recommendedChoiceId: value || undefined })}>
-                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Aanbevolen keuze" /></SelectTrigger>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Aanbevolen configuratie" /></SelectTrigger>
                               <SelectContent>
                                 {group.choices.map((choice) => (
                                   <SelectItem key={choice.id} value={choice.id}>{choice.title}</SelectItem>
@@ -1370,7 +1381,7 @@ export function QuoteBuilder({
                         </div>
 
                         <Button size="sm" variant="outline" onClick={() => addChoice(group.id)} className="h-8 w-full">
-                          <Plus className="h-3 w-3 mr-1" /> Keuze toevoegen
+                          <Plus className="h-3 w-3 mr-1" /> Configuratie toevoegen
                         </Button>
                       </div>
                     ))
@@ -1586,7 +1597,9 @@ export function QuoteBuilder({
               </div>
               <div className="flex flex-wrap items-baseline gap-2">
                 <span className="text-3xl font-black tracking-tight text-white">{formatCurrency(displayedTotal)}</span>
-                <span className="text-xs font-bold text-white/65">{priceDisplayMode === "incl" ? "incl. btw" : "excl. btw"}</span>
+                <span className="text-xs font-bold text-white/65">
+                  {choiceGroups.length > 0 ? "vaste basis · " : ""}{priceDisplayMode === "incl" ? "incl. btw" : "excl. btw"}
+                </span>
               </div>
             </CardContent>
           </Card>

@@ -16,7 +16,7 @@ function validQuote(overrides: Record<string, unknown> = {}) {
       { description: "Website ontwerp en bouw", qty: 1, unitPrice: 2500, vatRate: 21 },
       { description: "Basis SEO inrichting", qty: 1, unitPrice: 0, vatRate: 21, indent: 1 },
     ],
-    options: [{ t: "Onderhoud", d: "Updates en kleine aanpassingen.", tag: "Maandelijks" }],
+    optionalWork: [{ id: "onderhoud", t: "Onderhoud", d: "Updates en kleine aanpassingen.", tag: "Maandelijks", price: 100, vatRate: 21 }],
     exclusions: ["Hosting", "Betaalde plugins"],
     outro: "Ik hoor graag of alles zo duidelijk is.",
     ...overrides,
@@ -55,10 +55,10 @@ function expectInvalid(input: unknown) {
 
 {
   const result = expectValid(validQuote({
-    options: [{ t: "Dashboard", d: "Aanvragen centraal opvolgen.", tag: "Optioneel" }],
+    optionalWork: [{ id: "dashboard", t: "Dashboard", d: "Aanvragen centraal opvolgen.", tag: "Optioneel", price: 250, vatRate: 21 }],
     exclusions: ["Fotografie"],
   }));
-  assert.equal(result.data.options.length, 1);
+  assert.equal(result.data.optionalWork.length, 1);
   assert.equal(result.data.exclusions.length, 1);
 }
 
@@ -88,7 +88,7 @@ function expectInvalid(input: unknown) {
 
 {
   const result = expectValid({ items: [{ description: "Losse regel", qty: 1, unitPrice: 100, vatRate: 21 }] });
-  assert.equal(result.data.options.length, 0);
+  assert.equal(result.data.optionalWork.length, 0);
   assert.equal(result.data.exclusions.length, 0);
 }
 
@@ -136,7 +136,7 @@ function expectInvalid(input: unknown) {
 
 {
   const variants = expectValid(validQuote({
-    choiceGroups: [
+    configurations: [
       {
         id: "battery",
         title: "Kies uw thuisbatterij",
@@ -165,8 +165,45 @@ function expectInvalid(input: unknown) {
       },
     ],
   }));
-  assert.equal(variants.data.choiceGroups[0].choices.length, 2);
-  assert.equal(variants.data.choiceGroups[0].recommendedChoiceId, "sigenergy");
+  assert.equal(variants.data.configurations[0].choices.length, 2);
+  assert.equal(variants.data.configurations[0].recommendedChoiceId, "sigenergy");
+}
+
+{
+  // GPT levert optionalWork zonder id en met prijs als tekst → app moet dit opvangen
+  const result = expectValid(validQuote({
+    optionalWork: [
+      { t: "Meerprijs", d: "Extra werk.", price: "€ 1.250,-", vatRate: 21 },
+      { titel: "Onderhoud", omschrijving: "Updates.", prijs: "100,50" },
+      { name: "Uitbreiding", summary: "Latere uitbreiding.", unitPrice: 2500 },
+    ],
+  }));
+  assert.equal(result.data.optionalWork.length, 3);
+  assert.equal(result.data.optionalWork[0].price, 1250);
+  assert.equal(result.data.optionalWork[1].price, 100.5);
+  assert.equal(result.data.optionalWork[2].price, 2500);
+  assert.ok(result.data.optionalWork.every((option) => option.id.length > 0));
+  assert.equal(result.data.optionalWork[0].id, "optie-meerprijs");
+  assert.ok(result.warnings.some((warning) => warning.includes("automatisch een id")));
+}
+
+{
+  // Echte GPT-payload: prijs incl. btw in 'tag', geen price-veld, één optie 'Op aanvraag'
+  const result = expectValid(validQuote({
+    options: [
+      { t: "Sigenergy met back-up", d: "Met back-up.", tag: "€ 10.120,55 incl. btw" },
+      { t: "Volledige back-up", d: "Home Hub.", tag: "€ 13.507,86 incl. btw" },
+      { t: "Energiemanagement", d: "Slim laden.", tag: "Op aanvraag" },
+    ],
+  }));
+  assert.equal(result.data.optionalWork.length, 3);
+  // incl. btw → teruggerekend naar excl. btw (10120.55 / 1.21)
+  assert.equal(result.data.optionalWork[0].price, 8364.09);
+  assert.equal(result.data.optionalWork[0].tag, "Optioneel");
+  // 'Op aanvraag' → geen prijs (null), telt niet mee in totalen
+  assert.equal(result.data.optionalWork[2].price, null);
+  assert.equal(result.data.optionalWork[2].tag, "Op aanvraag");
+  assert.ok(result.warnings.some((warning) => warning.includes("teruggerekend naar")));
 }
 
 console.log("quote-import tests passed");

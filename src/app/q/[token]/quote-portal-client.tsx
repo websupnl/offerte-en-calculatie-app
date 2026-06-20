@@ -14,10 +14,17 @@ import {
   Mail,
   Shield,
   XCircle,
+  ChevronDown,
+  PackageCheck,
 } from "lucide-react";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
 import "./portal.css";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
+import {
+  calculateQuoteSelectionTotals,
+  type QuoteChoiceGroup,
+  type QuoteOption,
+} from "@/lib/quote-selection";
 
 type QuoteItem = {
   id: string;
@@ -26,19 +33,11 @@ type QuoteItem = {
   unitPrice: string | number;
   vatRate: string | number;
   total: string | number;
-  choiceGroupId?: string | null;
   indent?: number;
-};
-
-type ChoiceGroup = {
-  id: string;
-  title: string;
-  type: "SINGLE_SELECT" | "MULTI_SELECT";
 };
 
 type FlowItem = { n: number; t: string; d: string };
 type ApproachStep = { n: string; t: string; d: string };
-type QuoteOption = { t: string; d: string; tag: string };
 type QuoteAttachment = { id: string; title: string | null; imageUrl: string; caption: string | null };
 
 type Quote = {
@@ -64,7 +63,7 @@ type Quote = {
   exclusions?: string[];
   attachments?: QuoteAttachment[];
   adviceDocuments: { id: string; type: string }[];
-  choiceGroups?: ChoiceGroup[];
+  choiceGroups?: QuoteChoiceGroup[];
 };
 
 type Share = {
@@ -72,6 +71,10 @@ type Share = {
   token: string;
   acceptedAt: string | null;
   declinedAt: string | null;
+  signerName?: string | null;
+  selectedChoiceIds?: Record<string, string> | null;
+  selectedOptionIds?: string[] | null;
+  acceptedTotalIncVat?: string | number | null;
 };
 
 export function QuotePortalClient({
@@ -83,27 +86,15 @@ export function QuotePortalClient({
   companySlug: string;
   branding: Record<string, string>;
 }) {
-  const [selectedChoiceIds, setSelectedChoiceIds] = useState<Record<string, string>>({});
-  
-  // Totals Calculation based on selection
-  const calculateTotals = () => {
-    let ex = 0;
-    let vat = 0;
-    
-    quote.items.forEach(item => {
-      const isBaseItem = !item.choiceGroupId;
-      const isSelectedChoice = item.choiceGroupId && selectedChoiceIds[item.choiceGroupId] === item.id;
-      if (isBaseItem || isSelectedChoice) {
-        ex += Number(item.total);
-        vat += Number(item.total) * (Number(item.vatRate) / 100);
-      }
-    });
-    
-    return { ex, vat, inc: ex + vat };
-  };
-
-  const totals = calculateTotals();
-  const displayedTotal = totals.inc;
+  const choiceGroups = quote.choiceGroups ?? [];
+  const optionalWork = quote.options ?? [];
+  const [selectedChoiceIds, setSelectedChoiceIds] = useState<Record<string, string>>(share.selectedChoiceIds ?? {});
+  const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>(share.selectedOptionIds ?? []);
+  const totals = calculateQuoteSelectionTotals(quote.items, choiceGroups, optionalWork, {
+    selectedChoiceIds,
+    selectedOptionIds,
+  });
+  const displayedTotal = share.acceptedTotalIncVat ?? totals.totalIncVat;
 
   const isKoolhaas = quote.company.slug === "koolhaas";
   const portalBrand = isKoolhaas
@@ -126,11 +117,13 @@ export function QuotePortalClient({
     share.acceptedAt ? "accepted" : share.declinedAt ? "declined" : null
   );
   const [showDeclineConfirm, setShowDeclineConfirm] = useState(false);
+  const [renderedAt] = useState(() => Date.now());
 
   const isExpired = quote.validUntil
-    ? new Date(quote.validUntil).setHours(23, 59, 59, 999) < Date.now()
+    ? new Date(quote.validUntil).setHours(23, 59, 59, 999) < renderedAt
     : false;
   const canRespond = !submitted && !isExpired;
+  const selectionsComplete = choiceGroups.every((group) => Boolean(selectedChoiceIds[group.id]));
   const today = new Date().toISOString();
   const statusLabel = submitted === "accepted"
     ? "Geaccepteerd"
@@ -143,6 +136,11 @@ export function QuotePortalClient({
   async function handleAccept() {
     if (isExpired) {
       toast.error("Deze offerte is verlopen. Neem contact op voor een actuele versie.");
+      return;
+    }
+    const incompleteGroup = choiceGroups.find((group) => !selectedChoiceIds[group.id]);
+    if (incompleteGroup) {
+      toast.error(`Maak eerst een keuze bij '${incompleteGroup.title}'.`);
       return;
     }
     if (!agreed) {
@@ -158,13 +156,14 @@ export function QuotePortalClient({
       const res = await fetch(`/api/portal/${share.token}/accept`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, signerName, selectedChoiceIds }),
+        body: JSON.stringify({ message, signerName, selectedChoiceIds, selectedOptionIds }),
       });
-      if (!res.ok) throw new Error();
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Accepteren mislukt");
       setSubmitted("accepted");
       toast.success("Offerte geaccepteerd!");
-    } catch {
-      toast.error("Er is iets misgegaan. Probeer het opnieuw.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Er is iets misgegaan. Probeer het opnieuw.");
     } finally {
       setSubmitting(false);
     }
@@ -172,6 +171,12 @@ export function QuotePortalClient({
 
   const onChoiceSelect = (groupId: string, choiceId: string) => {
     setSelectedChoiceIds(prev => ({ ...prev, [groupId]: choiceId }));
+  };
+
+  const toggleOption = (optionId: string) => {
+    setSelectedOptionIds((current) => current.includes(optionId)
+      ? current.filter((id) => id !== optionId)
+      : [...current, optionId]);
   };
 
   async function handleDecline() {
@@ -234,11 +239,11 @@ export function QuotePortalClient({
 
         <div className="portal-layout">
           <div className="doc-viewer">
-            <QuoteSheetPreview 
+              <QuoteSheetPreview
               quote={quote} 
               companySlug={quote.company.slug} 
               selectedChoiceIds={selectedChoiceIds}
-              onChoiceSelect={onChoiceSelect}
+              selectedOptionIds={selectedOptionIds}
             />
           </div>
 
@@ -286,7 +291,7 @@ export function QuotePortalClient({
               </div>
 
               <a
-                href={`/print/portal/${share.token}?auto=1`}
+                href={`/print/portal/${share.token}?auto=1&choices=${encodeURIComponent(JSON.stringify(selectedChoiceIds))}&options=${encodeURIComponent(JSON.stringify(selectedOptionIds))}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn-secondary"
@@ -308,6 +313,16 @@ export function QuotePortalClient({
                           ? "Bedankt! Ik plan de uitvoering in en stuur de vervolgstappen voor de installatie."
                           : "Bedankt! We hebben uw akkoord ontvangen en nemen zo spoedig mogelijk contact met u op."}
                       </p>
+                      <div className="portal-result-selection">
+                        {choiceGroups.map((group) => {
+                          const choice = group.choices.find((item) => item.id === selectedChoiceIds[group.id]);
+                          return choice ? <span key={group.id}>{group.title}: <b>{choice.title}</b></span> : null;
+                        })}
+                        {optionalWork.filter((option) => selectedOptionIds.includes(option.id)).map((option) => (
+                          <span key={option.id}>Meerwerk: <b>{option.t}</b></span>
+                        ))}
+                        <strong>{formatCurrency(Number(displayedTotal))} incl. btw</strong>
+                      </div>
                     </>
                   ) : (
                     <>
@@ -328,6 +343,95 @@ export function QuotePortalClient({
               ) : (
                 <div className="portal-card portal-action-card">
                   <p className="portal-form-kicker">Akkoord geven</p>
+
+                  {(choiceGroups.length > 0 || optionalWork.length > 0) && (
+                    <div className="portal-composer">
+                      <div className="portal-composer-heading">
+                        <PackageCheck />
+                        <div>
+                          <h3>Uw samenstelling</h3>
+                          <p>Kies eerst wat onderdeel wordt van uw definitieve opdracht.</p>
+                        </div>
+                      </div>
+
+                      {choiceGroups.map((group) => (
+                        <fieldset key={group.id} className="portal-choice-group">
+                          <legend>{group.title}</legend>
+                          {group.description && <p className="portal-choice-help">{group.description}</p>}
+                          <div className="portal-choice-list">
+                            {group.choices.map((choice) => {
+                              const selected = selectedChoiceIds[group.id] === choice.id;
+                              const exVat = choice.items.reduce((sum, item) => sum + Number(item.qty) * Number(item.unitPrice), 0);
+                              const incVat = choice.items.reduce((sum, item) => {
+                                const line = Number(item.qty) * Number(item.unitPrice);
+                                return sum + line * (1 + Number(item.vatRate) / 100);
+                              }, 0);
+                              const isRecommended = group.recommendedChoiceId === choice.id;
+                              return (
+                                <label key={choice.id} className={`portal-select-card ${selected ? "is-selected" : ""}`}>
+                                  <input
+                                    type="radio"
+                                    name={`choice-${group.id}`}
+                                    value={choice.id}
+                                    checked={selected}
+                                    onChange={() => onChoiceSelect(group.id, choice.id)}
+                                  />
+                                  <span className="portal-select-indicator" />
+                                  <span className="portal-select-copy">
+                                    <span className="portal-select-title">
+                                      <b>{choice.title}</b>
+                                      {(isRecommended || choice.label) && <em>{choice.label || "Aanbevolen"}</em>}
+                                    </span>
+                                    {choice.summary && <small>{choice.summary}</small>}
+                                    <strong>{formatCurrency(incVat)} <small>incl. btw</small></strong>
+                                    {exVat === 0 && <small>Geen meerprijs</small>}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </fieldset>
+                      ))}
+
+                      {optionalWork.length > 0 && (
+                        <fieldset className="portal-choice-group">
+                          <legend>Optioneel meerwerk</legend>
+                          <p className="portal-choice-help">Alleen selecteren waar het technisch en praktisch meerwaarde heeft.</p>
+                          <div className="portal-choice-list">
+                            {optionalWork.map((option) => {
+                              const selected = selectedOptionIds.includes(option.id);
+                              const incVat = option.price == null ? null : option.price * (1 + option.vatRate / 100);
+                              return (
+                                <div key={option.id} className={`portal-select-card portal-option-card ${selected ? "is-selected" : ""}`}>
+                                  <label>
+                                    <input type="checkbox" checked={selected} onChange={() => toggleOption(option.id)} />
+                                    <span className="portal-select-indicator" />
+                                    <span className="portal-select-copy">
+                                      <span className="portal-select-title"><b>{option.t}</b><em>{option.tag}</em></span>
+                                      <small>{option.d}</small>
+                                      <strong>{incVat == null ? "Prijs op aanvraag" : <>+ {formatCurrency(incVat)} <small>incl. btw</small></>}</strong>
+                                    </span>
+                                  </label>
+                                  {(option.details.length > 0 || option.technicalCondition) && (
+                                    <details>
+                                      <summary><ChevronDown /> Technische details</summary>
+                                      {option.technicalCondition && <p>{option.technicalCondition}</p>}
+                                      {option.details.length > 0 && <ul>{option.details.map((detail) => <li key={detail}>{detail}</li>)}</ul>}
+                                    </details>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </fieldset>
+                      )}
+
+                      <div className="portal-composer-total">
+                        <span>Definitieve investering</span>
+                        <b>{formatCurrency(totals.totalIncVat)} <small>incl. btw</small></b>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="portal-field">
                     <label htmlFor="signer-name">Uw naam</label>
@@ -364,7 +468,7 @@ export function QuotePortalClient({
                     <>
                       <button
                         onClick={handleAccept}
-                        disabled={submitting || !agreed || !canRespond}
+                        disabled={submitting || !agreed || !canRespond || !selectionsComplete}
                         className="btn-primary"
                       >
                         {submitting ? (
@@ -372,7 +476,7 @@ export function QuotePortalClient({
                         ) : (
                           <CheckCircle2 />
                         )}
-                        Offerte accepteren
+                        {selectionsComplete ? "Offerte accepteren" : "Kies eerst een configuratie"}
                       </button>
                       <button
                         onClick={() => setShowDeclineConfirm(true)}
