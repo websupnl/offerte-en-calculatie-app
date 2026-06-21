@@ -206,4 +206,42 @@ function expectInvalid(input: unknown) {
   assert.ok(result.warnings.some((warning) => warning.includes("teruggerekend naar")));
 }
 
+{
+  // Echte GPT-payload voor "Kies uw systeemconfiguratie": geen id's, aanbeveling via label 'Aanbevolen'
+  const result = expectValid(validQuote({
+    configurations: [
+      {
+        title: "Kies uw thuisbatterij",
+        choices: [
+          {
+            label: "Aanbevolen",
+            title: "Sigenergy 8 kWh",
+            summary: "Beste balans tussen sturing en uitbreidbaarheid.",
+            items: [
+              { description: "Sigenergy thuisbatterij 8 kWh", qty: 1, unit_price: 5200, vat_rate: 21 },
+              { description: "App-koppeling", qty: 1, unitPrice: 0, vatRate: 21, indent: 1 },
+            ],
+          },
+          {
+            title: "Enphase 10 kWh",
+            omschrijving: "Groter, modulair systeem.",
+            items: [{ description: "Enphase thuisbatterij 10 kWh", qty: 1, unitPrice: 5900, vatRate: 21 }],
+          },
+        ],
+      },
+    ],
+  }));
+  assert.equal(result.data.configurations.length, 1);
+  const group = result.data.configurations[0];
+  assert.ok(group.id.length > 0, "configuratiegroep kreeg een id");
+  assert.equal(group.choices.length, 2);
+  assert.ok(group.choices.every((choice) => choice.id.length > 0), "elke keuze kreeg een id");
+  // aanbeveling via label 'Aanbevolen' is gekoppeld aan de juiste keuze-id
+  assert.equal(group.recommendedChoiceId, group.choices[0].id);
+  // veld-aliassen binnen keuze en regels werken
+  assert.equal(group.choices[1].summary, "Groter, modulair systeem.");
+  assert.equal(group.choices[0].items[0].unitPrice, 5200);
+  assert.ok(result.warnings.some((warning) => warning.includes("automatisch een id")));
+}
+
 console.log("quote-import tests passed");
