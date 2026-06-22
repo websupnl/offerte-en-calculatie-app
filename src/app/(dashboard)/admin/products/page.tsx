@@ -7,7 +7,7 @@ export default async function ProductsPage() {
   const companyId = session?.user?.activeCompanyId;
   const companySlug = session?.user?.companies?.find((c) => c.id === companyId)?.slug ?? "websup";
 
-  const [products, productSets] = companyId
+  const [products, productSets, datasheets] = companyId
     ? await Promise.all([
         prisma.product.findMany({
           where: { companyId, active: true },
@@ -23,16 +23,21 @@ export default async function ProductsPage() {
           },
           orderBy: { name: "asc" },
         }),
+        prisma.datasheet.findMany({
+          where: { companyId },
+          orderBy: [{ brand: "asc" }, { model: "asc" }],
+        }),
       ])
-    : [[], []];
+    : [[], [], []];
 
   // Serialize Decimal and Date types for client component
-  const serialized = JSON.parse(JSON.stringify({ products, productSets }));
+  const serialized = JSON.parse(JSON.stringify({ products, productSets, datasheets }));
 
   return (
     <ProductsClient
       initialProducts={serialized.products}
       initialSets={serialized.productSets}
+      initialDatasheets={serialized.datasheets}
       companySlug={companySlug}
     />
   );

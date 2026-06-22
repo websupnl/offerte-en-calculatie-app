@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Loader2, Package, Layers, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Package, Layers, X, Database, ExternalLink } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { KOOLHAAS_CATEGORIES, WEBSUP_CATEGORIES } from "@/lib/format";
 
@@ -65,18 +65,34 @@ type SetItemDraft = {
   notes: string;
 };
 
+type Datasheet = {
+  id: string;
+  brand: string;
+  model: string;
+  category: string | null;
+  price: string | number | null;
+  notes: string | null;
+  sourceUrl: string | null;
+  updatedAt: string;
+};
+
 export function ProductsClient({
   initialProducts,
   initialSets,
+  initialDatasheets,
   companySlug,
 }: {
   initialProducts: Product[];
   initialSets: ProductSet[];
+  initialDatasheets: Datasheet[];
   companySlug: string;
 }) {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [sets, setSets] = useState<ProductSet[]>(initialSets);
+  const [datasheets, setDatasheets] = useState<Datasheet[]>(initialDatasheets);
+  const [editingDsId, setEditingDsId] = useState<string | null>(null);
+  const [dsPriceEdit, setDsPriceEdit] = useState<string>("");
   const [productDialog, setProductDialog] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -255,6 +271,26 @@ export function ProductsClient({
     toast.success("Set verwijderd");
   }
 
+  async function handleSaveDsPrice(id: string) {
+    const price = parseFloat(dsPriceEdit);
+    if (isNaN(price)) { toast.error("Voer een geldige prijs in"); return; }
+    await fetch(`/api/knowledge/datasheets/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ price }),
+    });
+    setDatasheets((prev) => prev.map((d) => d.id === id ? { ...d, price } : d));
+    setEditingDsId(null);
+    toast.success("Inkoopprijs bijgewerkt");
+  }
+
+  async function handleDeleteDs(id: string) {
+    if (!confirm("Datasheet-entry verwijderen?")) return;
+    await fetch(`/api/knowledge/datasheets/${id}`, { method: "DELETE" });
+    setDatasheets((prev) => prev.filter((d) => d.id !== id));
+    toast.success("Entry verwijderd");
+  }
+
   return (
     <div className="p-8 space-y-6">
       <div className="flex items-center justify-between">
@@ -277,6 +313,10 @@ export function ProductsClient({
           <TabsTrigger value="sets">
             <Layers className="mr-2 h-4 w-4" />
             Sets ({sets.length})
+          </TabsTrigger>
+          <TabsTrigger value="inkoopprijzen">
+            <Database className="mr-2 h-4 w-4" />
+            Inkoopprijzen ({datasheets.length})
           </TabsTrigger>
         </TabsList>
 
@@ -407,6 +447,78 @@ export function ProductsClient({
                 </CardContent>
               </Card>
             ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="inkoopprijzen" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Leveranciersinkoopprijzen gescrapet via <code className="text-xs bg-muted px-1 rounded">npm run scrape:oosterberg</code>
+            </p>
+          </div>
+          {datasheets.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center py-16">
+                <Database className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                <p className="text-muted-foreground">Nog geen inkoopprijzen</p>
+                <p className="text-xs text-muted-foreground mt-1">Voer <code>npm run scrape:oosterberg</code> uit om Sigenergy-prijzen op te halen</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <div className="divide-y">
+                  {datasheets.map((d) => (
+                    <div key={d.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/50">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm">{d.brand} {d.model}</p>
+                          {d.category && <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{d.category}</span>}
+                        </div>
+                        {d.notes && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{d.notes}</p>}
+                      </div>
+                      <div className="flex items-center gap-3 ml-4 shrink-0">
+                        {editingDsId === d.id ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={dsPriceEdit}
+                              onChange={(e) => setDsPriceEdit(e.target.value)}
+                              className="w-28 h-8 text-sm"
+                              autoFocus
+                              onKeyDown={(e) => { if (e.key === "Enter") handleSaveDsPrice(d.id); if (e.key === "Escape") setEditingDsId(null); }}
+                            />
+                            <Button size="sm" onClick={() => handleSaveDsPrice(d.id)}>Opslaan</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditingDsId(null)}>Annuleren</Button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="text-right">
+                              <p className="text-sm font-medium tabular-nums">
+                                {d.price != null ? formatCurrency(Number(d.price)) : <span className="text-muted-foreground text-xs">—</span>}
+                              </p>
+                              <p className="text-xs text-muted-foreground">inkoop excl. btw</p>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={() => { setEditingDsId(d.id); setDsPriceEdit(d.price != null ? String(d.price) : ""); }}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            {d.sourceUrl && (
+                              <a href={d.sourceUrl} target="_blank" rel="noopener noreferrer">
+                                <Button variant="ghost" size="icon"><ExternalLink className="h-4 w-4" /></Button>
+                              </a>
+                            )}
+                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteDs(d.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
       </Tabs>

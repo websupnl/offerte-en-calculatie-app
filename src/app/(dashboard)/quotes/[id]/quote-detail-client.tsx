@@ -18,6 +18,7 @@ import {
   FileText,
   Zap,
   Printer,
+  Calculator,
 } from "lucide-react";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
 import { QuoteBuilder } from "@/components/forms/quote-builder";
@@ -29,9 +30,36 @@ type QuoteItem = {
   description: string;
   qty: string | number;
   unitPrice: string | number;
+  costPrice: string | number | null;
   vatRate: string | number;
   total: string | number;
+  indent: number;
   productId: string | null;
+};
+
+type ChoiceLineItem = {
+  description: string;
+  qty: number;
+  unitPrice: number;
+  costPrice?: number | null;
+  vatRate: number;
+  indent: number;
+};
+
+type ChoiceGroup = {
+  title: string;
+  choices: Array<{
+    label?: string;
+    title: string;
+    summary?: string;
+    items: ChoiceLineItem[];
+  }>;
+};
+
+type OptionItem = {
+  t: string;
+  price: number | null;
+  vatRate: number;
 };
 
 type QuoteAttachment = {
@@ -57,6 +85,9 @@ type Quote = {
   intro: string | null;
   outro: string | null;
   notes: string | null;
+  internalAdvice: string | null;
+  choiceGroups: ChoiceGroup[] | null;
+  options: OptionItem[] | null;
   totalExVat: string | number;
   totalVat: string | number;
   totalIncVat: string | number;
@@ -77,6 +108,202 @@ type Quote = {
     } | null;
   } | null;
 };
+
+function MargeRow({
+  label,
+  qty,
+  unitPrice,
+  costPrice,
+}: {
+  label: string;
+  qty: number;
+  unitPrice: number;
+  costPrice?: number | null;
+}) {
+  const revenue = unitPrice * qty;
+  const cost = costPrice != null ? costPrice * qty : null;
+  const profit = cost != null ? revenue - cost : null;
+  const pct = profit != null && revenue > 0 ? (profit / revenue) * 100 : null;
+
+  return (
+    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-6 items-center px-4 py-2 text-sm border-b last:border-0 hover:bg-muted/40">
+      <span className="truncate text-muted-foreground">{label}</span>
+      <span className="tabular-nums text-right w-8">{qty}×</span>
+      <span className="tabular-nums text-right w-24">{unitPrice > 0 ? formatCurrency(unitPrice) : <span className="text-muted-foreground text-xs">inbegrepen</span>}</span>
+      <span className="tabular-nums text-right w-24">{cost != null ? formatCurrency(cost) : <span className="text-muted-foreground">—</span>}</span>
+      <span className={`tabular-nums text-right w-24 font-medium ${profit != null && profit < 0 ? "text-destructive" : profit != null ? "text-emerald-600" : "text-muted-foreground"}`}>
+        {profit != null ? (
+          <>{formatCurrency(profit)}{pct != null && <span className="ml-1 text-xs opacity-70">({pct.toFixed(0)}%)</span>}</>
+        ) : "—"}
+      </span>
+    </div>
+  );
+}
+
+function CalculatieTab({ quote }: { quote: Quote }) {
+  const baseItems = quote.items.filter((i) => Number(i.unitPrice) > 0 || Number(i.costPrice) > 0);
+  const choiceGroups: ChoiceGroup[] = Array.isArray(quote.choiceGroups) ? quote.choiceGroups : [];
+  const options: OptionItem[] = Array.isArray(quote.options) ? quote.options : [];
+
+  const baseCost = quote.items.reduce((sum, i) => sum + (Number(i.costPrice) || 0) * Number(i.qty), 0);
+  const baseRevenue = quote.items.reduce((sum, i) => sum + Number(i.unitPrice) * Number(i.qty), 0);
+
+  return (
+    <div className="space-y-6">
+      {/* Vaste basis */}
+      {baseItems.length > 0 && (
+        <Card>
+          <CardContent className="p-0">
+            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-6 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-b bg-muted/30">
+              <span>Vaste werkzaamheden</span>
+              <span className="w-8 text-right">Qty</span>
+              <span className="w-24 text-right">Verkoop (ex)</span>
+              <span className="w-24 text-right">Inkoop totaal</span>
+              <span className="w-24 text-right">Winst</span>
+            </div>
+            {baseItems.map((item) => (
+              <MargeRow
+                key={item.id}
+                label={item.description}
+                qty={Number(item.qty)}
+                unitPrice={Number(item.unitPrice)}
+                costPrice={item.costPrice != null ? Number(item.costPrice) : null}
+              />
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Configuraties */}
+      {choiceGroups.map((group, gi) => (
+        <div key={gi} className="space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{group.title}</h3>
+          {group.choices.map((choice, ci) => {
+            const isRecommended = choice.label === "Aanbevolen";
+            const mainItems = choice.items.filter((i) => i.indent === 0);
+            const choiceRevenue = mainItems.reduce((s, i) => s + i.unitPrice * i.qty, 0);
+            const choiceCost = mainItems.reduce((s, i) => s + (i.costPrice ?? 0) * i.qty, 0);
+            const choiceProfit = choiceRevenue > 0 && choiceCost > 0 ? choiceRevenue - choiceCost : null;
+            const choicePct = choiceProfit != null && choiceRevenue > 0 ? (choiceProfit / choiceRevenue) * 100 : null;
+            return (
+              <Card key={ci} className={isRecommended ? "border-emerald-300" : ""}>
+                <CardContent className="p-0">
+                  <div className={`grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-6 px-4 py-2 text-xs font-semibold uppercase tracking-wide border-b ${isRecommended ? "bg-emerald-50/50 text-emerald-700" : "bg-muted/30 text-muted-foreground"}`}>
+                    <span>{choice.title}{isRecommended && " ★"}</span>
+                    <span className="w-8 text-right">Qty</span>
+                    <span className="w-24 text-right">Verkoop (ex)</span>
+                    <span className="w-24 text-right">Inkoop totaal</span>
+                    <span className="w-24 text-right">Winst</span>
+                  </div>
+                  {mainItems.map((item, ii) => (
+                    <MargeRow
+                      key={ii}
+                      label={item.description}
+                      qty={item.qty}
+                      unitPrice={item.unitPrice}
+                      costPrice={item.costPrice}
+                    />
+                  ))}
+                  {choiceProfit != null && (
+                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-6 px-4 py-2 text-sm border-t bg-muted/20 font-medium">
+                      <span className="text-muted-foreground">Subtotaal</span>
+                      <span className="w-8" />
+                      <span className="w-24 text-right tabular-nums">{formatCurrency(choiceRevenue)}</span>
+                      <span className="w-24 text-right tabular-nums">{formatCurrency(choiceCost)}</span>
+                      <span className="w-24 text-right tabular-nums text-emerald-600">
+                        {formatCurrency(choiceProfit)}
+                        {choicePct != null && <span className="ml-1 text-xs opacity-70">({choicePct.toFixed(0)}%)</span>}
+                      </span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      ))}
+
+      {/* Optioneel meerwerk */}
+      {options.length > 0 && (
+        <Card>
+          <CardContent className="p-0">
+            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-6 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-b bg-muted/30">
+              <span>Optioneel meerwerk</span>
+              <span className="w-8 text-right">Qty</span>
+              <span className="w-24 text-right">Prijs (ex)</span>
+              <span className="w-24 text-right">—</span>
+              <span className="w-24 text-right">—</span>
+            </div>
+            {options.filter((o) => o.price != null).map((o, i) => (
+              <MargeRow key={i} label={o.t} qty={1} unitPrice={o.price ?? 0} costPrice={null} />
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Samenvatting — aanbevolen scenario */}
+      {(() => {
+        const recommended = choiceGroups
+          .flatMap((g) => g.choices)
+          .find((c) => c.label === "Aanbevolen") ?? choiceGroups.flatMap((g) => g.choices)[0];
+
+        if (!recommended) return null;
+
+        const recRevenue = recommended.items
+          .filter((i) => i.indent === 0)
+          .reduce((s, i) => s + i.unitPrice * i.qty, 0);
+        const recCost = recommended.items
+          .filter((i) => i.indent === 0)
+          .reduce((s, i) => s + (i.costPrice ?? 0) * i.qty, 0);
+
+        const totalRevenue = baseRevenue + recRevenue;
+        const totalCost = baseCost + recCost;
+        const totalProfit = totalRevenue - totalCost;
+        const totalPct = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+        if (totalCost === 0) return null;
+
+        return (
+          <Card className="border-2">
+            <CardContent className="pt-5 pb-4 px-5 space-y-3">
+              <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Samenvatting — {recommended.title}
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Omzet (excl. BTW)</p>
+                  <p className="text-lg font-bold tabular-nums">{formatCurrency(totalRevenue)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Inkoopkosten</p>
+                  <p className="text-lg font-bold tabular-nums text-muted-foreground">{formatCurrency(totalCost)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Brutowinst</p>
+                  <p className={`text-lg font-bold tabular-nums ${totalProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                    {formatCurrency(totalProfit)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Brutomarge</p>
+                  <p className={`text-lg font-bold ${totalPct >= 15 ? "text-emerald-600" : totalPct >= 10 ? "text-amber-600" : "text-destructive"}`}>
+                    {totalPct.toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+              {quote.internalAdvice && (
+                <details className="mt-2">
+                  <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Intern advies tonen</summary>
+                  <pre className="mt-2 text-xs bg-muted p-3 rounded-md whitespace-pre-wrap font-mono">{quote.internalAdvice}</pre>
+                </details>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
+    </div>
+  );
+}
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   DRAFT: "secondary", SENT: "outline", VIEWED: "outline",
@@ -231,6 +458,10 @@ export function QuoteDetailClient({
               AI Advies ({quote.adviceDocuments.length})
             </TabsTrigger>
           )}
+          <TabsTrigger value="calculatie">
+            <Calculator className="mr-2 h-4 w-4" />
+            Calculatie
+          </TabsTrigger>
         </TabsList>
 
         {/* View tab */}
@@ -304,6 +535,11 @@ export function QuoteDetailClient({
             />
           </TabsContent>
         )}
+
+        {/* Calculatie tab */}
+        <TabsContent value="calculatie">
+          <CalculatieTab quote={quote} />
+        </TabsContent>
       </Tabs>
     </div>
   );

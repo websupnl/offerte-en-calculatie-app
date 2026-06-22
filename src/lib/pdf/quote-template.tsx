@@ -25,6 +25,26 @@ type QuoteAttachment = {
   caption?: string;
 };
 
+type PdfChoiceItem = {
+  description: string;
+  qty: number;
+  unitPrice: number;
+  indent?: number;
+};
+
+type PdfChoice = {
+  label?: string;
+  title: string;
+  summary?: string;
+  items: PdfChoiceItem[];
+};
+
+type PdfChoiceGroup = {
+  title: string;
+  description?: string;
+  choices: PdfChoice[];
+};
+
 type QuotePDFProps = {
   companyName: string;
   companySlug: string;
@@ -55,6 +75,11 @@ type QuotePDFProps = {
   options?: { t: string; d: string; tag: string }[];
   exclusions?: string[];
   attachments?: QuoteAttachment[];
+  choiceGroups?: PdfChoiceGroup[];
+  technicalNotes?: string[];
+  assumptions?: string[];
+  planning?: { leadTime?: string; executionDuration?: string };
+  commercial?: { paymentTerms?: string; warranty?: string };
 };
 
 const logoDataUri = (fileName: string): string => {
