@@ -19,6 +19,34 @@ export function generateQuoteNumber(companySlug: string, count: number): string 
   return `${prefix}-${year}-${String(count).padStart(4, "0")}`;
 }
 
+export function generateProjectNumber(companySlug: string, count: number): string {
+  const prefix = companySlug === "koolhaas" ? "KI" : "WU";
+  const year = new Date().getFullYear();
+  return `${prefix}-${year}-P${String(count).padStart(3, "0")}`;
+}
+
+export const PROJECT_STATUS_LABELS: Record<string, string> = {
+  OPEN: "Open",
+  IN_PROGRESS: "In uitvoering",
+  DONE: "Afgerond",
+  ARCHIVED: "Gearchiveerd",
+};
+
+export const PROJECT_STATUS_COLORS: Record<string, string> = {
+  OPEN: "secondary",
+  IN_PROGRESS: "default",
+  DONE: "default",
+  ARCHIVED: "secondary",
+};
+
+export const PROJECT_FILE_CATEGORIES = [
+  "OFFERTE",
+  "WERKBON",
+  "FACTUUR",
+  "FOTO",
+  "OVERIG",
+] as const;
+
 export const QUOTE_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Concept",
   SENT: "Verstuurd",

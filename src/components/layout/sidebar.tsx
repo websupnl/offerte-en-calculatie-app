@@ -18,6 +18,7 @@ import {
   Brain,
   TrendingUp,
   ShieldCheck,
+  FolderKanban,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -30,6 +31,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/dashboard", label: "The Accountant", icon: TrendingUp },
   { href: "/advice", label: "Technisch Advies", icon: ShieldCheck },
+  { href: "/projects", label: "Projecten", icon: FolderKanban, koolhaasOnly: true },
   { href: "/quotes", label: "Offertes", icon: FileText },
   { href: "/customers", label: "Klanten", icon: Users },
   { href: "/admin/products", label: "Producten", icon: Package },
@@ -82,7 +84,9 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1">
-        {navItems.map((item) => {
+        {navItems
+          .filter((item) => !item.koolhaasOnly || activeCompany?.slug === "koolhaas")
+          .map((item) => {
           const isActive = pathname.startsWith(item.href);
           return (
             <Link

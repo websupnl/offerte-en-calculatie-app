@@ -84,6 +84,7 @@ model Company {
   datasheets    Datasheet[]
   findings      ResearchFinding[]
   adviceReports AdviceDocument[]
+  projects      Project[]
 }
 
 model CompanyUser {
@@ -110,12 +111,17 @@ model Customer {
   city      String?
   zipCode   String?
   notes     String?  @db.Text
+  kvk       String?
+  vatNumber String?
+  iban      String?
+  type      String?  @default("KLANT") // KLANT | LEVERANCIER | BEIDE
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   company       Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   quotes        Quote[]
   adviceReports AdviceDocument[]
+  projects      Project[]
 }
 
 // ─── Products & Sets ───────────────────────────────────────────────────────
@@ -204,12 +210,14 @@ model Quote {
   internalAdvice           String?     @db.Text
   version                  Int         @default(1)
   pdfUrl                   String?
+  projectId                String?
   createdAt                DateTime    @default(now())
   updatedAt                DateTime    @updatedAt
 
   company         Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
   customer        Customer          @relation(fields: [customerId], references: [id])
   createdBy       User              @relation(fields: [createdById], references: [id])
+  project         Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
   items           QuoteItem[]
   attachments     QuoteAttachment[]
   adviceDocuments AdviceDocument[]
@@ -224,6 +232,47 @@ enum QuoteStatus {
   ACCEPTED
   DECLINED
   EXPIRED
+}
+
+// ─── Projects ──────────────────────────────────────────────────────────────
+
+model Project {
+  id          String    @id @default(cuid())
+  companyId   String
+  customerId  String
+  number      String // bijv. KI-2026-P001
+  title       String
+  description String?   @db.Text
+  status      String    @default("OPEN") // OPEN | IN_PROGRESS | DONE | ARCHIVED
+  address     String?
+  city        String?
+  zipCode     String?
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company  Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer Customer      @relation(fields: [customerId], references: [id])
+  quotes   Quote[]
+  files    ProjectFile[]
+
+  @@index([companyId])
+}
+
+model ProjectFile {
+  id         String   @id @default(cuid())
+  projectId  String
+  name       String
+  objectKey  String // MinIO/S3 object key
+  mimeType   String?
+  size       Int?
+  category   String?  @default("OVERIG") // OFFERTE | WERKBON | FACTUUR | FOTO | OVERIG
+  uploadedAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
 }
 
 model QuoteItem {
