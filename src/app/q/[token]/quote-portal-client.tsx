@@ -95,6 +95,11 @@ export function QuotePortalClient({
     selectedOptionIds,
   });
   const displayedTotal = share.acceptedTotalIncVat ?? totals.totalIncVat;
+  // Vaste werkzaamheden zitten in elke configuratie → per optie tonen we een all-in prijs (systeem + basis).
+  const baseIncVat = quote.items.reduce(
+    (sum, item) => sum + Number(item.qty) * Number(item.unitPrice) * (1 + Number(item.vatRate) / 100),
+    0,
+  );
 
   const isKoolhaas = quote.company.slug === "koolhaas";
   const portalBrand = isKoolhaas
@@ -366,6 +371,7 @@ export function QuotePortalClient({
                                 const line = Number(item.qty) * Number(item.unitPrice);
                                 return sum + line * (1 + Number(item.vatRate) / 100);
                               }, 0);
+                              const allInIncVat = incVat + baseIncVat;
                               const isRecommended = group.recommendedChoiceId === choice.id;
                               return (
                                 <label key={choice.id} className={`portal-select-card ${selected ? "is-selected" : ""}`}>
@@ -383,7 +389,10 @@ export function QuotePortalClient({
                                       {(isRecommended || choice.label) && <em>{choice.label || "Aanbevolen"}</em>}
                                     </span>
                                     {choice.summary && <small>{choice.summary}</small>}
-                                    <strong>{formatCurrency(incVat)} <small>incl. btw</small></strong>
+                                    <strong>{formatCurrency(allInIncVat)} <small>incl. btw — compleet</small></strong>
+                                    {exVat > 0 && baseIncVat > 0 && (
+                                      <small>Systeem {formatCurrency(incVat)} · montage &amp; installatie {formatCurrency(baseIncVat)}</small>
+                                    )}
                                     {exVat === 0 && <small>Geen meerprijs</small>}
                                   </span>
                                 </label>

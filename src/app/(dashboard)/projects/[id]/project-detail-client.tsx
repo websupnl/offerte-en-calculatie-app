@@ -25,6 +25,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -36,6 +42,7 @@ import {
   Download,
   FolderKanban,
   ClipboardList,
+  Receipt,
   Plus,
   ChevronRight,
 } from "lucide-react";
@@ -43,6 +50,7 @@ import {
   PROJECT_STATUS_LABELS,
   PROJECT_FILE_CATEGORIES,
   WORKORDER_STATUS_LABELS,
+  INVOICE_STATUS_LABELS,
   formatCurrency,
   formatDate,
   QUOTE_STATUS_LABELS,
@@ -77,6 +85,15 @@ type WorkOrder = {
   _count: { lines: number };
 };
 
+type Invoice = {
+  id: string;
+  number: string;
+  status: string;
+  totalIncVat: string | number;
+  invoiceDate: string;
+  createdAt: string;
+};
+
 type Project = {
   id: string;
   number: string;
@@ -89,6 +106,7 @@ type Project = {
   quotes: Quote[];
   files: ProjectFile[];
   workOrders: WorkOrder[];
+  invoices: Invoice[];
 };
 
 const STATUSES = ["OPEN", "IN_PROGRESS", "DONE", "ARCHIVED"];
@@ -137,6 +155,29 @@ export function ProjectDetailClient({ project }: { project: Project }) {
       toast.error(e instanceof Error ? e.message : "Er ging iets mis");
     } finally {
       setWoSaving(false);
+    }
+  }
+
+  const [invoices, setInvoices] = useState<Invoice[]>(project.invoices);
+  const [invCreating, setInvCreating] = useState(false);
+
+  async function createInvoice(payload: { fromQuoteId?: string; fromWorkOrderId?: string }) {
+    setInvCreating(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/invoices`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Aanmaken mislukt");
+      const inv: Invoice = await res.json();
+      setInvoices((prev) => [inv, ...prev]);
+      toast.success(`Factuur ${inv.number} aangemaakt`);
+      router.push(`/invoices/${inv.id}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Er ging iets mis");
+    } finally {
+      setInvCreating(false);
     }
   }
 
@@ -242,6 +283,9 @@ export function ProjectDetailClient({ project }: { project: Project }) {
           <TabsTrigger value="workorders" className="gap-1">
             <ClipboardList className="h-4 w-4" /> Werkbonnen ({workOrders.length})
           </TabsTrigger>
+          <TabsTrigger value="invoices" className="gap-1">
+            <Receipt className="h-4 w-4" /> Facturen ({invoices.length})
+          </TabsTrigger>
           <TabsTrigger value="files" className="gap-1">
             <Paperclip className="h-4 w-4" /> Bestanden ({files.length})
           </TabsTrigger>
@@ -338,6 +382,78 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                         {WORKORDER_STATUS_LABELS[w.status] ?? w.status}
                       </Badge>
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))
+          )}
+        </TabsContent>
+
+        {/* Facturen */}
+        <TabsContent value="invoices" className="mt-4 space-y-3">
+          <div className="flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                disabled={invCreating}
+                className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              >
+                {invCreating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                Factuur maken
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuItem onClick={() => createInvoice({})}>
+                  Lege factuur
+                </DropdownMenuItem>
+                {project.quotes
+                  .filter((q) => q.status === "ACCEPTED")
+                  .map((q) => (
+                    <DropdownMenuItem
+                      key={q.id}
+                      onClick={() => createInvoice({ fromQuoteId: q.id })}
+                    >
+                      Vanuit offerte {q.number}
+                    </DropdownMenuItem>
+                  ))}
+                {workOrders
+                  .filter((w) => w.status === "UITGEVOERD")
+                  .map((w) => (
+                    <DropdownMenuItem
+                      key={w.id}
+                      onClick={() => createInvoice({ fromWorkOrderId: w.id })}
+                    >
+                      Vanuit werkbon {w.number}
+                    </DropdownMenuItem>
+                  ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          {invoices.length === 0 ? (
+            <Card>
+              <CardContent className="py-10 text-center text-muted-foreground">
+                Nog geen facturen. Maak er een vanuit een offerte, werkbon of leeg.
+              </CardContent>
+            </Card>
+          ) : (
+            invoices.map((inv) => (
+              <Link key={inv.id} href={`/invoices/${inv.id}`}>
+                <Card className="transition-colors hover:border-primary">
+                  <CardContent className="p-4 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-mono text-sm">{inv.number}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(inv.invoiceDate)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge variant="secondary">
+                        {INVOICE_STATUS_LABELS[inv.status] ?? inv.status}
+                      </Badge>
+                      <span className="font-medium">{formatCurrency(inv.totalIncVat)}</span>
                     </div>
                   </CardContent>
                 </Card>

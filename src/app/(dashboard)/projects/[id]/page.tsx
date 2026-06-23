@@ -26,6 +26,10 @@ export default async function ProjectDetailPage({
         orderBy: { createdAt: "desc" },
         include: { _count: { select: { lines: true } } },
       },
+      invoices: {
+        orderBy: { createdAt: "desc" },
+        include: { _count: { select: { lines: true } } },
+      },
     },
   });
 

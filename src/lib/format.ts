@@ -69,6 +69,26 @@ export const WORKORDER_STATUS_COLORS: Record<string, string> = {
 
 export const WORKORDER_LINE_TYPES = ["MATERIAAL", "ARBEID"] as const;
 
+export function generateInvoiceNumber(companySlug: string, count: number): string {
+  const prefix = companySlug === "koolhaas" ? "KI" : "WU";
+  const year = new Date().getFullYear();
+  return `${prefix}-${year}-F${String(count).padStart(3, "0")}`;
+}
+
+export const INVOICE_STATUS_LABELS: Record<string, string> = {
+  CONCEPT: "Concept",
+  VERZONDEN: "Verzonden",
+  BETAALD: "Betaald",
+  VERVALLEN: "Vervallen",
+};
+
+export const INVOICE_STATUS_COLORS: Record<string, string> = {
+  CONCEPT: "secondary",
+  VERZONDEN: "default",
+  BETAALD: "default",
+  VERVALLEN: "destructive",
+};
+
 export const QUOTE_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Concept",
   SENT: "Verstuurd",

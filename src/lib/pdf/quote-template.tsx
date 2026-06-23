@@ -413,6 +413,14 @@ export function QuotePDF({
   const tagline = taglineProp || companyTagline || brand.defaultTagline;
   const showChoiceGroups = choiceGroupsProp.length > 0 && status !== "ACCEPTED";
 
+  // Vaste werkzaamheden ("basis") zitten in elke configuratie. Per optie tonen we
+  // daarom een all-in prijs: systeem + basis. Alle posten zijn 21% btw.
+  const VAT_FACTOR = 1.21;
+  const baseExVat = items.reduce(
+    (sum, i) => sum + Number((i as { total?: number }).total ?? Number(i.unitPrice) * Number(i.qty)),
+    0,
+  );
+
   const PAD = 38;
   const innerPage = { padding: PAD, paddingTop: 30, paddingBottom: 50 };
   const attachmentPairs = Array.from({ length: Math.ceil(attachments.length / 2) }, (_, i) =>
@@ -643,6 +651,13 @@ export function QuotePDF({
         <Eyebrow text="De investering" color={brand.colors.accent} />
         <H2 text={brand.investmentTitle} />
 
+        {showChoiceGroups && (
+          <Text style={{ fontSize: 9, color: "#334155", lineHeight: 1.55, marginTop: 8, marginBottom: 4 }}>
+            Hieronder staan de complete opstellingen om uit te kiezen. In beide opties zit dezelfde vaste basis aan werkzaamheden; het verschil zit in de batterijcapaciteit en de noodstroomfunctie. De prijs per optie is all-in: levering, montage en inbedrijfstelling zitten erbij.
+          </Text>
+        )}
+
+        {!showChoiceGroups && (
         <View style={{ borderWidth: 1, borderColor: brand.colors.border, borderRadius: 10, overflow: "hidden", marginTop: 10, marginBottom: 14 }}>
           <View style={{ flexDirection: "row", backgroundColor: brand.colors.surface, borderBottomWidth: 1, borderBottomColor: brand.colors.border }}>
             <Text style={{ flex: 1, padding: 9, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted, textTransform: "uppercase" }}>Omschrijving</Text>
@@ -684,6 +699,7 @@ export function QuotePDF({
             </View>
           ))}
         </View>
+        )}
 
         {false && (
         <>
@@ -751,45 +767,53 @@ export function QuotePDF({
                 const choiceTotal = mainItems.reduce((sum, i) => sum + i.unitPrice * i.qty, 0);
                 return (
                   <View key={ci} style={{ borderWidth: 1.5, borderColor: isRec ? brand.colors.accent : brand.colors.border, borderRadius: 8, overflow: "hidden" }}>
-                    <View style={{
-                      flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
-                      padding: 10,
-                      backgroundColor: isRec ? brand.colors.surface : "#FFFFFF",
-                    }}>
-                      <View style={{ flex: 1 }}>
-                        {isRec && (
-                          <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 0.8, color: brand.colors.accent, marginBottom: 3 }}>
-                            ★ Aanbevolen
-                          </Text>
-                        )}
-                        <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: brand.colors.text, marginBottom: choice.summary ? 4 : 0 }}>
-                          {choice.title}
+                    {/* Header: titel + samenvatting */}
+                    <View style={{ padding: 10, backgroundColor: isRec ? brand.colors.surface : "#FFFFFF" }}>
+                      {isRec && (
+                        <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 0.8, color: brand.colors.accent, marginBottom: 3 }}>
+                          ★ Aanbevolen
                         </Text>
-                        {choice.summary && (
-                          <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.45, maxWidth: 350 }}>
-                            {choice.summary}
-                          </Text>
-                        )}
-                      </View>
-                      {choiceTotal > 0 && (
-                        <View style={{ alignItems: "flex-end", marginLeft: 12 }}>
-                          <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>
-                            {formatEur(choiceTotal)}
-                          </Text>
-                          <Text style={{ fontSize: 7, color: brand.colors.muted, marginTop: 1 }}>excl. btw</Text>
-                        </View>
+                      )}
+                      <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: brand.colors.text, marginBottom: choice.summary ? 4 : 0 }}>
+                        {choice.title}
+                      </Text>
+                      {choice.summary && (
+                        <Text style={{ fontSize: 8.5, color: brand.colors.muted, lineHeight: 1.45 }}>
+                          {choice.summary}
+                        </Text>
                       )}
                     </View>
-                    {subItems.length > 0 && (
-                      <View style={{ borderTopWidth: 1, borderTopColor: brand.colors.border, backgroundColor: brand.colors.surface }}>
-                        {subItems.map((item, ii) => (
-                          <View key={ii} style={{ flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 10, paddingVertical: 5, borderTopWidth: ii > 0 ? 1 : 0, borderTopColor: brand.colors.border }}>
-                            <View style={{ width: 13, height: 13, borderRadius: 6.5, backgroundColor: brand.colors.accent, justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
-                              <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>v</Text>
-                            </View>
-                            <Text style={{ flex: 1, fontSize: 8.5, color: "#334155", lineHeight: 1.3 }}>{item.description}</Text>
+
+                    {/* Inbegrepen: leveringsomvang (hardware + vaste basis) */}
+                    <View style={{ borderTopWidth: 1, borderTopColor: brand.colors.border, backgroundColor: "#FFFFFF", paddingTop: 6, paddingBottom: 4 }}>
+                      <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 0.8, color: brand.colors.muted, paddingHorizontal: 10, paddingBottom: 3 }}>
+                        Inbegrepen
+                      </Text>
+                      {[...subItems.map((i) => i.description), ...items.map((i) => i.description)].map((desc, ii) => (
+                        <View key={ii} style={{ flexDirection: "row", alignItems: "flex-start", gap: 7, paddingHorizontal: 10, paddingVertical: 2.5 }}>
+                          <View style={{ width: 12, height: 12, borderRadius: 6, marginTop: 1, backgroundColor: brand.colors.accent, justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
+                            <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>v</Text>
                           </View>
-                        ))}
+                          <Text style={{ flex: 1, fontSize: 8.5, color: "#334155", lineHeight: 1.3 }}>{desc}</Text>
+                        </View>
+                      ))}
+                    </View>
+
+                    {/* Investering: uitsplitsing + all-in totaal */}
+                    {choiceTotal > 0 && (
+                      <View style={{ borderTopWidth: 1, borderTopColor: brand.colors.border, backgroundColor: brand.colors.surface, paddingHorizontal: 10, paddingVertical: 8 }}>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 3 }}>
+                          <Text style={{ fontSize: 8.5, color: brand.colors.muted }}>Systeem &amp; apparatuur</Text>
+                          <Text style={{ fontSize: 8.5, color: "#334155" }}>{formatEur(choiceTotal * VAT_FACTOR)}</Text>
+                        </View>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 5 }}>
+                          <Text style={{ fontSize: 8.5, color: brand.colors.muted }}>Montage &amp; installatie</Text>
+                          <Text style={{ fontSize: 8.5, color: "#334155" }}>{formatEur(baseExVat * VAT_FACTOR)}</Text>
+                        </View>
+                        <View style={{ borderTopWidth: 1, borderTopColor: brand.colors.border, paddingTop: 5, flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
+                          <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>Totaal incl. btw</Text>
+                          <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>{formatEur((choiceTotal + baseExVat) * VAT_FACTOR)}</Text>
+                        </View>
                       </View>
                     )}
                   </View>
