@@ -85,6 +85,7 @@ model Company {
   findings      ResearchFinding[]
   adviceReports AdviceDocument[]
   projects      Project[]
+  workOrders    WorkOrder[]
 }
 
 model CompanyUser {
@@ -252,12 +253,57 @@ model Project {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  company  Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  customer Customer      @relation(fields: [customerId], references: [id])
-  quotes   Quote[]
-  files    ProjectFile[]
+  company    Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer   Customer      @relation(fields: [customerId], references: [id])
+  quotes     Quote[]
+  files      ProjectFile[]
+  workOrders WorkOrder[]
 
   @@index([companyId])
+}
+
+model WorkOrder {
+  id             String    @id @default(cuid())
+  companyId      String
+  projectId      String
+  number         String // bijv. KI-2026-W001
+  title          String
+  description    String?   @db.Text
+  status         String    @default("CONCEPT") // CONCEPT | GEPLAND | UITGEVOERD | GEFACTUREERD
+  scheduledAt    DateTime?
+  executedAt     DateTime?
+  technicianName String?
+
+  // Handtekening klant (objectKey in MinIO)
+  signatureKey String?
+  signedAt     DateTime?
+  signedBy     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  lines   WorkOrderLine[]
+
+  @@index([projectId])
+  @@index([companyId])
+}
+
+model WorkOrderLine {
+  id          String   @id @default(cuid())
+  workOrderId String
+  type        String   @default("MATERIAAL") // MATERIAAL | ARBEID
+  description String   @db.Text
+  qty         Decimal  @default(1) @db.Decimal(10, 2)
+  unit        String?  @default("stuk") // stuk, m, uur
+  unitPrice   Decimal  @default(0) @db.Decimal(10, 2)
+  costPrice   Decimal? @db.Decimal(10, 2)
+  sortOrder   Int      @default(0)
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
 }
 
 model ProjectFile {

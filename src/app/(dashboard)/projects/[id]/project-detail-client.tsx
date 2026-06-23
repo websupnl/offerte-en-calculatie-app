@@ -1,11 +1,23 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -23,10 +35,14 @@ import {
   Trash2,
   Download,
   FolderKanban,
+  ClipboardList,
+  Plus,
+  ChevronRight,
 } from "lucide-react";
 import {
   PROJECT_STATUS_LABELS,
   PROJECT_FILE_CATEGORIES,
+  WORKORDER_STATUS_LABELS,
   formatCurrency,
   formatDate,
   QUOTE_STATUS_LABELS,
@@ -51,6 +67,16 @@ type Quote = {
   createdAt: string;
 };
 
+type WorkOrder = {
+  id: string;
+  number: string;
+  title: string;
+  status: string;
+  scheduledAt: string | null;
+  createdAt: string;
+  _count: { lines: number };
+};
+
 type Project = {
   id: string;
   number: string;
@@ -62,6 +88,7 @@ type Project = {
   customer: { id: string; name: string; email: string | null } | null;
   quotes: Quote[];
   files: ProjectFile[];
+  workOrders: WorkOrder[];
 };
 
 const STATUSES = ["OPEN", "IN_PROGRESS", "DONE", "ARCHIVED"];
@@ -74,11 +101,44 @@ function formatSize(bytes: number | null): string {
 }
 
 export function ProjectDetailClient({ project }: { project: Project }) {
+  const router = useRouter();
   const [status, setStatus] = useState(project.status);
   const [files, setFiles] = useState<ProjectFile[]>(project.files);
   const [uploading, setUploading] = useState(false);
   const [uploadCategory, setUploadCategory] = useState("OVERIG");
   const fileInput = useRef<HTMLInputElement>(null);
+
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(project.workOrders);
+  const [woDialogOpen, setWoDialogOpen] = useState(false);
+  const [woSaving, setWoSaving] = useState(false);
+  const { register: woRegister, handleSubmit: woHandleSubmit, reset: woReset } =
+    useForm<{ title: string; description?: string; technicianName?: string }>();
+
+  async function createWorkOrder(data: {
+    title: string;
+    description?: string;
+    technicianName?: string;
+  }) {
+    setWoSaving(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/workorders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Aanmaken mislukt");
+      const wo: WorkOrder = await res.json();
+      setWorkOrders((prev) => [wo, ...prev]);
+      setWoDialogOpen(false);
+      woReset();
+      toast.success(`Werkbon ${wo.number} aangemaakt`);
+      router.push(`/workorders/${wo.id}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Er ging iets mis");
+    } finally {
+      setWoSaving(false);
+    }
+  }
 
   async function changeStatus(next: string) {
     const prev = status;
@@ -179,6 +239,9 @@ export function ProjectDetailClient({ project }: { project: Project }) {
           <TabsTrigger value="quotes" className="gap-1">
             <FileText className="h-4 w-4" /> Offertes ({project.quotes.length})
           </TabsTrigger>
+          <TabsTrigger value="workorders" className="gap-1">
+            <ClipboardList className="h-4 w-4" /> Werkbonnen ({workOrders.length})
+          </TabsTrigger>
           <TabsTrigger value="files" className="gap-1">
             <Paperclip className="h-4 w-4" /> Bestanden ({files.length})
           </TabsTrigger>
@@ -236,6 +299,45 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                         {QUOTE_STATUS_LABELS[q.status] ?? q.status}
                       </Badge>
                       <span className="font-medium">{formatCurrency(q.totalIncVat)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))
+          )}
+        </TabsContent>
+
+        {/* Werkbonnen */}
+        <TabsContent value="workorders" className="mt-4 space-y-3">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => { woReset(); setWoDialogOpen(true); }}>
+              <Plus className="h-4 w-4 mr-1" /> Nieuwe werkbon
+            </Button>
+          </div>
+          {workOrders.length === 0 ? (
+            <Card>
+              <CardContent className="py-10 text-center text-muted-foreground">
+                Nog geen werkbonnen. Maak er een aan voor de uitvoering.
+              </CardContent>
+            </Card>
+          ) : (
+            workOrders.map((w) => (
+              <Link key={w.id} href={`/workorders/${w.id}`}>
+                <Card className="transition-colors hover:border-primary">
+                  <CardContent className="p-4 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-mono text-xs text-muted-foreground">{w.number}</p>
+                      <p className="font-medium truncate">{w.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {w._count.lines} regel{w._count.lines === 1 ? "" : "s"}
+                        {w.scheduledAt ? ` · gepland ${formatDate(w.scheduledAt)}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant="secondary">
+                        {WORKORDER_STATUS_LABELS[w.status] ?? w.status}
+                      </Badge>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </CardContent>
                 </Card>
@@ -313,6 +415,40 @@ export function ProjectDetailClient({ project }: { project: Project }) {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={woDialogOpen} onOpenChange={setWoDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nieuwe werkbon</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={woHandleSubmit(createWorkOrder)} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Titel *</Label>
+              <Input
+                {...woRegister("title", { required: true })}
+                placeholder="Bijv. Plaatsing batterij + inbedrijfstelling"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Omschrijving</Label>
+              <Textarea {...woRegister("description")} placeholder="Wat ga je doen? (optioneel)" />
+            </div>
+            <div className="space-y-2">
+              <Label>Monteur</Label>
+              <Input {...woRegister("technicianName")} placeholder="Naam monteur (optioneel)" />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setWoDialogOpen(false)}>
+                Annuleren
+              </Button>
+              <Button type="submit" disabled={woSaving}>
+                {woSaving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                Aanmaken
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

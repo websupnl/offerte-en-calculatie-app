@@ -47,6 +47,28 @@ export const PROJECT_FILE_CATEGORIES = [
   "OVERIG",
 ] as const;
 
+export function generateWorkOrderNumber(companySlug: string, count: number): string {
+  const prefix = companySlug === "koolhaas" ? "KI" : "WU";
+  const year = new Date().getFullYear();
+  return `${prefix}-${year}-W${String(count).padStart(3, "0")}`;
+}
+
+export const WORKORDER_STATUS_LABELS: Record<string, string> = {
+  CONCEPT: "Concept",
+  GEPLAND: "Gepland",
+  UITGEVOERD: "Uitgevoerd",
+  GEFACTUREERD: "Gefactureerd",
+};
+
+export const WORKORDER_STATUS_COLORS: Record<string, string> = {
+  CONCEPT: "secondary",
+  GEPLAND: "default",
+  UITGEVOERD: "default",
+  GEFACTUREERD: "default",
+};
+
+export const WORKORDER_LINE_TYPES = ["MATERIAAL", "ARBEID"] as const;
+
 export const QUOTE_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Concept",
   SENT: "Verstuurd",

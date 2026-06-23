@@ -22,6 +22,10 @@ export default async function ProjectDetailPage({
         select: { id: true, number: true, status: true, totalIncVat: true, createdAt: true },
       },
       files: { orderBy: { uploadedAt: "desc" } },
+      workOrders: {
+        orderBy: { createdAt: "desc" },
+        include: { _count: { select: { lines: true } } },
+      },
     },
   });
 
