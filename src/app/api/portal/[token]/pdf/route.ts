@@ -76,6 +76,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
     approach: (quote.approach as Array<{ n: string; t: string; d: string }> | null) || [],
     options: (quote.options as Array<{ t: string; d: string; tag: string }> | null) || [],
     exclusions: (quote.exclusions as string[]) || [],
+    choiceGroups: (quote.choiceGroups as Array<{ title: string; description?: string; choices: Array<{ label?: string; title: string; summary?: string; items: Array<{ description: string; qty: number; unitPrice: number; indent?: number }> }> }> | null) || [],
+    technicalNotes: (quote.technicalNotes as string[] | null) || [],
+    assumptions: (quote.assumptions as string[] | null) || [],
+    planning: (quote.planning as { leadTime?: string; executionDuration?: string } | null) ?? undefined,
+    commercial: (quote.commercial as { paymentTerms?: string; warranty?: string } | null) ?? undefined,
     attachments: quote.attachments.map((attachment) => ({
       title: attachment.title ?? undefined,
       imageUrl: attachment.imageUrl,

@@ -353,15 +353,18 @@ function H2({ text, color = "#0F172A" }: { text: string; color?: string }) {
 
 // ─── Page footer ──────────────────────────────────────────────────────────────
 
-function PageFooter({ tag, page, customerName }: { tag: string; page: string; customerName: string }) {
+function PageFooter({ tag, customerName }: { tag: string; customerName: string }) {
   return (
     <>
       <Text style={{ position: "absolute", bottom: 22, left: 38, fontSize: 7.5, color: "#94A3B8", fontFamily: "Helvetica-Bold", textTransform: "uppercase" }}>
         {tag} &nbsp;&middot;&nbsp; {customerName}
       </Text>
-      <Text style={{ position: "absolute", bottom: 22, right: 38, fontSize: 7.5, color: "#94A3B8", fontFamily: "Helvetica-Bold" }}>
-        {page}
-      </Text>
+      <Text
+        render={({ pageNumber, totalPages }) =>
+          `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`
+        }
+        style={{ position: "absolute", bottom: 22, right: 38, fontSize: 7.5, color: "#94A3B8", fontFamily: "Helvetica-Bold" }}
+      />
     </>
   );
 }
@@ -392,6 +395,11 @@ export function QuotePDF({
   options: optionsProp = [],
   exclusions: exclusionsProp = [],
   attachments = [],
+  choiceGroups: choiceGroupsProp = [],
+  technicalNotes: technicalNotesProp = [],
+  assumptions: assumptionsProp = [],
+  planning: planningProp,
+  commercial: commercialProp,
 }: QuotePDFProps) {
   const brand = getBrand(companySlug);
   const isKoolhaas = companySlug === "koolhaas";
@@ -403,16 +411,13 @@ export function QuotePDF({
   const title = titleProp || brand.defaultTitle;
   const category = categoryProp || brand.defaultCategory;
   const tagline = taglineProp || companyTagline || brand.defaultTagline;
+  const showChoiceGroups = choiceGroupsProp.length > 0 && status !== "ACCEPTED";
 
   const PAD = 38;
   const innerPage = { padding: PAD, paddingTop: 30, paddingBottom: 50 };
-  const attachmentPages = Math.ceil(attachments.length / 2);
-  const attachmentPairs = Array.from({ length: attachmentPages }, (_, index) =>
-    attachments.slice(index * 2, index * 2 + 2)
+  const attachmentPairs = Array.from({ length: Math.ceil(attachments.length / 2) }, (_, i) =>
+    attachments.slice(i * 2, i * 2 + 2)
   );
-  const totalPages = 4 + attachmentPages;
-  const pageLabel = (page: number) =>
-    `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
   // Cover uses dark left panel for WebsUp, light for Koolhaas
   const coverDark = !isKoolhaas;
   const coverText = coverDark ? "#FFFFFF" : brand.colors.text;
@@ -539,11 +544,8 @@ export function QuotePDF({
           </View>
         </View>
 
-        <PageFooter tag="Offerte" page={pageLabel(2)} customerName={customerName} />
+        <PageFooter tag="Offerte" customerName={customerName} />
       </Page>
-
-      {false && (
-      <>
 
       {/* ════════════════════════════════════════════════════════
           PAGE 3: FLOW + APPROACH
@@ -593,11 +595,8 @@ export function QuotePDF({
           ))}
         </View>
 
-        <PageFooter tag="Offerte" page={pageLabel(3)} customerName={customerName} />
+        <PageFooter tag="Offerte" customerName={customerName} />
       </Page>
-
-      </>
-      )}
 
       {attachmentPairs.map((pair, pageIndex) => (
         <Page key={pageIndex} size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
@@ -610,7 +609,7 @@ export function QuotePDF({
               <H2 text={isKoolhaas ? "Technische indruk en plaatsing." : "Zo ziet de richting eruit."} />
             </View>
             <View style={{ backgroundColor: brand.colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
-              <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>{pageIndex + 1} / {attachmentPages}</Text>
+              <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>{pageIndex + 1} / {attachmentPairs.length}</Text>
             </View>
           </View>
 
@@ -630,7 +629,7 @@ export function QuotePDF({
             ))}
           </View>
 
-          <PageFooter tag="Offerte" page={pageLabel(3 + pageIndex)} customerName={customerName} />
+          <PageFooter tag="Offerte" customerName={customerName} />
         </Page>
       ))}
 
@@ -735,6 +734,71 @@ export function QuotePDF({
         </>
         )}
 
+        {/* Configuration choices — only for non-accepted quotes */}
+        {showChoiceGroups && choiceGroupsProp.map((group, gi) => (
+          <View key={gi} style={{ marginTop: 14 }}>
+            <Eyebrow text={group.title} color={brand.colors.accent} />
+            {group.description && (
+              <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.4, marginBottom: 8 }}>
+                {group.description}
+              </Text>
+            )}
+            <View style={{ gap: 8 }}>
+              {group.choices.map((choice, ci) => {
+                const isRec = choice.label === "Aanbevolen";
+                const mainItems = choice.items.filter((i) => !i.indent || i.indent === 0);
+                const subItems = choice.items.filter((i) => i.indent && i.indent > 0);
+                const choiceTotal = mainItems.reduce((sum, i) => sum + i.unitPrice * i.qty, 0);
+                return (
+                  <View key={ci} style={{ borderWidth: 1.5, borderColor: isRec ? brand.colors.accent : brand.colors.border, borderRadius: 8, overflow: "hidden" }}>
+                    <View style={{
+                      flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
+                      padding: 10,
+                      backgroundColor: isRec ? brand.colors.surface : "#FFFFFF",
+                    }}>
+                      <View style={{ flex: 1 }}>
+                        {isRec && (
+                          <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 0.8, color: brand.colors.accent, marginBottom: 3 }}>
+                            ★ Aanbevolen
+                          </Text>
+                        )}
+                        <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: brand.colors.text, marginBottom: choice.summary ? 4 : 0 }}>
+                          {choice.title}
+                        </Text>
+                        {choice.summary && (
+                          <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.45, maxWidth: 350 }}>
+                            {choice.summary}
+                          </Text>
+                        )}
+                      </View>
+                      {choiceTotal > 0 && (
+                        <View style={{ alignItems: "flex-end", marginLeft: 12 }}>
+                          <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>
+                            {formatEur(choiceTotal)}
+                          </Text>
+                          <Text style={{ fontSize: 7, color: brand.colors.muted, marginTop: 1 }}>excl. btw</Text>
+                        </View>
+                      )}
+                    </View>
+                    {subItems.length > 0 && (
+                      <View style={{ borderTopWidth: 1, borderTopColor: brand.colors.border, backgroundColor: brand.colors.surface }}>
+                        {subItems.map((item, ii) => (
+                          <View key={ii} style={{ flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 10, paddingVertical: 5, borderTopWidth: ii > 0 ? 1 : 0, borderTopColor: brand.colors.border }}>
+                            <View style={{ width: 13, height: 13, borderRadius: 6.5, backgroundColor: brand.colors.accent, justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
+                              <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>v</Text>
+                            </View>
+                            <Text style={{ flex: 1, fontSize: 8.5, color: "#334155", lineHeight: 1.3 }}>{item.description}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ))}
+
         <Divider color={brand.colors.border} />
 
         {/* Options */}
@@ -758,7 +822,7 @@ export function QuotePDF({
           ))}
         </View>
 
-        <PageFooter tag="Offerte" page={pageLabel(3 + attachmentPages)} customerName={customerName} />
+        <PageFooter tag="Offerte" customerName={customerName} />
       </Page>
 
       {/* ════════════════════════════════════════════════════════
@@ -767,6 +831,38 @@ export function QuotePDF({
       <Page size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
         <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
         <PageHeader brand={brand} quoteNumber={quoteNumber} customerName={customerName} />
+
+        {/* Technical notes */}
+        {technicalNotesProp.length > 0 && (
+          <View style={{ marginBottom: 14 }}>
+            <Eyebrow text="Technische uitgangspunten" color={brand.colors.accent} />
+            <View style={{ gap: 4 }}>
+              {technicalNotesProp.map((note, i) => (
+                <View key={i} style={{ flexDirection: "row", gap: 7 }}>
+                  <Text style={{ fontSize: 8, color: brand.colors.accent, fontFamily: "Helvetica-Bold", marginTop: 1 }}>—</Text>
+                  <Text style={{ flex: 1, fontSize: 9, color: "#334155", lineHeight: 1.45 }}>{note}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Assumptions */}
+        {assumptionsProp.length > 0 && (
+          <View style={{ marginBottom: 14 }}>
+            <Eyebrow text="Uitgangspunten" color={brand.colors.accent} />
+            <View style={{ gap: 4 }}>
+              {assumptionsProp.map((a, i) => (
+                <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                  <View style={{ width: 13, height: 13, borderRadius: 6.5, backgroundColor: brand.colors.surface, borderWidth: 1, borderColor: brand.colors.border, justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
+                    <Text style={{ fontSize: 6, color: brand.colors.muted }}>i</Text>
+                  </View>
+                  <Text style={{ flex: 1, fontSize: 9, color: "#334155", lineHeight: 1.45 }}>{a}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Exclusions */}
         <Eyebrow text={brand.exclusionsEyebrow} color={brand.colors.accent} />
@@ -789,6 +885,38 @@ export function QuotePDF({
         <Text style={{ fontSize: 9.5, lineHeight: 1.65, color: "#334155", marginBottom: 4 }}>
           {outro || "Heb je vragen over deze offerte of wil je iets aanpassen? Stuur een bericht via WhatsApp of e-mail. Ik loop het graag samen met je door."}
         </Text>
+
+        {(planningProp || commercialProp) && (
+          <>
+            <Divider color={brand.colors.border} />
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14, marginBottom: 4 }}>
+              {planningProp?.leadTime && (
+                <View style={{ minWidth: 180 }}>
+                  <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", textTransform: "uppercase", color: brand.colors.muted, marginBottom: 2 }}>Levertijd</Text>
+                  <Text style={{ fontSize: 9, color: "#334155" }}>{planningProp.leadTime}</Text>
+                </View>
+              )}
+              {planningProp?.executionDuration && (
+                <View style={{ minWidth: 140 }}>
+                  <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", textTransform: "uppercase", color: brand.colors.muted, marginBottom: 2 }}>Uitvoering</Text>
+                  <Text style={{ fontSize: 9, color: "#334155" }}>{planningProp.executionDuration}</Text>
+                </View>
+              )}
+              {commercialProp?.paymentTerms && (
+                <View style={{ minWidth: 180 }}>
+                  <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", textTransform: "uppercase", color: brand.colors.muted, marginBottom: 2 }}>Betalingstermijn</Text>
+                  <Text style={{ fontSize: 9, color: "#334155" }}>{commercialProp.paymentTerms}</Text>
+                </View>
+              )}
+              {commercialProp?.warranty && (
+                <View style={{ flex: 1, minWidth: 200 }}>
+                  <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", textTransform: "uppercase", color: brand.colors.muted, marginBottom: 2 }}>Garantie</Text>
+                  <Text style={{ fontSize: 9, color: "#334155", lineHeight: 1.4 }}>{commercialProp.warranty}</Text>
+                </View>
+              )}
+            </View>
+          </>
+        )}
 
         <Divider color={brand.colors.border} />
 
@@ -844,7 +972,7 @@ export function QuotePDF({
           </View>
         </View>
 
-        <PageFooter tag="Offerte" page={pageLabel(4 + attachmentPages)} customerName={customerName} />
+        <PageFooter tag="Offerte" customerName={customerName} />
       </Page>
 
     </Document>
