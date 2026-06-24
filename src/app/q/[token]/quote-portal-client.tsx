@@ -525,6 +525,44 @@ export function QuotePortalClient({
             </div>
           </aside>
         </div>
+
+        {quote.attachments && quote.attachments.filter(a => a.imageUrl).length > 0 && (
+          <section className="portal-previews no-print" aria-label="Voorbeelden en ontwerpen">
+            <h2 className="portal-previews-heading">Voorbeelden &amp; ontwerpen</h2>
+            <div className="portal-previews-grid">
+              {quote.attachments.filter(a => a.imageUrl).map((attachment) => {
+                const inner = (
+                  <div className="portal-preview-card">
+                    <div className="portal-preview-img">
+                      <img src={attachment.imageUrl} alt={attachment.title || "Voorbeeldontwerp"} />
+                    </div>
+                    {(attachment.title || attachment.caption) && (
+                      <div className="portal-preview-meta">
+                        {attachment.title && <strong>{attachment.title}</strong>}
+                        {attachment.caption && <p>{attachment.caption}</p>}
+                      </div>
+                    )}
+                  </div>
+                );
+                return (attachment as { liveUrl?: string | null }).liveUrl ? (
+                  <a
+                    key={attachment.id}
+                    href={(attachment as { liveUrl?: string | null }).liveUrl!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="portal-preview-link"
+                  >
+                    {inner}
+                  </a>
+                ) : (
+                  <div key={attachment.id} className="portal-preview-link">
+                    {inner}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </main>
 
       {canRespond && (

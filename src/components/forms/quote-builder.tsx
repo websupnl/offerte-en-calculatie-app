@@ -1618,9 +1618,36 @@ export function QuoteBuilder({
                   ) : (
                     <div className="space-y-3">
                       {attachments.map((attachment) => (
-                        <div key={attachment.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 flex items-center gap-3">
-                          <Input value={attachment.title} onChange={(e) => updateAttachment(attachment.id, { title: e.target.value })} className="h-8 text-sm" />
-                          <Button size="icon" variant="ghost" onClick={() => removeAttachment(attachment.id)} className="h-8 w-8 text-red-500"><X className="h-4 w-4" /></Button>
+                        <div key={attachment.id} className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={attachment.title}
+                              onChange={(e) => updateAttachment(attachment.id, { title: e.target.value })}
+                              placeholder="Titel (bijv. Homepagina)"
+                              className="h-8 text-sm flex-1"
+                            />
+                            <Button size="icon" variant="ghost" onClick={() => removeAttachment(attachment.id)} className="h-8 w-8 text-red-500 shrink-0">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <Input
+                            value={attachment.imageUrl}
+                            onChange={(e) => updateAttachment(attachment.id, { imageUrl: e.target.value })}
+                            placeholder="Afbeelding URL (screenshot of https://...)"
+                            className="h-8 text-xs font-mono"
+                          />
+                          <Input
+                            value={attachment.liveUrl}
+                            onChange={(e) => updateAttachment(attachment.id, { liveUrl: e.target.value })}
+                            placeholder="Live URL — klikbaar in de offerte (optioneel)"
+                            className="h-8 text-xs font-mono"
+                          />
+                          <Input
+                            value={attachment.caption}
+                            onChange={(e) => updateAttachment(attachment.id, { caption: e.target.value })}
+                            placeholder="Bijschrift (optioneel)"
+                            className="h-8 text-sm"
+                          />
                         </div>
                       ))}
                     </div>
