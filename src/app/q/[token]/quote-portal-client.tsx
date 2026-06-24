@@ -88,7 +88,21 @@ export function QuotePortalClient({
 }) {
   const choiceGroups = quote.choiceGroups ?? [];
   const optionalWork = quote.options ?? [];
-  const [selectedChoiceIds, setSelectedChoiceIds] = useState<Record<string, string>>(share.selectedChoiceIds ?? {});
+  // Standaard de aanbevolen optie voorselecteren (recommendedChoiceId → label "Aanbevolen" → eerste optie),
+  // zodat de totale investering meteen een echte all-in prijs toont i.p.v. alleen de vaste basis.
+  const defaultChoiceIds: Record<string, string> = {};
+  for (const group of choiceGroups) {
+    const recommended =
+      group.choices.find((c) => c.id === group.recommendedChoiceId) ??
+      group.choices.find((c) => (c.label ?? "").toLowerCase() === "aanbevolen") ??
+      group.choices[0];
+    if (recommended) defaultChoiceIds[group.id] = recommended.id;
+  }
+  const [selectedChoiceIds, setSelectedChoiceIds] = useState<Record<string, string>>(
+    share.selectedChoiceIds && Object.keys(share.selectedChoiceIds).length > 0
+      ? share.selectedChoiceIds
+      : defaultChoiceIds,
+  );
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>(share.selectedOptionIds ?? []);
   const totals = calculateQuoteSelectionTotals(quote.items, choiceGroups, optionalWork, {
     selectedChoiceIds,

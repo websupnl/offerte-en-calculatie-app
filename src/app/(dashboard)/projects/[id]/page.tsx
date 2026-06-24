@@ -30,6 +30,9 @@ export default async function ProjectDetailPage({
         orderBy: { createdAt: "desc" },
         include: { _count: { select: { lines: true } } },
       },
+      purchaseInvoices: {
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
 

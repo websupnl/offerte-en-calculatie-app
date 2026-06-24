@@ -82,11 +82,12 @@ model Company {
   productSets   ProductSet[]
   quotes        Quote[]
   datasheets    Datasheet[]
-  findings      ResearchFinding[]
-  adviceReports AdviceDocument[]
-  projects      Project[]
-  workOrders    WorkOrder[]
-  salesInvoices SalesInvoice[]
+  findings         ResearchFinding[]
+  adviceReports    AdviceDocument[]
+  projects         Project[]
+  workOrders       WorkOrder[]
+  salesInvoices    SalesInvoice[]
+  purchaseInvoices PurchaseInvoice[]
 }
 
 model CompanyUser {
@@ -132,6 +133,7 @@ model Customer {
 model Product {
   id          String   @id @default(cuid())
   companyId   String
+  datasheetId String?  @unique
   category    String
   name        String
   description String?  @db.Text
@@ -146,6 +148,7 @@ model Product {
   updatedAt   DateTime @updatedAt
 
   company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  datasheet  Datasheet?       @relation(fields: [datasheetId], references: [id], onDelete: SetNull)
   quoteItems QuoteItem[]
   setItems   ProductSetItem[]
 }
@@ -256,12 +259,13 @@ model Project {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  company    Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  customer   Customer       @relation(fields: [customerId], references: [id])
-  quotes     Quote[]
-  files      ProjectFile[]
-  workOrders WorkOrder[]
-  invoices   SalesInvoice[]
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer         Customer          @relation(fields: [customerId], references: [id])
+  quotes           Quote[]
+  files            ProjectFile[]
+  workOrders       WorkOrder[]
+  invoices         SalesInvoice[]
+  purchaseInvoices PurchaseInvoice[]
 
   @@index([companyId])
 }
@@ -356,6 +360,29 @@ model InvoiceLine {
   invoice SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
+}
+
+model PurchaseInvoice {
+  id            String    @id @default(cuid())
+  companyId     String
+  projectId     String?
+  supplierName  String
+  invoiceNumber String?
+  invoiceDate   DateTime?
+  amount        Decimal   @default(0) @db.Decimal(10, 2) // bedrag excl. btw
+  vatAmount     Decimal?  @db.Decimal(10, 2)
+  status        String    @default("ONTVANGEN") // ONTVANGEN | GEBOEKT | BETAALD
+  fileKey       String? // scan/foto in MinIO
+  fileName      String?
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([projectId])
 }
 
 model ProjectFile {
@@ -471,6 +498,7 @@ model Datasheet {
   updatedAt DateTime @updatedAt
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product Product?
 
   @@unique([companyId, brand, model])
 }

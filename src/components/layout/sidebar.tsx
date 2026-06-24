@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   FolderKanban,
   ChevronDown,
+  LoaderCircle,
   X,
 } from "lucide-react";
 import {
@@ -69,7 +70,7 @@ export function Sidebar({
   onMobileClose: () => void;
 }) {
   const pathname = usePathname();
-  const { activeCompany, companies, switchCompany } = useCompany();
+  const { activeCompany, companies, switchingCompanyId, switchCompany } = useCompany();
   const logoSrc =
     activeCompany?.slug === "koolhaas"
       ? "/logos/koolhaas-logo-tight.png"
@@ -114,10 +115,15 @@ export function Sidebar({
               {companies.map((company) => (
                 <DropdownMenuItem
                   key={company.id}
+                  disabled={switchingCompanyId !== null}
                   onClick={() => switchCompany(company.id)}
                   className={cn(company.id === activeCompany?.id && "bg-muted")}
                 >
-                  <Building2 className="mr-2 h-4 w-4" />
+                  {switchingCompanyId === company.id ? (
+                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Building2 className="mr-2 h-4 w-4" />
+                  )}
                   {company.name}
                 </DropdownMenuItem>
               ))}

@@ -89,6 +89,18 @@ export const INVOICE_STATUS_COLORS: Record<string, string> = {
   VERVALLEN: "destructive",
 };
 
+export const PURCHASE_STATUS_LABELS: Record<string, string> = {
+  ONTVANGEN: "Ontvangen",
+  GEBOEKT: "Geboekt",
+  BETAALD: "Betaald",
+};
+
+export const PURCHASE_STATUS_COLORS: Record<string, string> = {
+  ONTVANGEN: "secondary",
+  GEBOEKT: "default",
+  BETAALD: "default",
+};
+
 export const QUOTE_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Concept",
   SENT: "Verstuurd",

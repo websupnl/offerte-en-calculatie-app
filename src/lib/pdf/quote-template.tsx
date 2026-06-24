@@ -72,7 +72,7 @@ type QuotePDFProps = {
   acceptedAt?: string;
   flow?: { n: number; t: string; d: string }[];
   approach?: { n: string; t: string; d: string }[];
-  options?: { t: string; d: string; tag: string }[];
+  options?: { t: string; d: string; tag: string; price?: number | null; vatRate?: number }[];
   exclusions?: string[];
   attachments?: QuoteAttachment[];
   choiceGroups?: PdfChoiceGroup[];
@@ -158,7 +158,7 @@ type BrandConfig = {
   };
   flow: { n: number; t: string; d: string }[];
   approach: { n: string; t: string; d: string }[];
-  options: { t: string; d: string; tag: string }[];
+  options: { t: string; d: string; tag: string; price?: number | null; vatRate?: number }[];
   exclusions: string[];
 };
 
@@ -530,7 +530,10 @@ export function QuotePDF({
 
         {/* Intro */}
         <Eyebrow text="Persoonlijke toelichting" color={brand.colors.accent} />
-        <H2 text={`Beste ${customerName.split(" ")[0]},`} />
+        {/* Alleen een automatische begroeting tonen als de intro er zelf geen heeft */}
+        {!/^\s*(beste|hoi|hallo|h[eé]|dag|goede)/i.test(intro ?? "") && (
+          <H2 text={`Beste ${customerName.split(" ")[0]},`} />
+        )}
         <Text style={{ fontSize: 9.5, lineHeight: 1.65, color: "#334155", marginBottom: 16 }}>
           {intro || brand.summaryGoal}
         </Text>
@@ -841,6 +844,16 @@ export function QuotePDF({
                 <View style={{ marginTop: 4, backgroundColor: brand.colors.border, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, alignSelf: "flex-start" }}>
                   <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>{o.tag}</Text>
                 </View>
+              </View>
+              <View style={{ alignItems: "flex-end", marginLeft: 8 }}>
+                {typeof o.price === "number" ? (
+                  <>
+                    <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>+ {formatEur(o.price * (1 + (o.vatRate ?? 21) / 100))}</Text>
+                    <Text style={{ fontSize: 6.5, color: brand.colors.muted, marginTop: 1 }}>incl. btw</Text>
+                  </>
+                ) : (
+                  <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>Op aanvraag</Text>
+                )}
               </View>
             </View>
           ))}

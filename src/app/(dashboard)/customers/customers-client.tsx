@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Search, Pencil, Trash2, Loader2, Users } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Loader2, Users, ArrowUpRight } from "lucide-react";
 
 const schema = z.object({
   name: z.string().min(1, "Naam is verplicht"),
@@ -161,7 +161,20 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
             </TableHeader>
             <TableBody>
               {filtered.map((c) => (
-                <TableRow key={c.id}>
+                <TableRow
+                  key={c.id}
+                  tabIndex={0}
+                  role="link"
+                  aria-label={`Open klant ${c.name}`}
+                  onClick={() => router.push(`/customers/${c.id}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      router.push(`/customers/${c.id}`);
+                    }
+                  }}
+                  className="cursor-pointer focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#167f88]"
+                >
                   <TableCell className="pl-4 font-semibold">{c.name}</TableCell>
                   <TableCell>
                     <p className="text-sm">{c.email || "—"}</p>
@@ -173,17 +186,20 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
+                    <Button variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); openEdit(c); }}>
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(c.id, c.name)}
+                      onClick={(event) => { event.stopPropagation(); handleDelete(c.id, c.name); }}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
+                    <span className="grid h-8 w-8 place-items-center text-slate-400">
+                      <ArrowUpRight className="h-4 w-4" />
+                    </span>
                   </div>
                   </TableCell>
                 </TableRow>

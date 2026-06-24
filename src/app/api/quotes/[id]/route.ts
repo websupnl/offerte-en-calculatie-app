@@ -3,7 +3,11 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
-import { quoteChoiceGroupSchema, quoteOptionSchema } from "@/lib/quote-selection";
+import {
+  calculateQuotePriceSummary,
+  quoteChoiceGroupSchema,
+  quoteOptionSchema,
+} from "@/lib/quote-selection";
 import { calculateLine, calculateTotals } from "@/lib/calculation";
 
 const itemSchema = z.object({
@@ -83,7 +87,25 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const existingQuote = await prisma.quote.findFirst({
     where: { id, companyId: session.user.activeCompanyId },
-    select: { status: true, choiceGroups: true, items: { select: { id: true }, take: 1 } },
+    select: {
+      status: true,
+      choiceGroups: true,
+      items: {
+        orderBy: { sortOrder: "asc" },
+        select: {
+          id: true,
+          description: true,
+          qty: true,
+          unitPrice: true,
+          costPrice: true,
+          vatRate: true,
+          total: true,
+          indent: true,
+          type: true,
+          productId: true,
+        },
+      },
+    },
   });
   if (!existingQuote) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (existingQuote.status === "ACCEPTED") {
@@ -126,17 +148,35 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   let updateData: Record<string, unknown> = { ...rest, pdfUrl: null };
 
+  if (items || parsed.data.choiceGroups !== undefined) {
+    const effectiveItems = items ?? existingQuote.items.map((item) => ({
+      ...item,
+      qty: Number(item.qty),
+      unitPrice: Number(item.unitPrice),
+      costPrice: item.costPrice == null ? null : Number(item.costPrice),
+      vatRate: Number(item.vatRate),
+      total: Number(item.total),
+    }));
+    const parsedExistingGroups = z.array(quoteChoiceGroupSchema).safeParse(existingQuote.choiceGroups ?? []);
+    const effectiveGroups =
+      parsed.data.choiceGroups ??
+      (parsedExistingGroups.success ? parsedExistingGroups.data : []);
+    const totals = effectiveGroups.length
+      ? calculateQuotePriceSummary(effectiveItems, effectiveGroups).recommended
+      : calculateTotals(effectiveItems);
+
+    updateData = {
+      ...updateData,
+      totalExVat: "totalExVat" in totals ? totals.totalExVat : totals.revenueExVat,
+      totalVat: "totalVat" in totals ? totals.totalVat : totals.vat,
+      totalIncVat: "totalIncVat" in totals ? totals.totalIncVat : totals.revenueIncVat,
+    };
+  }
+
   if (items) {
-    const totals = calculateTotals(items);
     const itemsWithTotals = items.map((item, i) => {
       return { ...item, total: calculateLine(item).revenueExVat, sortOrder: i };
     });
-    updateData = {
-      ...updateData,
-      totalExVat: totals.revenueExVat,
-      totalVat: totals.vat,
-      totalIncVat: totals.revenueIncVat,
-    };
 
     // Replace items
     await prisma.quoteItem.deleteMany({ where: { quoteId: id } });

@@ -11,7 +11,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut, unstable_update: updateSession } = NextAuth({
   ...authConfig,
   adapter: PrismaAdapter(prisma as unknown as Parameters<typeof PrismaAdapter>[0]),
   callbacks: {
@@ -37,8 +37,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       }
       // Handle company switch
-      if (trigger === "update" && session?.activeCompanyId) {
-        token.activeCompanyId = session.activeCompanyId;
+      if (trigger === "update") {
+        const requestedCompanyId =
+          session?.activeCompanyId ??
+          (session?.user as { activeCompanyId?: string } | undefined)?.activeCompanyId;
+        const companies = (token.companies ?? []) as { id: string }[];
+
+        if (requestedCompanyId && companies.some((company) => company.id === requestedCompanyId)) {
+          token.activeCompanyId = requestedCompanyId;
+        }
       }
       return token;
     },

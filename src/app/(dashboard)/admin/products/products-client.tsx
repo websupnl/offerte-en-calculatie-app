@@ -35,6 +35,7 @@ type ProductFormInput = z.input<typeof productSchema>;
 
 type Product = {
   id: string;
+  datasheetId?: string | null;
   category: string;
   name: string;
   description: string | null;
@@ -76,6 +77,12 @@ type Datasheet = {
   notes: string | null;
   sourceUrl: string | null;
   updatedAt: string;
+  product: {
+    id: string;
+    name: string;
+    basePrice: string | number;
+    costPrice: string | number | null;
+  } | null;
 };
 
 export function ProductsClient({
@@ -83,20 +90,26 @@ export function ProductsClient({
   initialSets,
   initialDatasheets,
   companySlug,
+  initialProductId,
 }: {
   initialProducts: Product[];
   initialSets: ProductSet[];
   initialDatasheets: Datasheet[];
   companySlug: string;
+  initialProductId?: string;
 }) {
   const router = useRouter();
+  const initialSelectedProduct = initialProducts.find((product) => product.id === initialProductId);
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [sets, setSets] = useState<ProductSet[]>(initialSets);
   const [datasheets, setDatasheets] = useState<Datasheet[]>(initialDatasheets);
   const [editingDsId, setEditingDsId] = useState<string | null>(null);
   const [dsPriceEdit, setDsPriceEdit] = useState<string>("");
-  const [productDialog, setProductDialog] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [productDialog, setProductDialog] = useState(Boolean(initialSelectedProduct));
+  const [editingId, setEditingId] = useState<string | null>(initialSelectedProduct?.id ?? null);
+  const [selectedDatasheetId, setSelectedDatasheetId] = useState<string | null>(
+    initialSelectedProduct?.datasheetId ?? null,
+  );
   const [saving, setSaving] = useState(false);
 
   // ProductSet dialog state
@@ -115,7 +128,17 @@ export function ProductsClient({
 
   const { register, handleSubmit, reset, setValue, control, formState: { errors } } = useForm<ProductFormInput, unknown, ProductForm>({
     resolver: zodResolver(productSchema),
-    defaultValues: { vatRate: 21, unit: "stuk" },
+    defaultValues: initialSelectedProduct
+      ? {
+          category: initialSelectedProduct.category,
+          name: initialSelectedProduct.name,
+          description: initialSelectedProduct.description ?? "",
+          unit: initialSelectedProduct.unit,
+          basePrice: Number(initialSelectedProduct.basePrice),
+          costPrice: initialSelectedProduct.costPrice == null ? null : Number(initialSelectedProduct.costPrice),
+          vatRate: Number(initialSelectedProduct.vatRate),
+        }
+      : { vatRate: 21, unit: "stuk" },
   });
 
   const allCategories = [
@@ -130,6 +153,7 @@ export function ProductsClient({
   function openCreate() {
     reset({ vatRate: 21, unit: "stuk" });
     setEditingId(null);
+    setSelectedDatasheetId(null);
     setProductDialog(true);
   }
 
@@ -142,6 +166,24 @@ export function ProductsClient({
     setValue("basePrice", Number(p.basePrice));
     setValue("costPrice", p.costPrice ? Number(p.costPrice) : null);
     setValue("vatRate", Number(p.vatRate));
+    setSelectedDatasheetId(p.datasheetId ?? null);
+    setProductDialog(true);
+  }
+
+  function openCreateFromDatasheet(datasheet: Datasheet) {
+    const costPrice = Number(datasheet.price ?? 0);
+    const suggestedSalesPrice = Math.ceil((costPrice / 0.8) * 100) / 100;
+    reset({
+      category: datasheet.category || "Overig",
+      name: `${datasheet.brand} ${datasheet.model}`,
+      description: datasheet.notes ?? "",
+      unit: "stuk",
+      basePrice: suggestedSalesPrice,
+      costPrice,
+      vatRate: 21,
+    });
+    setEditingId(null);
+    setSelectedDatasheetId(datasheet.id);
     setProductDialog(true);
   }
 
@@ -152,26 +194,60 @@ export function ProductsClient({
         const res = await fetch(`/api/products/${editingId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
+          body: JSON.stringify({ ...data, datasheetId: selectedDatasheetId }),
         });
         const updated = await res.json();
         if (!res.ok) throw new Error(updated.error || "Bijwerken mislukt");
         setProducts((prev) =>
           prev.map((p) => (p.id === editingId ? updated : p))
         );
+        setDatasheets((prev) =>
+          prev.map((datasheet) => ({
+            ...datasheet,
+            product:
+              datasheet.id === selectedDatasheetId
+                ? {
+                    id: updated.id,
+                    name: updated.name,
+                    basePrice: updated.basePrice,
+                    costPrice: updated.costPrice,
+                  }
+                : datasheet.product?.id === updated.id
+                  ? null
+                  : datasheet.product,
+          })),
+        );
         toast.success("Product bijgewerkt");
       } else {
         const res = await fetch("/api/products", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
+          body: JSON.stringify({ ...data, datasheetId: selectedDatasheetId }),
         });
         const created = await res.json();
         if (!res.ok) throw new Error(created.error || "Aanmaken mislukt");
         setProducts((prev) => [...prev, created]);
+        if (selectedDatasheetId) {
+          setDatasheets((prev) =>
+            prev.map((datasheet) =>
+              datasheet.id === selectedDatasheetId
+                ? {
+                    ...datasheet,
+                    product: {
+                      id: created.id,
+                      name: created.name,
+                      basePrice: created.basePrice,
+                      costPrice: created.costPrice,
+                    },
+                  }
+                : datasheet,
+            ),
+          );
+        }
         toast.success("Product aangemaakt");
       }
       setProductDialog(false);
+      setSelectedDatasheetId(null);
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Er is iets misgegaan");
@@ -293,6 +369,11 @@ export function ProductsClient({
     });
     if (!response.ok) return toast.error("Inkoopprijs bijwerken mislukt");
     setDatasheets((prev) => prev.map((d) => d.id === id ? { ...d, price } : d));
+    setProducts((prev) =>
+      prev.map((product) =>
+        product.datasheetId === id ? { ...product, costPrice: price } : product,
+      ),
+    );
     setEditingDsId(null);
     toast.success("Inkoopprijs bijgewerkt");
   }
@@ -352,9 +433,22 @@ export function ProductsClient({
                 <CardContent className="p-0">
                   <div className="divide-y">
                     {group.products.map((p) => (
-                      <div key={p.id} className="flex items-center justify-between px-6 py-3 hover:bg-muted/50">
+                      <div
+                        key={p.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openEdit(p)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openEdit(p);
+                          }
+                        }}
+                        className="flex cursor-pointer items-center justify-between px-6 py-3 hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#167f88]"
+                      >
                         <div>
                           <p className="font-medium text-sm">{p.name}</p>
+                          {p.datasheetId && <Badge variant="outline" className="mt-1">Leveranciersprijs gekoppeld</Badge>}
                           {p.description && (
                             <p className="text-xs text-muted-foreground line-clamp-1">{p.description}</p>
                           )}
@@ -366,14 +460,14 @@ export function ProductsClient({
                               {p.costPrice != null ? `inkoop ${formatCurrency(Number(p.costPrice))} · ` : ""}per {p.unit} · {p.vatRate}% BTW
                             </p>
                           </div>
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
+                          <Button variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); openEdit(p); }}>
                             <Pencil className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
                             className="text-destructive hover:text-destructive"
-                            onClick={() => handleDelete(p.id)}
+                            onClick={(event) => { event.stopPropagation(); handleDelete(p.id); }}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -406,7 +500,19 @@ export function ProductsClient({
             </Card>
           ) : (
             sets.map((s) => (
-              <Card key={s.id}>
+              <Card
+                key={s.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => openEditSet(s)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openEditSet(s);
+                  }
+                }}
+                className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#167f88]"
+              >
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
@@ -417,14 +523,14 @@ export function ProductsClient({
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">{s.items.length} items</Badge>
-                      <Button variant="ghost" size="icon" onClick={() => openEditSet(s)}>
+                      <Button variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); openEditSet(s); }}>
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="text-destructive hover:text-destructive"
-                        onClick={() => handleDeleteSet(s.id)}
+                        onClick={(event) => { event.stopPropagation(); handleDeleteSet(s.id); }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -512,6 +618,20 @@ export function ProductsClient({
                               </p>
                               <p className="text-xs text-muted-foreground">inkoop excl. btw</p>
                             </div>
+                            {d.product ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => router.push(`/admin/products?product=${d.product!.id}`)}
+                              >
+                                {d.product.name}
+                              </Button>
+                            ) : (
+                              <Button variant="outline" size="sm" onClick={() => openCreateFromDatasheet(d)}>
+                                <Plus className="mr-1 h-3.5 w-3.5" />
+                                Maak artikel
+                              </Button>
+                            )}
                             <Button variant="ghost" size="icon" onClick={() => { setEditingDsId(d.id); setDsPriceEdit(d.price != null ? String(d.price) : ""); }}>
                               <Pencil className="h-4 w-4" />
                             </Button>

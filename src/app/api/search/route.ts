@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
         type: "customer",
         title: customer.name,
         subtitle: customer.email || customer.city || "Klant",
-        href: `/customers?customer=${customer.id}`,
+        href: `/customers/${customer.id}`,
       })),
       ...products.map((product) => ({
         id: product.id,

@@ -43,6 +43,7 @@ import {
   FolderKanban,
   ClipboardList,
   Receipt,
+  ShoppingCart,
   Plus,
   ChevronRight,
 } from "lucide-react";
@@ -51,6 +52,7 @@ import {
   PROJECT_FILE_CATEGORIES,
   WORKORDER_STATUS_LABELS,
   INVOICE_STATUS_LABELS,
+  PURCHASE_STATUS_LABELS,
   formatCurrency,
   formatDate,
   QUOTE_STATUS_LABELS,
@@ -94,6 +96,18 @@ type Invoice = {
   createdAt: string;
 };
 
+type PurchaseInvoice = {
+  id: string;
+  supplierName: string;
+  invoiceNumber: string | null;
+  amount: string | number;
+  vatAmount: string | number | null;
+  status: string;
+  invoiceDate: string | null;
+  fileName: string | null;
+  createdAt: string;
+};
+
 type Project = {
   id: string;
   number: string;
@@ -107,6 +121,7 @@ type Project = {
   files: ProjectFile[];
   workOrders: WorkOrder[];
   invoices: Invoice[];
+  purchaseInvoices: PurchaseInvoice[];
 };
 
 const STATUSES = ["OPEN", "IN_PROGRESS", "DONE", "ARCHIVED"];
@@ -180,6 +195,43 @@ export function ProjectDetailClient({ project }: { project: Project }) {
       setInvCreating(false);
     }
   }
+
+  const [purchases, setPurchases] = useState<PurchaseInvoice[]>(project.purchaseInvoices);
+  const [purDialogOpen, setPurDialogOpen] = useState(false);
+  const [purSaving, setPurSaving] = useState(false);
+  const purFileInput = useRef<HTMLInputElement>(null);
+
+  async function createPurchase(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    if (!String(fd.get("supplierName") ?? "").trim()) {
+      toast.error("Vul de leverancier in");
+      return;
+    }
+    setPurSaving(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/purchase-invoices`, {
+        method: "POST",
+        body: fd,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Opslaan mislukt");
+      }
+      const pur: PurchaseInvoice = await res.json();
+      setPurchases((prev) => [pur, ...prev]);
+      setPurDialogOpen(false);
+      toast.success("Inkoopfactuur toegevoegd");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Er ging iets mis");
+    } finally {
+      setPurSaving(false);
+    }
+  }
+
+  // Margecijfers: verkoop (incl. btw) minus inkoop (excl. btw).
+  const salesTotal = invoices.reduce((s, i) => s + Number(i.totalIncVat), 0);
+  const purchaseTotal = purchases.reduce((s, p) => s + Number(p.amount), 0);
 
   async function changeStatus(next: string) {
     const prev = status;
@@ -285,6 +337,9 @@ export function ProjectDetailClient({ project }: { project: Project }) {
           </TabsTrigger>
           <TabsTrigger value="invoices" className="gap-1">
             <Receipt className="h-4 w-4" /> Facturen ({invoices.length})
+          </TabsTrigger>
+          <TabsTrigger value="purchases" className="gap-1">
+            <ShoppingCart className="h-4 w-4" /> Inkoop ({purchases.length})
           </TabsTrigger>
           <TabsTrigger value="files" className="gap-1">
             <Paperclip className="h-4 w-4" /> Bestanden ({files.length})
@@ -462,6 +517,61 @@ export function ProjectDetailClient({ project }: { project: Project }) {
           )}
         </TabsContent>
 
+        {/* Inkoop */}
+        <TabsContent value="purchases" className="mt-4 space-y-3">
+          <Card>
+            <CardContent className="p-4 grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-xs text-muted-foreground">Verkoop (incl.)</p>
+                <p className="font-semibold">{formatCurrency(salesTotal)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Inkoop (excl.)</p>
+                <p className="font-semibold">{formatCurrency(purchaseTotal)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Verschil</p>
+                <p className="font-semibold">{formatCurrency(salesTotal - purchaseTotal)}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => setPurDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Inkoopfactuur
+            </Button>
+          </div>
+
+          {purchases.length === 0 ? (
+            <Card>
+              <CardContent className="py-10 text-center text-muted-foreground">
+                Nog geen inkoopfacturen. Voeg bonnetjes toe voor margeinzicht.
+              </CardContent>
+            </Card>
+          ) : (
+            purchases.map((p) => (
+              <Card key={p.id}>
+                <CardContent className="p-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{p.supplierName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {p.invoiceNumber ? `${p.invoiceNumber} · ` : ""}
+                      {p.invoiceDate ? formatDate(p.invoiceDate) : "geen datum"}
+                      {p.fileName ? ` · 📎 ${p.fileName}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <Badge variant="secondary">
+                      {PURCHASE_STATUS_LABELS[p.status] ?? p.status}
+                    </Badge>
+                    <span className="font-medium">{formatCurrency(p.amount)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </TabsContent>
+
         {/* Bestanden */}
         <TabsContent value="files" className="mt-4 space-y-4">
           <div className="flex items-center gap-2 flex-wrap">
@@ -560,6 +670,57 @@ export function ProjectDetailClient({ project }: { project: Project }) {
               <Button type="submit" disabled={woSaving}>
                 {woSaving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                 Aanmaken
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={purDialogOpen} onOpenChange={setPurDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Inkoopfactuur toevoegen</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={createPurchase} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Leverancier *</Label>
+              <Input name="supplierName" placeholder="Bijv. Oosterberg" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Factuurnummer</Label>
+                <Input name="invoiceNumber" placeholder="Optioneel" />
+              </div>
+              <div className="space-y-2">
+                <Label>Factuurdatum</Label>
+                <Input name="invoiceDate" type="date" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Bedrag (excl. btw)</Label>
+                <Input name="amount" type="number" step="0.01" placeholder="0.00" />
+              </div>
+              <div className="space-y-2">
+                <Label>Btw-bedrag</Label>
+                <Input name="vatAmount" type="number" step="0.01" placeholder="optioneel" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Bon / scan (foto)</Label>
+              <Input ref={purFileInput} name="file" type="file" accept="image/*,application/pdf" />
+            </div>
+            <div className="space-y-2">
+              <Label>Notitie</Label>
+              <Textarea name="notes" placeholder="Optioneel" />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setPurDialogOpen(false)}>
+                Annuleren
+              </Button>
+              <Button type="submit" disabled={purSaving}>
+                {purSaving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                Toevoegen
               </Button>
             </DialogFooter>
           </form>

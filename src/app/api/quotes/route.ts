@@ -3,7 +3,11 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { generateQuoteNumber } from "@/lib/format";
-import { quoteChoiceGroupSchema, quoteOptionSchema } from "@/lib/quote-selection";
+import {
+  calculateQuotePriceSummary,
+  quoteChoiceGroupSchema,
+  quoteOptionSchema,
+} from "@/lib/quote-selection";
 import { calculateLine, calculateTotals } from "@/lib/calculation";
 
 const itemSchema = z.object({
@@ -89,7 +93,9 @@ export async function POST(req: NextRequest) {
   const company = await prisma.company.findUnique({ where: { id: companyId } });
   const number = generateQuoteNumber(company?.slug ?? "xx", count + 1);
 
-  const totals = calculateTotals(items);
+  const totals = choiceGroups?.length
+    ? calculateQuotePriceSummary(items, choiceGroups).recommended
+    : calculateTotals(items);
   const itemsWithTotals = items.map((item, i) => {
     return { ...item, total: calculateLine(item).revenueExVat, sortOrder: i };
   });
@@ -121,9 +127,9 @@ export async function POST(req: NextRequest) {
       batteryAdvice,
       choiceGroups,
       internalAdvice,
-      totalExVat: totals.revenueExVat,
-      totalVat: totals.vat,
-      totalIncVat: totals.revenueIncVat,
+      totalExVat: "totalExVat" in totals ? totals.totalExVat : totals.revenueExVat,
+      totalVat: "totalVat" in totals ? totals.totalVat : totals.vat,
+      totalIncVat: "totalIncVat" in totals ? totals.totalIncVat : totals.revenueIncVat,
       items: itemsWithTotals.length ? { create: itemsWithTotals } : undefined,
       attachments: attachments?.length
         ? {

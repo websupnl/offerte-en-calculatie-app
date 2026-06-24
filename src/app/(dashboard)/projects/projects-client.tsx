@@ -130,9 +130,22 @@ export function ProjectsClient({
               </TableHeader>
               <TableBody>
                 {filtered.map((project) => (
-                  <TableRow key={project.id}>
+                  <TableRow
+                    key={project.id}
+                    tabIndex={0}
+                    role="link"
+                    aria-label={`Open project ${project.title}`}
+                    onClick={() => router.push(`/projects/${project.id}`)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        router.push(`/projects/${project.id}`);
+                      }
+                    }}
+                    className="cursor-pointer focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#167f88]"
+                  >
                     <TableCell className="pl-4">
-                      <Link href={`/projects/${project.id}`}>
+                      <Link href={`/projects/${project.id}`} onClick={(event) => event.stopPropagation()}>
                         <p className="font-semibold">{project.title}</p>
                         <p className="font-mono text-xs text-slate-400">{project.number}</p>
                       </Link>
@@ -147,7 +160,7 @@ export function ProjectsClient({
                     </TableCell>
                     <TableCell className="text-slate-500">{project.city || "—"}</TableCell>
                     <TableCell>
-                      <Link href={`/projects/${project.id}`} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900">
+                      <Link href={`/projects/${project.id}`} onClick={(event) => event.stopPropagation()} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900">
                         <ArrowUpRight className="h-4 w-4" />
                       </Link>
                     </TableCell>

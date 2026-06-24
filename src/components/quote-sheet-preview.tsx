@@ -322,6 +322,11 @@ export function QuoteSheetPreview({
     selectedChoiceIds,
     selectedOptionIds,
   });
+  // Vaste werkzaamheden zitten in elke configuratie → per optie tonen we een all-in prijs (systeem + basis).
+  const baseIncVat = quote.items.reduce(
+    (sum, item) => sum + Number(item.qty) * Number(item.unitPrice) * (1 + Number(item.vatRate) / 100),
+    0,
+  );
   const exclusions = quote.exclusions?.length ? quote.exclusions : DEFAULT_EXCLUSIONS[brandKey];
   const technicalNotesField = quote.technicalNotes?.length ? "technicalNotes" : "assumptions";
   const technicalNotes = isKoolhaas
@@ -331,12 +336,12 @@ export function QuoteSheetPreview({
     : [];
   const customerResponsibilities = isKoolhaas ? (quote.customerResponsibilities ?? []).filter(Boolean) : [];
   const attachments = quote.attachments ?? [];
-  const attachmentPages = Math.ceil(attachments.length / 2);
+  const attachmentPages = attachments.length;
   const validUntilLabel = quote.validUntil ? formatDate(quote.validUntil) : null;
   const hasOptionsPage = options.length > 0;
   const hasTermsPage = Boolean(exclusions.length || technicalNotes.length || customerResponsibilities.length || quote.outro);
   
-  const totalPages = 4 + (hasOptionsPage ? 1 : 0) + (hasTermsPage ? 1 : 0);
+  const totalPages = 4 + attachmentPages + (hasOptionsPage ? 1 : 0) + (hasTermsPage ? 1 : 0);
   const pageLabel = (page: number) =>
     `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
   const coverHeading = isKoolhaas ? (quote.title || brand.defaultTitle) : "Offerte";
@@ -709,6 +714,64 @@ export function QuoteSheetPreview({
           </div>
         </section>
 
+        {/* ── ONTWERPVOORBEELDEN ── */}
+        {attachments.map((attachment, index) => (
+          <section className="sheet design-sheet" key={attachment.id ?? `${attachment.imageUrl}-${index}`}>
+            <div className="bar"></div>
+            <div className="pad">
+              <div className="ph">
+                {renderHeaderLogo()}
+                <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
+              </div>
+
+              <div className="row-badge">
+                <div>
+                  <span className="eyebrow">Ontwerpvoorbeeld {index + 1}</span>
+                  <h2 className="h2">{attachment.title || "Voorbeeld van de uitwerking"}</h2>
+                </div>
+              </div>
+
+              <figure className="design-full design-full-preview">
+                <div className="design-full-frame">
+                  {attachment.imageUrl ? (
+                    <img
+                      src={attachment.imageUrl}
+                      alt={attachment.title || `Ontwerpvoorbeeld ${index + 1}`}
+                    />
+                  ) : (
+                    <a
+                      href={attachment.liveUrl || undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="design-live-frame"
+                    >
+                      <span>Werkend voorbeeld</span>
+                      <b>{attachment.liveUrl || "Open het voorbeeld online"}</b>
+                    </a>
+                  )}
+                </div>
+                <figcaption className="design-full-caption">
+                  <b>{attachment.title || "Ontwerpvoorbeeld"}</b>
+                  {attachment.caption && <span>{attachment.caption}</span>}
+                  {attachment.liveUrl && (
+                    <a
+                      href={attachment.liveUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="design-open-link"
+                    >
+                      Bekijk het werkende voorbeeld
+                    </a>
+                  )}
+                </figcaption>
+              </figure>
+
+              <div className="spacer"></div>
+              {renderPageFooter(pageLabel(3 + index))}
+            </div>
+          </section>
+        ))}
+
         {/* ── PAGINA 4: INVESTERING + CHOICES ── */}
         <section className="sheet">
           <div className="bar"></div>
@@ -729,10 +792,11 @@ export function QuoteSheetPreview({
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   {group.choices.map(choice => {
                     const isActive = selectedChoiceIds[group.id] === choice.id;
-                    const total = choice.items.reduce((sum, item) => {
+                    const systeemIncVat = choice.items.reduce((sum, item) => {
                       const line = Number(item.qty) * Number(item.unitPrice);
                       return sum + line * (1 + Number(item.vatRate) / 100);
                     }, 0);
+                    const total = systeemIncVat + baseIncVat;
                     const isRecommended = group.recommendedChoiceId === choice.id || choice.label?.toLowerCase() === "aanbevolen";
                     return (
                       <div key={choice.id} className={`relative rounded-xl border p-4 ${isActive ? "border-blue-600 bg-blue-50/40" : "border-slate-200 bg-white"}`}>
@@ -836,7 +900,7 @@ export function QuoteSheetPreview({
               {optionsBlock}
 
               <div className="spacer"></div>
-              {renderPageFooter(pageLabel(4))}
+              {renderPageFooter(pageLabel(4 + attachmentPages))}
             </div>
           </section>
         )}
@@ -902,7 +966,7 @@ export function QuoteSheetPreview({
               )}
 
               <div className="spacer"></div>
-              {renderPageFooter(pageLabel(4 + (hasOptionsPage ? 1 : 0)))}
+              {renderPageFooter(pageLabel(4 + attachmentPages + (hasOptionsPage ? 1 : 0)))}
             </div>
           </section>
         )}

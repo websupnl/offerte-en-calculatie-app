@@ -6,9 +6,9 @@ import { redirect } from "next/navigation";
 export default async function NewQuotePage({
   searchParams,
 }: {
-  searchParams: Promise<{ adviceId?: string }>;
+  searchParams: Promise<{ adviceId?: string; customerId?: string }>;
 }) {
-  const { adviceId } = await searchParams;
+  const { adviceId, customerId } = await searchParams;
   const session = await auth();
   const companyId = session?.user?.activeCompanyId;
   if (!companyId) redirect("/dashboard");
@@ -59,6 +59,7 @@ export default async function NewQuotePage({
       companySlug={companySlug}
       companyName={company?.name ?? ""}
       initialAdvice={serialized.initialAdvice}
+      initialQuote={customerId ? { customerId } : undefined}
     />
   );
 }

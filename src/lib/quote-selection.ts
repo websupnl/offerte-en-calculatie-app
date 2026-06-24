@@ -66,6 +66,13 @@ export type QuoteSelectionTotals = {
   optionsExVat: number;
 };
 
+export type QuotePriceSummary = {
+  hasChoices: boolean;
+  minimum: QuoteSelectionTotals;
+  maximum: QuoteSelectionTotals;
+  recommended: QuoteSelectionTotals;
+};
+
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
@@ -117,6 +124,54 @@ export function calculateQuoteSelectionTotals(
     totalExVat: roundMoney(totalExVat),
     totalVat: roundMoney(totalVat),
     totalIncVat: roundMoney(totalExVat + totalVat),
+  };
+}
+
+export function calculateQuotePriceSummary(
+  items: BaseQuoteLine[],
+  choiceGroups: QuoteChoiceGroup[],
+): QuotePriceSummary {
+  const minimumChoiceIds: Record<string, string> = {};
+  const maximumChoiceIds: Record<string, string> = {};
+  const recommendedChoiceIds: Record<string, string> = {};
+
+  for (const group of choiceGroups) {
+    const choicesByPrice = group.choices
+      .map((choice) => ({
+        id: choice.id,
+        total: choice.items.reduce(
+          (sum, item) => {
+            const exVat = Number(item.qty) * Number(item.unitPrice);
+            return sum + exVat + exVat * (Number(item.vatRate) / 100);
+          },
+          0,
+        ),
+      }))
+      .sort((a, b) => a.total - b.total);
+
+    const minimum = choicesByPrice[0];
+    const maximum = choicesByPrice.at(-1);
+    if (!minimum || !maximum) continue;
+
+    minimumChoiceIds[group.id] = minimum.id;
+    maximumChoiceIds[group.id] = maximum.id;
+    recommendedChoiceIds[group.id] =
+      group.choices.some((choice) => choice.id === group.recommendedChoiceId)
+        ? group.recommendedChoiceId!
+        : minimum.id;
+  }
+
+  const totalsFor = (selectedChoiceIds: Record<string, string>) =>
+    calculateQuoteSelectionTotals(items, choiceGroups, [], {
+      selectedChoiceIds,
+      selectedOptionIds: [],
+    });
+
+  return {
+    hasChoices: choiceGroups.length > 0,
+    minimum: totalsFor(minimumChoiceIds),
+    maximum: totalsFor(maximumChoiceIds),
+    recommended: totalsFor(recommendedChoiceIds),
   };
 }
 

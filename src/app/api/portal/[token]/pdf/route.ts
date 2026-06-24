@@ -74,7 +74,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
     notes: quote.notes ?? undefined,
     flow: (quote.flow as Array<{ n: number; t: string; d: string }> | null) || [],
     approach: (quote.approach as Array<{ n: string; t: string; d: string }> | null) || [],
-    options: (quote.options as Array<{ t: string; d: string; tag: string }> | null) || [],
+    options: (quote.options as Array<{ t: string; d: string; tag: string; price?: number | null; vatRate?: number }> | null) || [],
     exclusions: (quote.exclusions as string[]) || [],
     choiceGroups: (quote.choiceGroups as Array<{ title: string; description?: string; choices: Array<{ label?: string; title: string; summary?: string; items: Array<{ description: string; qty: number; unitPrice: number; indent?: number }> }> }> | null) || [],
     technicalNotes: (quote.technicalNotes as string[] | null) || [],

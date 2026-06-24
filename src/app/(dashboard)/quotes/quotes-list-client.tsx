@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,13 @@ type Quote = {
   createdAt: string;
   customer: { id: string; name: string; email: string | null };
   _count: { items: number };
+  choiceGroupCount: number;
+  pricing: {
+    hasChoices: boolean;
+    minimum: { totalIncVat: number };
+    maximum: { totalIncVat: number };
+    recommended: { totalIncVat: number };
+  };
 };
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -33,6 +41,7 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
 const statuses = ["all", "DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED"] as const;
 
 export function QuotesListClient({ initialQuotes }: { initialQuotes: Quote[] }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof statuses)[number]>("all");
 
@@ -48,16 +57,26 @@ export function QuotesListClient({ initialQuotes }: { initialQuotes: Quote[] }) 
     });
   }, [initialQuotes, search, statusFilter]);
 
-  const openValue = initialQuotes
+  const openPricing = initialQuotes
     .filter((quote) => ["DRAFT", "SENT", "VIEWED"].includes(quote.status))
-    .reduce((sum, quote) => sum + Number(quote.totalIncVat), 0);
+    .reduce(
+      (totals, quote) => ({
+        minimum: totals.minimum + quote.pricing.minimum.totalIncVat,
+        maximum: totals.maximum + quote.pricing.maximum.totalIncVat,
+      }),
+      { minimum: 0, maximum: 0 },
+    );
+  const openValueLabel =
+    openPricing.minimum === openPricing.maximum
+      ? formatCurrency(openPricing.minimum)
+      : `${formatCurrency(openPricing.minimum)} – ${formatCurrency(openPricing.maximum)}`;
 
   return (
     <div>
       <PageHeader
         eyebrow="Verkoop"
         title="Offertes"
-        description={`${initialQuotes.length} offertes · ${formatCurrency(openValue)} openstaand`}
+        description={`${initialQuotes.length} offertes · ${openValueLabel} openstaand`}
         actions={
           <Button nativeButton={false} render={<Link href="/quotes/new" />}>
             <Plus className="h-4 w-4" />
@@ -115,11 +134,27 @@ export function QuotesListClient({ initialQuotes }: { initialQuotes: Quote[] }) 
               </TableHeader>
               <TableBody>
                 {filtered.map((quote) => (
-                  <TableRow key={quote.id} className="group">
+                  <TableRow
+                    key={quote.id}
+                    tabIndex={0}
+                    role="link"
+                    aria-label={`Open offerte ${quote.title || quote.number}`}
+                    onClick={() => router.push(`/quotes/${quote.id}`)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        router.push(`/quotes/${quote.id}`);
+                      }
+                    }}
+                    className="group cursor-pointer focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#167f88]"
+                  >
                     <TableCell className="pl-4">
-                      <Link href={`/quotes/${quote.id}`} className="block">
+                      <Link href={`/quotes/${quote.id}`} className="block" onClick={(event) => event.stopPropagation()}>
                         <p className="max-w-80 truncate font-semibold text-slate-900">{quote.title || quote.number}</p>
-                        <p className="text-xs text-slate-400">{quote.number} · {quote._count.items} regels</p>
+                        <p className="text-xs text-slate-400">
+                          {quote.number} · {quote._count.items} vaste regels
+                          {quote.choiceGroupCount > 0 ? ` · ${quote.choiceGroupCount} keuze${quote.choiceGroupCount === 1 ? "" : "s"}` : ""}
+                        </p>
                       </Link>
                     </TableCell>
                     <TableCell>
@@ -132,9 +167,20 @@ export function QuotesListClient({ initialQuotes }: { initialQuotes: Quote[] }) 
                       </Badge>
                     </TableCell>
                     <TableCell className="text-slate-500">{formatDate(quote.createdAt)}</TableCell>
-                    <TableCell className="text-right font-bold tabular-nums">{formatCurrency(Number(quote.totalIncVat))}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {quote.status === "ACCEPTED" || !quote.pricing.hasChoices ? (
+                        <span className="font-bold">{formatCurrency(Number(quote.totalIncVat))}</span>
+                      ) : (
+                        <>
+                          <p className="font-bold">Vanaf {formatCurrency(quote.pricing.minimum.totalIncVat)}</p>
+                          <p className="text-xs font-normal text-slate-400">
+                            Advies {formatCurrency(quote.pricing.recommended.totalIncVat)}
+                          </p>
+                        </>
+                      )}
+                    </TableCell>
                     <TableCell>
-                      <Link href={`/quotes/${quote.id}`} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900">
+                      <Link href={`/quotes/${quote.id}`} onClick={(event) => event.stopPropagation()} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900">
                         <ArrowUpRight className="h-4 w-4" />
                       </Link>
                     </TableCell>

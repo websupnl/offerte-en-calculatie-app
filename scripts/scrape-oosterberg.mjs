@@ -52,40 +52,42 @@ function parseProducts(text) {
   //   "MERK, MODEL\n\nartikelNr  MERK, MODEL, beschrijving...\n...Bruto prijs:\n€ X,XX / st\nKorting: N%\nNetto prijs:\n€ Y,YY / st"
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
+  // Bedrag (NL-notatie, evt. duizendtal-punt) zoeken in de regels na een prijs-label.
+  // Oosterberg zet "Netto prijs:" / "€" / "2691,80" / "/ st" elk op een eigen regel.
+  const amountAfter = (idx) => {
+    for (let k = idx; k < Math.min(idx + 4, lines.length); k++) {
+      const m = lines[k].match(/(\d{1,3}(?:\.\d{3})*|\d+),(\d{2})(?!\d)/);
+      if (m) return parseFloat(m[1].replace(/\./g, '') + '.' + m[2]);
+    }
+    return null;
+  };
+
+  const artRe = /^(\d{7,9})\s+(.+)$/;
   let i = 0;
   while (i < lines.length) {
-    // Zoek een artikelnummer (8+ cijfers gevolgd door merk/naam)
-    const artMatch = lines[i].match(/^(\d{7,9})\s+([A-Z][A-Z\s,.\-\/0-9]+)$/);
-    if (artMatch) {
+    // Artikelregel: 7-9-cijferig artikelnr + omschrijving (bevat letters).
+    const artMatch = lines[i].match(artRe);
+    if (artMatch && /[A-Za-z]/.test(artMatch[2])) {
       const artikelnr = artMatch[1];
-      const beschrijving = artMatch[2];
+      const beschrijving = artMatch[2].replace(/[\s,…]+$/, '');
 
-      // Zoek Netto prijs in de volgende regels
       let bruto = null, netto = null, korting = null;
-      for (let j = i + 1; j < Math.min(i + 20, lines.length); j++) {
-        if (lines[j].startsWith('Bruto prijs:')) {
-          const prijsLine = lines[j + 1] ?? '';
-          const m = prijsLine.match(/€\s*([\d.]+,\d{2})/);
-          if (m) bruto = parseFloat(m[1].replace('.', '').replace(',', '.'));
-        }
-        if (lines[j].startsWith('Korting:')) {
-          const m = lines[j].match(/([\d,]+)%/);
+      for (let j = i + 1; j < Math.min(i + 25, lines.length); j++) {
+        if (artRe.test(lines[j])) break; // volgende product begonnen
+        if (lines[j].startsWith('Bruto prijs')) bruto = amountAfter(j);
+        else if (lines[j].startsWith('Korting')) {
+          const m = lines[j].match(/([\d,]+)\s*%/);
           if (m) korting = parseFloat(m[1].replace(',', '.'));
-        }
-        if (lines[j].startsWith('Netto prijs:')) {
-          const prijsLine = lines[j + 1] ?? '';
-          const m = prijsLine.match(/€\s*([\d.]+,\d{2})/);
-          if (m) netto = parseFloat(m[1].replace('.', '').replace(',', '.'));
+        } else if (lines[j].startsWith('Netto prijs')) {
+          netto = amountAfter(j);
           break;
         }
       }
 
       if (netto !== null) {
-        // Haal merk en model uit de beschrijving
         const parts = beschrijving.split(',').map(p => p.trim());
         const brand = parts[0] ?? '';
-        const model = parts.slice(1).join(',').trim() || beschrijving;
-
+        const model = parts[1] ?? beschrijving;
         products.push({ brand, model, artikelnr, bruto, korting, netto, beschrijving });
       }
     }
@@ -126,7 +128,7 @@ if (shouldSave) {
 
   for (const p of products) {
     try {
-      await prisma.datasheet.upsert({
+      const datasheet = await prisma.datasheet.upsert({
         where: { companyId_brand_model: { companyId: company.id, brand: p.brand, model: p.model } },
         create: {
           companyId: company.id,
@@ -145,13 +147,17 @@ if (shouldSave) {
           sourceUrl: 'https://webshop.oosterberg.nl',
         },
       });
+      await prisma.product.updateMany({
+        where: { datasheetId: datasheet.id },
+        data: { costPrice: p.netto },
+      });
       saved++;
     } catch (e) {
       console.error(`  ✗ ${p.brand} ${p.model}: ${e.message.slice(0, 80)}`);
     }
   }
 
-  console.error(`✓ ${saved} producten opgeslagen in DB (${companySlug})`);
+  console.error(`✓ ${saved} leveranciersprijzen opgeslagen en gekoppelde inkoopprijzen bijgewerkt (${companySlug})`);
   await prisma.$disconnect();
 } else {
   // Print als JSON naar stdout
