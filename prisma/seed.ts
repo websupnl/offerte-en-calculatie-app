@@ -29,8 +29,8 @@ async function main() {
       settings: {
         defaultVatRate: 21,
         quoteValidDays: 30,
-        quoteIntroDefault: "Hartelijk dank voor uw interesse in onze diensten. Hierbij ontvangt u onze offerte.",
-        quoteOutroDefault: "Wij hopen u hiermee een passend aanbod te hebben gedaan. Neem gerust contact op voor vragen.",
+        quoteIntroDefault: "",
+        quoteOutroDefault: "",
         paymentTerms: "Betaling binnen 14 dagen na factuurdatum. Prijzen zijn excl. BTW.",
         aiSystemPrompts: {},
       },
@@ -52,10 +52,8 @@ async function main() {
       settings: {
         defaultVatRate: 21,
         quoteValidDays: 30,
-        quoteIntroDefault:
-          "Dank voor uw aanvraag. In deze offerte vindt u een duidelijke uitsplitsing van de werkzaamheden, materialen en kosten. De offerte is opgesteld op basis van de bekende situatie en de besproken wensen.",
-        quoteOutroDefault:
-          "Heeft u vragen of wilt u iets aanpassen? Neem gerust contact op. Na akkoord plannen wij de uitvoering in en stemmen we de laatste technische punten af.",
+        quoteIntroDefault: "",
+        quoteOutroDefault: "",
         paymentTerms: "30% bij akkoord voor materiaalreservering, restant na installatie en oplevering.",
         aiSystemPrompts: {},
       },
@@ -75,10 +73,8 @@ async function main() {
       settings: {
         defaultVatRate: 21,
         quoteValidDays: 30,
-        quoteIntroDefault:
-          "Dank voor uw aanvraag. In deze offerte vindt u een duidelijke uitsplitsing van de werkzaamheden, materialen en kosten. De offerte is opgesteld op basis van de bekende situatie en de besproken wensen.",
-        quoteOutroDefault:
-          "Heeft u vragen of wilt u iets aanpassen? Neem gerust contact op. Na akkoord plannen wij de uitvoering in en stemmen we de laatste technische punten af.",
+        quoteIntroDefault: "",
+        quoteOutroDefault: "",
         paymentTerms: "30% bij akkoord voor materiaalreservering, restant na installatie en oplevering.",
         aiSystemPrompts: {},
       },

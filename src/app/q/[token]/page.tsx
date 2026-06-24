@@ -5,6 +5,7 @@ import { QuotePortalClient } from "./quote-portal-client";
 import { sendTelegramMessage } from "@/lib/notifications";
 import { quoteChoiceGroupSchema, quoteOptionSchema } from "@/lib/quote-selection";
 import { z } from "zod";
+import { resolveQuoteAttachmentImages } from "@/lib/quote-attachments";
 
 export default async function QuotePortalPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -65,6 +66,10 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
   const branding = (share.quote.company.branding ?? {}) as Record<string, string>;
   const slug = share.quote.company.slug;
   const serialized = JSON.parse(JSON.stringify(share));
+  serialized.quote.attachments = await resolveQuoteAttachmentImages(
+    serialized.quote.attachments,
+    { expiresIn: 21600 },
+  );
   const parsedChoiceGroups = z.array(quoteChoiceGroupSchema).safeParse(serialized.quote.choiceGroups);
   const parsedOptions = z.array(quoteOptionSchema).safeParse(serialized.quote.options);
   serialized.quote.choiceGroups = parsedChoiceGroups.success ? parsedChoiceGroups.data : [];

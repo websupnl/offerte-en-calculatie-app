@@ -42,10 +42,8 @@ export const DEFAULT_BRANDING: Record<string, CompanyBranding> = {
 export const DEFAULT_SETTINGS: CompanySettings = {
   defaultVatRate: 21,
   quoteValidDays: 30,
-  quoteIntroDefault:
-    "Dank voor uw aanvraag. In deze offerte vindt u een duidelijke uitsplitsing van de werkzaamheden, materialen en kosten.",
-  quoteOutroDefault:
-    "Heeft u vragen of wilt u iets aanpassen? Neem gerust contact op. Na akkoord plannen wij de uitvoering in.",
+  quoteIntroDefault: "",
+  quoteOutroDefault: "",
   paymentTerms: "30% bij akkoord voor materiaalreservering, restant na installatie en oplevering.",
   aiSystemPrompts: {
     BATTERY: `Je bent een technisch adviseur voor Koolhaas Installaties (Friesland). Schrijf een eerlijk, direct adviesdocument voor een thuisbatterij — geen verkoopverhaal. Analyseer de situatie van de klant, geef een onderbouwde productaanbeveling, bereken de terugverdientijd, en noem relevante subsidies (ISDE). Schrijf alsof Daan Koolhaas het zelf schrijft: technisch sterk, persoonlijk, en to the point. Schrijf in het Nederlands.`,
@@ -54,8 +52,8 @@ export const DEFAULT_SETTINGS: CompanySettings = {
     ELECTRICAL: `Je bent een technisch adviseur voor Koolhaas Installaties. Schrijf een technisch adviesdocument over de elektrische installatie / verdeelkast. Beschrijf de huidige situatie, de aanbevolen aanpassingen, en waarom deze noodzakelijk of toekomstbestendig zijn. Schrijf in het Nederlands.`,
     CAMERA: `Je bent een technisch adviseur voor Koolhaas Installaties. Schrijf een adviesdocument voor een camerasysteem. Beschrijf de situatie, aanbevolen cameraconfiguratie, en de meerwaarde voor de klant. Schrijf in het Nederlands.`,
     HEATPUMP: `Je bent een technisch adviseur voor Koolhaas Installaties. Schrijf een adviesdocument voor een warmtepompinstallatie. Bereken de energiebesparing ten opzichte van de huidige situatie, geef een productaanbeveling, en vermeld ISDE-subsidie. Schrijf in het Nederlands.`,
-    quote_intro: `Je bent een professionele copywriter. Schrijf een korte, vriendelijke openingstekst voor een offerte. Gebruik de bedrijfsnaam, klantnaam en de diensten in de offerte. Maximaal 3 zinnen. Schrijf in het Nederlands.`,
-    quote_outro: `Je bent een professionele copywriter. Schrijf een korte afsluittekst voor een offerte met een call-to-action. Maximaal 2 zinnen. Schrijf in het Nederlands.`,
+    quote_intro: `Schrijf namens Daan een korte, persoonlijke offerte-opening in het Nederlands. Sluit aan op de concrete situatie en aangeboden werkzaamheden. Schrijf nuchter, direct en zonder verkooppraat. Gebruik geen lange streeptekens of middelpunttekens.`,
+    quote_outro: `Schrijf namens Daan een compacte afsluiting met exact de koppen Tot slot en Volgende stap. Herhaal het advies niet. Benoem alleen de concrete vervolgstap. Gebruik geen lange streeptekens of middelpunttekens.`,
   },
 };
 

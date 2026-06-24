@@ -151,6 +151,13 @@ export function QuotePortalClient({
       : isExpired
         ? "Verlopen"
         : QUOTE_STATUS_LABELS[quote.status] ?? quote.status;
+  const showStatusBadge = statusLabel.toLowerCase() !== "bekeken";
+  const firstKoolhaasImageId = isKoolhaas
+    ? quote.attachments?.find((attachment) => attachment.imageUrl)?.id
+    : undefined;
+  const portalAttachments = (quote.attachments ?? []).filter(
+    (attachment) => attachment.imageUrl && attachment.id !== firstKoolhaasImageId,
+  );
 
   async function handleAccept() {
     if (isExpired) {
@@ -237,7 +244,7 @@ export function QuotePortalClient({
             <h1>{quote.title || quote.category || "Offerte"}</h1>
             <p>{quote.customer.name} · {portalBrand.name}</p>
           </div>
-          <div className="portal-overview-grid">
+          <div className={`portal-overview-grid ${showStatusBadge ? "" : "without-status"}`}>
             <div className="portal-stat">
               <Euro />
               <span>Totaal incl. btw</span>
@@ -250,9 +257,11 @@ export function QuotePortalClient({
                 <b>{formatDate(quote.validUntil)}</b>
               </div>
             )}
-            <div className={`portal-status-pill ${submitted === "accepted" ? "is-accepted" : isExpired ? "is-expired" : ""}`}>
-              {statusLabel}
-            </div>
+            {showStatusBadge && (
+              <div className={`portal-status-pill ${submitted === "accepted" ? "is-accepted" : isExpired ? "is-expired" : ""}`}>
+                {statusLabel}
+              </div>
+            )}
           </div>
         </section>
 
@@ -267,16 +276,8 @@ export function QuotePortalClient({
           </div>
 
           <aside className="sidebar no-print">
-            <div className="sticky-sidebar" id="akkoord">
+            <div className="portal-sidebar-content" id="akkoord">
               <div className="portal-card portal-identity-card">
-                <div className="portal-card-head">
-                  {isKoolhaas ? (
-                    <img src="/logos/koolhaas-logo-tight.png" alt="Koolhaas Installaties" />
-                  ) : (
-                    <img src="/logos/websup-cover.png" alt="WebsUp.nl" />
-                  )}
-                </div>
-
                 <div className="portal-meta-list">
                   {[
                     { icon: <FileText />, label: "Offertenummer", value: quote.number },
@@ -540,11 +541,11 @@ export function QuotePortalClient({
           </aside>
         </div>
 
-        {quote.attachments && quote.attachments.filter(a => a.imageUrl).length > 0 && (
+        {portalAttachments.length > 0 && (
           <section className="portal-previews no-print" aria-label="Voorbeelden en ontwerpen">
             <h2 className="portal-previews-heading">Voorbeelden &amp; ontwerpen</h2>
             <div className="portal-previews-grid">
-              {quote.attachments.filter(a => a.imageUrl).map((attachment) => {
+              {portalAttachments.map((attachment) => {
                 const inner = (
                   <div className="portal-preview-card">
                     <div className="portal-preview-img">

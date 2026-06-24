@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
 import { PrintOnLoad } from "@/components/print-on-load";
+import { resolveQuoteAttachmentImages } from "@/lib/quote-attachments";
 
 export default async function PortalPrintPage({
   params,
@@ -29,7 +30,14 @@ export default async function PortalPrintPage({
 
   if (!share) notFound();
 
-  const serialized = JSON.parse(JSON.stringify(share.quote));
+  const attachments = await resolveQuoteAttachmentImages(
+    share.quote.attachments,
+    { expiresIn: 21600 },
+  );
+  const serialized = JSON.parse(JSON.stringify({
+    ...share.quote,
+    attachments,
+  }));
   const selectedChoiceIds = (share.selectedChoiceIds as Record<string, string> | null)
     ?? parseJsonParam<Record<string, string>>(choices, {});
   const selectedOptionIds = (share.selectedOptionIds as string[] | null)

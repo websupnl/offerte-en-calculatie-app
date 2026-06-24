@@ -9,6 +9,12 @@ import {
   quoteOptionSchema,
 } from "@/lib/quote-selection";
 import { calculateLine, calculateTotals } from "@/lib/calculation";
+import { normalizeQuoteCopyValue } from "@/lib/quote-copy";
+import {
+  getQuoteAttachmentStorageKey,
+  resolveQuoteAttachmentImages,
+} from "@/lib/quote-attachments";
+import { deleteObject, isStorageConfigured } from "@/lib/storage";
 
 const itemSchema = z.object({
   id: z.string().optional(),
@@ -77,7 +83,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   });
 
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(quote);
+  const attachments = await resolveQuoteAttachmentImages(quote.attachments, {
+    expiresIn: 21600,
+    includeStorageRef: true,
+  });
+  return NextResponse.json({ ...quote, attachments });
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -105,13 +115,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           productId: true,
         },
       },
+      attachments: {
+        select: { imageUrl: true },
+      },
     },
   });
   if (!existingQuote) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (existingQuote.status === "ACCEPTED") {
     return NextResponse.json({ error: "Een geaccepteerde offerte is vergrendeld." }, { status: 409 });
   }
-  const body = await req.json();
+  const body = normalizeQuoteCopyValue(await req.json());
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -126,6 +139,24 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const { items, attachments, ...rest } = parsed.data;
+  const attachmentPrefix = `offertes/${session.user.activeCompanyId}/`;
+  if (attachments?.some((attachment) => {
+    const key = getQuoteAttachmentStorageKey(attachment.imageUrl);
+    return key !== null && !key.startsWith(attachmentPrefix);
+  })) {
+    return NextResponse.json(
+      { error: "Een offerte-afbeelding hoort niet bij het actieve bedrijf." },
+      { status: 400 },
+    );
+  }
+  const removedAttachmentKeys = attachments
+    ? existingQuote.attachments
+        .map((attachment) => getQuoteAttachmentStorageKey(attachment.imageUrl))
+        .filter((key): key is string => Boolean(key))
+        .filter((key) => !attachments.some(
+          (attachment) => getQuoteAttachmentStorageKey(attachment.imageUrl) === key,
+        ))
+    : [];
 
   if (rest.customerId) {
     const customer = await prisma.customer.findFirst({
@@ -208,6 +239,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     data: updateData,
   });
 
+  if (isStorageConfigured() && removedAttachmentKeys.length > 0) {
+    await Promise.all(
+      removedAttachmentKeys.map((key) =>
+        deleteObject(key).catch((error) => {
+          console.error("[QUOTE ATTACHMENT] S3 cleanup failed:", error);
+        }),
+      ),
+    );
+  }
+
   // Auto-generate PDF in background after response is sent
   const host = req.headers.get("host") ?? "localhost:3000";
   const cookie = req.headers.get("cookie") ?? "";
@@ -228,7 +269,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   
   const quote = await prisma.quote.findFirst({
     where: { id, companyId: session.user.activeCompanyId },
-    select: { pdfUrl: true },
+    select: {
+      pdfUrl: true,
+      attachments: { select: { imageUrl: true } },
+    },
   });
 
   if (quote?.pdfUrl) {
@@ -242,6 +286,19 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   await prisma.quote.deleteMany({
     where: { id, companyId: session.user.activeCompanyId },
   });
+
+  if (quote && isStorageConfigured()) {
+    const keys = quote.attachments
+      .map((attachment) => getQuoteAttachmentStorageKey(attachment.imageUrl))
+      .filter((key): key is string => Boolean(key));
+    await Promise.all(
+      keys.map((key) =>
+        deleteObject(key).catch((error) => {
+          console.error("[DELETE] Failed to delete quote attachment:", error);
+        }),
+      ),
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

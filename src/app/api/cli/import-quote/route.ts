@@ -4,6 +4,7 @@ import { validateQuoteImportInput } from "@/lib/quote-import";
 import { generateQuoteNumber } from "@/lib/format";
 import { z } from "zod";
 import { calculateLine, calculateTotals } from "@/lib/calculation";
+import { calculateQuotePriceSummary } from "@/lib/quote-selection";
 
 function authorized(req: NextRequest) {
   const key = req.headers.get("x-cli-key");
@@ -97,9 +98,9 @@ export async function POST(req: NextRequest) {
   const validDays = data.validDays ?? 30;
   const validUntil = new Date(Date.now() + validDays * 86_400_000);
 
-  // Alleen de vaste basis wordt opgeslagen in de offertetotalen.
-  // Configuraties worden pas bij de klantselectie bijgeteld.
-  const totals = calculateTotals(data.items);
+  const totals = data.configurations.length
+    ? calculateQuotePriceSummary(data.items, data.configurations).recommended
+    : calculateTotals(data.items);
   const itemsWithOrder = data.items.map((item, i) => {
     return { ...item, total: calculateLine(item).revenueExVat, sortOrder: i };
   });
@@ -133,9 +134,9 @@ export async function POST(req: NextRequest) {
       options: data.optionalWork ?? [],
       // configurations → choiceGroups JSON
       choiceGroups: data.configurations ?? [],
-      totalExVat: totals.revenueExVat,
-      totalVat: totals.vat,
-      totalIncVat: totals.revenueIncVat,
+      totalExVat: "totalExVat" in totals ? totals.totalExVat : totals.revenueExVat,
+      totalVat: "totalVat" in totals ? totals.totalVat : totals.vat,
+      totalIncVat: "totalIncVat" in totals ? totals.totalIncVat : totals.revenueIncVat,
       items: itemsWithOrder.length ? { create: itemsWithOrder } : undefined,
     },
     include: { customer: true, items: true },

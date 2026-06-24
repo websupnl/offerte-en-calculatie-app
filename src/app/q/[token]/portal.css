@@ -97,7 +97,7 @@
   .no-print,
   button,
   .sidebar,
-  .sticky-sidebar,
+  .portal-sidebar-content,
   .doc-foot-actions,
   .toast {
     display: none !important;
@@ -787,6 +787,27 @@
   background: var(--accent-bg);
 }
 
+.choice-details {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+.choice-details li {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: var(--on-m);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.choice-details li svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
 /* =============================================================
    OPTION CHIPS
    ============================================================= */
@@ -1076,6 +1097,15 @@
   flex: none;
   color: #16a34a;
 }
+.sign-outro {
+  margin-top: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.sign-outro .letter {
+  font-size: 13px;
+  line-height: 1.5;
+}
 
 /* =============================================================
    NOTE STRIP
@@ -1239,6 +1269,16 @@
    ============================================================= */
 .letter { font-size: 16px; line-height: 1.72; color: var(--on); margin-top: 12px; }
 .letter p { margin-bottom: 9px; }
+.intro-visual {
+  margin: 22px 0 0;
+}
+.intro-visual img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+}
 .sig { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
 .sig-av {
   width: 36px; height: 36px; border-radius: 50%; flex: none;
@@ -1596,6 +1636,9 @@
   gap: 10px;
   min-width: 510px;
 }
+.portal-overview-grid.without-status {
+  grid-template-columns: minmax(170px, 1fr) minmax(150px, 1fr);
+}
 .portal-stat {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -1723,13 +1766,7 @@ a.portal-preview-link:hover {
   align-self: stretch;
 }
 
-.sticky-sidebar {
-  position: sticky;
-  top: 84px;
-  align-self: flex-start;
-  max-height: calc(100vh - 100px);
-  overflow-y: auto;
-  scrollbar-gutter: stable;
+.portal-sidebar-content {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -1744,26 +1781,6 @@ a.portal-preview-link:hover {
   box-shadow: var(--sh-sm);
 }
 
-.portal-card-head {
-  margin-bottom: 16px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
-}
-.portal-card-head img {
-  display: block;
-  height: 86px;
-  width: auto;
-  max-width: 100%;
-  object-fit: contain;
-}
-.portal-koolhaas .portal-card-head img {
-  height: 56px;
-}
-.portal-card-head p {
-  margin-top: 3px;
-  font-size: 16px;
-  color: var(--on-s);
-}
 .portal-meta-list {
   display: flex;
   flex-direction: column;
@@ -1800,10 +1817,6 @@ a.portal-preview-link:hover {
   overflow-wrap: anywhere;
   font: 700 16px/1.35 var(--text);
   color: var(--on);
-}
-.portal-koolhaas .portal-card-head {
-  margin-bottom: 12px;
-  padding-bottom: 10px;
 }
 .portal-koolhaas .portal-meta-list {
   gap: 9px;
@@ -2300,8 +2313,7 @@ a.portal-preview-link:hover {
     margin: 0 auto;
     order: -1;
   }
-  .sticky-sidebar {
-    position: static;
+  .portal-sidebar-content {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
@@ -2336,8 +2348,11 @@ a.portal-preview-link:hover {
     font-size: 22px;
   }
   .portal-overview-grid,
-  .sticky-sidebar {
+  .portal-sidebar-content {
     grid-template-columns: 1fr;
+  }
+  .intro-visual img {
+    max-height: 300px;
   }
   .portal-status-pill {
     justify-self: stretch;

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateText } from "@/lib/openai";
 import { DEFAULT_SETTINGS } from "@/lib/branding";
+import { normalizeQuoteCopyText } from "@/lib/quote-copy";
 import { z } from "zod";
 
 const schema = z.object({
@@ -41,6 +42,9 @@ export async function POST(req: NextRequest) {
     ? `Schrijf een offerte-intro voor: Bedrijf: ${context.companyName}, Klant: ${context.customerName}, Diensten: ${context.items?.map((i) => i.description).join(", ")}`
     : `Schrijf een offerte-afsluittekst voor: Bedrijf: ${context.companyName}, Klant: ${context.customerName}`;
 
-  const text = await generateText(systemPrompt, userPrompt, apiKey);
-  return NextResponse.json({ text });
+  const tenantInstruction = company?.slug === "koolhaas"
+    ? "Schrijf als Daan van Koolhaas Installaties: persoonlijk, nuchter, praktisch en technisch zorgvuldig. Gebruik geen fabrikantentaal of consultancytaal."
+    : "Schrijf als Daan van WebsUp: persoonlijk, concreet en gericht op het zakelijke vraagstuk. Gebruik geen bureautaal.";
+  const text = await generateText(`${systemPrompt}\n${tenantInstruction}`, userPrompt, apiKey);
+  return NextResponse.json({ text: normalizeQuoteCopyText(text) });
 }

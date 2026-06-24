@@ -9,6 +9,8 @@ import {
   quoteOptionSchema,
 } from "@/lib/quote-selection";
 import { calculateLine, calculateTotals } from "@/lib/calculation";
+import { normalizeQuoteCopyValue } from "@/lib/quote-copy";
+import { getQuoteAttachmentStorageKey } from "@/lib/quote-attachments";
 
 const itemSchema = z.object({
   productId: z.string().optional(),
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const companyId = session.user.activeCompanyId;
-  const body = await req.json();
+  const body = normalizeQuoteCopyValue(await req.json());
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   if (parsed.data.items.length === 0 && (parsed.data.choiceGroups?.length ?? 0) === 0) {
@@ -80,6 +82,16 @@ export async function POST(req: NextRequest) {
 
   const customer = await prisma.customer.findFirst({ where: { id: customerId, companyId }, select: { id: true } });
   if (!customer) return NextResponse.json({ error: "Klant bestaat niet binnen het actieve bedrijf." }, { status: 400 });
+  const attachmentPrefix = `offertes/${companyId}/`;
+  if (attachments?.some((attachment) => {
+    const key = getQuoteAttachmentStorageKey(attachment.imageUrl);
+    return key !== null && !key.startsWith(attachmentPrefix);
+  })) {
+    return NextResponse.json(
+      { error: "Een offerte-afbeelding hoort niet bij het actieve bedrijf." },
+      { status: 400 },
+    );
+  }
 
   const productIds = [...new Set(items.map((item) => item.productId).filter((id): id is string => Boolean(id)))];
   if (productIds.length > 0) {

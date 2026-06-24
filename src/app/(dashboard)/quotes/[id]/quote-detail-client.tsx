@@ -75,6 +75,7 @@ type QuoteAttachment = {
   id: string;
   title: string | null;
   imageUrl: string;
+  storageRef?: string | null;
   caption: string | null;
 };
 

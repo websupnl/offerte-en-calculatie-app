@@ -404,10 +404,10 @@ export function QuotePDF({
   const brand = getBrand(companySlug);
   const isKoolhaas = companySlug === "koolhaas";
 
-  const flow = flowProp.length ? flowProp : brand.flow;
-  const approach = approachProp.length ? approachProp : brand.approach;
-  const options = optionsProp.length ? optionsProp : brand.options;
-  const exclusions = exclusionsProp.length ? exclusionsProp : brand.exclusions;
+  const flow = flowProp;
+  const approach = approachProp;
+  const options = optionsProp;
+  const exclusions = exclusionsProp;
   const title = titleProp || brand.defaultTitle;
   const category = categoryProp || brand.defaultCategory;
   const tagline = taglineProp || companyTagline || brand.defaultTagline;
@@ -423,8 +423,12 @@ export function QuotePDF({
 
   const PAD = 38;
   const innerPage = { padding: PAD, paddingTop: 30, paddingBottom: 50 };
-  const attachmentPairs = Array.from({ length: Math.ceil(attachments.length / 2) }, (_, i) =>
-    attachments.slice(i * 2, i * 2 + 2)
+  const introVisual = isKoolhaas ? attachments.find((attachment) => attachment.imageUrl) : undefined;
+  const standaloneAttachments = introVisual
+    ? attachments.filter((attachment) => attachment !== introVisual)
+    : attachments;
+  const attachmentPairs = Array.from({ length: Math.ceil(standaloneAttachments.length / 2) }, (_, i) =>
+    standaloneAttachments.slice(i * 2, i * 2 + 2)
   );
   // Cover uses dark left panel for WebsUp, light for Koolhaas
   const coverDark = !isKoolhaas;
@@ -538,22 +542,30 @@ export function QuotePDF({
           {intro || brand.summaryGoal}
         </Text>
 
-        {/* Signature */}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 }}>
-          <View style={{ width: 34, height: 34, borderRadius: 17, overflow: "hidden" }}>
-            {PROFILE_PHOTO ? (
-              <Image src={PROFILE_PHOTO} style={{ width: 32, height: 32, margin: 1, borderRadius: 16, objectFit: "cover", objectPositionY: "24%" }} />
-            ) : (
-              <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: brand.colors.accent, justifyContent: "center", alignItems: "center" }}>
-                <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>DK</Text>
-              </View>
-            )}
+        {introVisual ? (
+          <View style={{ marginTop: 2 }}>
+            <Image
+              src={publicImageDataUri(introVisual.imageUrl)}
+              style={{ width: "100%", height: 185, objectFit: "contain" }}
+            />
           </View>
-          <View>
-            <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold" }}>Daan Koolhaas</Text>
-            <Text style={{ fontSize: 7.5, color: brand.colors.muted }}>{brand.role}</Text>
+        ) : (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <View style={{ width: 34, height: 34, borderRadius: 17, overflow: "hidden" }}>
+              {PROFILE_PHOTO ? (
+                <Image src={PROFILE_PHOTO} style={{ width: 32, height: 32, margin: 1, borderRadius: 16, objectFit: "cover", objectPositionY: "24%" }} />
+              ) : (
+                <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: brand.colors.accent, justifyContent: "center", alignItems: "center" }}>
+                  <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>DK</Text>
+                </View>
+              )}
+            </View>
+            <View>
+              <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold" }}>Daan Koolhaas</Text>
+              <Text style={{ fontSize: 7.5, color: brand.colors.muted }}>{brand.role}</Text>
+            </View>
           </View>
-        </View>
+        )}
 
         <PageFooter tag="Offerte" customerName={customerName} />
       </Page>
@@ -561,10 +573,13 @@ export function QuotePDF({
       {/* ════════════════════════════════════════════════════════
           PAGE 3: FLOW + APPROACH
       ════════════════════════════════════════════════════════ */}
+      {(flow.length > 0 || approach.length > 0) && (
       <Page size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
         <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
         <PageHeader brand={brand} quoteNumber={quoteNumber} customerName={customerName} />
 
+        {flow.length > 0 && (
+        <>
         {/* Flow */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <View>
@@ -590,8 +605,12 @@ export function QuotePDF({
           ))}
         </View>
 
-        <Divider color={brand.colors.border} />
+        {approach.length > 0 && <Divider color={brand.colors.border} />}
+        </>
+        )}
 
+        {approach.length > 0 && (
+        <>
         {/* Approach */}
         <Eyebrow text={brand.approachEyebrow} color={brand.colors.accent} />
         <H2 text={brand.approachTitle} />
@@ -605,9 +624,12 @@ export function QuotePDF({
             </View>
           ))}
         </View>
+        </>
+        )}
 
         <PageFooter tag="Offerte" customerName={customerName} />
       </Page>
+      )}
 
       {attachmentPairs.map((pair, pageIndex) => (
         <Page key={pageIndex} size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
@@ -828,36 +850,38 @@ export function QuotePDF({
 
         <Divider color={brand.colors.border} />
 
-        {/* Options */}
-        <Eyebrow text={brand.optionsEyebrow} color={brand.colors.accent} />
-        <H2 text={brand.optionsTitle} />
-
-        <View style={{ gap: 7 }}>
-          {options.map((o, i) => (
-            <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: brand.colors.surface, padding: 10, borderRadius: 8 }}>
-              <View style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: brand.colors.border, justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
-                <Text style={{ fontSize: 11, color: brand.colors.accent }}>+</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", marginBottom: 2 }}>{o.t}</Text>
-                <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.4 }}>{o.d}</Text>
-                <View style={{ marginTop: 4, backgroundColor: brand.colors.border, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, alignSelf: "flex-start" }}>
-                  <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>{o.tag}</Text>
+        {options.length > 0 && (
+          <>
+            <Eyebrow text="Mogelijke uitbreidingen" color={brand.colors.accent} />
+            <H2 text={brand.optionsTitle} />
+            <View style={{ gap: 7 }}>
+              {options.map((o, i) => (
+                <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: brand.colors.surface, padding: 10, borderRadius: 8 }}>
+                  <View style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: brand.colors.border, justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
+                    <Text style={{ fontSize: 11, color: brand.colors.accent }}>+</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", marginBottom: 2 }}>{o.t}</Text>
+                    <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.4 }}>{o.d}</Text>
+                    <View style={{ marginTop: 4, backgroundColor: brand.colors.border, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, alignSelf: "flex-start" }}>
+                      <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>{o.tag}</Text>
+                    </View>
+                  </View>
+                  <View style={{ alignItems: "flex-end", marginLeft: 8 }}>
+                    {typeof o.price === "number" ? (
+                      <>
+                        <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>+ {formatEur(o.price * (1 + (o.vatRate ?? 21) / 100))}</Text>
+                        <Text style={{ fontSize: 6.5, color: brand.colors.muted, marginTop: 1 }}>incl. btw</Text>
+                      </>
+                    ) : (
+                      <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>Op aanvraag</Text>
+                    )}
+                  </View>
                 </View>
-              </View>
-              <View style={{ alignItems: "flex-end", marginLeft: 8 }}>
-                {typeof o.price === "number" ? (
-                  <>
-                    <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>+ {formatEur(o.price * (1 + (o.vatRate ?? 21) / 100))}</Text>
-                    <Text style={{ fontSize: 6.5, color: brand.colors.muted, marginTop: 1 }}>incl. btw</Text>
-                  </>
-                ) : (
-                  <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>Op aanvraag</Text>
-                )}
-              </View>
+              ))}
             </View>
-          ))}
-        </View>
+          </>
+        )}
 
         <PageFooter tag="Offerte" customerName={customerName} />
       </Page>
@@ -901,24 +925,26 @@ export function QuotePDF({
           </View>
         )}
 
-        {/* Exclusions */}
-        <Eyebrow text={brand.exclusionsEyebrow} color={brand.colors.accent} />
-        <H2 text={brand.exclusionsTitle} />
-        <View style={{ gap: 5, marginBottom: 4 }}>
-          {exclusions.map((item, i) => (
-            <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: "#fef2f2", justifyContent: "center", alignItems: "center" }}>
-                <Text style={{ fontSize: 7, color: "#ef4444", fontFamily: "Helvetica-Bold" }}>x</Text>
-              </View>
-              <Text style={{ fontSize: 9, color: "#334155", flex: 1 }}>{item}</Text>
+        {exclusions.length > 0 && (
+          <>
+            <Eyebrow text="Niet inbegrepen" color={brand.colors.accent} />
+            <H2 text={brand.exclusionsTitle} />
+            <View style={{ gap: 5, marginBottom: 4 }}>
+              {exclusions.map((item, i) => (
+                <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: "#fef2f2", justifyContent: "center", alignItems: "center" }}>
+                    <Text style={{ fontSize: 7, color: "#ef4444", fontFamily: "Helvetica-Bold" }}>x</Text>
+                  </View>
+                  <Text style={{ fontSize: 9, color: "#334155", flex: 1 }}>{item}</Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
-
-        <Divider color={brand.colors.border} />
+            <Divider color={brand.colors.border} />
+          </>
+        )}
 
         {/* Outro */}
-        <Eyebrow text="Slotwoord" color={brand.colors.accent} />
+        <Eyebrow text="Tot slot" color={brand.colors.accent} />
         <Text style={{ fontSize: 9.5, lineHeight: 1.65, color: "#334155", marginBottom: 4 }}>
           {outro || "Heb je vragen over deze offerte of wil je iets aanpassen? Stuur een bericht via WhatsApp of e-mail. Ik loop het graag samen met je door."}
         </Text>
@@ -958,7 +984,7 @@ export function QuotePDF({
         <Divider color={brand.colors.border} />
 
         {/* Sign */}
-        <Eyebrow text="Akkoord voor uitvoering" color={brand.colors.accent} />
+        <Eyebrow text="Akkoord met de offerte" color={brand.colors.accent} />
         <H2 text={brand.closingTitle} />
 
         <View style={{ flexDirection: "row", gap: 16, marginBottom: 20 }}>

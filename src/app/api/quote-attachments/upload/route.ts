@@ -1,8 +1,16 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import {
+  buildObjectKey,
+  deleteObject,
+  isStorageConfigured,
+  presignDownload,
+  uploadObject,
+} from "@/lib/storage";
+import {
+  createQuoteAttachmentStorageRef,
+  getQuoteAttachmentStorageKey,
+} from "@/lib/quote-attachments";
 
 export const runtime = "nodejs";
 
@@ -17,6 +25,12 @@ const MIME_EXT: Record<string, string> = {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isStorageConfigured()) {
+    return NextResponse.json(
+      { error: "S3-opslag is niet geconfigureerd" },
+      { status: 503 },
+    );
+  }
 
   const formData = await req.formData();
   const file = formData.get("file");
@@ -34,15 +48,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "File too large" }, { status: 400 });
   }
 
-  const dir = path.join(process.cwd(), "public", "uploads", "quote-attachments");
-  await mkdir(dir, { recursive: true });
-
-  const fileName = `${randomUUID()}.${ext}`;
+  const title = file.name.replace(/\.[^.]+$/, "") || "offerte-afbeelding";
+  const key = buildObjectKey(
+    `${title}.${ext}`,
+    `offertes/${session.user.activeCompanyId}`,
+  );
   const bytes = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(dir, fileName), bytes);
+  await uploadObject(key, bytes, file.type);
+  const previewUrl = await presignDownload(key, 3600);
 
   return NextResponse.json({
-    url: `/uploads/quote-attachments/${fileName}`,
-    title: file.name.replace(/\.[^.]+$/, ""),
+    url: createQuoteAttachmentStorageRef(key),
+    previewUrl,
+    title,
   });
+}
+
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isStorageConfigured()) {
+    return NextResponse.json({ error: "S3-opslag is niet geconfigureerd" }, { status: 503 });
+  }
+
+  const body = await req.json().catch(() => null) as { url?: string } | null;
+  const key = body?.url ? getQuoteAttachmentStorageKey(body.url) : null;
+  const companyPrefix = `offertes/${session.user.activeCompanyId}/`;
+
+  if (!key || !key.startsWith(companyPrefix)) {
+    return NextResponse.json({ error: "Ongeldige opslagverwijzing" }, { status: 400 });
+  }
+
+  await deleteObject(key);
+  return NextResponse.json({ ok: true });
 }

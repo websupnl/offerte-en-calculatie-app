@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { QuoteDetailClient } from "./quote-detail-client";
+import { resolveQuoteAttachmentImages } from "@/lib/quote-attachments";
 
 export default async function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -32,7 +33,17 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
 
   const companySlug = session?.user?.companies?.find((c) => c.id === companyId)?.slug ?? "websup";
   const customers = await prisma.customer.findMany({ where: { companyId }, orderBy: { name: "asc" }, take: 500 });
-  const serialized = JSON.parse(JSON.stringify({ quote, company, customers, products, productSets }));
+  const attachments = await resolveQuoteAttachmentImages(quote.attachments, {
+    expiresIn: 21600,
+    includeStorageRef: true,
+  });
+  const serialized = JSON.parse(JSON.stringify({
+    quote: { ...quote, attachments },
+    company,
+    customers,
+    products,
+    productSets,
+  }));
 
   return (
     <QuoteDetailClient

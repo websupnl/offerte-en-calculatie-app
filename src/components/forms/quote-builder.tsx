@@ -36,6 +36,7 @@ import {
   Package,
   Layers,
   PackagePlus,
+  Upload,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { calculateTotals } from "@/lib/calculation";
@@ -115,6 +116,7 @@ type QuoteAttachment = {
   id: string;
   title: string;
   imageUrl: string;
+  storageRef?: string;
   liveUrl: string;
   caption: string;
 };
@@ -123,6 +125,7 @@ type InitialQuoteAttachment = {
   id?: string;
   title?: string | null;
   imageUrl?: string | null;
+  storageRef?: string | null;
   liveUrl?: string | null;
   caption?: string | null;
 };
@@ -210,58 +213,6 @@ type VisionSuggestedItem = {
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
 
-const DEFAULT_FLOW = [
-  { n: 1, t: "Locatie & situatie", d: "Adres, type woning of pand en de gewenste plek voor de laadpaal." },
-  { n: 2, t: "Meterkast & aansluiting", d: "Foto meterkast, close-up slimme meter en het aantal fasen." },
-  { n: 3, t: "Verdeelkast", d: "Overzichtsfoto en ruimte voor een extra groep of loadbalancing." },
-  { n: 4, t: "Kabelroute", d: "Route en lengte van meterkast naar paal — is er graafwerk nodig?" },
-  { n: 5, t: "Laadpaal & montage", d: "Type 2 of vaste kabel, gevel of montagepaal, verrekening." },
-  { n: 6, t: "Klantgegevens", d: "Contactgegevens en of het zakelijk of particulier is." },
-  { n: 7, t: "Controle & versturen", d: "Overzicht van alle gegevens en foto's, akkoord en verzenden." },
-];
-
-const DEFAULT_APPROACH = [
-  { n: "01", t: "Inventarisatie", d: "Samen scope, velden en interne opvolging scherp krijgen." },
-  { n: "02", t: "UX-ontwerp", d: "Stappen, volgorde en logica van de aanvraagflow." },
-  { n: "03", t: "Visueel ontwerp", d: "Styling in de huisstijl — klaar voor akkoord." },
-  { n: "04", t: "Technische bouw", d: "Maatwerk in WordPress: uploads, e-mail en formulierlogica." },
-  { n: "05", t: "Test & feedback", d: "Testen op alle apparaten + één feedbackronde." },
-  { n: "06", t: "Livegang & nazorg", d: "Plaatsing, korte uitleg en ondersteuning na oplevering." },
-];
-
-const DEFAULT_EXCLUSIONS = [
-  "Betaalde plugins of externe licenties",
-  "Hosting en domeinnaam",
-  "Teksten of fotografie",
-  "Grote wijzigingen buiten de afgesproken scope",
-  "Koppelingen met systemen buiten deze offerte",
-];
-
-const KOOLHAAS_FLOW = [
-  { n: 1, t: "Akkoord & opname", d: "Offerte akkoord, laatste technische check en bevestiging van de opstelplek." },
-  { n: 2, t: "Materialen bestellen", d: "Batterij, omvormer, beveiligingen, bekabeling en montagemateriaal worden ingepland." },
-  { n: 3, t: "Meterkast voorbereiden", d: "Controle op fasen, beschikbare ruimte, hoofdzekering en benodigde uitbreidingen." },
-  { n: 4, t: "Montage & bekabeling", d: "Plaatsing van de installatie met nette kabelroute en veilige afwerking." },
-  { n: 5, t: "Aansluiten & testen", d: "Elektrische controle, inbedrijfstelling, app-koppeling en functionele test." },
-  { n: 6, t: "Uitleg & oplevering", d: "Korte uitleg over gebruik, monitoring, onderhoud en wat u kunt verwachten." },
-];
-
-const KOOLHAAS_APPROACH = [
-  { n: "01", t: "Technische controle", d: "Ik controleer of de gekozen oplossing past bij woning, meterkast en verbruik." },
-  { n: "02", t: "Heldere voorbereiding", d: "Planning, materialen en eventuele bijzonderheden worden vooraf afgestemd." },
-  { n: "03", t: "Veilige uitvoering", d: "Installatie volgens geldende normen, met nette montage en duidelijke kabelroutes." },
-  { n: "04", t: "Inbedrijfstelling", d: "Systeem testen, instellingen nalopen en zorgen dat monitoring werkt." },
-  { n: "05", t: "Oplevering", d: "Samen controleren we de installatie en krijgt u uitleg over gebruik en onderhoud." },
-];
-
-const KOOLHAAS_EXCLUSIONS = [
-  "Bouwkundige werkzaamheden zoals hak-, breek-, stuc- of schilderwerk",
-  "Graafwerk of herstel van bestrating tenzij expliciet opgenomen",
-  "Netverzwaring of werkzaamheden door de netbeheerder",
-  "Vergunningen, subsidies of gemeentelijke regelingen",
-  "Aanpassingen buiten de beschreven installatie en materialen",
-];
-
 const PLANNING_DEFAULTS = { leadTime: "", executionDuration: "", preferredDate: "" };
 const COMMERCIAL_DEFAULTS = { validDays: 30, paymentTerms: "", warranty: "" };
 
@@ -310,10 +261,10 @@ export function QuoteBuilder({
 
   // ─── Core State ───
   const [customerId, setCustomerId] = useState(initialQuote?.customerId || initialAdvice?.customerId || "");
-  const [title, setTitle] = useState(initialQuote?.title || initialAdvice?.title || (isKoolhaas ? "Thuisbatterij installatie" : "Maatwerk website met voorraadbeheer"));
-  const [category, setCategory] = useState(initialQuote?.category || (isKoolhaas ? "Installatie · Energieopslag" : "Maatwerk module · WordPress"));
-  const [tagline, setTagline] = useState(initialQuote?.tagline || (isKoolhaas ? "Advies · Installatie · Inbedrijfstelling" : "Ontwerp · Bouw · Plaatsing"));
-  const [itemsHeader, setItemsHeader] = useState(initialQuote?.itemsHeader || (isKoolhaas ? "Wat wordt er geïnstalleerd" : "Prijsopbouw"));
+  const [title, setTitle] = useState(initialQuote?.title || initialAdvice?.title || "Voorstel");
+  const [category, setCategory] = useState(initialQuote?.category || (isKoolhaas ? "Installatie" : "Webdevelopment"));
+  const [tagline, setTagline] = useState(initialQuote?.tagline || (isKoolhaas ? "Levering, montage en inbedrijfstelling" : "Ontwerp, bouw en oplevering"));
+  const [itemsHeader, setItemsHeader] = useState(initialQuote?.itemsHeader || "Inbegrepen werkzaamheden");
   const [validUntil, setValidUntil] = useState(initialQuote?.validUntil ? new Date(initialQuote.validUntil).toISOString().split('T')[0] : "");
   
   // Items Logic
@@ -339,9 +290,7 @@ export function QuoteBuilder({
         description: "Inclusief Slimme Sturing (EMS) en installatie",
         qty: 1, unitPrice: 0, vatRate: 21, total: 0, indent: 1
       }
-    ] : [
-      { id: genId(), description: isKoolhaas ? "Levering en installatie volgens offerte" : "Professionele website waarop bezoekers snel het aanbod kunnen bekijken en eenvoudig contact kunnen opnemen", qty: 1, unitPrice: 0, vatRate: 21, total: 0, indent: 0 },
-    ])
+    ] : [])
   );
 
   // Attachments Logic
@@ -350,6 +299,7 @@ export function QuoteBuilder({
       id: attachment.id || genId(),
       title: attachment.title || "",
       imageUrl: attachment.imageUrl || "",
+      storageRef: attachment.storageRef || undefined,
       liveUrl: attachment.liveUrl || "",
       caption: attachment.caption || "",
     })) || []
@@ -371,9 +321,10 @@ export function QuoteBuilder({
   });
   const [choiceGroups, setChoiceGroups] = useState<ChoiceGroup[]>(initialQuote?.choiceGroups || []);
   const [internalAdvice, setInternalAdvice] = useState(initialQuote?.internalAdvice || initialAdvice?.analysis || "");
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   
-  const [flow, setFlow] = useState(initialQuote?.flow || (isKoolhaas ? KOOLHAAS_FLOW : DEFAULT_FLOW));
-  const [approach, setApproach] = useState(initialQuote?.approach || (isKoolhaas ? KOOLHAAS_APPROACH : DEFAULT_APPROACH));
+  const [flow, setFlow] = useState(initialQuote?.flow || []);
+  const [approach, setApproach] = useState(initialQuote?.approach || []);
   const [options, setOptions] = useState<QuoteOption[]>(
     (initialQuote?.options || []).map((option: Partial<QuoteOption> & { t: string; d: string; tag: string }, index: number) => ({
       id: option.id || `morework-${index + 1}`,
@@ -386,7 +337,7 @@ export function QuoteBuilder({
       technicalCondition: option.technicalCondition || "",
     }))
   );
-  const [exclusions, setExclusions] = useState(initialQuote?.exclusions || (isKoolhaas ? KOOLHAAS_EXCLUSIONS : DEFAULT_EXCLUSIONS));
+  const [exclusions, setExclusions] = useState(initialQuote?.exclusions || []);
 
   // ─── UI State ───
   const [saving, setSaving] = useState(false);
@@ -499,8 +450,8 @@ export function QuoteBuilder({
     if (data.intro !== undefined) setIntro(data.intro);
     if (data.itemsHeader) setItemsHeader(data.itemsHeader);
     setItems(normalizeGeneratedItems(data.items || []));
-    if (data.flow) setFlow(data.flow as typeof DEFAULT_FLOW);
-    if (data.approach) setApproach(data.approach as typeof DEFAULT_APPROACH);
+    if (data.flow) setFlow(data.flow);
+    if (data.approach) setApproach(data.approach);
     if (data.optionalWork) setOptions(data.optionalWork);
     if (data.exclusions) setExclusions(data.exclusions);
     if (data.outro !== undefined) setOutro(data.outro);
@@ -519,6 +470,7 @@ export function QuoteBuilder({
         id: attachment.id || genId(),
         title: attachment.title || "",
         imageUrl: attachment.imageUrl || "",
+        storageRef: attachment.storageRef || undefined,
         liveUrl: attachment.liveUrl || "",
         caption: attachment.caption || "",
       })));
@@ -627,9 +579,17 @@ export function QuoteBuilder({
           exclusions,
           attachments: attachments
             .filter((attachment) => attachment.imageUrl.trim() || attachment.liveUrl.trim())
-            .map(({ id, ...rest }) =>
-              initialQuote?.id && id.length > 20 ? { ...rest, id } : rest
-            ),
+            .map(({ id, title, imageUrl, storageRef, liveUrl, caption }) => {
+              const attachment = {
+                title,
+                imageUrl: storageRef || imageUrl,
+                liveUrl,
+                caption,
+              };
+              return initialQuote?.id && id.length > 20
+                ? { ...attachment, id }
+                : attachment;
+            }),
           items: items.map(({ id, ...rest }) => ({
             ...rest,
             id: (initialQuote?.id && id.length > 20) ? id : undefined
@@ -928,7 +888,16 @@ export function QuoteBuilder({
   }
 
   function removeAttachment(id: string) {
-    setAttachments((prev) => prev.filter((attachment) => attachment.id !== id));
+    const attachment = attachments.find((item) => item.id === id);
+    setAttachments((prev) => prev.filter((item) => item.id !== id));
+
+    if (attachment?.storageRef && id.length <= 20) {
+      void fetch("/api/quote-attachments/upload", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: attachment.storageRef }),
+      });
+    }
   }
 
   function addAttachmentUrl() {
@@ -936,6 +905,48 @@ export function QuoteBuilder({
       ...prev,
       { id: genId(), title: "Ontwerp", imageUrl: "", liveUrl: "", caption: "" },
     ]);
+  }
+
+  async function uploadAttachment(file: File) {
+    setUploadingAttachment(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/quote-attachments/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const result = await response.json().catch(() => null) as {
+        error?: string;
+        url?: string;
+        previewUrl?: string;
+        title?: string;
+      } | null;
+
+      if (!response.ok || !result?.url || !result.previewUrl) {
+        throw new Error(result?.error || "Uploaden mislukt");
+      }
+      const storageRef = result.url;
+      const previewUrl = result.previewUrl;
+
+      setAttachments((current) => [
+        ...current,
+        {
+          id: genId(),
+          title: result.title || file.name.replace(/\.[^.]+$/, ""),
+          imageUrl: previewUrl,
+          storageRef,
+          liveUrl: "",
+          caption: "",
+        },
+      ]);
+      toast.success("Afbeelding geüpload");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Uploaden mislukt");
+    } finally {
+      setUploadingAttachment(false);
+    }
   }
 
   const handleUpdate = (updates: Partial<QuotePreviewData>) => {
@@ -1277,9 +1288,9 @@ export function QuoteBuilder({
         </div>
 
         {/* ── Right Panel (Controls) ── */}
-        <aside className="w-full space-y-6 pb-2 xl:sticky xl:top-[160px] xl:w-[420px] 2xl:w-[460px]">
+        <aside className="w-full space-y-6 pb-2 xl:sticky xl:top-[152px] xl:max-h-[calc(100vh-168px)] xl:w-[420px] xl:overflow-y-auto xl:overscroll-contain xl:pr-2 [scrollbar-gutter:stable] 2xl:w-[460px]">
           <Tabs defaultValue="quote" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsList className="sticky top-0 z-10 mb-4 grid w-full grid-cols-3 shadow-sm">
               <TabsTrigger value="quote"><FileText className="h-4 w-4 mr-2" />Offerte</TabsTrigger>
               <TabsTrigger value="tech"><Zap className="h-4 w-4 mr-2" />Technisch</TabsTrigger>
               <TabsTrigger value="margin"><Calculator className="h-4 w-4 mr-2" />Marge</TabsTrigger>
@@ -1289,80 +1300,97 @@ export function QuoteBuilder({
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-bold flex items-center justify-between">
-                    Prijzen & Regels
+                    Offerteregels
                     <Button size="sm" variant="outline" onClick={addItem} className="h-8">
                       <Plus className="h-3 w-3 mr-1" /> Regel
                     </Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="rounded-xl border border-slate-200 bg-white p-3">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <Input
-                        value={catalogSearch}
-                        onChange={(event) => setCatalogSearch(event.target.value)}
-                        placeholder="Zoek artikel, dienst, categorie of set…"
-                        className="h-9 pl-9"
-                      />
-                    </div>
-                    {(catalogSearch || products.length > 0 || productSets.length > 0) && (
-                      <div className="mt-3 max-h-64 space-y-3 overflow-y-auto">
-                        {filteredSets.length > 0 && (
-                          <div>
-                            <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              <Layers className="h-3 w-3" /> Sets
-                            </p>
-                            <div className="space-y-1">
-                              {filteredSets.map((set) => (
-                                <button
-                                  key={set.id}
-                                  type="button"
-                                  onClick={() => addProductSet(set)}
-                                  className="flex w-full items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-left hover:border-slate-300 hover:bg-slate-50"
-                                >
-                                  <span className="min-w-0">
-                                    <span className="block truncate text-sm font-semibold">{set.name}</span>
-                                    <span className="block text-xs text-slate-400">{set.items.length} artikelen</span>
-                                  </span>
-                                  <Plus className="h-4 w-4 shrink-0 text-slate-400" />
-                                </button>
-                              ))}
-                            </div>
+                  {(catalogProducts.length > 0 || productSets.length > 0) && (
+                    <details
+                      className="group rounded-xl border border-slate-200 bg-white"
+                      onToggle={(event) => {
+                        if (!(event.currentTarget as HTMLDetailsElement).open) setCatalogSearch("");
+                      }}
+                    >
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm font-semibold text-slate-700">
+                        <span className="flex items-center gap-2">
+                          <PackagePlus className="h-4 w-4 text-slate-400" />
+                          Regel uit catalogus toevoegen
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
+                      </summary>
+                      <div className="space-y-3 border-t border-slate-100 p-3">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                          <Input
+                            value={catalogSearch}
+                            onChange={(event) => setCatalogSearch(event.target.value)}
+                            placeholder="Zoek gericht op naam, categorie of set…"
+                            className="h-9 pl-9"
+                          />
+                        </div>
+                        {!catalogQuery ? (
+                          <p className="text-xs leading-relaxed text-slate-400">
+                            Zoek een bestaand artikel of een vaste set. Alleen wat je aanklikt wordt aan deze offerte toegevoegd.
+                          </p>
+                        ) : (
+                          <div className="max-h-64 space-y-3 overflow-y-auto">
+                            {filteredSets.length > 0 && (
+                              <div>
+                                <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                  <Layers className="h-3 w-3" /> Sets
+                                </p>
+                                <div className="space-y-1">
+                                  {filteredSets.map((set) => (
+                                    <button
+                                      key={set.id}
+                                      type="button"
+                                      onClick={() => addProductSet(set)}
+                                      className="flex w-full items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-left hover:border-slate-300 hover:bg-slate-50"
+                                    >
+                                      <span className="min-w-0">
+                                        <span className="block truncate text-sm font-semibold">{set.name}</span>
+                                        <span className="block text-xs text-slate-400">{set.items.length} artikelen</span>
+                                      </span>
+                                      <Plus className="h-4 w-4 shrink-0 text-slate-400" />
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {filteredProducts.length > 0 && (
+                              <div>
+                                <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                  <Package className="h-3 w-3" /> Artikelen en diensten
+                                </p>
+                                <div className="space-y-1">
+                                  {filteredProducts.map((product) => (
+                                    <button
+                                      key={product.id}
+                                      type="button"
+                                      onClick={() => addProduct(product)}
+                                      className="grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-lg border border-slate-100 px-3 py-2 text-left hover:border-slate-300 hover:bg-slate-50"
+                                    >
+                                      <span className="min-w-0">
+                                        <span className="block truncate text-sm font-medium">{product.name}</span>
+                                        <span className="block truncate text-xs text-slate-400">{product.category} · per {product.unit}</span>
+                                      </span>
+                                      <span className="text-sm font-bold tabular-nums">{formatCurrency(Number(product.basePrice))}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {filteredProducts.length === 0 && filteredSets.length === 0 && (
+                              <p className="py-3 text-center text-sm text-slate-400">Geen artikelen of sets gevonden.</p>
+                            )}
                           </div>
-                        )}
-                        {filteredProducts.length > 0 && (
-                          <div>
-                            <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              <Package className="h-3 w-3" /> Artikelen en diensten
-                            </p>
-                            <div className="space-y-1">
-                              {filteredProducts.map((product) => (
-                                <button
-                                  key={product.id}
-                                  type="button"
-                                  onClick={() => addProduct(product)}
-                                  className="grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-lg border border-slate-100 px-3 py-2 text-left hover:border-slate-300 hover:bg-slate-50"
-                                >
-                                  <span className="min-w-0">
-                                    <span className="block truncate text-sm font-medium">{product.name}</span>
-                                    <span className="block truncate text-xs text-slate-400">{product.category} · per {product.unit}</span>
-                                  </span>
-                                  <span className="text-sm font-bold tabular-nums">{formatCurrency(Number(product.basePrice))}</span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {catalogQuery && filteredProducts.length === 0 && filteredSets.length === 0 && (
-                          <p className="py-3 text-center text-sm text-slate-400">Geen artikelen of sets gevonden.</p>
                         )}
                       </div>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-400 -mt-1">
-                    Catalogusartikelen blijven gekoppeld. JSON-import wordt als vrije, volledig bewerkbare offerteregels geladen.
-                  </p>
+                    </details>
+                  )}
                   <div className="space-y-1 max-h-[460px] overflow-y-auto pr-2">
                     {items.map((item) => (
                       <div key={item.id}>
@@ -1602,8 +1630,31 @@ export function QuoteBuilder({
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-bold flex items-center justify-between">
-                    Ontwerpen
+                    Afbeeldingen en ontwerpen
                     <div className="flex items-center gap-2">
+                      <label
+                        className={`inline-flex h-8 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-xs font-medium shadow-xs transition-colors hover:bg-slate-50 ${
+                          uploadingAttachment ? "pointer-events-none opacity-60" : ""
+                        }`}
+                      >
+                          {uploadingAttachment ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <Upload className="mr-1 h-3 w-3" />
+                          )}
+                          Uploaden
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            className="sr-only"
+                            disabled={uploadingAttachment}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              if (file) void uploadAttachment(file);
+                              event.target.value = "";
+                            }}
+                          />
+                      </label>
                       <Button size="sm" variant="outline" onClick={addAttachmentUrl} className="h-8">
                         <Plus className="h-3 w-3 mr-1" /> URL
                       </Button>
@@ -1613,12 +1664,24 @@ export function QuoteBuilder({
                 <CardContent>
                   {attachments.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
-                      Voeg mockups of screenshots toe.
+                      Voeg een installatie-, product- of projectfoto toe. Bij Koolhaas wordt de eerste afbeelding onder de persoonlijke toelichting geplaatst.
                     </div>
                   ) : (
                     <div className="space-y-3">
+                      {isKoolhaas && (
+                        <p className="text-xs leading-relaxed text-slate-500">
+                          De eerste afbeelding staat onder de toelichting. Overige afbeeldingen krijgen een eigen vervolgpagina.
+                        </p>
+                      )}
                       {attachments.map((attachment) => (
                         <div key={attachment.id} className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+                          {attachment.imageUrl && (
+                            <img
+                              src={attachment.imageUrl}
+                              alt=""
+                              className="h-28 w-full rounded-md border border-slate-200 object-cover"
+                            />
+                          )}
                           <div className="flex items-center gap-2">
                             <Input
                               value={attachment.title}
@@ -1631,9 +1694,10 @@ export function QuoteBuilder({
                             </Button>
                           </div>
                           <Input
-                            value={attachment.imageUrl}
+                            value={attachment.storageRef ? "" : attachment.imageUrl}
                             onChange={(e) => updateAttachment(attachment.id, { imageUrl: e.target.value })}
-                            placeholder="Afbeelding URL (screenshot of https://...)"
+                            placeholder={attachment.storageRef ? "Opgeslagen in S3" : "Afbeelding URL (screenshot of https://...)"}
+                            disabled={Boolean(attachment.storageRef)}
                             className="h-8 text-xs font-mono"
                           />
                           <Input

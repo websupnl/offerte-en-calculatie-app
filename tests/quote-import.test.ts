@@ -90,6 +90,20 @@ function expectInvalid(input: unknown) {
   const result = expectValid({ items: [{ description: "Losse regel", qty: 1, unitPrice: 100, vatRate: 21 }] });
   assert.equal(result.data.optionalWork.length, 0);
   assert.equal(result.data.exclusions.length, 0);
+  assert.equal(result.data.flow.length, 0);
+  assert.equal(result.data.approach.length, 0);
+}
+
+{
+  const result = expectValid(validQuote({
+    category: "Installatie · Energieopslag",
+    tagline: "Levering — montage – inbedrijfstelling",
+    intro: "Beste klant,\n\nDe installatie blijft staan — ik sluit het systeem ernaast aan.",
+  }));
+  assert.equal(result.data.category, "Installatie, Energieopslag");
+  assert.equal(result.data.tagline, "Levering - montage - inbedrijfstelling");
+  assert.ok(!JSON.stringify(result.data).includes("—"));
+  assert.ok(!JSON.stringify(result.data).includes("·"));
 }
 
 {

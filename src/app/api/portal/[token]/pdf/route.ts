@@ -5,6 +5,7 @@ import { QuotePDF } from "@/lib/pdf/quote-template";
 import { formatDate } from "@/lib/format";
 import { createElement } from "react";
 import { DEFAULT_BRANDING } from "@/lib/branding";
+import { resolveQuoteAttachmentImages } from "@/lib/quote-attachments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +30,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   if (!share) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const quote = share.quote;
+  const attachments = await resolveQuoteAttachmentImages(quote.attachments, {
+    expiresIn: 21600,
+  });
   const companySlug = quote.company.slug;
   const branding = DEFAULT_BRANDING[companySlug] ?? DEFAULT_BRANDING.websup;
   const snapshot = share.acceptanceSnapshot as {
@@ -81,7 +85,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
     assumptions: (quote.assumptions as string[] | null) || [],
     planning: (quote.planning as { leadTime?: string; executionDuration?: string } | null) ?? undefined,
     commercial: (quote.commercial as { paymentTerms?: string; warranty?: string } | null) ?? undefined,
-    attachments: quote.attachments.map((attachment) => ({
+    attachments: attachments.map((attachment) => ({
       title: attachment.title ?? undefined,
       imageUrl: attachment.imageUrl,
       caption: attachment.caption ?? undefined,

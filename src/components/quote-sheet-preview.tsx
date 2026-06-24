@@ -129,30 +129,6 @@ export type QuotePreviewData = {
   choiceGroups?: QuoteChoiceGroup[];
 };
 
-const createPersonalIntro = (quote: QuotePreviewData, brandName: string) => {
-  const customerName = quote.customer.name || "klant";
-  const projectTitle = quote.title || quote.category || "deze aanvraag";
-  const itemSummary = quote.items
-    .filter((item) => Number(item.unitPrice) > 0 || Number(item.total) > 0)
-    .slice(0, 2)
-    .map((item) => item.description.toLowerCase())
-    .join(" en ");
-
-  return [
-    `Beste ${customerName},`,
-    "",
-    `Bedankt voor uw aanvraag. In deze offerte heb ik het voorstel voor ${projectTitle.toLowerCase()} overzichtelijk uitgewerkt, inclusief de onderdelen, werkzaamheden en het totaalbedrag.`,
-    itemSummary
-      ? `Ik ben uitgegaan van ${itemSummary}, met de aanvullende onderdelen zoals opgenomen in het overzicht.`
-      : "Ik heb de offerte zo opgebouwd dat u snel ziet wat er wordt geleverd en welke afspraken daarbij horen.",
-    "Heeft u na het lezen nog vragen of wilt u iets aanpassen, dan hoor ik dat graag.",
-    "",
-    "Met vriendelijke groet,",
-    "Daan Koolhaas",
-    brandName,
-  ].join("\n");
-};
-
 const isMisplacedIntroLine = (value: string | null | undefined, customerName: string) => {
   const normalized = value?.trim().toLowerCase();
   if (!normalized) return false;
@@ -244,51 +220,6 @@ const COMPANY_COPY = {
   },
 } as const;
 
-const DEFAULT_FLOW: Record<"websup" | "koolhaas", FlowItem[]> = {
-  websup: [
-    { n: 1, t: "Intake", d: "Wensen, randvoorwaarden en inhoud scherp krijgen." },
-    { n: 2, t: "Ontwerp", d: "Structuur, schermen en technische aanpak uitwerken." },
-    { n: 3, t: "Bouw", d: "Realisatie van de afgesproken onderdelen." },
-    { n: 4, t: "Test", d: "Controle op werking, inhoud en gebruiksgemak." },
-    { n: 5, t: "Oplevering", d: "Livegang met korte overdracht." },
-  ],
-  koolhaas: [
-    { n: 1, t: "Akkoord", d: "Offerte akkoord en bevestiging van de uitgangspunten." },
-    { n: 2, t: "Technische check", d: "Laatste controle van meterkast, bekabeling en opstelplek." },
-    { n: 3, t: "Planning", d: "Installatiemoment afstemmen en materialen reserveren." },
-    { n: 4, t: "Installatie", d: "Plaatsing, aansluiting en nette afwerking op locatie." },
-    { n: 5, t: "Inbedrijfstelling", d: "Testen, instellen en opleveren van de thuisbatterij." },
-  ],
-};
-
-const DEFAULT_APPROACH: Record<"websup" | "koolhaas", ApproachStep[]> = {
-  websup: [
-    { n: "01", t: "Scherp starten", d: "We leggen doelen, inhoud en prioriteiten vast voordat de bouw begint." },
-    { n: "02", t: "Gefaseerd bouwen", d: "De belangrijkste onderdelen worden eerst uitgewerkt en getest." },
-    { n: "03", t: "Netjes opleveren", d: "Na controle volgt overdracht en ruimte voor kleine finetuning." },
-  ],
-  koolhaas: [
-    { n: "01", t: "Voorbereiding", d: "We controleren de situatie en nemen de technische aandachtspunten door." },
-    { n: "02", t: "Veilige montage", d: "Bekabeling, beveiliging en aansluiting worden volgens geldende normen uitgevoerd." },
-    { n: "03", t: "Werkend opleveren", d: "De installatie wordt getest, ingesteld en duidelijk overgedragen." },
-  ],
-};
-
-const DEFAULT_EXCLUSIONS: Record<"websup" | "koolhaas", string[]> = {
-  websup: [
-    "Werk buiten de beschreven scope",
-    "Licenties of externe abonnementen",
-    "Teksten, fotografie of contentproductie",
-    "Koppelingen die niet vooraf zijn besproken",
-  ],
-  koolhaas: [
-    "Hak- en breekwerk buiten normale montage",
-    "Verzwaring of wijziging van de netaansluiting",
-    "Aanpassingen aan dak, gevel of constructie",
-    "Meerwerk door onvoorziene bestaande gebreken",
-  ],
-};
-
 export function QuoteSheetPreview({
   quote,
   companySlug,
@@ -314,9 +245,8 @@ export function QuoteSheetPreview({
   const choiceGroups = quote.choiceGroups || [];
   const visibleItems = quote.items;
 
-  const brandKey = isKoolhaas ? "koolhaas" : "websup";
-  const flow = quote.flow?.length ? quote.flow : DEFAULT_FLOW[brandKey];
-  const approach = quote.approach?.length ? quote.approach : DEFAULT_APPROACH[brandKey];
+  const flow = quote.flow ?? [];
+  const approach = quote.approach ?? [];
   const options = quote.options ?? [];
   const totals = calculateQuoteSelectionTotals(quote.items, choiceGroups, options, {
     selectedChoiceIds,
@@ -327,16 +257,20 @@ export function QuoteSheetPreview({
     (sum, item) => sum + Number(item.qty) * Number(item.unitPrice) * (1 + Number(item.vatRate) / 100),
     0,
   );
-  const exclusions = quote.exclusions?.length ? quote.exclusions : DEFAULT_EXCLUSIONS[brandKey];
+  const exclusions = quote.exclusions ?? [];
   const technicalNotesField = quote.technicalNotes?.length ? "technicalNotes" : "assumptions";
   const technicalNotes = isKoolhaas
-    ? (quote.technicalNotes?.length ? quote.technicalNotes : quote.assumptions ?? [])
+    ? [...(quote.assumptions ?? []), ...(quote.technicalNotes ?? [])]
         .filter(Boolean)
         .filter((item) => !isMisplacedIntroLine(item, quote.customer.name))
     : [];
   const customerResponsibilities = isKoolhaas ? (quote.customerResponsibilities ?? []).filter(Boolean) : [];
   const attachments = quote.attachments ?? [];
-  const attachmentPages = attachments.length;
+  const introVisual = isKoolhaas ? attachments.find((attachment) => attachment.imageUrl) : undefined;
+  const standaloneAttachments = introVisual
+    ? attachments.filter((attachment) => attachment !== introVisual)
+    : attachments;
+  const attachmentPages = standaloneAttachments.length;
   const validUntilLabel = quote.validUntil ? formatDate(quote.validUntil) : null;
   const hasOptionsPage = options.length > 0;
   const hasTermsPage = Boolean(exclusions.length || technicalNotes.length || customerResponsibilities.length || quote.outro);
@@ -347,7 +281,7 @@ export function QuoteSheetPreview({
   const coverHeading = isKoolhaas ? (quote.title || brand.defaultTitle) : "Offerte";
   const introText = quote.intro?.trim() && !isMisplacedIntroLine(quote.intro, quote.customer.name)
     ? quote.intro
-    : createPersonalIntro(quote, brand.name);
+    : "";
   const [generating, setGenerating] = useState<string | null>(null);
 
   const handleAiGen = async (section: string) => {
@@ -688,7 +622,7 @@ export function QuoteSheetPreview({
               <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
             </div>
             <div className="flex items-center justify-between mb-4">
-              <span className="eyebrow">Persoonlijke toelichting</span>
+              <span className="eyebrow">Toelichting op mijn voorstel</span>
               {isEditable && (
                 <button onClick={() => handleAiGen('intro')} disabled={!!generating} className="ai-gen-btn">
                   {generating === 'intro' ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
@@ -702,20 +636,21 @@ export function QuoteSheetPreview({
               onChange={(v) => onUpdate?.({ intro: v })} 
               className="letter" 
             />
-            <div className="sig">
-              <div className="sig-av"><img src="/logos/daan-koolhaas.jpg" alt="Daan Koolhaas" /></div>
-              <div>
-                <div className="sig-name">Daan Koolhaas</div>
-                <div className="sig-role">{brand.role}</div>
-              </div>
-            </div>
+            {introVisual && (
+              <figure className="intro-visual">
+                <img
+                  src={introVisual.imageUrl}
+                  alt={introVisual.title || "Voorbeeld van de voorgestelde installatie"}
+                />
+              </figure>
+            )}
             <div className="spacer"></div>
             {renderPageFooter(pageLabel(2))}
           </div>
         </section>
 
         {/* ── ONTWERPVOORBEELDEN ── */}
-        {attachments.map((attachment, index) => (
+        {standaloneAttachments.map((attachment, index) => (
           <section className="sheet design-sheet" key={attachment.id ?? `${attachment.imageUrl}-${index}`}>
             <div className="bar"></div>
             <div className="pad">
@@ -785,7 +720,7 @@ export function QuoteSheetPreview({
             {choiceGroups.map(group => (
               <div key={group.id} className="choice-section mb-8">
                 <div className="mb-4">
-                  <span className="eyebrow text-blue-600 block">Beschikbare configuraties</span>
+                  <span className="eyebrow text-blue-600 block">Mogelijke systemen</span>
                   <h3 className="mt-1 text-lg font-bold text-slate-900">{group.title}</h3>
                   {group.description && <p className="mt-1 text-sm text-slate-500">{group.description}</p>}
                 </div>
@@ -809,6 +744,16 @@ export function QuoteSheetPreview({
                           )}
                         </div>
                         {choice.summary && <p className="mb-3 text-xs leading-relaxed text-slate-500">{choice.summary}</p>}
+                        <ul className="choice-details">
+                          {choice.items
+                            .filter((item) => (item.indent ?? 0) > 0)
+                            .map((item, index) => (
+                              <li key={`${choice.id}-detail-${index}`}>
+                                <Check size={10} strokeWidth={3} />
+                                <span>{item.description}</span>
+                              </li>
+                            ))}
+                        </ul>
                         <div className="flex items-end justify-between gap-3">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isActive ? "Geselecteerd" : "Keuze bij akkoord"}</span>
                           <strong className="text-sm text-slate-900">{formatCurrency(total)} incl. btw</strong>
@@ -823,7 +768,7 @@ export function QuoteSheetPreview({
             <div className="article-table-wrap">
               <div className="article-table-head">
                 <div>
-                  <span className="eyebrow">{isKoolhaas ? "Materialen" : "Diensten"}</span>
+                  <span className="eyebrow">{isKoolhaas ? "Inbegrepen werkzaamheden" : "Diensten"}</span>
                   <div className="article-table-title">
                     <InlineInput 
                       isEditable={isEditable} 
@@ -918,8 +863,8 @@ export function QuoteSheetPreview({
                 <>
                   <div className="row-badge">
                     <div>
-                      <span className="eyebrow">Technische basis</span>
-                      <h2 className="h2">Uitgangspunten voor deze offerte.</h2>
+                      <span className="eyebrow">Technische uitgangspunten</span>
+                      <h2 className="h2">Uitgangspunten voor de uitvoering.</h2>
                     </div>
                   </div>
                   {renderTextList(technicalNotesField, technicalNotes, "Nieuw uitgangspunt voor deze offerte.")}
@@ -931,8 +876,8 @@ export function QuoteSheetPreview({
                   <div className="div"></div>
                   <div className="row-badge">
                     <div>
-                      <span className="eyebrow">Door opdrachtgever</span>
-                      <h2 className="h2">Afstemming en voorbereiding.</h2>
+                      <span className="eyebrow">Voorbereiding voor de uitvoering</span>
+                      <h2 className="h2">Wat vooraf nodig is.</h2>
                     </div>
                   </div>
                   {renderTextList("customerResponsibilities", customerResponsibilities, "Nieuwe afspraak voor voorbereiding door opdrachtgever.")}
@@ -952,19 +897,6 @@ export function QuoteSheetPreview({
                 </>
               )}
 
-              {quote.outro && (
-                <>
-                  <div className="div"></div>
-                  <span className="eyebrow">Voorwaarden</span>
-                  <InlineTextarea
-                    isEditable={isEditable}
-                    value={quote.outro}
-                    onChange={(v) => onUpdate?.({ outro: v })}
-                    className="letter"
-                  />
-                </>
-              )}
-
               <div className="spacer"></div>
               {renderPageFooter(pageLabel(4 + attachmentPages + (hasOptionsPage ? 1 : 0)))}
             </div>
@@ -979,8 +911,19 @@ export function QuoteSheetPreview({
               {renderHeaderLogo()}
               <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
             </div>
-            <span className="eyebrow">Akkoord voor uitvoering</span>
+            <span className="eyebrow">Akkoord met de offerte</span>
             <h2 className="h2">{brand.closingTitle}</h2>
+
+            {quote.outro && (
+              <div className="sign-outro">
+                <InlineTextarea
+                  isEditable={isEditable}
+                  value={quote.outro}
+                  onChange={(v) => onUpdate?.({ outro: v })}
+                  className="letter"
+                />
+              </div>
+            )}
 
             {quote.status === "ACCEPTED" && (
               <div className="acceptance-banner">

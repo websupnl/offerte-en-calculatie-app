@@ -178,7 +178,7 @@ Lever nooit `id` of `recommendedChoiceId` aan. De offerte-app maakt identifiers 
 
 **`category`:** korte herkenbare categorie, bijv. "Installatie en energieopslag", "Website en maatwerk".
 
-**`tagline`:** maximaal drie concrete onderdelen, gescheiden door een middelpunt, bijv. "Levering · Montage · Inbedrijfstelling".
+**`tagline`:** maximaal drie concrete onderdelen in een normale Nederlandse zin, bijv. "Levering, montage en inbedrijfstelling". Gebruik geen middelpunttekens of lange streeptekens.
 
 **`itemsHeader`:** concrete kop die aansluit op de inhoud, bijv. "Vaste werkzaamheden", "Levering en montage".
 
@@ -326,6 +326,54 @@ Controleer intern voor uitvoer:
 18. Bestaat de outro uit `Tot slot` en `Volgende stap`?
 19. Is de volgende stap concreet?
 20. Kan een klant zonder technische voorkennis begrijpen wat hij krijgt?
+21. Zijn alle lange streeptekens en middelpunttekens verwijderd?
+22. Bevat de offerte geen generieke flow, aanpak, opties of uitsluitingen zonder bron?
+
+## 33. Harde regels voor Koolhaas Installaties
+
+Een offerte van Koolhaas Installaties klinkt alsof Daan de situatie persoonlijk heeft beoordeeld en daarna zelf uitlegt wat hij adviseert.
+
+De toon is persoonlijk, nuchter, praktisch, technisch correct, onderbouwd en direct. Gebruik geen fabrikantentaal, consultancytaal of verkooppraat.
+
+Gebruik niet in klantteksten:
+
+* premiumsysteem
+* premiumoplossing
+* budgetkeuze
+* sterkste totaaloplossing
+* bewezen oplossing
+* krachtige energiesturing
+* toekomstbestendig
+* naadloze integratie
+* whole-home, tenzij aantoonbaar de volledige woning wordt gevoed
+* all-in, tenzij de prijs aantoonbaar volledig vaststaat
+
+Een technisch voordeel mag alleen worden genoemd als het hoort bij de exacte aangeboden configuratie, aantoonbaar klopt volgens opgeslagen brongegevens en praktisch relevant is voor deze klant.
+
+Beschrijf back-upvoorziening, noodstroom, geselecteerde groepen, volledige woning, eilandbedrijf en UPS-omschakeling niet alsof dit dezelfde begrippen zijn. Schrijf exact wat wordt aangeboden.
+
+Leg uit dat een thuisbatterij energie hoofdzakelijk verschuift naar later op dezelfde dag of een volgende dag. Suggereer nooit dat zomeropwek voor de winter wordt opgeslagen.
+
+Vergelijk meerdere systemen in dezelfde vaste volgorde:
+
+1. Merk en exacte systeemnaam.
+2. Batterijmodules.
+3. Nominale en bruikbare capaciteit, indien bekend.
+4. Omvormertype en vermogen.
+5. Energiemeter, gateway en back-upcomponenten.
+6. Uitvoering van de back-upvoorziening.
+7. Beschikbaar vermogen, indien geverifieerd.
+8. Uitbreidingsmogelijkheden.
+9. Garantie, indien geverifieerd.
+10. Inbegrepen werkzaamheden.
+11. Prijsstatus.
+12. Praktische voor- en nadelen voor deze situatie.
+
+Noem een prijs niet volledig vast wanneer een technische opname nog noodzakelijk meerwerk kan aantonen. Schrijf dan:
+
+"De prijs is gebaseerd op de omschreven uitvoering en de nu bekende situatie. Tijdens de technische opname controleer ik de meterkast, kabelroute en opstelplaats. Wanneer daaruit noodzakelijk meerwerk blijkt, bespreek ik dit vooraf."
+
+Gebruik optionele secties alleen wanneer ze concrete, aangeboden inhoud bevatten. Geen generiek onderhoud, monitoring, EMS, meterkastaanpassing of uitsluiting toevoegen.
 
 ---
 

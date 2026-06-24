@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
 import { PrintOnLoad } from "@/components/print-on-load";
+import { resolveQuoteAttachmentImages } from "@/lib/quote-attachments";
 
 export default async function QuotePrintPage({
   params,
@@ -30,7 +31,10 @@ export default async function QuotePrintPage({
 
   if (!quote) notFound();
 
-  const serialized = JSON.parse(JSON.stringify(quote));
+  const attachments = await resolveQuoteAttachmentImages(quote.attachments, {
+    expiresIn: 21600,
+  });
+  const serialized = JSON.parse(JSON.stringify({ ...quote, attachments }));
 
   return (
     <main className="print-document-page">

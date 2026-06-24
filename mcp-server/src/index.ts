@@ -158,77 +158,47 @@ async function storeBase64Image(imageBase64: string, mimeType = "image/png"): Pr
 function defaultTemplateFields(companySlug: string) {
   if (companySlug === "koolhaas") {
     return {
-      title: "Thuisbatterij installatie",
-      category: "Installatie · Energieopslag",
-      tagline: "Advies · Installatie · Inbedrijfstelling",
-      itemsHeader: "Wat wordt er geïnstalleerd",
-      flow: [
-        { n: 1, t: "Akkoord & opname", d: "Offerte akkoord, laatste technische check en bevestiging van de opstelplek." },
-        { n: 2, t: "Materialen bestellen", d: "Batterij, omvormer, beveiligingen, bekabeling en montagemateriaal worden ingepland." },
-        { n: 3, t: "Meterkast voorbereiden", d: "Controle op fasen, beschikbare ruimte, hoofdzekering en benodigde uitbreidingen." },
-        { n: 4, t: "Montage & bekabeling", d: "Plaatsing van de installatie met nette kabelroute en veilige afwerking." },
-        { n: 5, t: "Aansluiten & testen", d: "Elektrische controle, inbedrijfstelling, app-koppeling en functionele test." },
-        { n: 6, t: "Uitleg & oplevering", d: "Korte uitleg over gebruik, monitoring, onderhoud en wat u kunt verwachten." },
-      ],
-      approach: [
-        { n: "01", t: "Technische controle", d: "Ik controleer of de gekozen oplossing past bij woning, meterkast en verbruik." },
-        { n: "02", t: "Heldere voorbereiding", d: "Planning, materialen en eventuele bijzonderheden worden vooraf afgestemd." },
-        { n: "03", t: "Veilige uitvoering", d: "Installatie volgens geldende normen, met nette montage en duidelijke kabelroutes." },
-        { n: "04", t: "Inbedrijfstelling", d: "Systeem testen, instellingen nalopen en zorgen dat monitoring werkt." },
-        { n: "05", t: "Oplevering", d: "Samen controleren we de installatie en krijgt u uitleg over gebruik en onderhoud." },
-      ],
-      options: [
-        { t: "Meterkast uitbreiding", d: "Extra groep, beveiliging of aanpassing als de bestaande situatie dat vraagt.", tag: "Na opname" },
-        { t: "Energiemanagement", d: "EMS voor slim sturen van batterij, zonnepanelen, laadpaal en grootverbruikers.", tag: "Optioneel" },
-        { t: "Extra monitoring", d: "Inzicht in verbruik, teruglevering en batterijgedrag via app of dashboard.", tag: "Op aanvraag" },
-        { t: "Onderhoudscontrole", d: "Periodieke controle op veiligheid, instellingen en prestaties.", tag: "Jaarlijks" },
-      ],
-      exclusions: [
-        "Bouwkundige werkzaamheden zoals hak-, breek-, stuc- of schilderwerk",
-        "Graafwerk of herstel van bestrating tenzij expliciet opgenomen",
-        "Netverzwaring of werkzaamheden door de netbeheerder",
-        "Vergunningen, subsidies of gemeentelijke regelingen",
-        "Aanpassingen buiten de beschreven installatie en materialen",
-      ],
+      title: "Voorstel",
+      category: "Installatie",
+      tagline: "Levering, montage en inbedrijfstelling",
+      itemsHeader: "Inbegrepen werkzaamheden",
+      flow: [],
+      approach: [],
+      options: [],
+      exclusions: [],
     };
   }
 
   return {
     title: "Maatwerk offerte-aanvraagmodule laadpalen",
-    category: "Maatwerk module · WordPress",
-    tagline: "Ontwerp · Bouw · Plaatsing",
+    category: "Maatwerk module, WordPress",
+    tagline: "Ontwerp, bouw en plaatsing",
     itemsHeader: "Prijsopbouw",
-    flow: [
-      { n: 1, t: "Locatie & situatie", d: "Adres, type woning of pand en de gewenste plek voor de laadpaal." },
-      { n: 2, t: "Meterkast & aansluiting", d: "Foto meterkast, close-up slimme meter en het aantal fasen." },
-      { n: 3, t: "Verdeelkast", d: "Overzichtsfoto en ruimte voor een extra groep of loadbalancing." },
-      { n: 4, t: "Kabelroute", d: "Route en lengte van meterkast naar paal - is er graafwerk nodig?" },
-      { n: 5, t: "Laadpaal & montage", d: "Type 2 of vaste kabel, gevel of montagepaal, verrekening." },
-      { n: 6, t: "Klantgegevens", d: "Contactgegevens en of het zakelijk of particulier is." },
-      { n: 7, t: "Controle & versturen", d: "Overzicht van alle gegevens en foto's, akkoord en verzenden." },
-    ],
-    approach: [
-      { n: "01", t: "Inventarisatie", d: "Samen scope, velden en interne opvolging scherp krijgen." },
-      { n: "02", t: "UX-ontwerp", d: "Stappen, volgorde en logica van de aanvraagflow." },
-      { n: "03", t: "Visueel ontwerp", d: "Styling in de huisstijl - klaar voor akkoord." },
-      { n: "04", t: "Technische bouw", d: "Maatwerk in WordPress: uploads, e-mail en formulierlogica." },
-      { n: "05", t: "Test & feedback", d: "Testen op alle apparaten + een feedbackronde." },
-      { n: "06", t: "Livegang & nazorg", d: "Plaatsing, korte uitleg en ondersteuning na oplevering." },
-    ],
-    options: [
-      { t: "Dashboardomgeving", d: "Alle aanvragen, foto's en statussen centraal op een scherm.", tag: "Aparte offerte" },
-      { t: "Extra dienst-flows", d: "Airco, warmtepomp, zonnepanelen, thuisbatterij, EMS - per dienst uitgebreid.", tag: "Per dienst" },
-      { t: "Foto-export naar dossier", d: "Aangeleverde foto's makkelijk toevoegen aan een dossier in Syntess.", tag: "Op aanvraag" },
-      { t: "Onderhoud & support", d: "Updates, monitoring en kleine aanpassingen na oplevering.", tag: "Maandelijks" },
-    ],
-    exclusions: [
-      "Betaalde plugins of externe licenties",
-      "Hosting en domeinnaam",
-      "Teksten of fotografie",
-      "Grote wijzigingen buiten de afgesproken scope",
-      "Koppelingen met systemen buiten deze offerte",
-    ],
+    flow: [],
+    approach: [],
+    options: [],
+    exclusions: [],
   };
+}
+
+function normalizeQuoteText(value: string): string {
+  return value
+    .replace(/[\u2012\u2013\u2014\u2015]/g, " - ")
+    .replace(/\s*[\u00B7\u2022]\s*/g, ", ")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/ ?\n ?/g, "\n")
+    .trim();
+}
+
+function normalizeQuoteValue<T>(value: T): T {
+  if (typeof value === "string") return normalizeQuoteText(value) as T;
+  if (Array.isArray(value)) return value.map((item) => normalizeQuoteValue(item)) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, normalizeQuoteValue(item)]),
+    ) as T;
+  }
+  return value;
 }
 
 // ─── MCP Server factory ────────────────────────────────────────────────────────
@@ -604,7 +574,7 @@ function createMcpServer() {
       customer_id: z.string().describe("ID van de klant (gebruik list_customers om te vinden)"),
       title: z.string().optional().default("Persoonlijk voorstel").describe("Titel van de offerte"),
       category: z.string().optional().default("Maatwerk project").describe("Categorie/type project"),
-      tagline: z.string().optional().describe("Ondertitel, bijv. 'Ontwerp · Bouw · Plaatsing'"),
+      tagline: z.string().optional().describe("Korte ondertitel. Gebruik komma's, geen middelpunttekens of lange streeptekens."),
       itemsHeader: z.string().optional().describe("Korte neutrale titel voor de prijstabel."),
       intro: z.string().optional().describe("Persoonlijke inleidende brief namens Daan Koolhaas. Begin met 'Beste [klantnaam],' en bedank voor de aanvraag. Schrijf in ik-vorm, niet als generieke technische samenvatting. Geen adres, bronnen, compatibiliteitslijst of voorwaarden hierin."),
       outro: z.string().optional().describe("Slottekst"),
@@ -654,15 +624,16 @@ function createMcpServer() {
       internal_advice, valid_days, attachments, items
     }) => {
       const defaults = defaultTemplateFields(company_slug);
-      const quoteTitle = title === "Persoonlijk voorstel" ? defaults.title : title;
-      const quoteCategory = category === "Maatwerk project" ? defaults.category : category;
-      const quoteTagline = tagline ?? defaults.tagline;
-      const quoteItemsHeader = itemsHeader ?? defaults.itemsHeader;
-      const quoteFlow = flow ?? defaults.flow;
-      const quoteApproach = approach ?? defaults.approach;
-      const quoteOptions = normalizeOptionalWork(optional_work ?? []);
-      const quoteConfigurations = normalizeConfigurations(configurations ?? []);
-      const quoteExclusions = exclusions ?? defaults.exclusions;
+      const quoteTitle = normalizeQuoteText(title === "Persoonlijk voorstel" ? defaults.title : title);
+      const quoteCategory = normalizeQuoteText(category === "Maatwerk project" ? defaults.category : category);
+      const quoteTagline = normalizeQuoteText(tagline ?? defaults.tagline);
+      const quoteItemsHeader = normalizeQuoteText(itemsHeader ?? defaults.itemsHeader);
+      const quoteFlow = normalizeQuoteValue(flow ?? defaults.flow);
+      const quoteApproach = normalizeQuoteValue(approach ?? defaults.approach);
+      const quoteOptions = normalizeQuoteValue(normalizeOptionalWork(optional_work ?? []));
+      const quoteConfigurations = normalizeQuoteValue(normalizeConfigurations(configurations ?? []));
+      const quoteExclusions = normalizeQuoteValue(exclusions ?? defaults.exclusions);
+      const normalizedItems = normalizeQuoteValue(items);
 
       const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
       if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
@@ -678,10 +649,21 @@ function createMcpServer() {
 
       let totalExVat = 0;
       let totalVat = 0;
-      for (const item of items) {
+      for (const item of normalizedItems) {
         const lineTotal = item.qty * item.unit_price;
         totalExVat += lineTotal;
         totalVat += lineTotal * (item.vat_rate / 100);
+      }
+      for (const group of quoteConfigurations) {
+        const recommended =
+          group.choices.find((choice) => choice.id === group.recommendedChoiceId) ??
+          group.choices[0];
+        if (!recommended) continue;
+        for (const item of recommended.items) {
+          const lineTotal = item.qty * item.unitPrice;
+          totalExVat += lineTotal;
+          totalVat += lineTotal * (item.vatRate / 100);
+        }
       }
       const totalIncVat = totalExVat + totalVat;
 
@@ -698,16 +680,16 @@ function createMcpServer() {
           "createdAt", "updatedAt")
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16::jsonb,'DRAFT',$17,$18,$19,$20,$21,$22::jsonb,$23::jsonb,$24::jsonb,$25::jsonb,$26::jsonb,$27::jsonb,$28::jsonb,$29,$30,$30)`,
         [quoteId, co.id, customer_id, user.id, number, quoteTitle, quoteCategory,
-         quoteTagline, quoteItemsHeader, intro ?? null, outro ?? null, notes ?? null,
+         quoteTagline, quoteItemsHeader, normalizeQuoteValue(intro ?? null), normalizeQuoteValue(outro ?? null), normalizeQuoteValue(notes ?? null),
          JSON.stringify(quoteFlow), JSON.stringify(quoteApproach), JSON.stringify(quoteOptions), JSON.stringify(quoteExclusions),
          validUntilDate, totalExVat.toFixed(2), totalVat.toFixed(2), totalIncVat.toFixed(2),
-         quote_type ?? 'GENERAL', JSON.stringify(assumptions ?? []), JSON.stringify(technical_notes ?? []),
-         JSON.stringify(customer_responsibilities ?? []), JSON.stringify(planning ?? {}), JSON.stringify(commercial ?? {}),
-         JSON.stringify(battery_advice ?? {}), JSON.stringify(quoteConfigurations), internal_advice ?? null, now]
+         quote_type ?? 'GENERAL', JSON.stringify(normalizeQuoteValue(assumptions ?? [])), JSON.stringify(normalizeQuoteValue(technical_notes ?? [])),
+         JSON.stringify(normalizeQuoteValue(customer_responsibilities ?? [])), JSON.stringify(normalizeQuoteValue(planning ?? {})), JSON.stringify(normalizeQuoteValue(commercial ?? {})),
+         JSON.stringify(normalizeQuoteValue(battery_advice ?? {})), JSON.stringify(quoteConfigurations), normalizeQuoteValue(internal_advice ?? null), now]
       );
 
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
+      for (let i = 0; i < normalizedItems.length; i++) {
+        const item = normalizedItems[i];
         const lineTotal = item.qty * item.unit_price;
         await query(
           `INSERT INTO "QuoteItem" (id, "quoteId", description, qty, "unitPrice", "vatRate", total, "sortOrder", "costPrice", indent, "choiceGroupId")
@@ -904,7 +886,7 @@ function createMcpServer() {
       internal_advice: z.string().optional(),
     },
     async ({ quote_id, ...updates }) => {
-      const map: Record<string, unknown> = { ...updates };
+      const map: Record<string, unknown> = normalizeQuoteValue({ ...updates });
       
       // Map underscores to camelCase for DB
       if (updates.quote_type !== undefined) { map["quoteType"] = updates.quote_type; delete map.quote_type; }
