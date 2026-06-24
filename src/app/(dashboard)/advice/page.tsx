@@ -1,7 +1,8 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/layout/page-header";
 import { Plus, FileText, ChevronRight, Clock, User } from "lucide-react";
 import Link from "next/link";
 import { formatDate } from "@/lib/format";
@@ -19,24 +20,23 @@ export default async function AdviceListPage() {
       quote: { select: { number: true } },
     },
     orderBy: { createdAt: "desc" },
+    take: 200,
   });
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Technisch Advies</h1>
-          <p className="text-muted-foreground">Onderbouwingen en technische rapportages voor klanten.</p>
-        </div>
-        <Link href="/advice/new">
-          <Button className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="mr-2 h-4 w-4" />
-            Nieuw advies
+    <div>
+      <PageHeader
+        eyebrow="Werk"
+        title="Technisch advies"
+        description="Onderbouwingen, berekeningen en technische rapportages voor klanten."
+        actions={
+          <Button nativeButton={false} render={<Link href="/advice/new" />}>
+            <Plus className="h-4 w-4" />Nieuw advies
           </Button>
-        </Link>
-      </div>
+        }
+      />
 
-      <div className="grid gap-4">
+      <div className="grid gap-4 p-5 lg:p-8">
         {reports.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center py-16 text-center">

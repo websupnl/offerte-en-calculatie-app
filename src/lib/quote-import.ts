@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { quoteChoiceGroupSchema, quoteChoiceSchema, selectableLineSchema, quoteOptionSchema } from "@/lib/quote-selection";
 
-export const QUOTE_IMPORT_CONTRACT_VERSION = "2026-06-21.1";
+export const QUOTE_IMPORT_CONTRACT_VERSION = "2026-06-24.1";
 
 export const QUOTE_IMPORT_AI_SYSTEM_PROMPT = [
   "You convert pasted Dutch quotation content into the exact quotation JSON schema supplied to you.",
@@ -95,7 +95,7 @@ export const quoteImportSchema = z.object({
   tagline: z.string().trim().optional(),
   intro: z.string().optional(),
   itemsHeader: z.string().trim().optional(),
-  items: z.array(quoteImportItemSchema).min(1, "Voeg minimaal een offerteregel toe"),
+  items: z.array(quoteImportItemSchema).optional().default([]),
   optionalWork: z.array(quoteImportOptionSchema).optional().default([]),
   exclusions: z.array(z.string().trim().min(1)).optional().default([]),
   outro: z.string().optional(),
@@ -591,6 +591,35 @@ export function validateQuoteImportInput(input: unknown): QuoteImportValidationR
   }
 
   const warnings = [...normalized.warnings];
+  if (parsed.data.items.length === 0 && parsed.data.configurations.length === 0) {
+    return {
+      ok: false,
+      errors: ["Voeg minimaal één vaste offerteregel of configuratie toe."],
+      warnings,
+      unknownFields: normalized.unknownFields,
+    };
+  }
+
+  const configurationDescriptions = new Set(
+    parsed.data.configurations.flatMap((group) =>
+      group.choices.flatMap((choice) =>
+        choice.items.map((item) => item.description.trim().toLowerCase()),
+      ),
+    ),
+  );
+  const duplicatedAcrossSections = parsed.data.items.filter((item) =>
+    configurationDescriptions.has(item.description.trim().toLowerCase()),
+  );
+  if (duplicatedAcrossSections.length > 0) {
+    parsed.data.items = parsed.data.items.filter(
+      (item) => !configurationDescriptions.has(item.description.trim().toLowerCase()),
+    );
+    for (const item of duplicatedAcrossSections) {
+      warnings.push(
+        `Dubbele regel '${item.description}' is uit de vaste basis verwijderd, omdat deze al in een configuratie staat.`,
+      );
+    }
+  }
   const duplicateDescriptions = new Set<string>();
   const seenDescriptions = new Set<string>();
   for (const item of parsed.data.items) {

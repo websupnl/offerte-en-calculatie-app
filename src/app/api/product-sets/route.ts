@@ -22,7 +22,7 @@ export async function GET(_req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const sets = await prisma.productSet.findMany({
-    where: { companyId: session.user.activeCompanyId },
+    where: { companyId: session.user.activeCompanyId, active: true },
     include: {
       items: {
         orderBy: { sortOrder: "asc" },
@@ -44,6 +44,13 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const { name, description, category, items } = parsed.data;
+  const productIds = [...new Set(items.map((item) => item.productId))];
+  const ownedProductCount = await prisma.product.count({
+    where: { id: { in: productIds }, companyId: session.user.activeCompanyId, active: true },
+  });
+  if (ownedProductCount !== productIds.length) {
+    return NextResponse.json({ error: "Een of meer artikelen bestaan niet binnen dit bedrijf." }, { status: 400 });
+  }
 
   const set = await prisma.productSet.create({
     data: {

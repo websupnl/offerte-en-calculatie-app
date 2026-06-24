@@ -244,4 +244,44 @@ function expectInvalid(input: unknown) {
   assert.ok(result.warnings.some((warning) => warning.includes("automatisch een id")));
 }
 
+{
+  const configurationOnly = expectValid({
+    title: "Keuzeofferte",
+    items: [],
+    configurations: [
+      {
+        title: "Kies een systeem",
+        choices: [
+          { title: "Systeem A", items: [{ description: "Systeem A", qty: 1, unitPrice: 1000, vatRate: 21 }] },
+          { title: "Systeem B", items: [{ description: "Systeem B", qty: 1, unitPrice: 1200, vatRate: 21 }] },
+        ],
+      },
+    ],
+  });
+  assert.equal(configurationOnly.data.items.length, 0);
+  assert.equal(configurationOnly.data.configurations.length, 1);
+}
+
+{
+  const deduplicated = expectValid({
+    items: [{ description: "Sigenergy 8 kWh", qty: 1, unitPrice: 5200, vatRate: 21 }],
+    configurations: [
+      {
+        title: "Kies een systeem",
+        choices: [
+          { title: "Sigenergy", items: [{ description: "Sigenergy 8 kWh", qty: 1, unitPrice: 5200, vatRate: 21 }] },
+          { title: "Enphase", items: [{ description: "Enphase 10 kWh", qty: 1, unitPrice: 5900, vatRate: 21 }] },
+        ],
+      },
+    ],
+  });
+  assert.equal(deduplicated.data.items.length, 0);
+  assert.ok(deduplicated.warnings.some((warning) => warning.includes("uit de vaste basis verwijderd")));
+}
+
+{
+  const emptyQuote = expectInvalid({ title: "Leeg", items: [], configurations: [] });
+  assert.ok(emptyQuote.errors.some((error) => error.includes("offerteregel of configuratie")));
+}
+
 console.log("quote-import tests passed");

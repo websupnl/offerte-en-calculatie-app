@@ -19,7 +19,7 @@ export function GET() {
       intro: "Persoonlijke openingsalinea aan de klant. Korte, warme toon; geen technische specs.",
       itemsHeader: "Kop boven de prijstabel, bijv. 'Prijsopbouw' of 'Onderdelen'.",
       // Regels & prijzen
-      items: "Vaste basis van de offerte; nooit alternatieve systemen of optioneel meerwerk. Eén regel per product/dienst, prijs excl. btw. indent:1 = subregel. unitPrice 0 = inbegrepen.",
+      items: "Vaste basis van de offerte; mag leeg zijn wanneer de offerte alleen configuraties bevat. Nooit alternatieve systemen of optioneel meerwerk. Eén regel per product/dienst, prijs excl. btw. indent:1 = subregel. unitPrice 0 = inbegrepen.",
       configurations: "Volledige onderling exclusieve systemen; klant kiest exact één per groep bij akkoord. Markeer de aanbevolen keuze met label 'Aanbevolen'. Geen id's emitten.",
       optionalWork: "Los selecteerbaar meerwerk met prijs excl. btw (of null = 'Op aanvraag'). Prijs nooit in het tag-veld zetten.",
       exclusions: "Wat expliciet NIET in de offerte zit. Array van korte zinnen.",
@@ -42,6 +42,7 @@ export function GET() {
       vat: "Alle prijzen ALTIJD exclusief btw. De app rekent btw en toont totalen incl./excl.",
       ids: "Nooit id- of recommendedChoiceId-velden emitten; de app kent zelf identifiers toe.",
       totals: "Nooit door AI aanleveren; de app berekent alle totalen.",
+      storage: "Import maakt offerteregels als bewerkbare snapshots. De import maakt niet automatisch centrale catalogusartikelen aan; die kunnen bewust vanuit de editor worden opgeslagen.",
     },
   });
 }

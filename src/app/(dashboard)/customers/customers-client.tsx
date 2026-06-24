@@ -8,10 +8,11 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/page-header";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Plus, Search, Pencil, Trash2, Loader2, Users } from "lucide-react";
 
@@ -78,11 +79,12 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
     setSaving(true);
     try {
       if (editingId) {
-        await fetch(`/api/customers/${editingId}`, {
+        const response = await fetch(`/api/customers/${editingId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         });
+        if (!response.ok) throw new Error("Bijwerken mislukt");
         setCustomers((prev) =>
           prev.map((c) => (c.id === editingId ? { ...c, ...data } : c))
         );
@@ -93,14 +95,15 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         });
+        if (!res.ok) throw new Error("Aanmaken mislukt");
         const created = await res.json();
         setCustomers((prev) => [...prev, { ...created, _count: { quotes: 0 } }]);
         toast.success("Klant aangemaakt");
       }
       setDialogOpen(false);
       router.refresh();
-    } catch {
-      toast.error("Er is iets misgegaan");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Er is iets misgegaan");
     } finally {
       setSaving(false);
     }
@@ -108,62 +111,68 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
 
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Weet je zeker dat je ${name} wilt verwijderen?`)) return;
-    await fetch(`/api/customers/${id}`, { method: "DELETE" });
+    const response = await fetch(`/api/customers/${id}`, { method: "DELETE" });
+    if (!response.ok) {
+      toast.error("Verwijderen mislukt");
+      return;
+    }
     setCustomers((prev) => prev.filter((c) => c.id !== id));
     toast.success("Klant verwijderd");
   }
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Klanten</h1>
-          <p className="text-muted-foreground">{customers.length} klanten</p>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nieuwe klant
-        </Button>
-      </div>
-
-      {/* Search */}
-      <div className="relative max-w-sm">
+    <div>
+      <PageHeader
+        eyebrow="Relaties"
+        title="Klanten"
+        description={`${customers.length} relaties met contactgegevens en offertehistorie.`}
+        actions={<Button onClick={openCreate}><Plus className="h-4 w-4" />Nieuwe klant</Button>}
+      />
+      <div className="space-y-4 p-5 lg:p-8">
+      <div className="relative max-w-xl">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Zoek op naam of e-mail..."
-          className="pl-9"
+          className="h-10 bg-white pl-9 shadow-sm"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      {/* Table */}
       {filtered.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
+        <div className="flex flex-col items-center justify-center rounded-xl border bg-white py-16">
             <Users className="h-12 w-12 text-muted-foreground/30 mb-4" />
             <p className="text-muted-foreground">Geen klanten gevonden</p>
             <Button variant="outline" className="mt-4" onClick={openCreate}>
               Voeg eerste klant toe
             </Button>
-          </CardContent>
-        </Card>
+        </div>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="divide-y">
+        <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
+          <Table>
+            <TableHeader className="bg-slate-50">
+              <TableRow>
+                <TableHead className="pl-4">Naam</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Plaats</TableHead>
+                <TableHead>Offertes</TableHead>
+                <TableHead className="w-24" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filtered.map((c) => (
-                <div key={c.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
-                  <div className="space-y-0.5">
-                    <p className="font-medium">{c.name}</p>
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      {c.email && <span>{c.email}</span>}
-                      {c.phone && <span>{c.phone}</span>}
-                      {c.city && <span>{c.city}</span>}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
+                <TableRow key={c.id}>
+                  <TableCell className="pl-4 font-semibold">{c.name}</TableCell>
+                  <TableCell>
+                    <p className="text-sm">{c.email || "—"}</p>
+                    <p className="text-xs text-slate-400">{c.phone || "Geen telefoon"}</p>
+                  </TableCell>
+                  <TableCell className="text-slate-500">{c.city || "—"}</TableCell>
+                  <TableCell>
                     <Badge variant="secondary">{c._count.quotes} offerte{c._count.quotes !== 1 ? "s" : ""}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-1">
                     <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -176,12 +185,14 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                </div>
+                  </TableCell>
+                </TableRow>
               ))}
-            </div>
-          </CardContent>
-        </Card>
+            </TableBody>
+          </Table>
+        </div>
       )}
+      </div>
 
       {/* Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

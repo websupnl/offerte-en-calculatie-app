@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
+import { PageHeader } from "@/components/layout/page-header";
 import { 
   TrendingUp, 
   CheckCircle, 
@@ -21,8 +22,11 @@ export default async function AdminDashboardPage() {
 
   const quotes = await prisma.quote.findMany({
     where: { companyId },
-    include: {
-      items: true,
+    select: {
+      status: true,
+      items: {
+        select: { total: true, qty: true, costPrice: true },
+      },
     },
   });
 
@@ -54,12 +58,16 @@ export default async function AdminDashboardPage() {
     ? (actualMargin.profit / actualMargin.revenue) * 100 
     : 0;
 
+  const conversionBase = stats.total - stats.open.filter((quote) => quote.status === "DRAFT").length;
+
   return (
-    <div className="p-8 space-y-8">
-      <div>
-        <h1 className="text-3xl font-black tracking-tight">The Accountant</h1>
-        <p className="text-slate-500">Inzicht in je winst, marges en sales-performance.</p>
-      </div>
+    <div>
+      <PageHeader
+        eyebrow="Inzicht"
+        title="Financieel inzicht"
+        description="Omzet, inkoop, brutowinst en conversie op basis van je offertes."
+      />
+      <div className="p-5 space-y-8 lg:p-8">
 
       {/* ─── Key Metrics ─── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -107,7 +115,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-black">
-              {stats.total > 0 ? ((stats.accepted.length / (stats.total - stats.open.filter(q => q.status === "DRAFT").length)) * 100).toFixed(0) : 0}%
+              {conversionBase > 0 ? ((stats.accepted.length / conversionBase) * 100).toFixed(0) : 0}%
             </div>
             <p className="text-xs text-slate-400 mt-1">Van verzonden offertes</p>
           </CardContent>
@@ -176,6 +184,7 @@ export default async function AdminDashboardPage() {
             </div>
           </CardContent>
         </Card>
+      </div>
       </div>
     </div>
   );

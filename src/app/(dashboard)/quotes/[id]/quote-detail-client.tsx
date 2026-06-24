@@ -47,8 +47,12 @@ type ChoiceLineItem = {
 };
 
 type ChoiceGroup = {
+  id: string;
   title: string;
+  type: "SINGLE_SELECT";
+  recommendedChoiceId?: string;
   choices: Array<{
+    id: string;
     label?: string;
     title: string;
     summary?: string;
@@ -57,9 +61,14 @@ type ChoiceGroup = {
 };
 
 type OptionItem = {
+  id: string;
   t: string;
+  d: string;
+  tag: string;
   price: number | null;
   vatRate: number;
+  details: string[];
+  technicalCondition?: string;
 };
 
 type QuoteAttachment = {
@@ -147,6 +156,7 @@ function CalculatieTab({ quote }: { quote: Quote }) {
 
   const baseCost = quote.items.reduce((sum, i) => sum + (Number(i.costPrice) || 0) * Number(i.qty), 0);
   const baseRevenue = quote.items.reduce((sum, i) => sum + Number(i.unitPrice) * Number(i.qty), 0);
+  const hasBaseCostData = quote.items.some((item) => item.costPrice != null);
 
   return (
     <div className="space-y-6">
@@ -179,11 +189,11 @@ function CalculatieTab({ quote }: { quote: Quote }) {
         <div key={gi} className="space-y-3">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{group.title}</h3>
           {group.choices.map((choice, ci) => {
-            const isRecommended = choice.label === "Aanbevolen";
-            const mainItems = choice.items.filter((i) => i.indent === 0);
-            const choiceRevenue = mainItems.reduce((s, i) => s + i.unitPrice * i.qty, 0);
-            const choiceCost = mainItems.reduce((s, i) => s + (i.costPrice ?? 0) * i.qty, 0);
-            const choiceProfit = choiceRevenue > 0 && choiceCost > 0 ? choiceRevenue - choiceCost : null;
+            const isRecommended = choice.id === group.recommendedChoiceId || (!group.recommendedChoiceId && choice.label === "Aanbevolen");
+            const choiceRevenue = choice.items.reduce((s, i) => s + i.unitPrice * i.qty, 0);
+            const choiceCost = choice.items.reduce((s, i) => s + (i.costPrice ?? 0) * i.qty, 0);
+            const hasCostData = choice.items.some((item) => item.costPrice != null);
+            const choiceProfit = choiceRevenue > 0 && hasCostData ? choiceRevenue - choiceCost : null;
             const choicePct = choiceProfit != null && choiceRevenue > 0 ? (choiceProfit / choiceRevenue) * 100 : null;
             return (
               <Card key={ci} className={isRecommended ? "border-emerald-300" : ""}>
@@ -195,7 +205,7 @@ function CalculatieTab({ quote }: { quote: Quote }) {
                     <span className="w-24 text-right">Inkoop totaal</span>
                     <span className="w-24 text-right">Winst</span>
                   </div>
-                  {mainItems.map((item, ii) => (
+                  {choice.items.map((item, ii) => (
                     <MargeRow
                       key={ii}
                       label={item.description}
@@ -244,30 +254,37 @@ function CalculatieTab({ quote }: { quote: Quote }) {
       {/* Samenvatting — aanbevolen scenario */}
       {(() => {
         const recommended = choiceGroups
-          .flatMap((g) => g.choices)
-          .find((c) => c.label === "Aanbevolen") ?? choiceGroups.flatMap((g) => g.choices)[0];
+          .map((group) =>
+            group.choices.find((choice) => choice.id === group.recommendedChoiceId) ??
+            group.choices.find((choice) => choice.label === "Aanbevolen") ??
+            group.choices[0],
+          )
+          .filter(Boolean);
 
-        if (!recommended) return null;
+        if (recommended.length === 0) return null;
 
-        const recRevenue = recommended.items
-          .filter((i) => i.indent === 0)
-          .reduce((s, i) => s + i.unitPrice * i.qty, 0);
-        const recCost = recommended.items
-          .filter((i) => i.indent === 0)
-          .reduce((s, i) => s + (i.costPrice ?? 0) * i.qty, 0);
+        const recRevenue = recommended.reduce(
+          (sum, choice) => sum + choice.items.reduce((choiceSum, item) => choiceSum + item.unitPrice * item.qty, 0),
+          0,
+        );
+        const recCost = recommended.reduce(
+          (sum, choice) => sum + choice.items.reduce((choiceSum, item) => choiceSum + (item.costPrice ?? 0) * item.qty, 0),
+          0,
+        );
+        const hasRecommendedCostData = recommended.some((choice) => choice.items.some((item) => item.costPrice != null));
 
         const totalRevenue = baseRevenue + recRevenue;
         const totalCost = baseCost + recCost;
         const totalProfit = totalRevenue - totalCost;
         const totalPct = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
-        if (totalCost === 0) return null;
+        if (!hasBaseCostData && !hasRecommendedCostData) return null;
 
         return (
           <Card className="border-2">
             <CardContent className="pt-5 pb-4 px-5 space-y-3">
               <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                Samenvatting — {recommended.title}
+                Samenvatting — aanbevolen configuratie
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>

@@ -15,11 +15,13 @@ export default async function ProjectsPage() {
             customer: { select: { id: true, name: true } },
             _count: { select: { quotes: true, files: true } },
           },
+          take: 200,
         }),
         prisma.customer.findMany({
           where: { companyId },
           orderBy: { name: "asc" },
           select: { id: true, name: true },
+          take: 500,
         }),
       ])
     : [[], []];

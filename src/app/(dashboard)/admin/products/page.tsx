@@ -12,6 +12,7 @@ export default async function ProductsPage() {
         prisma.product.findMany({
           where: { companyId, active: true },
           orderBy: [{ category: "asc" }, { name: "asc" }],
+          take: 500,
         }),
         prisma.productSet.findMany({
           where: { companyId, active: true },
@@ -22,10 +23,12 @@ export default async function ProductsPage() {
             },
           },
           orderBy: { name: "asc" },
+          take: 200,
         }),
         prisma.datasheet.findMany({
           where: { companyId },
           orderBy: [{ brand: "asc" }, { model: "asc" }],
+          take: 500,
         }),
       ])
     : [[], [], []];

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/page-header";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Loader2, Package, Layers, X, Database, ExternalLink } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
@@ -25,11 +26,12 @@ const productSchema = z.object({
   description: z.string().optional(),
   unit: z.string().default("stuk"),
   basePrice: z.number().min(0),
-  costPrice: z.number().min(0).optional().nullable(),
-  vatRate: z.number().default(21),
+  costPrice: z.number().min(0).nullable().optional(),
+  vatRate: z.number().min(0).max(100).default(21),
 });
 
 type ProductForm = z.infer<typeof productSchema>;
+type ProductFormInput = z.input<typeof productSchema>;
 
 type Product = {
   id: string;
@@ -111,13 +113,16 @@ export function ProductsClient({
       ? [...KOOLHAAS_CATEGORIES]
       : [...WEBSUP_CATEGORIES];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<ProductForm>({
-    resolver: zodResolver(productSchema) as any,
+  const { register, handleSubmit, reset, setValue, control, formState: { errors } } = useForm<ProductFormInput, unknown, ProductForm>({
+    resolver: zodResolver(productSchema),
     defaultValues: { vatRate: 21, unit: "stuk" },
   });
 
-  const grouped = categories.map((cat) => ({
+  const allCategories = [
+    ...categories,
+    ...products.map((product) => product.category).filter((category) => !(categories as string[]).includes(category)),
+  ];
+  const grouped = [...new Set(allCategories)].map((cat) => ({
     name: cat,
     products: products.filter((p) => p.category === cat),
   })).filter((g) => g.products.length > 0);
@@ -144,13 +149,15 @@ export function ProductsClient({
     setSaving(true);
     try {
       if (editingId) {
-        await fetch(`/api/products/${editingId}`, {
+        const res = await fetch(`/api/products/${editingId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         });
+        const updated = await res.json();
+        if (!res.ok) throw new Error(updated.error || "Bijwerken mislukt");
         setProducts((prev) =>
-          prev.map((p) => (p.id === editingId ? { ...p, ...data } : p))
+          prev.map((p) => (p.id === editingId ? updated : p))
         );
         toast.success("Product bijgewerkt");
       } else {
@@ -160,13 +167,14 @@ export function ProductsClient({
           body: JSON.stringify(data),
         });
         const created = await res.json();
+        if (!res.ok) throw new Error(created.error || "Aanmaken mislukt");
         setProducts((prev) => [...prev, created]);
         toast.success("Product aangemaakt");
       }
       setProductDialog(false);
       router.refresh();
-    } catch {
-      toast.error("Er is iets misgegaan");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Er is iets misgegaan");
     } finally {
       setSaving(false);
     }
@@ -174,7 +182,8 @@ export function ProductsClient({
 
   async function handleDelete(id: string) {
     if (!confirm("Weet je zeker dat je dit product wilt verwijderen?")) return;
-    await fetch(`/api/products/${id}`, { method: "DELETE" });
+    const response = await fetch(`/api/products/${id}`, { method: "DELETE" });
+    if (!response.ok) return toast.error("Product verwijderen mislukt");
     setProducts((prev) => prev.filter((p) => p.id !== id));
     toast.success("Product verwijderd");
   }
@@ -243,6 +252,7 @@ export function ProductsClient({
           body: JSON.stringify(payload),
         });
         const updated = await res.json();
+        if (!res.ok) throw new Error(updated.error || "Set bijwerken mislukt");
         setSets((prev) => prev.map((s) => (s.id === editingSetId ? updated : s)));
         toast.success("Set bijgewerkt");
       } else {
@@ -252,13 +262,14 @@ export function ProductsClient({
           body: JSON.stringify(payload),
         });
         const created = await res.json();
+        if (!res.ok) throw new Error(created.error || "Set aanmaken mislukt");
         setSets((prev) => [...prev, created]);
         toast.success("Set aangemaakt");
       }
       setSetDialog(false);
       router.refresh();
-    } catch {
-      toast.error("Er is iets misgegaan");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Er is iets misgegaan");
     } finally {
       setSavingSet(false);
     }
@@ -266,7 +277,8 @@ export function ProductsClient({
 
   async function handleDeleteSet(id: string) {
     if (!confirm("Weet je zeker dat je deze set wilt verwijderen?")) return;
-    await fetch(`/api/product-sets/${id}`, { method: "DELETE" });
+    const response = await fetch(`/api/product-sets/${id}`, { method: "DELETE" });
+    if (!response.ok) return toast.error("Set verwijderen mislukt");
     setSets((prev) => prev.filter((s) => s.id !== id));
     toast.success("Set verwijderd");
   }
@@ -274,11 +286,12 @@ export function ProductsClient({
   async function handleSaveDsPrice(id: string) {
     const price = parseFloat(dsPriceEdit);
     if (isNaN(price)) { toast.error("Voer een geldige prijs in"); return; }
-    await fetch(`/api/knowledge/datasheets/${id}`, {
+    const response = await fetch(`/api/knowledge/datasheets/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ price }),
     });
+    if (!response.ok) return toast.error("Inkoopprijs bijwerken mislukt");
     setDatasheets((prev) => prev.map((d) => d.id === id ? { ...d, price } : d));
     setEditingDsId(null);
     toast.success("Inkoopprijs bijgewerkt");
@@ -286,33 +299,30 @@ export function ProductsClient({
 
   async function handleDeleteDs(id: string) {
     if (!confirm("Datasheet-entry verwijderen?")) return;
-    await fetch(`/api/knowledge/datasheets/${id}`, { method: "DELETE" });
+    const response = await fetch(`/api/knowledge/datasheets/${id}`, { method: "DELETE" });
+    if (!response.ok) return toast.error("Entry verwijderen mislukt");
     setDatasheets((prev) => prev.filter((d) => d.id !== id));
     toast.success("Entry verwijderd");
   }
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Producten & Diensten</h1>
-          <p className="text-muted-foreground">{products.length} producten, {sets.length} sets</p>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nieuw product
-        </Button>
-      </div>
-
+    <div>
+      <PageHeader
+        eyebrow="Catalogus"
+        title="Artikelen & prijzen"
+        description={`${products.length} artikelen · ${sets.length} sets · ${datasheets.length} leveranciersprijzen`}
+        actions={<Button onClick={openCreate}><Plus className="h-4 w-4" />Nieuw artikel</Button>}
+      />
+      <div className="space-y-6 p-5 lg:p-8">
       <Tabs defaultValue="products">
-        <TabsList>
+        <TabsList className="bg-white shadow-sm">
           <TabsTrigger value="products">
             <Package className="mr-2 h-4 w-4" />
-            Producten ({products.length})
+            Artikelen ({products.length})
           </TabsTrigger>
           <TabsTrigger value="sets">
             <Layers className="mr-2 h-4 w-4" />
-            Sets ({sets.length})
+            Artikelsets ({sets.length})
           </TabsTrigger>
           <TabsTrigger value="inkoopprijzen">
             <Database className="mr-2 h-4 w-4" />
@@ -325,9 +335,9 @@ export function ProductsClient({
             <Card>
               <CardContent className="flex flex-col items-center py-16">
                 <Package className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                <p className="text-muted-foreground">Nog geen producten</p>
+                <p className="text-muted-foreground">Nog geen artikelen</p>
                 <Button variant="outline" className="mt-4" onClick={openCreate}>
-                  Voeg eerste product toe
+                  Voeg eerste artikel toe
                 </Button>
               </CardContent>
             </Card>
@@ -352,7 +362,9 @@ export function ProductsClient({
                         <div className="flex items-center gap-4">
                           <div className="text-right">
                             <p className="text-sm font-medium">{formatCurrency(Number(p.basePrice))}</p>
-                            <p className="text-xs text-muted-foreground">per {p.unit} · {p.vatRate}% BTW</p>
+                            <p className="text-xs text-muted-foreground">
+                              {p.costPrice != null ? `inkoop ${formatCurrency(Number(p.costPrice))} · ` : ""}per {p.unit} · {p.vatRate}% BTW
+                            </p>
                           </div>
                           <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
                             <Pencil className="h-4 w-4" />
@@ -523,28 +535,32 @@ export function ProductsClient({
         </TabsContent>
       </Tabs>
 
+      </div>
       {/* Product Dialog */}
       <Dialog open={productDialog} onOpenChange={setProductDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Product bewerken" : "Nieuw product"}</DialogTitle>
+            <DialogTitle>{editingId ? "Artikel bewerken" : "Nieuw artikel"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label>Categorie *</Label>
-              <Select
-                onValueChange={(v) => { if (v) setValue("category", v); }}
-                defaultValue={watch("category")}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecteer categorie" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Controller
+                name="category"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value ?? ""} onValueChange={(value) => field.onChange(value || "")}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecteer categorie" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
               {errors.category && <p className="text-sm text-destructive">{errors.category.message}</p>}
             </div>
             <div className="space-y-2">
@@ -563,7 +579,14 @@ export function ProductsClient({
               </div>
               <div className="space-y-2">
                 <Label>Inkoop (ex)</Label>
-                <Input {...register("costPrice", { valueAsNumber: true })} type="number" step="0.01" placeholder="0.00" />
+                <Input
+                  {...register("costPrice", {
+                    setValueAs: (value) => value === "" ? null : Number(value),
+                  })}
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                />
               </div>
               <div className="space-y-2">
                 <Label>BTW %</Label>

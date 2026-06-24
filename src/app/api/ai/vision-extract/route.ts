@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { OpenAI } from "openai";
-import { z } from "zod";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -15,8 +14,10 @@ export async function POST(req: NextRequest) {
 
   if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
-  const settings = (company.settings ?? {}) as Record<string, any>;
-  const apiKey = settings.openaiApiKey || process.env.OPENAI_API_KEY;
+  const settings = (company.settings ?? {}) as Record<string, unknown>;
+  const apiKey = typeof settings.openaiApiKey === "string" && settings.openaiApiKey
+    ? settings.openaiApiKey
+    : process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
     return NextResponse.json({ error: "OpenAI API key missing" }, { status: 500 });
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
     if (!content) throw new Error("Lege respons van AI");
 
     return NextResponse.json(JSON.parse(content));
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("AI Vision Error:", error);
     return NextResponse.json({ error: "AI kon de foto niet analyseren." }, { status: 500 });
   }

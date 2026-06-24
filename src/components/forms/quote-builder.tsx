@@ -19,9 +19,7 @@ import {
   X,
   Sparkles,
   Wand2,
-  Upload,
   Image as ImageIcon,
-  Scissors,
   Trash2,
   GripVertical,
   ChevronRight,
@@ -34,27 +32,49 @@ import {
   ShieldCheck,
   Calendar,
   Zap,
+  Search,
+  Package,
+  Layers,
+  PackagePlus,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
-import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
+import { calculateTotals } from "@/lib/calculation";
+import { QuoteSheetPreview, type QuotePreviewData } from "@/components/quote-sheet-preview";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
 type Customer = { id: string; name: string; email: string | null };
-type Product = { id: string; category: string; name: string; basePrice: string | number; vatRate: string | number; unit: string };
+type Product = {
+  id: string;
+  category: string;
+  name: string;
+  description?: string | null;
+  basePrice: string | number;
+  costPrice?: string | number | null;
+  vatRate: string | number;
+  unit: string;
+};
 type ProductSetItem = { productId: string; qty: string | number; product: Product };
 type ProductSet = { id: string; name: string; items: ProductSetItem[] };
 
 type QuoteItem = {
   id: string;
-  productId?: string;
+  productId?: string | null;
   description: string;
   qty: number;
   unitPrice: number;
-  costPrice?: number;
+  costPrice?: number | null;
   vatRate: number;
   total: number;
   indent: number;
+};
+
+type InitialQuoteItem = Omit<QuoteItem, "qty" | "unitPrice" | "costPrice" | "vatRate" | "total"> & {
+  qty: number | string;
+  unitPrice: number | string;
+  costPrice?: number | string | null;
+  vatRate: number | string;
+  total: number | string;
 };
 
 type ChoiceItem = Omit<QuoteItem, "id" | "productId" | "total"> & {
@@ -157,6 +177,37 @@ type QuoteImportPreview = {
   };
 };
 
+type InitialQuote = Partial<Omit<QuotePreviewData, "items" | "customer" | "choiceGroups" | "options" | "attachments">> & {
+  id?: string;
+  customerId?: string;
+  items?: InitialQuoteItem[];
+  choiceGroups?: ChoiceGroup[] | null;
+  options?: QuoteOption[] | null;
+  attachments?: InitialQuoteAttachment[] | null;
+  quoteType?: string;
+  notes?: string | null;
+  planning?: Record<string, string>;
+  commercial?: Record<string, string | number>;
+  batteryAdvice?: Record<string, unknown>;
+  internalAdvice?: string | null;
+};
+
+type InitialAdvice = {
+  customerId: string;
+  title?: string;
+  summary?: string;
+  analysis?: string;
+  currentDevs?: string[];
+  calculation?: { resultKwh?: number };
+  scenarios: Array<{ capacityKwh?: number; goal?: string; name?: string }>;
+};
+
+type VisionSuggestedItem = {
+  description: string;
+  qty?: number;
+  unitPrice?: number;
+};
+
 // ─── Defaults ────────────────────────────────────────────────────────────────
 
 const DEFAULT_FLOW = [
@@ -218,38 +269,30 @@ function genId() {
   return Math.random().toString(36).slice(2);
 }
 
-function splitDescriptionParts(description: string) {
-  return description
-    .split(/\r?\n|(?:\s+[•*-]\s+)/)
-    .map((part) => part.replace(/^[\s•*-]+/, "").trim())
-    .filter(Boolean);
-}
-
 function normalizeGeneratedItems(items: GeneratedQuoteItem[]): QuoteItem[] {
-  return items.flatMap((item) => {
-    const description = String(item.description ?? "");
-    const parts = splitDescriptionParts(description);
-    const descriptions = parts.length > 1 ? parts : [description.trim()];
-
-    return descriptions
-      .filter(Boolean)
-      .map((part, index) => ({
-        ...item,
+  return items
+    .map((item) => {
+      const qty = Number(item.qty ?? 1);
+      const unitPrice = Number(item.unitPrice ?? item.unit_price ?? 0);
+      return {
         id: genId(),
-        description: part,
-        qty: Number(item.qty ?? 1),
-        unitPrice: index === 0 ? Number(item.unitPrice ?? item.unit_price ?? 0) : 0,
+        description: String(item.description ?? "").trim(),
+        qty,
+        unitPrice,
         costPrice: item.costPrice === undefined && item.cost_price === undefined ? undefined : Number(item.costPrice ?? item.cost_price ?? 0),
         vatRate: Number(item.vatRate ?? item.vat_rate ?? 21),
-        total: index === 0 ? Number(item.qty ?? 1) * Number(item.unitPrice ?? item.unit_price ?? 0) : 0,
-        indent: index === 0 ? Number(item.indent ?? 0) : 1,
+        total: qty * unitPrice,
+        indent: Number(item.indent ?? 0),
         type: item.type ?? undefined,
-      }));
-  });
+      };
+    })
+    .filter((item) => item.description);
 }
 
 export function QuoteBuilder({
   customers,
+  products,
+  productSets,
   initialQuote,
   initialAdvice,
   companySlug,
@@ -259,8 +302,8 @@ export function QuoteBuilder({
   productSets: ProductSet[];
   companySlug: string;
   companyName: string;
-  initialQuote?: any;
-  initialAdvice?: any;
+  initialQuote?: InitialQuote;
+  initialAdvice?: InitialAdvice;
 }) {
   const router = useRouter();
   const isKoolhaas = companySlug === "koolhaas";
@@ -275,7 +318,16 @@ export function QuoteBuilder({
   
   // Items Logic
   const [items, setItems] = useState<QuoteItem[]>(
-    initialQuote?.items?.map((i: any) => ({ ...i, id: i.id || genId(), indent: i.indent ?? 0 })) || 
+    initialQuote?.items?.map((i) => ({
+      ...i,
+      id: i.id || genId(),
+      qty: Number(i.qty),
+      unitPrice: Number(i.unitPrice),
+      costPrice: i.costPrice == null ? undefined : Number(i.costPrice),
+      vatRate: Number(i.vatRate),
+      total: Number(i.total),
+      indent: i.indent ?? 0,
+    })) ||
     (initialAdvice ? [
       { 
         id: genId(), 
@@ -352,18 +404,34 @@ export function QuoteBuilder({
   const [dropTarget, setDropTarget] = useState<{ id: string; position: "before" | "after"; indent: number } | null>(null);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [catalogProducts, setCatalogProducts] = useState(products);
+  const [savingCatalogItemId, setSavingCatalogItemId] = useState<string | null>(null);
 
   const customer = customers.find((c) => c.id === customerId);
   const filteredCustomers = customers.filter((c) =>
     c.name.toLowerCase().includes(customerSearch.toLowerCase())
   );
 
-  const totalExVat = items.reduce((acc, i) => acc + i.qty * i.unitPrice, 0);
-  const totalVat = items.reduce((acc, i) => acc + i.qty * i.unitPrice * (i.vatRate / 100), 0);
-  const totalIncVat = totalExVat + totalVat;
+  const totals = calculateTotals(items);
+  const totalExVat = totals.revenueExVat;
+  const totalVat = totals.vat;
+  const totalIncVat = totals.revenueIncVat;
   const displayedTotal = priceDisplayMode === "incl" ? totalIncVat : totalExVat;
+  const catalogQuery = catalogSearch.trim().toLowerCase();
+  const filteredProducts = catalogProducts
+    .filter((product) =>
+      !catalogQuery ||
+      product.name.toLowerCase().includes(catalogQuery) ||
+      product.category.toLowerCase().includes(catalogQuery) ||
+      (product.description ?? "").toLowerCase().includes(catalogQuery),
+    )
+    .slice(0, 8);
+  const filteredSets = productSets
+    .filter((set) => !catalogQuery || set.name.toLowerCase().includes(catalogQuery))
+    .slice(0, 4);
 
-  const quoteData = {
+  const quoteData: QuotePreviewData = {
     number: initialQuote?.number || "CONCEPT",
     title,
     category,
@@ -430,7 +498,7 @@ export function QuoteBuilder({
     if (data.tagline) setTagline(data.tagline);
     if (data.intro !== undefined) setIntro(data.intro);
     if (data.itemsHeader) setItemsHeader(data.itemsHeader);
-    if (data.items) setItems(normalizeGeneratedItems(data.items));
+    setItems(normalizeGeneratedItems(data.items || []));
     if (data.flow) setFlow(data.flow as typeof DEFAULT_FLOW);
     if (data.approach) setApproach(data.approach as typeof DEFAULT_APPROACH);
     if (data.optionalWork) setOptions(data.optionalWork);
@@ -461,7 +529,7 @@ export function QuoteBuilder({
       setValidUntil(new Date(Date.now() + validDays * 86400000).toISOString().split("T")[0]);
     }
 
-    toast.success("Offerte ingevuld. Controleer het concept.");
+    toast.success("Import geladen als bewerkbare offerteregels. Controleer regels en configuraties.");
     setCreationMode("manual");
     setAiInput("");
     setImportPreview(null);
@@ -485,11 +553,14 @@ export function QuoteBuilder({
         body: formData,
       });
 
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => null);
+        throw new Error(errorBody?.error?.formErrors?.[0] || errorBody?.error || "Opslaan mislukt");
+      }
+      const data = await res.json() as { suggestedItems?: VisionSuggestedItem[]; findings?: string[] };
 
       if (data.suggestedItems?.length) {
-        const newItems = data.suggestedItems.map((item: any) => ({
+        const newItems = data.suggestedItems.map((item) => ({
           id: genId(),
           description: item.description,
           qty: item.qty || 1,
@@ -502,7 +573,8 @@ export function QuoteBuilder({
       }
 
       if (data.findings?.length) {
-        setTechnicalNotes((prev) => [...prev, ...data.findings]);
+        const findings = data.findings;
+        setTechnicalNotes((prev) => [...prev, ...findings]);
       }
 
       toast.success("Foto geanalyseerd! Materialen toegevoegd.", { id: toastId });
@@ -515,6 +587,7 @@ export function QuoteBuilder({
 
   async function handleSave() {
     if (!customerId) return toast.error("Selecteer een klant");
+    if (items.length === 0 && choiceGroups.length === 0) return toast.error("Voeg minimaal één offerteregel of configuratie toe");
     if (items.some((i) => !i.description)) return toast.error("Vul alle omschrijvingen in");
     if (choiceGroups.some((group) => group.choices.length < 2)) return toast.error("Een configuratiekeuze heeft minimaal twee alternatieven nodig");
     if (choiceGroups.some((group) => group.choices.some((choice) => /^(optie\s*\d+|hoofdregel)$/i.test(choice.title)))) {
@@ -569,8 +642,8 @@ export function QuoteBuilder({
       toast.success(initialQuote?.id ? "Offerte opgeslagen" : "Offerte aangemaakt");
       router.push(`/quotes/${initialQuote?.id ?? data.id}`);
       router.refresh();
-    } catch {
-      toast.error("Opslaan mislukt");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Opslaan mislukt");
     } finally {
       setSaving(false);
     }
@@ -581,6 +654,46 @@ export function QuoteBuilder({
       ...prev,
       { id: genId(), description: "Nieuw onderdeel", qty: 1, unitPrice: 0, vatRate: 21, total: 0, indent: 0 },
     ]);
+  }
+
+  function addProduct(product: Product) {
+    const qty = 1;
+    const unitPrice = Number(product.basePrice);
+    setItems((prev) => [
+      ...prev,
+      {
+        id: genId(),
+        productId: product.id,
+        description: product.description?.trim() || product.name,
+        qty,
+        unitPrice,
+        costPrice: product.costPrice == null ? undefined : Number(product.costPrice),
+        vatRate: Number(product.vatRate),
+        total: qty * unitPrice,
+        indent: 0,
+      },
+    ]);
+    toast.success(`${product.name} toegevoegd`);
+  }
+
+  function addProductSet(set: ProductSet) {
+    const newItems = set.items.map(({ product, qty }) => {
+      const numericQty = Number(qty);
+      const unitPrice = Number(product.basePrice);
+      return {
+        id: genId(),
+        productId: product.id,
+        description: product.description?.trim() || product.name,
+        qty: numericQty,
+        unitPrice,
+        costPrice: product.costPrice == null ? undefined : Number(product.costPrice),
+        vatRate: Number(product.vatRate),
+        total: numericQty * unitPrice,
+        indent: 0,
+      };
+    });
+    setItems((prev) => [...prev, ...newItems]);
+    toast.success(`${set.name} toegevoegd`);
   }
 
   function updateItem(id: string, updates: Partial<QuoteItem>) {
@@ -737,7 +850,36 @@ export function QuoteBuilder({
   }
 
   function removeItem(id: string) {
-    setItems((prev) => prev.length > 1 ? prev.filter((i) => i.id !== id) : prev);
+    setItems((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  async function saveItemToCatalog(item: QuoteItem) {
+    if (item.productId) return;
+    setSavingCatalogItemId(item.id);
+    try {
+      const response = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: "Overig",
+          name: item.description.split(/\r?\n/)[0].slice(0, 120),
+          description: item.description,
+          unit: "stuk",
+          basePrice: item.unitPrice,
+          costPrice: item.costPrice ?? null,
+          vatRate: item.vatRate,
+        }),
+      });
+      const product = await response.json();
+      if (!response.ok) throw new Error(product.error || "Artikel opslaan mislukt");
+      setCatalogProducts((current) => [...current, product]);
+      updateItem(item.id, { productId: product.id });
+      toast.success("Offerteregel is opgeslagen als catalogusartikel");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Artikel opslaan mislukt");
+    } finally {
+      setSavingCatalogItemId(null);
+    }
   }
 
   function setItemIndent(id: string, indent: number) {
@@ -777,28 +919,6 @@ export function QuoteBuilder({
     setDropTarget(null);
   }
 
-  function splitItem(id: string) {
-    setItems((prev) => {
-      const item = prev.find((i) => i.id === id);
-      if (!item) return prev;
-
-      const parts = splitDescriptionParts(item.description);
-
-      if (parts.length < 2) return prev;
-
-      return prev.flatMap((current) => {
-        if (current.id !== id) return current;
-        return parts.map((description, index) => ({
-          ...current,
-          id: index === 0 ? current.id : genId(),
-          description,
-          unitPrice: index === 0 ? current.unitPrice : 0,
-          total: index === 0 ? current.qty * current.unitPrice : 0,
-        }));
-      });
-    });
-  }
-
   function updateAttachment(id: string, updates: Partial<QuoteAttachment>) {
     setAttachments((prev) =>
       prev.map((attachment) =>
@@ -818,52 +938,21 @@ export function QuoteBuilder({
     ]);
   }
 
-  async function handleAttachmentUpload(files: FileList | null) {
-    if (!files?.length) return;
-
-    try {
-      const next = await Promise.all(
-        Array.from(files).map(async (file) => {
-          if (!file.type.startsWith("image/")) {
-            throw new Error("Alleen afbeeldingen zijn toegestaan");
-          }
-
-          const formData = new FormData();
-          formData.append("file", file);
-
-          const res = await fetch("/api/quote-attachments/upload", {
-            method: "POST",
-            body: formData,
-          });
-          if (!res.ok) throw new Error("Upload mislukt");
-
-          const uploaded = (await res.json()) as { url: string; title?: string };
-          return {
-            id: genId(),
-            title: uploaded.title || file.name.replace(/\.[^.]+$/, ""),
-            imageUrl: uploaded.url,
-            liveUrl: "",
-            caption: "",
-          };
-        })
-      );
-      setAttachments((prev) => [...prev, ...next]);
-      toast.success(`${next.length} ontwerp${next.length === 1 ? "" : "en"} toegevoegd`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Upload mislukt");
-    }
-  }
-
-  const handleUpdate = (updates: Partial<any>) => {
-    if (updates.title !== undefined) setTitle(updates.title);
-    if (updates.category !== undefined) setCategory(updates.category);
-    if (updates.tagline !== undefined) setTagline(updates.tagline);
-    if (updates.itemsHeader !== undefined) setItemsHeader(updates.itemsHeader);
-    if (updates.intro !== undefined) setIntro(updates.intro);
-    if (updates.outro !== undefined) setOutro(updates.outro);
+  const handleUpdate = (updates: Partial<QuotePreviewData>) => {
+    if (updates.title !== undefined) setTitle(updates.title ?? "");
+    if (updates.category !== undefined) setCategory(updates.category ?? "");
+    if (updates.tagline !== undefined) setTagline(updates.tagline ?? "");
+    if (updates.itemsHeader !== undefined) setItemsHeader(updates.itemsHeader ?? "");
+    if (updates.intro !== undefined) setIntro(updates.intro ?? "");
+    if (updates.outro !== undefined) setOutro(updates.outro ?? "");
     if (updates.flow !== undefined) setFlow(updates.flow);
     if (updates.approach !== undefined) setApproach(updates.approach);
-    if (updates.options !== undefined) setOptions(updates.options);
+    if (updates.options !== undefined) {
+      setOptions((updates.options ?? []).map((option) => ({
+        ...option,
+        price: option.price ?? null,
+      })));
+    }
     if (updates.exclusions !== undefined) setExclusions(updates.exclusions);
   };
 
@@ -932,6 +1021,35 @@ export function QuoteBuilder({
                 <div><span className="text-slate-500">Configuraties:</span> <b>{importPreview.quote.configurations?.length ?? 0}</b></div>
                 <div><span className="text-slate-500">Uitsluitingen:</span> <b>{importPreview.quote.exclusions?.length ?? 0}</b></div>
               </div>
+              <div className="mt-4 border-t border-slate-200 pt-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Bewerkbare inhoud</p>
+                <div className="mt-2 max-h-44 space-y-1 overflow-y-auto text-xs">
+                  {importPreview.quote.items.map((item, index) => (
+                    <div key={`base-${index}`} className="flex justify-between gap-3 rounded bg-white px-2 py-1.5">
+                      <span className="truncate">Vaste regel · {item.description}</span>
+                      <span className="shrink-0 font-semibold">
+                        {formatCurrency(Number(item.qty ?? 1) * Number(item.unitPrice ?? item.unit_price ?? 0))}
+                      </span>
+                    </div>
+                  ))}
+                  {importPreview.quote.configurations?.flatMap((group) =>
+                    group.choices.map((choice) => (
+                      <div key={`${group.id}-${choice.id}`} className="flex justify-between gap-3 rounded bg-teal-50 px-2 py-1.5 text-teal-900">
+                        <span className="truncate">Configuratie · {group.title} → {choice.title} ({choice.items.length} regels)</span>
+                        <span className="shrink-0 font-semibold">
+                          {formatCurrency(choice.items.reduce(
+                            (sum, item) => sum + Number(item.qty ?? 1) * Number(item.unitPrice ?? 0),
+                            0,
+                          ))}
+                        </span>
+                      </div>
+                    )),
+                  )}
+                </div>
+                <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                  Import maakt vrije offerteregels, geen dubbele catalogusartikelen. Een regel kan later bewust als herbruikbaar artikel worden opgeslagen.
+                </p>
+              </div>
             </div>
 
             {(importPreview.warnings.length > 0 || importPreview.unknownFields.length > 0) && (
@@ -967,8 +1085,8 @@ export function QuoteBuilder({
 
   if (!creationMode) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <header className="sticky top-0 z-[100] bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm">
+      <div className="min-h-[calc(100vh-72px)] bg-slate-50">
+        <header className="sticky top-[72px] z-20 bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" onClick={() => router.back()}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Terug
@@ -1036,9 +1154,9 @@ export function QuoteBuilder({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-[calc(100vh-72px)] bg-slate-50">
       {/* ── Top Toolbar ── */}
-      <header className="sticky top-0 z-[100] bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm">
+      <header className="sticky top-[72px] z-20 bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => router.back()}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Terug
@@ -1144,11 +1262,11 @@ export function QuoteBuilder({
         </div>
       </header>
 
-      <div className="flex w-full max-w-[1920px] gap-8 p-6 lg:p-8 2xl:px-10 mx-auto items-start">
+      <div className="flex w-full max-w-[1920px] flex-col gap-8 p-4 lg:p-8 2xl:px-10 mx-auto items-start xl:flex-row">
         {/* ── Visual Editor (The Paper) ── */}
         <div className="flex-1">
           <QuoteSheetPreview 
-            quote={quoteData as any} 
+            quote={quoteData}
             companySlug={companySlug}
             isEditable={true} 
             onUpdate={handleUpdate}
@@ -1159,7 +1277,7 @@ export function QuoteBuilder({
         </div>
 
         {/* ── Right Panel (Controls) ── */}
-        <aside className="w-[420px] 2xl:w-[460px] sticky top-[88px] space-y-6 pb-2">
+        <aside className="w-full space-y-6 pb-2 xl:sticky xl:top-[160px] xl:w-[420px] 2xl:w-[460px]">
           <Tabs defaultValue="quote" className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-4">
               <TabsTrigger value="quote"><FileText className="h-4 w-4 mr-2" />Offerte</TabsTrigger>
@@ -1178,8 +1296,72 @@ export function QuoteBuilder({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div className="rounded-xl border border-slate-200 bg-white p-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        value={catalogSearch}
+                        onChange={(event) => setCatalogSearch(event.target.value)}
+                        placeholder="Zoek artikel, dienst, categorie of set…"
+                        className="h-9 pl-9"
+                      />
+                    </div>
+                    {(catalogSearch || products.length > 0 || productSets.length > 0) && (
+                      <div className="mt-3 max-h-64 space-y-3 overflow-y-auto">
+                        {filteredSets.length > 0 && (
+                          <div>
+                            <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              <Layers className="h-3 w-3" /> Sets
+                            </p>
+                            <div className="space-y-1">
+                              {filteredSets.map((set) => (
+                                <button
+                                  key={set.id}
+                                  type="button"
+                                  onClick={() => addProductSet(set)}
+                                  className="flex w-full items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-left hover:border-slate-300 hover:bg-slate-50"
+                                >
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-sm font-semibold">{set.name}</span>
+                                    <span className="block text-xs text-slate-400">{set.items.length} artikelen</span>
+                                  </span>
+                                  <Plus className="h-4 w-4 shrink-0 text-slate-400" />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {filteredProducts.length > 0 && (
+                          <div>
+                            <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              <Package className="h-3 w-3" /> Artikelen en diensten
+                            </p>
+                            <div className="space-y-1">
+                              {filteredProducts.map((product) => (
+                                <button
+                                  key={product.id}
+                                  type="button"
+                                  onClick={() => addProduct(product)}
+                                  className="grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-lg border border-slate-100 px-3 py-2 text-left hover:border-slate-300 hover:bg-slate-50"
+                                >
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-sm font-medium">{product.name}</span>
+                                    <span className="block truncate text-xs text-slate-400">{product.category} · per {product.unit}</span>
+                                  </span>
+                                  <span className="text-sm font-bold tabular-nums">{formatCurrency(Number(product.basePrice))}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {catalogQuery && filteredProducts.length === 0 && filteredSets.length === 0 && (
+                          <p className="py-3 text-center text-sm text-slate-400">Geen artikelen of sets gevonden.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-400 -mt-1">
-                    Sleep aan de greep om te herordenen. Sleep naar rechts om te nesten.
+                    Catalogusartikelen blijven gekoppeld. JSON-import wordt als vrije, volledig bewerkbare offerteregels geladen.
                   </p>
                   <div className="space-y-1 max-h-[460px] overflow-y-auto pr-2">
                     {items.map((item) => (
@@ -1216,8 +1398,25 @@ export function QuoteBuilder({
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                                   <CornerDownRight className="h-3 w-3" /> Sub-regel
                                 </span>
-                              ) : <span />}
+                              ) : (
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                  {item.productId ? "Catalogusartikel" : "Vrije offerteregel"}
+                                </span>
+                              )}
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                {!item.productId && (
+                                  <button
+                                    type="button"
+                                    title="Opslaan als catalogusartikel"
+                                    disabled={savingCatalogItemId === item.id}
+                                    onClick={() => saveItemToCatalog(item)}
+                                    className="rounded-full border border-slate-200 bg-white p-1 text-slate-400 shadow-sm hover:bg-slate-50 hover:text-[#167f88] disabled:opacity-50"
+                                  >
+                                    {savingCatalogItemId === item.id
+                                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                                      : <PackagePlus className="h-3 w-3" />}
+                                  </button>
+                                )}
                                 <button type="button" onClick={() => setItemIndent(item.id, item.indent ? 0 : 1)} className="bg-white border border-slate-200 rounded-full p-1 shadow-sm text-slate-400 hover:bg-slate-50">
                                   {item.indent ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                                 </button>
@@ -1336,7 +1535,7 @@ export function QuoteBuilder({
                                 />
                                 <div className="space-y-2">
                                   {choice.items.map((item, itemIndex) => (
-                                    <div key={itemIndex} className="grid grid-cols-[1fr_54px_82px_64px_32px] gap-2">
+                                    <div key={itemIndex} className="grid grid-cols-[1fr_54px_78px_78px_58px_32px] gap-2">
                                       <Input
                                         value={item.description}
                                         onChange={(e) => updateChoiceItem(group.id, choice.id, itemIndex, { description: e.target.value })}
@@ -1354,6 +1553,17 @@ export function QuoteBuilder({
                                         value={item.unitPrice}
                                         onChange={(e) => updateChoiceItem(group.id, choice.id, itemIndex, { unitPrice: Number(e.target.value) })}
                                         className="h-8 bg-white px-2 text-xs"
+                                        title="Verkoopprijs excl. btw"
+                                      />
+                                      <Input
+                                        type="number"
+                                        value={item.costPrice ?? ""}
+                                        onChange={(e) => updateChoiceItem(group.id, choice.id, itemIndex, {
+                                          costPrice: e.target.value === "" ? null : Number(e.target.value),
+                                        })}
+                                        className="h-8 bg-white px-2 text-xs"
+                                        placeholder="Inkoop"
+                                        title="Inkoopprijs excl. btw"
                                       />
                                       <Input
                                         type="number"
@@ -1429,7 +1639,7 @@ export function QuoteBuilder({
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-xs font-bold uppercase">Offerte Type</Label>
-                    <Select value={quoteType} onValueChange={setQuoteType}>
+                    <Select value={quoteType} onValueChange={(value) => setQuoteType(value || "GENERAL")}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="GENERAL">Algemeen Project</SelectItem>
@@ -1468,11 +1678,11 @@ export function QuoteBuilder({
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
                           <Label className="text-[10px]">Capaciteit (kWh)</Label>
-                          <Input type="number" value={batteryAdvice.nominalCapacityKwh || ""} onChange={(e) => setBatteryAdvice({...batteryAdvice, nominalCapacityKwh: Number(e.target.value)})} className="h-8 bg-white" />
+                          <Input type="number" value={typeof batteryAdvice.nominalCapacityKwh === "number" ? batteryAdvice.nominalCapacityKwh : ""} onChange={(e) => setBatteryAdvice({...batteryAdvice, nominalCapacityKwh: Number(e.target.value)})} className="h-8 bg-white" />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px]">Vermogen (kW)</Label>
-                          <Input type="number" value={batteryAdvice.chargePowerKw || ""} onChange={(e) => setBatteryAdvice({...batteryAdvice, chargePowerKw: Number(e.target.value)})} className="h-8 bg-white" />
+                          <Input type="number" value={typeof batteryAdvice.chargePowerKw === "number" ? batteryAdvice.chargePowerKw : ""} onChange={(e) => setBatteryAdvice({...batteryAdvice, chargePowerKw: Number(e.target.value)})} className="h-8 bg-white" />
                         </div>
                       </div>
                     </div>
@@ -1513,7 +1723,7 @@ export function QuoteBuilder({
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     {items.map((item) => {
-                      const cost = (item as any).costPrice || 0;
+                      const cost = item.costPrice || 0;
                       const profit = item.total - (cost * item.qty);
                       const margin = item.total > 0 ? (profit / item.total) * 100 : 0;
                       
@@ -1526,7 +1736,7 @@ export function QuoteBuilder({
                               <Input 
                                 type="number" 
                                 value={cost} 
-                                onChange={(e) => updateItem(item.id, { costPrice: Number(e.target.value) } as any)} 
+                                onChange={(e) => updateItem(item.id, { costPrice: Number(e.target.value) })}
                                 className="h-6 w-20 text-[10px] px-1"
                               />
                             </div>
@@ -1547,7 +1757,7 @@ export function QuoteBuilder({
                   <div className="bg-slate-900 text-white p-4 rounded-lg space-y-2">
                     <div className="flex justify-between text-xs text-slate-400">
                       <span>Totale Inkoop</span>
-                      <span>{formatCurrency(items.reduce((acc, i) => acc + (((i as any).costPrice || 0) * i.qty), 0))}</span>
+                      <span>{formatCurrency(totals.costExVat)}</span>
                     </div>
                     <div className="flex justify-between text-xs text-slate-400">
                       <span>Totale Omzet (Ex)</span>
@@ -1556,7 +1766,7 @@ export function QuoteBuilder({
                     <Separator className="bg-white/10" />
                     <div className="flex justify-between font-bold text-lg">
                       <span className="text-orange-400">Netto Winst</span>
-                      <span>{formatCurrency(totalExVat - items.reduce((acc, i) => acc + (((i as any).costPrice || 0) * i.qty), 0))}</span>
+                      <span>{formatCurrency(totals.profit)}</span>
                     </div>
                   </div>
                 </CardContent>

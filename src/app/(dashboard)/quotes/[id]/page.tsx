@@ -21,7 +21,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
       },
     }),
     prisma.company.findUnique({ where: { id: companyId } }),
-    prisma.product.findMany({ where: { companyId, active: true }, orderBy: [{ category: "asc" }, { name: "asc" }] }),
+    prisma.product.findMany({ where: { companyId, active: true }, orderBy: [{ category: "asc" }, { name: "asc" }], take: 500 }),
     prisma.productSet.findMany({
       where: { companyId, active: true },
       include: { items: { include: { product: true }, orderBy: { sortOrder: "asc" } } },
@@ -31,7 +31,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
   if (!quote) notFound();
 
   const companySlug = session?.user?.companies?.find((c) => c.id === companyId)?.slug ?? "websup";
-  const customers = await prisma.customer.findMany({ where: { companyId }, orderBy: { name: "asc" } });
+  const customers = await prisma.customer.findMany({ where: { companyId }, orderBy: { name: "asc" }, take: 500 });
   const serialized = JSON.parse(JSON.stringify({ quote, company, customers, products, productSets }));
 
   return (

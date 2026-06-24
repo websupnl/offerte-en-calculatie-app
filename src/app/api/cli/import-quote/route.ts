@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { validateQuoteImportInput } from "@/lib/quote-import";
 import { generateQuoteNumber } from "@/lib/format";
 import { z } from "zod";
+import { calculateLine, calculateTotals } from "@/lib/calculation";
 
 function authorized(req: NextRequest) {
   const key = req.headers.get("x-cli-key");
@@ -96,14 +97,11 @@ export async function POST(req: NextRequest) {
   const validDays = data.validDays ?? 30;
   const validUntil = new Date(Date.now() + validDays * 86_400_000);
 
-  // Totalen berekenen op basis van vaste items (keuze-items tellen mee na klantselactie)
-  let totalExVat = 0;
-  let totalVat = 0;
+  // Alleen de vaste basis wordt opgeslagen in de offertetotalen.
+  // Configuraties worden pas bij de klantselectie bijgeteld.
+  const totals = calculateTotals(data.items);
   const itemsWithOrder = data.items.map((item, i) => {
-    const total = item.qty * item.unitPrice;
-    totalExVat += total;
-    totalVat += total * (item.vatRate / 100);
-    return { ...item, total, sortOrder: i };
+    return { ...item, total: calculateLine(item).revenueExVat, sortOrder: i };
   });
 
   const quote = await prisma.quote.create({
@@ -135,10 +133,10 @@ export async function POST(req: NextRequest) {
       options: data.optionalWork ?? [],
       // configurations → choiceGroups JSON
       choiceGroups: data.configurations ?? [],
-      totalExVat,
-      totalVat,
-      totalIncVat: totalExVat + totalVat,
-      items: { create: itemsWithOrder },
+      totalExVat: totals.revenueExVat,
+      totalVat: totals.vat,
+      totalIncVat: totals.revenueIncVat,
+      items: itemsWithOrder.length ? { create: itemsWithOrder } : undefined,
     },
     include: { customer: true, items: true },
   });

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Database, FileText, Euro, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { PageHeader } from "@/components/layout/page-header";
 
 type Datasheet = {
   id: string;
@@ -61,14 +62,13 @@ export function KnowledgeClient({
   });
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Kennisbank</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Automatisch gevuld door Claude — datasheets en bevindingen uit onderzoek.
-        </p>
-      </div>
-
+    <div>
+      <PageHeader
+        eyebrow="Catalogus"
+        title="Kennisbank"
+        description="Datasheets, leveranciersinformatie en technische bevindingen uit onderzoek."
+      />
+      <div className="mx-auto max-w-6xl space-y-6 p-5 lg:p-8">
       <Tabs defaultValue="datasheets">
         <TabsList>
           <TabsTrigger value="datasheets" className="gap-2">
@@ -211,6 +211,7 @@ export function KnowledgeClient({
           )}
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }

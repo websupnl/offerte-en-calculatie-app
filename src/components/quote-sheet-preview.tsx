@@ -96,11 +96,11 @@ type QuoteItem = {
   indent?: number;
 };
 
-type FlowItem = { n: number; t: string; d: string };
-type ApproachStep = { n: string; t: string; d: string };
+type FlowItem = { n: number | string; t: string; d: string };
+type ApproachStep = { n: number | string; t: string; d: string };
 type QuoteAttachment = { id?: string; title?: string | null; imageUrl: string; liveUrl?: string | null; caption?: string | null };
 
-type Quote = {
+export type QuotePreviewData = {
   number: string;
   title: string | null;
   category: string | null;
@@ -129,7 +129,7 @@ type Quote = {
   choiceGroups?: QuoteChoiceGroup[];
 };
 
-const createPersonalIntro = (quote: Quote, brandName: string) => {
+const createPersonalIntro = (quote: QuotePreviewData, brandName: string) => {
   const customerName = quote.customer.name || "klant";
   const projectTitle = quote.title || quote.category || "deze aanvraag";
   const itemSummary = quote.items
@@ -165,10 +165,10 @@ const isMisplacedIntroLine = (value: string | null | undefined, customerName: st
 };
 
 interface QuoteSheetPreviewProps {
-  quote: Quote;
+  quote: QuotePreviewData;
   companySlug?: string;
   isEditable?: boolean;
-  onUpdate?: (updates: Partial<Quote>) => void;
+  onUpdate?: (updates: Partial<QuotePreviewData>) => void;
   onUpdateItem?: (id: string, updates: Partial<QuoteItem>) => void;
   onAddItem?: () => void;
   onRemoveItem?: (id: string) => void;

@@ -19,10 +19,12 @@ export default async function NewQuotePage({
     prisma.customer.findMany({
       where: { companyId },
       orderBy: { name: "asc" },
+      take: 500,
     }),
     prisma.product.findMany({
       where: { companyId, active: true },
       orderBy: [{ category: "asc" }, { name: "asc" }],
+      take: 500,
     }),
     prisma.productSet.findMany({
       where: { companyId, active: true },
@@ -32,6 +34,7 @@ export default async function NewQuotePage({
           orderBy: { sortOrder: "asc" },
         },
       },
+      take: 200,
     }),
     adviceId ? prisma.adviceDocument.findUnique({
       where: { id: adviceId },

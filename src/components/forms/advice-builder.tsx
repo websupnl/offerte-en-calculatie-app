@@ -28,6 +28,20 @@ import { Separator } from "@/components/ui/separator";
 import { formatCurrency } from "@/lib/format";
 
 type Customer = { id: string; name: string; email: string | null };
+type AdviceScenario = { name: string; capacityKwh: number; goal: string };
+type AdviceData = {
+  id?: string;
+  customerId?: string;
+  title: string;
+  summary?: string;
+  analysis?: string;
+  recommendation?: string;
+  consumption?: { annualKwh?: number; nightKwh?: number; solarWp?: number; exportedKwh?: number };
+  scenarios?: AdviceScenario[];
+  calculation?: { steps?: string[]; resultKwh?: number };
+  ems?: { explanation?: string };
+  backup?: { explanation?: string };
+};
 
 export function AdviceBuilder({
   customers,
@@ -38,7 +52,7 @@ export function AdviceBuilder({
   customers: Customer[];
   companyName: string;
   companySlug: string;
-  initialAdvice?: any;
+  initialAdvice?: AdviceData;
 }) {
   const router = useRouter();
   
@@ -52,7 +66,7 @@ export function AdviceBuilder({
   const [customerSearch, setCustomerSearch] = useState("");
 
   // Advice Data State
-  const [adviceData, setAdviceData] = useState<any>(initialAdvice || null);
+  const [adviceData, setAdviceData] = useState<AdviceData | null>(initialAdvice || null);
 
   const customer = customers.find((c) => c.id === customerId);
   const filteredCustomers = customers.filter((c) =>
@@ -93,9 +107,9 @@ export function AdviceBuilder({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
+    <div className="min-h-[calc(100vh-72px)] bg-slate-50 pb-20">
       {/* ─── Header ─── */}
-      <header className="sticky top-0 z-50 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm">
+      <header className="sticky top-[72px] z-20 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => router.back()}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Terug
@@ -214,7 +228,7 @@ export function AdviceBuilder({
               </div>
               <h2 className="text-xl font-bold text-slate-600 mb-2">Nog geen advies gegenereerd</h2>
               <p className="max-w-xs text-sm">
-                Plak links de intake-gegevens en klik op "Genereer" om de AI het technisch rapport te laten opstellen.
+                Plak links de intake-gegevens en klik op &quot;Genereer&quot; om de AI het technisch rapport te laten opstellen.
               </p>
             </div>
           ) : (
@@ -268,7 +282,7 @@ export function AdviceBuilder({
                 {/* Scenarios Table */}
                 <div className="space-y-4">
                   <h3 className="font-bold text-lg flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-green-500" /> Geadviseerde Scenario's
+                    <TrendingUp className="h-5 w-5 text-green-500" /> Geadviseerde scenario&apos;s
                   </h3>
                   <div className="border rounded-xl overflow-hidden">
                     <table className="w-full text-left border-collapse">
@@ -280,11 +294,11 @@ export function AdviceBuilder({
                         </tr>
                       </thead>
                       <tbody className="divide-y text-sm">
-                        {adviceData.scenarios?.map((s: any, i: number) => (
+                        {adviceData.scenarios?.map((scenario, i) => (
                           <tr key={i} className={i === 1 ? "bg-blue-50/50" : ""}>
-                            <td className="px-4 py-3 font-bold">{s.name} {i === 1 && "✨"}</td>
-                            <td className="px-4 py-3 font-medium">{s.capacityKwh} kWh</td>
-                            <td className="px-4 py-3 text-slate-500">{s.goal}</td>
+                            <td className="px-4 py-3 font-bold">{scenario.name} {i === 1 && "✨"}</td>
+                            <td className="px-4 py-3 font-medium">{scenario.capacityKwh} kWh</td>
+                            <td className="px-4 py-3 text-slate-500">{scenario.goal}</td>
                           </tr>
                         ))}
                       </tbody>

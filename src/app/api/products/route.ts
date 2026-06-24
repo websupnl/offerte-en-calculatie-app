@@ -9,7 +9,8 @@ const schema = z.object({
   description: z.string().optional(),
   unit: z.string().default("stuk"),
   basePrice: z.coerce.number().min(0),
-  vatRate: z.coerce.number().default(21),
+  costPrice: z.coerce.number().min(0).nullable().optional(),
+  vatRate: z.coerce.number().min(0).max(100).default(21),
   specs: z.record(z.string(), z.unknown()).optional().default({}),
   active: z.boolean().default(true),
 });

@@ -32,31 +32,38 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { name, description, category, items } = parsed.data;
+  const productIds = [...new Set(items.map((item) => item.productId))];
+  const ownedProductCount = await prisma.product.count({
+    where: { id: { in: productIds }, companyId: session.user.activeCompanyId, active: true },
+  });
+  if (ownedProductCount !== productIds.length) {
+    return NextResponse.json({ error: "Een of meer artikelen bestaan niet binnen dit bedrijf." }, { status: 400 });
+  }
 
-  // Replace all items
-  await prisma.productSetItem.deleteMany({ where: { setId: id } });
-
-  const set = await prisma.productSet.update({
-    where: { id },
-    data: {
-      name,
-      description,
-      category,
-      items: {
-        create: items.map((item) => ({
-          productId: item.productId,
-          qty: item.qty,
-          notes: item.notes,
-          sortOrder: item.sortOrder,
-        })),
+  const set = await prisma.$transaction(async (tx) => {
+    await tx.productSetItem.deleteMany({ where: { setId: id } });
+    return tx.productSet.update({
+      where: { id },
+      data: {
+        name,
+        description,
+        category,
+        items: {
+          create: items.map((item) => ({
+            productId: item.productId,
+            qty: item.qty,
+            notes: item.notes,
+            sortOrder: item.sortOrder,
+          })),
+        },
       },
-    },
-    include: {
-      items: {
-        orderBy: { sortOrder: "asc" },
-        include: { product: true },
+      include: {
+        items: {
+          orderBy: { sortOrder: "asc" },
+          include: { product: true },
+        },
       },
-    },
+    });
   });
 
   return NextResponse.json(set);

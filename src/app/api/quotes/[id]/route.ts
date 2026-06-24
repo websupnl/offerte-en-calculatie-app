@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
 import { quoteChoiceGroupSchema, quoteOptionSchema } from "@/lib/quote-selection";
+import { calculateLine, calculateTotals } from "@/lib/calculation";
 
 const itemSchema = z.object({
   id: z.string().optional(),
@@ -82,7 +83,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const existingQuote = await prisma.quote.findFirst({
     where: { id, companyId: session.user.activeCompanyId },
-    select: { status: true },
+    select: { status: true, choiceGroups: true, items: { select: { id: true }, take: 1 } },
   });
   if (!existingQuote) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (existingQuote.status === "ACCEPTED") {
@@ -94,22 +95,48 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  const effectiveItemCount = parsed.data.items === undefined ? existingQuote.items.length : parsed.data.items.length;
+  const effectiveChoiceGroups = parsed.data.choiceGroups === undefined
+    ? (Array.isArray(existingQuote.choiceGroups) ? existingQuote.choiceGroups : [])
+    : parsed.data.choiceGroups;
+  if (effectiveItemCount === 0 && effectiveChoiceGroups.length === 0) {
+    return NextResponse.json({ error: "Voeg minimaal één offerteregel of configuratie toe." }, { status: 400 });
+  }
+
   const { items, attachments, ...rest } = parsed.data;
+
+  if (rest.customerId) {
+    const customer = await prisma.customer.findFirst({
+      where: { id: rest.customerId, companyId: session.user.activeCompanyId },
+      select: { id: true },
+    });
+    if (!customer) return NextResponse.json({ error: "Klant bestaat niet binnen het actieve bedrijf." }, { status: 400 });
+  }
+  if (items) {
+    const productIds = [...new Set(items.map((item) => item.productId).filter((productId): productId is string => Boolean(productId)))];
+    if (productIds.length > 0) {
+      const productCount = await prisma.product.count({
+        where: { id: { in: productIds }, companyId: session.user.activeCompanyId, active: true },
+      });
+      if (productCount !== productIds.length) {
+        return NextResponse.json({ error: "Een of meer gekoppelde artikelen bestaan niet binnen het actieve bedrijf." }, { status: 400 });
+      }
+    }
+  }
 
   let updateData: Record<string, unknown> = { ...rest, pdfUrl: null };
 
   if (items) {
-    // Recalculate totals
-    let totalExVat = 0;
-    let totalVat = 0;
+    const totals = calculateTotals(items);
     const itemsWithTotals = items.map((item, i) => {
-      const total = item.qty * item.unitPrice;
-      const vatAmount = total * (item.vatRate / 100);
-      totalExVat += total;
-      totalVat += vatAmount;
-      return { ...item, total, sortOrder: i };
+      return { ...item, total: calculateLine(item).revenueExVat, sortOrder: i };
     });
-    updateData = { ...updateData, totalExVat, totalVat, totalIncVat: totalExVat + totalVat };
+    updateData = {
+      ...updateData,
+      totalExVat: totals.revenueExVat,
+      totalVat: totals.vat,
+      totalIncVat: totals.revenueIncVat,
+    };
 
     // Replace items
     await prisma.quoteItem.deleteMany({ where: { quoteId: id } });

@@ -3,11 +3,32 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { OpenAI } from "openai";
 import { z } from "zod";
+import type { Prisma } from "@/generated/prisma";
 
 const schema = z.object({
   prompt: z.string().min(1),
   customerId: z.string().min(1),
 });
+
+const adviceResultSchema = z.object({
+  title: z.string(),
+  consumption: z.record(z.string(), z.unknown()).optional(),
+  summary: z.string().optional(),
+  analysis: z.string().optional(),
+  calculation: z.record(z.string(), z.unknown()).optional(),
+  scenarios: z.array(z.record(z.string(), z.unknown())).optional(),
+  recommendation: z.string().optional(),
+  financial: z.record(z.string(), z.unknown()).optional(),
+  ems: z.record(z.string(), z.unknown()).optional(),
+  backup: z.record(z.string(), z.unknown()).optional(),
+  currentDevs: z.array(z.string()).optional(),
+});
+
+function toJson(value: unknown): Prisma.InputJsonValue | undefined {
+  return value === undefined
+    ? undefined
+    : JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -17,8 +38,10 @@ export async function POST(req: NextRequest) {
   const company = await prisma.company.findUnique({ where: { id: companyId } });
   if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
-  const settings = (company.settings ?? {}) as Record<string, any>;
-  const apiKey = settings.openaiApiKey || process.env.OPENAI_API_KEY;
+  const settings = (company.settings ?? {}) as Record<string, unknown>;
+  const apiKey = typeof settings.openaiApiKey === "string" && settings.openaiApiKey
+    ? settings.openaiApiKey
+    : process.env.OPENAI_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "OpenAI API key missing" }, { status: 500 });
 
   const openai = new OpenAI({ apiKey });
@@ -98,7 +121,7 @@ export async function POST(req: NextRequest) {
     const content = response.choices[0].message.content;
     if (!content) throw new Error("Lege respons van AI");
 
-    const data = JSON.parse(content);
+    const data = adviceResultSchema.parse(JSON.parse(content));
     
     // Save to database
     const doc = await prisma.adviceDocument.create({
@@ -106,21 +129,21 @@ export async function POST(req: NextRequest) {
         companyId,
         customerId,
         title: data.title,
-        consumption: data.consumption,
+        consumption: toJson(data.consumption),
         summary: data.summary,
         analysis: data.analysis,
-        calculation: data.calculation,
-        scenarios: data.scenarios,
+        calculation: toJson(data.calculation),
+        scenarios: toJson(data.scenarios),
         recommendation: data.recommendation,
-        financial: data.financial,
-        ems: data.ems,
-        backup: data.backup,
-        currentDevs: data.currentDevs,
+        financial: toJson(data.financial),
+        ems: toJson(data.ems),
+        backup: toJson(data.backup),
+        currentDevs: toJson(data.currentDevs),
       }
     });
 
     return NextResponse.json({ id: doc.id, ...data });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("AI Advice Error:", error);
     return NextResponse.json({ error: "AI kon het advies niet genereren." }, { status: 500 });
   }

@@ -11,6 +11,7 @@ export default async function CustomersPage() {
         where: { companyId },
         orderBy: { name: "asc" },
         include: { _count: { select: { quotes: true } } },
+        take: 200,
       })
     : [];
 

@@ -14,6 +14,7 @@ export default async function QuotesPage() {
           customer: { select: { id: true, name: true, email: true } },
           _count: { select: { items: true } },
         },
+        take: 200,
       })
     : [];
 

@@ -1,33 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/page-header";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Search, Loader2, FolderKanban, FileText, Paperclip } from "lucide-react";
+import { Plus, Search, Loader2, FolderKanban, FileText, Paperclip, ArrowUpRight } from "lucide-react";
 import { PROJECT_STATUS_LABELS } from "@/lib/format";
 
 const schema = z.object({
@@ -40,7 +29,6 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
-
 type Project = {
   id: string;
   number: string;
@@ -60,175 +48,150 @@ export function ProjectsClient({
   customers: { id: string; name: string }[];
 }) {
   const router = useRouter();
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [projects, setProjects] = useState(initialProjects);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { customerId: "" },
+  });
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<FormData>({ resolver: zodResolver(schema) });
-
-  const filtered = projects.filter(
-    (p) =>
-      p.title.toLowerCase().includes(search.toLowerCase()) ||
-      p.number.toLowerCase().includes(search.toLowerCase()) ||
-      (p.customer?.name ?? "").toLowerCase().includes(search.toLowerCase()),
-  );
-
-  function openCreate() {
-    reset();
-    setDialogOpen(true);
-  }
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return projects.filter((project) =>
+      !query ||
+      project.title.toLowerCase().includes(query) ||
+      project.number.toLowerCase().includes(query) ||
+      project.customer?.name.toLowerCase().includes(query),
+    );
+  }, [projects, search]);
 
   async function onSubmit(data: FormData) {
     setSaving(true);
     try {
-      const res = await fetch("/api/projects", {
+      const response = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Aanmaken mislukt");
-      const project: Project = await res.json();
-      setProjects((prev) => [project, ...prev]);
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Aanmaken mislukt");
+      setProjects((current) => [body, ...current]);
       setDialogOpen(false);
-      toast.success(`Project ${project.number} aangemaakt`);
-      router.push(`/projects/${project.id}`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Er ging iets mis");
+      reset();
+      toast.success(`Project ${body.number} aangemaakt`);
+      router.push(`/projects/${body.id}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Er ging iets mis");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FolderKanban className="h-6 w-6" />
-            Projecten
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Bundel offertes, werkbonnen, facturen en bestanden per klus.
-          </p>
+    <div>
+      <PageHeader
+        eyebrow="Werk"
+        title="Projecten"
+        description="Het centrale dossier voor offertes, werkbonnen, facturen en bestanden."
+        actions={
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4" /> Nieuw project
+          </Button>
+        }
+      />
+      <div className="space-y-4 p-5 lg:p-8">
+        <div className="relative max-w-xl">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            placeholder="Zoek project, nummer of klant…"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="h-10 bg-white pl-9 shadow-sm"
+          />
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-1" />
-          Nieuw project
-        </Button>
-      </div>
-
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Zoek op titel, nummer of klant…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
-      {filtered.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            {projects.length === 0
-              ? "Nog geen projecten. Maak je eerste project aan."
-              : "Geen projecten gevonden."}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((p) => (
-            <Link key={p.id} href={`/projects/${p.id}`}>
-              <Card className="h-full transition-colors hover:border-primary">
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-mono text-muted-foreground">{p.number}</span>
-                    <Badge variant="secondary">
-                      {PROJECT_STATUS_LABELS[p.status] ?? p.status}
-                    </Badge>
-                  </div>
-                  <h3 className="font-semibold leading-tight">{p.title}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {p.customer?.name ?? "Geen klant"}
-                    {p.city ? ` · ${p.city}` : ""}
-                  </p>
-                  <div className="flex gap-4 text-xs text-muted-foreground pt-1">
-                    <span className="flex items-center gap-1">
-                      <FileText className="h-3 w-3" /> {p._count.quotes}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Paperclip className="h-3 w-3" /> {p._count.files}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+        <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
+          {filtered.length === 0 ? (
+            <div className="grid min-h-72 place-items-center text-center text-slate-500">
+              <div><FolderKanban className="mx-auto mb-3 h-10 w-10 text-slate-300" />Geen projecten gevonden.</div>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader className="bg-slate-50">
+                <TableRow>
+                  <TableHead className="pl-4">Project</TableHead>
+                  <TableHead>Klant</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Dossier</TableHead>
+                  <TableHead>Plaats</TableHead>
+                  <TableHead className="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((project) => (
+                  <TableRow key={project.id}>
+                    <TableCell className="pl-4">
+                      <Link href={`/projects/${project.id}`}>
+                        <p className="font-semibold">{project.title}</p>
+                        <p className="font-mono text-xs text-slate-400">{project.number}</p>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="font-medium">{project.customer?.name ?? "Geen klant"}</TableCell>
+                    <TableCell><Badge variant="secondary">{PROJECT_STATUS_LABELS[project.status] ?? project.status}</Badge></TableCell>
+                    <TableCell>
+                      <div className="flex gap-3 text-xs text-slate-500">
+                        <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{project._count.quotes}</span>
+                        <span className="flex items-center gap-1"><Paperclip className="h-3.5 w-3.5" />{project._count.files}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-slate-500">{project.city || "—"}</TableCell>
+                    <TableCell>
+                      <Link href={`/projects/${project.id}`} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900">
+                        <ArrowUpRight className="h-4 w-4" />
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
-      )}
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nieuw project</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Nieuw project</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label>Klant *</Label>
-              <Select
-                onValueChange={(v) => { if (v) setValue("customerId", v); }}
-                value={watch("customerId")}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Kies een klant" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.customerId && (
-                <p className="text-sm text-destructive">{errors.customerId.message}</p>
-              )}
+              <Controller
+                control={control}
+                name="customerId"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={(value) => field.onChange(value || "")}>
+                    <SelectTrigger><SelectValue placeholder="Kies een klant" /></SelectTrigger>
+                    <SelectContent>
+                      {customers.map((customer) => <SelectItem key={customer.id} value={customer.id}>{customer.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.customerId && <p className="text-sm text-destructive">{errors.customerId.message}</p>}
             </div>
             <div className="space-y-2">
               <Label>Titel *</Label>
               <Input {...register("title")} placeholder="Bijv. Thuisbatterij + laadpaal" />
-              {errors.title && (
-                <p className="text-sm text-destructive">{errors.title.message}</p>
-              )}
+              {errors.title && <p className="text-sm text-destructive">{errors.title.message}</p>}
             </div>
-            <div className="space-y-2">
-              <Label>Omschrijving</Label>
-              <Textarea {...register("description")} placeholder="Korte omschrijving (optioneel)" />
-            </div>
+            <div className="space-y-2"><Label>Omschrijving</Label><Textarea {...register("description")} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Adres</Label>
-                <Input {...register("address")} placeholder="Straat + nr" />
-              </div>
-              <div className="space-y-2">
-                <Label>Plaats</Label>
-                <Input {...register("city")} placeholder="Plaats" />
-              </div>
+              <div className="space-y-2"><Label>Adres</Label><Input {...register("address")} /></div>
+              <div className="space-y-2"><Label>Plaats</Label><Input {...register("city")} /></div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>
-                Annuleren
-              </Button>
-              <Button type="submit" disabled={saving}>
-                {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                Aanmaken
-              </Button>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Annuleren</Button>
+              <Button type="submit" disabled={saving}>{saving && <Loader2 className="h-4 w-4 animate-spin" />}Aanmaken</Button>
             </DialogFooter>
           </form>
         </DialogContent>

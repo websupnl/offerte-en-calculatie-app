@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { generateQuoteNumber } from "@/lib/format";
 import { quoteChoiceGroupSchema, quoteOptionSchema } from "@/lib/quote-selection";
+import { calculateLine, calculateTotals } from "@/lib/calculation";
 
 const itemSchema = z.object({
   productId: z.string().optional(),
@@ -50,7 +51,7 @@ const schema = z.object({
   choiceGroups: z.array(quoteChoiceGroupSchema).optional(),
   internalAdvice: z.string().nullable().optional(),
   attachments: z.array(attachmentSchema).optional(),
-  items: z.array(itemSchema).min(1, "Voeg minimaal één regel toe"),
+  items: z.array(itemSchema).default([]),
 });
 
 export async function POST(req: NextRequest) {
@@ -61,6 +62,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  if (parsed.data.items.length === 0 && (parsed.data.choiceGroups?.length ?? 0) === 0) {
+    return NextResponse.json({ error: "Voeg minimaal één offerteregel of configuratie toe." }, { status: 400 });
+  }
 
   const { 
     customerId, title, category, tagline, itemsHeader, validUntil, 
@@ -70,21 +74,25 @@ export async function POST(req: NextRequest) {
     attachments, items 
   } = parsed.data;
 
+  const customer = await prisma.customer.findFirst({ where: { id: customerId, companyId }, select: { id: true } });
+  if (!customer) return NextResponse.json({ error: "Klant bestaat niet binnen het actieve bedrijf." }, { status: 400 });
+
+  const productIds = [...new Set(items.map((item) => item.productId).filter((id): id is string => Boolean(id)))];
+  if (productIds.length > 0) {
+    const productCount = await prisma.product.count({ where: { id: { in: productIds }, companyId, active: true } });
+    if (productCount !== productIds.length) {
+      return NextResponse.json({ error: "Een of meer gekoppelde artikelen bestaan niet binnen het actieve bedrijf." }, { status: 400 });
+    }
+  }
+
   const count = await prisma.quote.count({ where: { companyId } });
   const company = await prisma.company.findUnique({ where: { id: companyId } });
   const number = generateQuoteNumber(company?.slug ?? "xx", count + 1);
 
-  // Calculate totals
-  let totalExVat = 0;
-  let totalVat = 0;
+  const totals = calculateTotals(items);
   const itemsWithTotals = items.map((item, i) => {
-    const total = item.qty * item.unitPrice;
-    const vatAmount = total * (item.vatRate / 100);
-    totalExVat += total;
-    totalVat += vatAmount;
-    return { ...item, total, sortOrder: i };
+    return { ...item, total: calculateLine(item).revenueExVat, sortOrder: i };
   });
-  const totalIncVat = totalExVat + totalVat;
 
   const quote = await prisma.quote.create({
     data: {
@@ -113,12 +121,10 @@ export async function POST(req: NextRequest) {
       batteryAdvice,
       choiceGroups,
       internalAdvice,
-      totalExVat,
-      totalVat,
-      totalIncVat,
-      items: {
-        create: itemsWithTotals,
-      },
+      totalExVat: totals.revenueExVat,
+      totalVat: totals.vat,
+      totalIncVat: totals.revenueIncVat,
+      items: itemsWithTotals.length ? { create: itemsWithTotals } : undefined,
       attachments: attachments?.length
         ? {
             create: attachments.map(({ id: _id, ...attachment }, sortOrder) => ({

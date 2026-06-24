@@ -96,4 +96,4 @@ if (!res.ok) {
 console.log(`\n✓ Offerte aangemaakt!`);
 console.log(`  Nummer:  ${data.number}`);
 console.log(`  Klant:   ${data.customer?.name}`);
-console.log(`  URL:     ${appUrl}/dashboard/quotes/${data.id}`);
+console.log(`  URL:     ${appUrl}/quotes/${data.id}`);
