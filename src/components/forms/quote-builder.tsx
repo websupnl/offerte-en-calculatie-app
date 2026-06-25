@@ -78,7 +78,7 @@ type InitialQuoteItem = Omit<QuoteItem, "qty" | "unitPrice" | "costPrice" | "vat
   total: number | string;
 };
 
-type ChoiceItem = Omit<QuoteItem, "id" | "productId" | "total"> & {
+type ChoiceItem = Omit<QuoteItem, "id" | "total"> & {
   id?: string;
   total?: number;
 };
@@ -1564,12 +1564,23 @@ export function QuoteBuilder({
                                 <div className="space-y-2">
                                   {choice.items.map((item, itemIndex) => (
                                     <div key={itemIndex} className="grid grid-cols-[1fr_54px_78px_78px_58px_32px] gap-2">
-                                      <Input
-                                        value={item.description}
-                                        onChange={(e) => updateChoiceItem(group.id, choice.id, itemIndex, { description: e.target.value })}
-                                        className="h-8 bg-white text-xs"
-                                        placeholder="Regel"
-                                      />
+                                      <div className="relative">
+                                        <Input
+                                          value={item.description}
+                                          onChange={(e) => updateChoiceItem(group.id, choice.id, itemIndex, { description: e.target.value })}
+                                          className={`h-8 bg-white text-xs ${item.productId ? "pr-8" : ""}`}
+                                          placeholder="Regel"
+                                          title={item.productId
+                                            ? `Gekoppeld aan ${catalogProducts.find((product) => product.id === item.productId)?.name ?? "catalogusproduct"}`
+                                            : undefined}
+                                        />
+                                        {item.productId && (
+                                          <Package
+                                            className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-emerald-600"
+                                            aria-label="Gekoppeld catalogusproduct"
+                                          />
+                                        )}
+                                      </div>
                                       <Input
                                         type="number"
                                         value={item.qty}

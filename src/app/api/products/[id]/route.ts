@@ -28,13 +28,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const datasheet = parsed.data.datasheetId
     ? await prisma.datasheet.findFirst({
         where: { id: parsed.data.datasheetId, companyId: session.user.activeCompanyId },
-        include: { product: { select: { id: true } } },
       })
     : null;
   if (parsed.data.datasheetId && !datasheet) {
     return NextResponse.json({ error: "Leveranciersprijs bestaat niet binnen het actieve bedrijf." }, { status: 400 });
   }
-  if (datasheet?.product && datasheet.product.id !== id) {
+  const linkedProduct = datasheet
+    ? await prisma.product.findFirst({
+        where: { datasheetId: datasheet.id, companyId: session.user.activeCompanyId },
+        select: { id: true },
+      })
+    : null;
+  if (linkedProduct && linkedProduct.id !== id) {
     return NextResponse.json({ error: "Deze leveranciersprijs is al aan een ander artikel gekoppeld." }, { status: 409 });
   }
 

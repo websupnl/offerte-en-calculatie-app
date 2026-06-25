@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const selectableLineSchema = z.object({
+  productId: z.string().trim().min(1).nullable().optional(),
   description: z.string().trim().min(1),
   qty: z.coerce.number().positive(),
   unitPrice: z.coerce.number().min(0),
@@ -45,6 +46,7 @@ export type QuoteOption = z.infer<typeof quoteOptionSchema>;
 
 export type BaseQuoteLine = {
   id?: string;
+  productId?: string | null;
   description: string;
   qty: string | number;
   unitPrice: string | number;

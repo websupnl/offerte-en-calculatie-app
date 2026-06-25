@@ -23,18 +23,21 @@ export async function PATCH(
 
   const existing = await prisma.datasheet.findFirst({
     where: { id, companyId: session.user.activeCompanyId },
-    include: { product: { select: { id: true } } },
   });
   if (!existing) return NextResponse.json({ error: "Leveranciersprijs niet gevonden" }, { status: 404 });
+  const linkedProduct = await prisma.product.findFirst({
+    where: { datasheetId: id, companyId: session.user.activeCompanyId },
+    select: { id: true },
+  });
 
   const updated = await prisma.$transaction(async (tx) => {
     const datasheet = await tx.datasheet.update({
       where: { id },
       data: parsed.data,
     });
-    if (existing.product && parsed.data.price !== undefined) {
+    if (linkedProduct && parsed.data.price !== undefined) {
       await tx.product.update({
-        where: { id: existing.product.id },
+        where: { id: linkedProduct.id },
         data: { costPrice: parsed.data.price },
       });
     }

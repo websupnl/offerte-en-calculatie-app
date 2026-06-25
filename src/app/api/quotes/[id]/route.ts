@@ -165,8 +165,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     });
     if (!customer) return NextResponse.json({ error: "Klant bestaat niet binnen het actieve bedrijf." }, { status: 400 });
   }
-  if (items) {
-    const productIds = [...new Set(items.map((item) => item.productId).filter((productId): productId is string => Boolean(productId)))];
+  if (items || parsed.data.choiceGroups !== undefined) {
+    const effectiveGroupsForValidation = parsed.data.choiceGroups ??
+      (z.array(quoteChoiceGroupSchema).safeParse(existingQuote.choiceGroups ?? []).data ?? []);
+    const productIds = [...new Set([
+      ...(items ?? []).map((item) => item.productId),
+      ...effectiveGroupsForValidation.flatMap((group) =>
+        group.choices.flatMap((choice) => choice.items.map((item) => item.productId)),
+      ),
+    ].filter((productId): productId is string => Boolean(productId)))];
     if (productIds.length > 0) {
       const productCount = await prisma.product.count({
         where: { id: { in: productIds }, companyId: session.user.activeCompanyId, active: true },

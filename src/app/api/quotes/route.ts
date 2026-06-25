@@ -93,7 +93,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const productIds = [...new Set(items.map((item) => item.productId).filter((id): id is string => Boolean(id)))];
+  const productIds = [...new Set([
+    ...items.map((item) => item.productId),
+    ...(choiceGroups ?? []).flatMap((group) =>
+      group.choices.flatMap((choice) => choice.items.map((item) => item.productId)),
+    ),
+  ].filter((id): id is string => Boolean(id)))];
   if (productIds.length > 0) {
     const productCount = await prisma.product.count({ where: { id: { in: productIds }, companyId, active: true } });
     if (productCount !== productIds.length) {
