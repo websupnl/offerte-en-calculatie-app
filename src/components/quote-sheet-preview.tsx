@@ -14,6 +14,9 @@ import { useRef, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   calculateQuoteSelectionTotals,
+  getQuoteOptionPrice,
+  getQuoteOptionRecurringInterval,
+  getQuoteOptionRecurringPrice,
   getRecommendedSelection,
   type QuoteChoiceGroup,
   type QuoteOption,
@@ -44,7 +47,17 @@ const InlineTextarea = ({
   }, [value]);
 
   if (!isEditable) {
-    return <p style={{ whiteSpace: 'pre-wrap' }} className={className}>{value || placeholder}</p>;
+    const content = value || placeholder || "";
+    if (className?.split(/\s+/).includes("letter")) {
+      return (
+        <div className={className}>
+          {content.split(/\n\s*\n/).map((paragraph, index) => (
+            <p key={index} style={{ whiteSpace: "pre-line" }}>{paragraph}</p>
+          ))}
+        </div>
+      );
+    }
+    return <p style={{ whiteSpace: "pre-wrap" }} className={className}>{content}</p>;
   }
 
   return (
@@ -127,6 +140,7 @@ export type QuotePreviewData = {
   adviceDocuments?: { id: string; type: string }[];
   company?: { name?: string | null; slug?: string | null };
   choiceGroups?: QuoteChoiceGroup[];
+  commercial?: { priceDisplayMode?: "incl" | "excl"; [key: string]: unknown };
 };
 
 const isMisplacedIntroLine = (value: string | null | undefined, customerName: string) => {
@@ -139,6 +153,14 @@ const isMisplacedIntroLine = (value: string | null | undefined, customerName: st
     (normalized.startsWith("op basis van") && normalized.includes("adviseren wij"))
   );
 };
+
+const stripPersonalSignOff = (value: string) =>
+  value
+    .replace(
+      /\n+\s*Met vriendelijke groet,?\s*\n+\s*Daan Koolhaas\s*(?:\n+\s*(?:WebsUp\.nl|Koolhaas Installaties))?\s*$/i,
+      "",
+    )
+    .trimEnd();
 
 interface QuoteSheetPreviewProps {
   quote: QuotePreviewData;
@@ -183,7 +205,7 @@ const COMPANY_COPY = {
     optionsTitle: "Klaar om mee te groeien.",
     exclusionsEyebrow: "Goed om te weten",
     exclusionsTitle: "Niet standaard inbegrepen.",
-    closingTitle: "Zetten we de stap?",
+    closingTitle: "Klaar om te starten?",
     contractor: "WebsUp.nl - Daan Koolhaas",
     footerLine: "WebsUp.nl - Daan Koolhaas - Friesland",
   },
@@ -244,6 +266,7 @@ export function QuoteSheetPreview({
   // Choice Logic
   const choiceGroups = quote.choiceGroups || [];
   const visibleItems = quote.items;
+  const showExVat = quote.commercial?.priceDisplayMode === "excl";
 
   const flow = quote.flow ?? [];
   const approach = quote.approach ?? [];
@@ -280,7 +303,7 @@ export function QuoteSheetPreview({
     `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
   const coverHeading = isKoolhaas ? (quote.title || brand.defaultTitle) : "Offerte";
   const introText = quote.intro?.trim() && !isMisplacedIntroLine(quote.intro, quote.customer.name)
-    ? quote.intro
+    ? stripPersonalSignOff(quote.intro)
     : "";
   const [generating, setGenerating] = useState<string | null>(null);
 
@@ -365,11 +388,15 @@ export function QuoteSheetPreview({
         <img src="/logos/websup-icon.png" alt="WebsUp" className="doc-foot-icon" />
       )}
       <div className="doc-foot-meta">
-        {!isKoolhaas && <span>{brand.website}</span>}
-        <span>{brand.email}</span>
-        <span>{brand.phone}</span>
-        {validUntilLabel && <span>Geldig tot {validUntilLabel}</span>}
-        <span>{pageNo}</span>
+        <div className="doc-foot-meta-row">
+          {!isKoolhaas && <span>{brand.website}</span>}
+          <span>{brand.email}</span>
+          <span>{brand.phone}</span>
+        </div>
+        <div className="doc-foot-meta-row">
+          {validUntilLabel && <span>Geldig tot {validUntilLabel}</span>}
+          <span>{pageNo}</span>
+        </div>
       </div>
     </div>
   );
@@ -473,7 +500,23 @@ export function QuoteSheetPreview({
         )}
       </div>
       <div className="opts">
-        {options.map((o, idx) => (
+        {options.map((o, idx) => {
+          const oneTimePrice = getQuoteOptionPrice(o);
+          const recurringPrice = getQuoteOptionRecurringPrice(o);
+          const recurringInterval = getQuoteOptionRecurringInterval(o);
+          const displayOneTimePrice = oneTimePrice == null
+            ? null
+            : showExVat
+              ? oneTimePrice
+              : oneTimePrice * (1 + o.vatRate / 100);
+          const displayRecurringPrice = recurringPrice == null
+            ? null
+            : showExVat
+              ? recurringPrice
+              : recurringPrice * (1 + o.vatRate / 100);
+          const hasRenderedPrice = displayOneTimePrice != null || displayRecurringPrice != null;
+
+          return (
           <div key={idx} className="opt group relative">
             {isEditable && (
               <button
@@ -503,38 +546,50 @@ export function QuoteSheetPreview({
                 className="text-xs"
                 isEditable={Boolean(isEditable)}
               />
-              <span className="opt-tag">
-                <InlineInput
-                  value={o.tag}
-                  onChange={(value) => updateOption(idx, { tag: value })}
-                  placeholder="Label"
-                  isEditable={Boolean(isEditable)}
-                />
-              </span>
-              <div className="mt-2 flex items-center gap-2 text-xs font-bold text-slate-900">
-                {isEditable ? (
-                  <>
-                    <span>€</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={o.price ?? ""}
-                      placeholder="Op aanvraag"
-                      onChange={(event) =>
-                        updateOption(idx, { price: event.target.value === "" ? null : Number(event.target.value) })
-                      }
-                      className="editable-input max-w-28"
-                      aria-label="Prijs optioneel meerwerk exclusief btw (leeg = op aanvraag)"
-                    />
-                    <span>excl. btw</span>
-                  </>
-                ) : o.price == null ? (
-                  <span>Prijs op aanvraag</span>
-                ) : (
-                  <span>+ {formatCurrency(o.price * (1 + o.vatRate / 100))} incl. btw</span>
-                )}
-              </div>
+              {(isEditable || !hasRenderedPrice) && (
+                <span className="opt-tag">
+                  <InlineInput
+                    value={o.tag}
+                    onChange={(value) => updateOption(idx, { tag: value })}
+                    placeholder="Label"
+                    isEditable={Boolean(isEditable)}
+                  />
+                </span>
+              )}
+              {!isEditable && hasRenderedPrice && (
+                <span className="opt-price-badges">
+                  {displayOneTimePrice != null && (
+                    <span className="opt-price-badge">
+                      <b>+ {formatCurrency(displayOneTimePrice)}</b>
+                      <small>eenmalig {showExVat ? "excl. btw" : "incl. btw"}</small>
+                    </span>
+                  )}
+                  {displayRecurringPrice != null && recurringInterval && (
+                    <span className="opt-price-badge">
+                      <b>+ {formatCurrency(displayRecurringPrice)}</b>
+                      <small>{recurringInterval} {showExVat ? "excl. btw" : "incl. btw"}</small>
+                    </span>
+                  )}
+                </span>
+              )}
+              {isEditable && (
+                <div className="mt-2 flex items-center gap-2 text-xs font-bold text-slate-900">
+                  <span>€</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={o.price ?? ""}
+                    placeholder="Op aanvraag"
+                    onChange={(event) =>
+                      updateOption(idx, { price: event.target.value === "" ? null : Number(event.target.value) })
+                    }
+                    className="editable-input max-w-28"
+                    aria-label="Prijs optioneel meerwerk exclusief btw (leeg = op aanvraag)"
+                  />
+                  <span>excl. btw</span>
+                </div>
+              )}
               {isEditable && (
                 <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
                   <InlineTextarea
@@ -555,7 +610,8 @@ export function QuoteSheetPreview({
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </>
   );
@@ -630,6 +686,13 @@ export function QuoteSheetPreview({
                 </button>
               )}
             </div>
+            <h2 className="h2">
+              <InlineInput
+                isEditable={isEditable}
+                value={quote.title || (isKoolhaas ? "Uw installatie op maat." : "Mijn voorstel voor jou.")}
+                onChange={(v) => onUpdate?.({ title: v })}
+              />
+            </h2>
             <InlineTextarea 
               isEditable={isEditable} 
               value={introText} 
@@ -644,6 +707,15 @@ export function QuoteSheetPreview({
                 />
               </figure>
             )}
+            <div className="sig">
+              <div className="sig-av">
+                <img src="/logos/daan-koolhaas.jpg" alt="Daan Koolhaas" />
+              </div>
+              <div>
+                <div className="sig-name">Daan Koolhaas</div>
+                <div className="sig-role">{brand.role}</div>
+              </div>
+            </div>
             <div className="spacer"></div>
             {renderPageFooter(pageLabel(2))}
           </div>
@@ -686,8 +758,17 @@ export function QuoteSheetPreview({
                   )}
                 </div>
                 <figcaption className="design-full-caption">
-                  <b>{attachment.title || "Ontwerpvoorbeeld"}</b>
-                  {attachment.caption && <span>{attachment.caption}</span>}
+                  <div className="design-caption-copy">
+                    <span className="design-caption-label">
+                      {attachment.liveUrl ? "Werkend ontwerp" : "Ontwerpimpressie"}
+                    </span>
+                    <p>
+                      {attachment.caption ||
+                        (attachment.liveUrl
+                          ? "Bekijk het ontwerp op ware grootte en ervaar hoe de pagina straks werkt."
+                          : "Een visuele indruk van de voorgestelde uitwerking.")}
+                    </p>
+                  </div>
                   {attachment.liveUrl && (
                     <a
                       href={attachment.liveUrl}
@@ -695,7 +776,7 @@ export function QuoteSheetPreview({
                       rel="noopener noreferrer"
                       className="design-open-link"
                     >
-                      Bekijk het werkende voorbeeld
+                      Open het interactieve ontwerp
                     </a>
                   )}
                 </figcaption>
@@ -720,7 +801,7 @@ export function QuoteSheetPreview({
             {choiceGroups.map(group => (
               <div key={group.id} className="choice-section mb-8">
                 <div className="mb-4">
-                  <span className="eyebrow text-blue-600 block">Mogelijke systemen</span>
+                  <span className="eyebrow">Mogelijke systemen</span>
                   <h3 className="mt-1 text-lg font-bold text-slate-900">{group.title}</h3>
                   {group.description && <p className="mt-1 text-sm text-slate-500">{group.description}</p>}
                 </div>
@@ -731,7 +812,13 @@ export function QuoteSheetPreview({
                       const line = Number(item.qty) * Number(item.unitPrice);
                       return sum + line * (1 + Number(item.vatRate) / 100);
                     }, 0);
-                    const total = systeemIncVat + baseIncVat;
+                    const systeemExVat = choice.items.reduce(
+                      (sum, item) => sum + Number(item.qty) * Number(item.unitPrice),
+                      0,
+                    );
+                    const total = showExVat
+                      ? systeemExVat + totals.baseExVat
+                      : systeemIncVat + baseIncVat;
                     const isRecommended = group.recommendedChoiceId === choice.id || choice.label?.toLowerCase() === "aanbevolen";
                     return (
                       <div key={choice.id} className={`relative rounded-xl border p-4 ${isActive ? "border-blue-600 bg-blue-50/40" : "border-slate-200 bg-white"}`}>
@@ -756,7 +843,9 @@ export function QuoteSheetPreview({
                         </ul>
                         <div className="flex items-end justify-between gap-3">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isActive ? "Geselecteerd" : "Keuze bij akkoord"}</span>
-                          <strong className="text-sm text-slate-900">{formatCurrency(total)} incl. btw</strong>
+                          <strong className="text-sm text-slate-900">
+                            {formatCurrency(total)} {showExVat ? "excl. btw" : "incl. btw"}
+                          </strong>
                         </div>
                       </div>
                     );
@@ -765,19 +854,19 @@ export function QuoteSheetPreview({
               </div>
             ))}
 
-            <div className="article-table-wrap">
-              <div className="article-table-head">
-                <div>
-                  <span className="eyebrow">{isKoolhaas ? "Inbegrepen werkzaamheden" : "Diensten"}</span>
-                  <div className="article-table-title">
-                    <InlineInput 
-                      isEditable={isEditable} 
-                      value={quote.itemsHeader || (isKoolhaas ? "Materiaaloverzicht" : "Prijsopbouw")} 
-                      onChange={(v) => onUpdate?.({ itemsHeader: v })}
-                    />
-                  </div>
-                </div>
+            <div className="article-table-head">
+              <div>
+                <span className="eyebrow">{isKoolhaas ? "Inbegrepen werkzaamheden" : "Diensten"}</span>
+                <h2 className="h2">
+                  <InlineInput
+                    isEditable={isEditable}
+                    value={quote.itemsHeader || (isKoolhaas ? "Materiaaloverzicht" : "Prijsopbouw")}
+                    onChange={(v) => onUpdate?.({ itemsHeader: v })}
+                  />
+                </h2>
               </div>
+            </div>
+            <div className="article-table-wrap">
               <table className="article-table">
                 <thead>
                   <tr>
@@ -820,8 +909,8 @@ export function QuoteSheetPreview({
                 <tfoot>
                   <tr className="grand-total">
                     <td>
-                      <span>Totaal incl. btw</span>
-                      <strong>{formatCurrency(Number(totals.totalIncVat))}</strong>
+                      <span>Totaal {showExVat ? "excl." : "incl."} btw</span>
+                      <strong>{formatCurrency(Number(showExVat ? totals.totalExVat : totals.totalIncVat))}</strong>
                     </td>
                   </tr>
                 </tfoot>
@@ -911,7 +1000,7 @@ export function QuoteSheetPreview({
               {renderHeaderLogo()}
               <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
             </div>
-            <span className="eyebrow">Akkoord met de offerte</span>
+            <span className="eyebrow">{isKoolhaas ? "Akkoord voor uitvoering" : "Volgende stap"}</span>
             <h2 className="h2">{brand.closingTitle}</h2>
 
             {quote.outro && (

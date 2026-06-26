@@ -1,3 +1,4 @@
+import "@/app/q/[token]/portal.css";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";

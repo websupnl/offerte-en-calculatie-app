@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -31,30 +32,32 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const navGroups = [
+type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }>; koolhaasOnly?: boolean };
+type NavGroup = { label: string | null; items: NavItem[] };
+
+const navGroups: NavGroup[] = [
+  {
+    label: null,
+    items: [
+      { href: "/dashboard", label: "Start", icon: LayoutDashboard },
+    ],
+  },
   {
     label: "Werk",
     items: [
-      { href: "/dashboard", label: "Start", icon: LayoutDashboard },
-      { href: "/projects", label: "Projecten", icon: FolderKanban, koolhaasOnly: true },
       { href: "/quotes", label: "Offertes", icon: FileText },
+      { href: "/projects", label: "Projecten", icon: FolderKanban, koolhaasOnly: true },
       { href: "/advice", label: "Technisch advies", icon: ShieldCheck },
+      { href: "/customers", label: "Klanten", icon: Users },
     ],
   },
   {
-    label: "Relaties",
-    items: [{ href: "/customers", label: "Klanten", icon: Users }],
-  },
-  {
-    label: "Catalogus",
+    label: "Beheer",
     items: [
       { href: "/admin/products", label: "Artikelen & prijzen", icon: Package },
       { href: "/knowledge", label: "Kennisbank", icon: Brain },
+      { href: "/admin/dashboard", label: "Financieel inzicht", icon: TrendingUp },
     ],
-  },
-  {
-    label: "Inzicht",
-    items: [{ href: "/admin/dashboard", label: "Financieel inzicht", icon: TrendingUp }],
   },
 ];
 
@@ -146,11 +149,13 @@ export function Sidebar({
             );
             if (visibleItems.length === 0) return null;
             return (
-              <div key={group.label} className="mb-5">
-                <p className={cn("mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500", collapsed && "lg:text-center lg:px-0")}>
-                  <span className={cn(collapsed && "lg:hidden")}>{group.label}</span>
-                  <span className={cn("hidden", collapsed && "lg:inline")}>·</span>
-                </p>
+              <div key={group.label ?? "__home"} className="mb-5">
+                {group.label && (
+                  <p className={cn("mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500", collapsed && "lg:text-center lg:px-0")}>
+                    <span className={cn(collapsed && "lg:hidden")}>{group.label}</span>
+                    <span className={cn("hidden", collapsed && "lg:inline")}>·</span>
+                  </p>
+                )}
                 <div className="space-y-1">
                   {visibleItems.map((item) => {
                     const isActive =

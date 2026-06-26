@@ -29,6 +29,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.next-dev*.log
+
+# local deploy / generated output
+.winscp-deploy.tmp
+/output/bouma-offerte-module-*.zip
+/output/pv-*.png
+/tests/pv-plugin-*.cjs
 
 # env files (can opt-in for committing if needed)
 .env*

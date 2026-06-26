@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import {
   calculateQuoteSelectionTotals,
+  getQuoteOptionPrice,
+  getQuoteOptionRecurringInterval,
+  getQuoteOptionRecurringPrice,
   validateQuoteSelection,
   type QuoteChoiceGroup,
   type QuoteOption,
@@ -47,5 +50,66 @@ assert.deepEqual(totals, {
   totalVat: 388.5,
   totalIncVat: 2238.5,
 });
+
+assert.equal(getQuoteOptionPrice({ price: null, tag: "€495 excl. btw" }), 495);
+assert.equal(getQuoteOptionPrice({ price: null, tag: "€15 excl. btw per maand" }), null);
+assert.equal(getQuoteOptionPrice({ price: null, tag: "€75 eenmalig + €5 excl. btw per maand" }), 75);
+assert.equal(getQuoteOptionPrice({ price: null, tag: "Op aanvraag" }), null);
+assert.equal(getQuoteOptionPrice({ price: 15, tag: "Optioneel", d: "Maandelijks opzegbaar." }), null);
+assert.equal(getQuoteOptionRecurringInterval({ tag: "Optioneel", d: "Maandelijks opzegbaar." }), "per maand");
+assert.equal(getQuoteOptionRecurringPrice({ price: null, tag: "€75 eenmalig + €5 excl. btw per maand" }), 5);
+assert.equal(getQuoteOptionRecurringPrice({ price: 15, tag: "Optioneel", d: "Maandelijks opzegbaar." }), 15);
+assert.equal(getQuoteOptionRecurringPrice({ price: 75, tag: "€75 eenmalig + €5 excl. btw per maand" }), 5);
+
+const legacyOptionTotals = calculateQuoteSelectionTotals(
+  [{ description: "Website", qty: 1, unitPrice: 1499, vatRate: 21 }],
+  [],
+  [{
+    id: "crm",
+    t: "Klantenmodule",
+    d: "Aanvullende module.",
+    tag: "€495 excl. btw",
+    price: null,
+    vatRate: 21,
+    details: [],
+  }],
+  { selectedChoiceIds: {}, selectedOptionIds: ["crm"] },
+);
+assert.equal(legacyOptionTotals.totalExVat, 1994);
+
+const recurringOptionTotals = calculateQuoteSelectionTotals(
+  [{ description: "Website", qty: 1, unitPrice: 1499, vatRate: 21 }],
+  [],
+  [{
+    id: "hosting",
+    t: "Hosting en technisch beheer",
+    d: "Maandelijks opzegbaar.",
+    tag: "Optioneel",
+    price: 15,
+    vatRate: 21,
+    details: [],
+  }],
+  { selectedChoiceIds: {}, selectedOptionIds: ["hosting"] },
+);
+assert.equal(recurringOptionTotals.totalExVat, 1499);
+
+const requiredOption: QuoteOption = {
+  id: "hosting",
+  t: "Hosting",
+  d: "Verplichte hosting.",
+  tag: "€15 excl. btw per maand",
+  price: null,
+  vatRate: 21,
+  required: true,
+  details: [],
+};
+assert.equal(
+  validateQuoteSelection([], [requiredOption], { selectedChoiceIds: {}, selectedOptionIds: [] })[0],
+  "De verplichte optie 'Hosting' ontbreekt.",
+);
+assert.deepEqual(
+  validateQuoteSelection([], [requiredOption], { selectedChoiceIds: {}, selectedOptionIds: ["hosting"] }),
+  [],
+);
 
 console.log("quote-selection tests passed");

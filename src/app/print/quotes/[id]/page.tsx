@@ -1,3 +1,4 @@
+import "@/app/q/[token]/portal.css";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";

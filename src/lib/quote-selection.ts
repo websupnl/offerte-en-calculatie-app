@@ -36,6 +36,7 @@ export const quoteOptionSchema = z.object({
   // Prijs is altijd EXCL. btw. null = "Op aanvraag" (geen vaste prijs, telt niet mee in de totalen).
   price: z.coerce.number().min(0).nullable().optional(),
   vatRate: z.coerce.number().min(0).max(100).default(21),
+  required: z.boolean().optional(),
   details: z.array(z.string().trim().min(1)).optional().default([]),
   technicalCondition: z.string().trim().optional(),
 });
@@ -79,6 +80,64 @@ function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+function parseDutchMoney(value: string) {
+  const normalized = value
+    .replace(/\s/g, "")
+    .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+    .replace(",", ".");
+  const amount = Number(normalized);
+  return Number.isFinite(amount) ? amount : null;
+}
+
+export function getQuoteOptionRecurringInterval(option: Pick<QuoteOption, "tag"> & { d?: string }) {
+  const text = `${option.tag ?? ""} ${option.d ?? ""}`;
+  if (/per\s+maand|\/\s*maand|p\/m|maandelijks/i.test(text)) return "per maand";
+  if (/per\s+jaar|\/\s*jaar|p\/j|jaarlijks/i.test(text)) return "per jaar";
+  return null;
+}
+
+export function getQuoteOptionRecurringPrice(option: Pick<QuoteOption, "price" | "tag"> & { d?: string }) {
+  const interval = getQuoteOptionRecurringInterval(option);
+  if (!interval) return null;
+
+  const tag = option.tag?.trim() ?? "";
+  const matches = [...tag.matchAll(/€\s*([\d.,]+)/g)];
+  for (const [matchIndex, match] of matches.entries()) {
+    const index = match.index ?? 0;
+    const nextIndex = matches[matchIndex + 1]?.index;
+    const context = tag.slice(index, nextIndex ?? index + match[0].length + 40);
+    if (/per\s+(maand|jaar)|\/\s*(maand|jaar)|p\/m|p\/j|maandelijks|jaarlijks/i.test(context)) {
+      const price = parseDutchMoney(match[1]);
+      if (price != null) return price;
+    }
+  }
+
+  if (option.price != null && !/eenmalig/i.test(tag)) return Number(option.price);
+  return null;
+}
+
+export function getQuoteOptionPrice(option: Pick<QuoteOption, "price" | "tag"> & { d?: string }) {
+  const recurringInterval = getQuoteOptionRecurringInterval(option);
+  if (option.price != null) {
+    if (recurringInterval && !/eenmalig/i.test(option.tag ?? "")) return null;
+    return Number(option.price);
+  }
+
+  const tag = option.tag?.trim() ?? "";
+  if (!tag || /op aanvraag/i.test(tag)) return null;
+
+  const matches = [...tag.matchAll(/€\s*([\d.,]+)/g)];
+  if (matches.length === 0) return null;
+
+  for (const match of matches) {
+    const context = tag.slice(match.index ?? 0, (match.index ?? 0) + match[0].length + 24);
+    if (/eenmalig/i.test(context)) return parseDutchMoney(match[1]);
+  }
+
+  if (recurringInterval) return null;
+  return parseDutchMoney(matches[0][1]);
+}
+
 function lineAmounts(line: { qty: string | number; unitPrice: string | number; vatRate: string | number }) {
   const exVat = Number(line.qty) * Number(line.unitPrice);
   return { exVat, vat: exVat * (Number(line.vatRate) / 100) };
@@ -113,9 +172,10 @@ export function calculateQuoteSelectionTotals(
 
   for (const option of options) {
     if (!selection.selectedOptionIds.includes(option.id)) continue;
-    if (option.price == null) continue; // "Op aanvraag" — geen vaste prijs, telt niet mee
-    optionsExVat += option.price;
-    totalVat += option.price * (option.vatRate / 100);
+    const optionPrice = getQuoteOptionPrice(option);
+    if (optionPrice == null) continue;
+    optionsExVat += optionPrice;
+    totalVat += optionPrice * (option.vatRate / 100);
   }
 
   const totalExVat = baseExVat + choicesExVat + optionsExVat;
@@ -193,6 +253,11 @@ export function validateQuoteSelection(
   const optionIds = new Set(options.map((option) => option.id));
   if (selection.selectedOptionIds.some((id) => !optionIds.has(id))) {
     errors.push("Een geselecteerde meerwerkoptie bestaat niet meer.");
+  }
+  for (const option of options) {
+    if (option.required && !selection.selectedOptionIds.includes(option.id)) {
+      errors.push(`De verplichte optie '${option.t}' ontbreekt.`);
+    }
   }
   return errors;
 }

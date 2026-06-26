@@ -206,7 +206,7 @@ function normalizeQuoteValue<T>(value: T): T {
 function createMcpServer() {
   const server = new McpServer({
     name: "websup-quote-engine",
-    version: "1.1.0",
+    version: "1.2.0",
   });
 
   server.tool(
@@ -1331,6 +1331,502 @@ function createMcpServer() {
         return { content: [{ type: "text", text: `Geen bevindingen gevonden voor '${q}'.` }] };
       }
       return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+    }
+  );
+
+  // ── Company settings ─────────────────────────────────────────────────────
+
+  server.tool(
+    "get_company_settings",
+    "Haal instellingen, branding en juridische inhoud op voor een bedrijf",
+    { company_slug: z.string().describe("Bedrijfsslug: 'websup' of 'koolhaas'") },
+    async ({ company_slug }) => {
+      const company = await queryOne(
+        `SELECT id, name, slug, branding, settings, "termsContent", "privacyContent" FROM "Company" WHERE slug = $1`,
+        [company_slug]
+      );
+      if (!company) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+      return { content: [{ type: "text", text: JSON.stringify(company, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "update_company_settings",
+    "Pas instellingen of branding aan van een bedrijf. Gebruik update_legal_content voor juridische teksten.",
+    {
+      company_slug: z.string().describe("Bedrijfsslug"),
+      settings: z.record(z.string(), z.unknown()).optional().describe("Instellingen zoals defaultVatRate, notifyEmail, emailFrom, priceDisplayMode"),
+      branding: z.record(z.string(), z.unknown()).optional().describe("Branding zoals accentColor, tagline"),
+    },
+    async ({ company_slug, settings, branding }) => {
+      const company = await queryOne<{ id: string; settings: unknown; branding: unknown }>(
+        `SELECT id, settings, branding FROM "Company" WHERE slug = $1`, [company_slug]
+      );
+      if (!company) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+      const updates: string[] = [`"updatedAt" = NOW()`];
+      const params: unknown[] = [company.id];
+
+      if (settings) {
+        const merged = { ...(company.settings as Record<string, unknown>), ...settings };
+        updates.push(`settings = $${params.length + 1}::jsonb`);
+        params.push(JSON.stringify(merged));
+      }
+      if (branding) {
+        const merged = { ...(company.branding as Record<string, unknown>), ...branding };
+        updates.push(`branding = $${params.length + 1}::jsonb`);
+        params.push(JSON.stringify(merged));
+      }
+
+      if (updates.length === 1) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
+
+      await query(`UPDATE "Company" SET ${updates.join(", ")} WHERE id = $1`, params);
+      return { content: [{ type: "text", text: `Instellingen voor '${company_slug}' bijgewerkt.` }] };
+    }
+  );
+
+  server.tool(
+    "update_legal_content",
+    "Sla algemene voorwaarden en/of privacybeleid op voor een bedrijf (Markdown-formaat). PDF beschikbaar via /api/legal/{slug}/terms en /api/legal/{slug}/privacy",
+    {
+      company_slug: z.string().describe("Bedrijfsslug"),
+      terms_content: z.string().optional().describe("Algemene voorwaarden in Markdown. Gebruik ## voor artikelkoppen."),
+      privacy_content: z.string().optional().describe("Privacybeleid in Markdown. Gebruik ## voor secties."),
+    },
+    async ({ company_slug, terms_content, privacy_content }) => {
+      const company = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!company) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+      const updates: string[] = [`"updatedAt" = NOW()`];
+      const params: unknown[] = [company.id];
+      if (terms_content !== undefined) { updates.push(`"termsContent" = $${params.length + 1}`); params.push(terms_content); }
+      if (privacy_content !== undefined) { updates.push(`"privacyContent" = $${params.length + 1}`); params.push(privacy_content); }
+
+      if (updates.length === 1) return { content: [{ type: "text", text: "Geen inhoud om bij te werken." }] };
+
+      await query(`UPDATE "Company" SET ${updates.join(", ")} WHERE id = $1`, params);
+      return { content: [{ type: "text", text: `Juridische inhoud bijgewerkt voor '${company_slug}'.\nPDF: /api/legal/${company_slug}/terms en /api/legal/${company_slug}/privacy` }] };
+    }
+  );
+
+  // ── Projects ──────────────────────────────────────────────────────────────
+
+  server.tool(
+    "list_projects",
+    "Geef een overzicht van projecten voor een bedrijf",
+    {
+      company_slug: z.string().describe("Bedrijfsslug"),
+      status: z.string().optional().describe("Filter op status: OPEN | IN_PROGRESS | DONE | ARCHIVED"),
+      customer_id: z.string().optional().describe("Filter op klant-ID"),
+      limit: z.number().optional().default(20),
+    },
+    async ({ company_slug, status, customer_id, limit }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+      const params: unknown[] = [co.id];
+      let sql = `
+        SELECT p.id, p.number, p.title, p.status, p.address, p.city, p."startDate", p."endDate",
+               c.name AS customer_name, c.email AS customer_email
+        FROM "Project" p
+        JOIN "Customer" c ON c.id = p."customerId"
+        WHERE p."companyId" = $1
+      `;
+      if (status) { sql += ` AND p.status = $${params.length + 1}`; params.push(status); }
+      if (customer_id) { sql += ` AND p."customerId" = $${params.length + 1}`; params.push(customer_id); }
+      sql += ` ORDER BY p."createdAt" DESC LIMIT $${params.length + 1}`;
+      params.push(limit ?? 20);
+
+      const projects = await query(sql, params);
+      return { content: [{ type: "text", text: JSON.stringify(projects, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "get_project",
+    "Haal details van één project op inclusief werkbonnen, facturen en gekoppelde offertes",
+    { project_id: z.string().describe("Project ID") },
+    async ({ project_id }) => {
+      const project = await queryOne(
+        `SELECT p.*, c.name AS customer_name, c.email AS customer_email
+         FROM "Project" p
+         JOIN "Customer" c ON c.id = p."customerId"
+         WHERE p.id = $1`,
+        [project_id]
+      );
+      if (!project) return { content: [{ type: "text", text: `Project ${project_id} niet gevonden.` }] };
+
+      const [workOrders, invoices, quotes] = await Promise.all([
+        query(
+          `SELECT id, number, title, status, "scheduledAt", "executedAt", "technicianName"
+           FROM "WorkOrder" WHERE "projectId" = $1 ORDER BY "createdAt" DESC`,
+          [project_id]
+        ),
+        query(
+          `SELECT id, number, status, "totalIncVat", "invoiceDate", "dueDate"
+           FROM "SalesInvoice" WHERE "projectId" = $1 ORDER BY "invoiceDate" DESC`,
+          [project_id]
+        ),
+        query(
+          `SELECT id, number, title, status, "totalIncVat"
+           FROM "Quote" WHERE "projectId" = $1 ORDER BY "createdAt" DESC`,
+          [project_id]
+        ),
+      ]);
+
+      return { content: [{ type: "text", text: JSON.stringify({ ...project, workOrders, invoices, quotes }, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "create_project",
+    "Maak een nieuw project aan voor een klant",
+    {
+      company_slug: z.string().describe("Bedrijfsslug"),
+      customer_id: z.string().describe("Klant-ID"),
+      title: z.string().describe("Projecttitel"),
+      description: z.string().optional(),
+      address: z.string().optional(),
+      city: z.string().optional(),
+      zip_code: z.string().optional(),
+      start_date: z.string().optional().describe("ISO datumstring, bijv. 2026-07-01"),
+      end_date: z.string().optional(),
+    },
+    async ({ company_slug, customer_id, title, description, address, city, zip_code, start_date, end_date }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+      const now = new Date().toISOString();
+      const id = crypto.randomUUID();
+      const prefix = company_slug === "koolhaas" ? "KI" : "WU";
+      const yy = new Date().getFullYear();
+      const seq = String(Math.floor(Math.random() * 900) + 100);
+      const number = `${prefix}-${yy}-P${seq}`;
+
+      await query(
+        `INSERT INTO "Project" (id, "companyId", "customerId", number, title, description, address, city, "zipCode", "startDate", "endDate", status, "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'OPEN',$12,$12)`,
+        [id, co.id, customer_id, number, title, description ?? null, address ?? null, city ?? null, zip_code ?? null, start_date ?? null, end_date ?? null, now]
+      );
+
+      return { content: [{ type: "text", text: `Project aangemaakt: ${number} — "${title}" (ID: ${id})` }] };
+    }
+  );
+
+  server.tool(
+    "update_project",
+    "Pas een project aan (status, datum, adres, etc.)",
+    {
+      project_id: z.string().describe("Project ID"),
+      title: z.string().optional(),
+      description: z.string().optional(),
+      status: z.enum(["OPEN", "IN_PROGRESS", "DONE", "ARCHIVED"]).optional(),
+      address: z.string().optional(),
+      city: z.string().optional(),
+      zip_code: z.string().optional(),
+      start_date: z.string().optional().describe("ISO datumstring"),
+      end_date: z.string().optional(),
+    },
+    async ({ project_id, title, description, status, address, city, zip_code, start_date, end_date }) => {
+      const map: Record<string, unknown> = { title, description, status, address, city };
+      if (zip_code !== undefined) map["zipCode"] = zip_code;
+      if (start_date !== undefined) map["startDate"] = start_date;
+      if (end_date !== undefined) map["endDate"] = end_date;
+
+      const fields = Object.entries(map).filter(([, v]) => v !== undefined);
+      if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
+
+      const setClauses = fields.map(([k], i) => `"${k}" = $${i + 2}`);
+      await query(
+        `UPDATE "Project" SET ${setClauses.join(", ")}, "updatedAt" = NOW() WHERE id = $1`,
+        [project_id, ...fields.map(([, v]) => v)]
+      );
+      return { content: [{ type: "text", text: `Project ${project_id} bijgewerkt.` }] };
+    }
+  );
+
+  // ── Work Orders ───────────────────────────────────────────────────────────
+
+  server.tool(
+    "list_work_orders",
+    "Geef werkbonnen voor een project of bedrijf",
+    {
+      company_slug: z.string().optional().describe("Bedrijfsslug (gebruik dit óf project_id)"),
+      project_id: z.string().optional().describe("Filter op project-ID"),
+      status: z.string().optional().describe("CONCEPT | GEPLAND | UITGEVOERD | GEFACTUREERD"),
+    },
+    async ({ company_slug, project_id, status }) => {
+      const params: unknown[] = [];
+      let sql = `
+        SELECT w.id, w.number, w.title, w.status, w."scheduledAt", w."executedAt", w."technicianName",
+               p.title AS project_title, p.number AS project_number
+        FROM "WorkOrder" w
+        JOIN "Project" p ON p.id = w."projectId"
+        WHERE 1=1
+      `;
+
+      if (company_slug) {
+        const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+        if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+        sql += ` AND w."companyId" = $${params.length + 1}`; params.push(co.id);
+      }
+      if (project_id) { sql += ` AND w."projectId" = $${params.length + 1}`; params.push(project_id); }
+      if (status) { sql += ` AND w.status = $${params.length + 1}`; params.push(status); }
+      sql += ` ORDER BY w."createdAt" DESC LIMIT 50`;
+
+      const workOrders = await query(sql, params);
+      return { content: [{ type: "text", text: JSON.stringify(workOrders, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "get_work_order",
+    "Haal details van één werkbon op inclusief regels",
+    { work_order_id: z.string().describe("Werkbon ID") },
+    async ({ work_order_id }) => {
+      const workOrder = await queryOne(
+        `SELECT w.*, p.title AS project_title, p.number AS project_number
+         FROM "WorkOrder" w
+         JOIN "Project" p ON p.id = w."projectId"
+         WHERE w.id = $1`,
+        [work_order_id]
+      );
+      if (!workOrder) return { content: [{ type: "text", text: `Werkbon ${work_order_id} niet gevonden.` }] };
+
+      const lines = await query(
+        `SELECT id, type, description, qty, unit, "unitPrice", "costPrice", "sortOrder"
+         FROM "WorkOrderLine" WHERE "workOrderId" = $1 ORDER BY "sortOrder"`,
+        [work_order_id]
+      );
+
+      return { content: [{ type: "text", text: JSON.stringify({ ...workOrder, lines }, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "create_work_order",
+    "Maak een nieuwe werkbon aan voor een project",
+    {
+      project_id: z.string().describe("Project ID"),
+      title: z.string().describe("Titel van de werkbon"),
+      description: z.string().optional(),
+      technician_name: z.string().optional().describe("Naam van de monteur"),
+      scheduled_at: z.string().optional().describe("Geplande uitvoeringsdatum (ISO)"),
+      lines: z.array(z.object({
+        type: z.enum(["MATERIAAL", "ARBEID"]).default("MATERIAAL"),
+        description: z.string(),
+        qty: z.number().default(1),
+        unit: z.string().optional().default("stuk"),
+        unit_price: z.number().default(0),
+        cost_price: z.number().optional(),
+      })).optional().describe("Optionele regels direct meegeven"),
+    },
+    async ({ project_id, title, description, technician_name, scheduled_at, lines }) => {
+      const project = await queryOne<{ id: string; companyId: string }>(
+        `SELECT id, "companyId" FROM "Project" WHERE id = $1`, [project_id]
+      );
+      if (!project) return { content: [{ type: "text", text: `Project ${project_id} niet gevonden.` }] };
+
+      const co = await queryOne<{ slug: string }>(`SELECT slug FROM "Company" WHERE id = $1`, [project.companyId]);
+      const prefix = co?.slug === "koolhaas" ? "KI" : "WU";
+      const yy = new Date().getFullYear();
+      const seq = String(Math.floor(Math.random() * 900) + 100);
+      const number = `${prefix}-${yy}-W${seq}`;
+
+      const now = new Date().toISOString();
+      const id = crypto.randomUUID();
+
+      await query(
+        `INSERT INTO "WorkOrder" (id, "companyId", "projectId", number, title, description, "technicianName", "scheduledAt", status, "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'CONCEPT',$9,$9)`,
+        [id, project.companyId, project_id, number, title, description ?? null, technician_name ?? null, scheduled_at ?? null, now]
+      );
+
+      if (lines?.length) {
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          await query(
+            `INSERT INTO "WorkOrderLine" (id, "workOrderId", type, description, qty, unit, "unitPrice", "costPrice", "sortOrder")
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [crypto.randomUUID(), id, line.type ?? "MATERIAAL", line.description,
+             line.qty.toFixed(2), line.unit ?? "stuk", line.unit_price.toFixed(2),
+             line.cost_price ? line.cost_price.toFixed(2) : null, i]
+          );
+        }
+      }
+
+      return { content: [{ type: "text", text: `Werkbon aangemaakt: ${number} — "${title}" (ID: ${id})` }] };
+    }
+  );
+
+  server.tool(
+    "update_work_order",
+    "Pas een werkbon aan (status, monteur, datum, etc.)",
+    {
+      work_order_id: z.string().describe("Werkbon ID"),
+      title: z.string().optional(),
+      description: z.string().optional(),
+      status: z.enum(["CONCEPT", "GEPLAND", "UITGEVOERD", "GEFACTUREERD"]).optional(),
+      technician_name: z.string().optional(),
+      scheduled_at: z.string().optional().describe("ISO datumstring"),
+      executed_at: z.string().optional().describe("ISO datumstring"),
+    },
+    async ({ work_order_id, title, description, status, technician_name, scheduled_at, executed_at }) => {
+      const map: Record<string, unknown> = { title, description, status };
+      if (technician_name !== undefined) map["technicianName"] = technician_name;
+      if (scheduled_at !== undefined) map["scheduledAt"] = scheduled_at;
+      if (executed_at !== undefined) map["executedAt"] = executed_at;
+
+      const fields = Object.entries(map).filter(([, v]) => v !== undefined);
+      if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
+
+      const setClauses = fields.map(([k], i) => `"${k}" = $${i + 2}`);
+      await query(
+        `UPDATE "WorkOrder" SET ${setClauses.join(", ")}, "updatedAt" = NOW() WHERE id = $1`,
+        [work_order_id, ...fields.map(([, v]) => v)]
+      );
+      return { content: [{ type: "text", text: `Werkbon ${work_order_id} bijgewerkt.` }] };
+    }
+  );
+
+  // ── Invoices ──────────────────────────────────────────────────────────────
+
+  server.tool(
+    "list_invoices",
+    "Geef factuuroverzicht voor een bedrijf",
+    {
+      company_slug: z.string().describe("Bedrijfsslug"),
+      status: z.string().optional().describe("CONCEPT | VERZONDEN | BETAALD | VERVALLEN"),
+      customer_id: z.string().optional().describe("Filter op klant-ID"),
+      limit: z.number().optional().default(20),
+    },
+    async ({ company_slug, status, customer_id, limit }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+      const params: unknown[] = [co.id];
+      let sql = `
+        SELECT i.id, i.number, i.status, i."totalExVat", i."totalIncVat", i."invoiceDate", i."dueDate", i.reference,
+               c.name AS customer_name
+        FROM "SalesInvoice" i
+        JOIN "Customer" c ON c.id = i."customerId"
+        WHERE i."companyId" = $1
+      `;
+      if (status) { sql += ` AND i.status = $${params.length + 1}`; params.push(status); }
+      if (customer_id) { sql += ` AND i."customerId" = $${params.length + 1}`; params.push(customer_id); }
+      sql += ` ORDER BY i."invoiceDate" DESC LIMIT $${params.length + 1}`;
+      params.push(limit ?? 20);
+
+      const invoices = await query(sql, params);
+      return { content: [{ type: "text", text: JSON.stringify(invoices, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "get_invoice",
+    "Haal details van één factuur op inclusief regels",
+    { invoice_id: z.string().describe("Factuur ID") },
+    async ({ invoice_id }) => {
+      const invoice = await queryOne(
+        `SELECT i.*, c.name AS customer_name, c.email AS customer_email, c.address AS customer_address
+         FROM "SalesInvoice" i
+         JOIN "Customer" c ON c.id = i."customerId"
+         WHERE i.id = $1`,
+        [invoice_id]
+      );
+      if (!invoice) return { content: [{ type: "text", text: `Factuur ${invoice_id} niet gevonden.` }] };
+
+      const lines = await query(
+        `SELECT id, description, qty, unit, "unitPrice", "vatRate", "sortOrder"
+         FROM "InvoiceLine" WHERE "invoiceId" = $1 ORDER BY "sortOrder"`,
+        [invoice_id]
+      );
+
+      return { content: [{ type: "text", text: JSON.stringify({ ...invoice, lines }, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "create_invoice",
+    "Maak een verkoopfactuur aan voor een klant (eventueel gekoppeld aan offerte of project)",
+    {
+      company_slug: z.string().describe("Bedrijfsslug"),
+      customer_id: z.string().describe("Klant-ID"),
+      project_id: z.string().optional().describe("Koppel aan project-ID"),
+      quote_id: z.string().optional().describe("Koppel aan offerte-ID"),
+      invoice_date: z.string().optional().describe("Factuurdatum (ISO), standaard vandaag"),
+      due_date: z.string().optional().describe("Vervaldatum (ISO)"),
+      notes: z.string().optional(),
+      reference: z.string().optional().describe("PO-nummer of klantreferentie"),
+      lines: z.array(z.object({
+        description: z.string(),
+        qty: z.number().default(1),
+        unit: z.string().optional().default("stuk"),
+        unit_price: z.number(),
+        vat_rate: z.number().default(21),
+      })).min(1).describe("Factuurregels"),
+    },
+    async ({ company_slug, customer_id, project_id, quote_id, invoice_date, due_date, notes, reference, lines }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+      let totalExVat = 0;
+      let totalVat = 0;
+      for (const line of lines) {
+        const lineTotal = line.qty * line.unit_price;
+        totalExVat += lineTotal;
+        totalVat += lineTotal * (line.vat_rate / 100);
+      }
+      const totalIncVat = totalExVat + totalVat;
+
+      const now = new Date().toISOString();
+      const id = crypto.randomUUID();
+      const prefix = company_slug === "koolhaas" ? "KI" : "WU";
+      const yy = new Date().getFullYear();
+      const seq = String(Math.floor(Math.random() * 9000) + 1000);
+      const number = `${prefix}-${yy}-F${seq}`;
+
+      await query(
+        `INSERT INTO "SalesInvoice" (id, "companyId", "customerId", "projectId", "quoteId", number, status, "invoiceDate", "dueDate", notes, reference, "totalExVat", "totalVat", "totalIncVat", "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,'CONCEPT',$7,$8,$9,$10,$11,$12,$13,$14,$14)`,
+        [id, co.id, customer_id, project_id ?? null, quote_id ?? null, number,
+         invoice_date ?? now, due_date ?? null, notes ?? null, reference ?? null,
+         totalExVat.toFixed(2), totalVat.toFixed(2), totalIncVat.toFixed(2), now]
+      );
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        await query(
+          `INSERT INTO "InvoiceLine" (id, "invoiceId", description, qty, unit, "unitPrice", "vatRate", "sortOrder")
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [crypto.randomUUID(), id, line.description, line.qty.toFixed(2), line.unit ?? "stuk", line.unit_price.toFixed(2), line.vat_rate.toFixed(2), i]
+        );
+      }
+
+      return { content: [{ type: "text", text: `Factuur aangemaakt: ${number} — €${totalIncVat.toFixed(2)} incl. btw (ID: ${id})` }] };
+    }
+  );
+
+  server.tool(
+    "update_invoice_status",
+    "Pas de status van een factuur aan (CONCEPT → VERZONDEN → BETAALD)",
+    {
+      invoice_id: z.string().describe("Factuur ID"),
+      status: z.enum(["CONCEPT", "VERZONDEN", "BETAALD", "VERVALLEN"]).describe("Nieuwe status"),
+      notes: z.string().optional().describe("Optionele notitie bijwerken"),
+    },
+    async ({ invoice_id, status, notes }) => {
+      const invoice = await queryOne<{ number: string }>(
+        `SELECT number FROM "SalesInvoice" WHERE id = $1`, [invoice_id]
+      );
+      if (!invoice) return { content: [{ type: "text", text: `Factuur ${invoice_id} niet gevonden.` }] };
+
+      const updates = [`status = $2`, `"updatedAt" = NOW()`];
+      const params: unknown[] = [invoice_id, status];
+      if (notes !== undefined) { updates.push(`notes = $${params.length + 1}`); params.push(notes); }
+
+      await query(`UPDATE "SalesInvoice" SET ${updates.join(", ")} WHERE id = $1`, params);
+      return { content: [{ type: "text", text: `Factuur ${invoice.number} bijgewerkt naar status: ${status}` }] };
     }
   );
 

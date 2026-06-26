@@ -395,7 +395,7 @@ export function QuoteDetailClient({
   }
 
   function handlePrint() {
-    window.open(`/print/quotes/${quote.id}?auto=1`, "_blank", "noopener,noreferrer");
+    window.location.href = `/api/quotes/${quote.id}/pdf`;
   }
 
   return (

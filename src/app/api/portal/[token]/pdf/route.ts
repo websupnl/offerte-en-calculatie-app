@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { renderPageAsPdf } from "@/lib/pdf/render-page-as-pdf";
+// Fallback if Chromium not available
 import { renderToBuffer } from "@react-pdf/renderer";
 import { QuotePDF } from "@/lib/pdf/quote-template";
 import { formatDate } from "@/lib/format";
@@ -9,8 +11,9 @@ import { resolveQuoteAttachmentImages } from "@/lib/quote-attachments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 
   const share = await prisma.quoteShare.findUnique({
@@ -30,9 +33,26 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   if (!share) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const quote = share.quote;
-  const attachments = await resolveQuoteAttachmentImages(quote.attachments, {
-    expiresIn: 21600,
-  });
+  const filename = `offerte-${quote.number || token}.pdf`;
+
+  // Primary: render the actual print page via headless Chromium (pixel-perfect match)
+  const host = req.headers.get("host") ?? "localhost:3001";
+  const proto = host.startsWith("localhost") ? "http" : "https";
+  const printUrl = `${proto}://${host}/print/portal/${token}`;
+  const pdfBuffer = await renderPageAsPdf(printUrl);
+
+  if (pdfBuffer) {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+    });
+  }
+
+  // Fallback: @react-pdf/renderer (if Chromium not available)
+  console.warn("[PDF] Chromium unavailable — falling back to react-pdf for portal PDF");
+  const attachments = await resolveQuoteAttachmentImages(quote.attachments, { expiresIn: 21600 });
   const companySlug = quote.company.slug;
   const branding = DEFAULT_BRANDING[companySlug] ?? DEFAULT_BRANDING.websup;
   const snapshot = share.acceptanceSnapshot as {
@@ -44,16 +64,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   const snapshotItems = snapshot
     ? [
         ...(snapshot.baseItems ?? []),
-        ...(snapshot.selectedChoices ?? []).flatMap(({ choice }) => choice.items.map((item) => ({
-          ...item,
-          description: `${choice.title} · ${item.description}`,
-          total: Number(item.qty) * Number(item.unitPrice),
-        }))),
+        ...(snapshot.selectedChoices ?? []).flatMap(({ choice }) =>
+          choice.items.map((item) => ({
+            ...item,
+            description: `${choice.title} · ${item.description}`,
+            total: Number(item.qty) * Number(item.unitPrice),
+          }))
+        ),
         ...(snapshot.selectedOptions ?? []).map((option) => ({
-          description:
-            option.price == null
-              ? `Optioneel meerwerk · ${option.t} (prijs op aanvraag)`
-              : `Optioneel meerwerk · ${option.t}`,
+          description: option.price == null
+            ? `Optioneel meerwerk · ${option.t} (prijs op aanvraag)`
+            : `Optioneel meerwerk · ${option.t}`,
           qty: 1,
           unitPrice: option.price ?? 0,
           total: option.price ?? 0,
@@ -73,22 +94,27 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
     customerPhone: quote.customer.phone ?? undefined,
     customerAddress: quote.customer.address ?? undefined,
     customerCity: quote.customer.city ?? undefined,
+    title: quote.title ?? undefined,
+    category: quote.category ?? undefined,
+    tagline: quote.tagline ?? undefined,
     intro: quote.intro ?? undefined,
     outro: quote.outro ?? undefined,
     notes: quote.notes ?? undefined,
     flow: (quote.flow as Array<{ n: number; t: string; d: string }> | null) || [],
     approach: (quote.approach as Array<{ n: string; t: string; d: string }> | null) || [],
-    options: (quote.options as Array<{ t: string; d: string; tag: string; price?: number | null; vatRate?: number }> | null) || [],
+    options: (quote.options as Array<{ id?: string; t: string; d: string; tag: string; price?: number | null; vatRate?: number }> | null) || [],
+    selectedOptionIds: (share.selectedOptionIds as string[] | null) ?? [],
+    signerName: share.signerName ?? undefined,
     exclusions: (quote.exclusions as string[]) || [],
     choiceGroups: (quote.choiceGroups as Array<{ title: string; description?: string; choices: Array<{ label?: string; title: string; summary?: string; items: Array<{ description: string; qty: number; unitPrice: number; indent?: number }> }> }> | null) || [],
     technicalNotes: (quote.technicalNotes as string[] | null) || [],
     assumptions: (quote.assumptions as string[] | null) || [],
     planning: (quote.planning as { leadTime?: string; executionDuration?: string } | null) ?? undefined,
-    commercial: (quote.commercial as { paymentTerms?: string; warranty?: string } | null) ?? undefined,
-    attachments: attachments.map((attachment) => ({
-      title: attachment.title ?? undefined,
-      imageUrl: attachment.imageUrl,
-      caption: attachment.caption ?? undefined,
+    commercial: (quote.commercial as { paymentTerms?: string; warranty?: string; priceDisplayMode?: "incl" | "excl" } | null) ?? undefined,
+    attachments: attachments.map((a) => ({
+      title: a.title ?? undefined,
+      imageUrl: a.imageUrl,
+      caption: a.caption ?? undefined,
     })),
     itemsHeader: quote.itemsHeader || "Onderdelen",
     status: quote.status,
@@ -105,12 +131,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pdfBuffer: Buffer = await renderToBuffer(element as any);
-
-  return new NextResponse(new Uint8Array(pdfBuffer), {
+  const fallbackBuffer: Buffer = await renderToBuffer(element as any);
+  return new NextResponse(new Uint8Array(fallbackBuffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${quote.number}.pdf"`,
+      "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
 }

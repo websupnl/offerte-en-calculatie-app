@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Loader2, Save, Settings, Palette, Bot, Key } from "lucide-react";
+import { Loader2, Save, Settings, Palette, Bot, Key, FileText, ExternalLink } from "lucide-react";
 
 type CompanySettings = {
   defaultVatRate: number;
@@ -46,16 +46,23 @@ export function SettingsClient({
   companySlug,
   settings: initialSettings,
   branding: initialBranding,
+  termsContent: initialTerms,
+  privacyContent: initialPrivacy,
 }: {
   companyId: string;
   companyName: string;
   companySlug: string;
   settings: CompanySettings;
   branding: CompanyBranding;
+  termsContent: string;
+  privacyContent: string;
 }) {
   const [settings, setSettings] = useState(initialSettings);
   const [branding, setBranding] = useState(initialBranding);
+  const [termsContent, setTermsContent] = useState(initialTerms);
+  const [privacyContent, setPrivacyContent] = useState(initialPrivacy);
   const [saving, setSaving] = useState(false);
+  const [savingLegal, setSavingLegal] = useState(false);
 
   async function saveSettings() {
     setSaving(true);
@@ -81,6 +88,22 @@ export function SettingsClient({
   }
 
 
+  async function saveLegal() {
+    setSavingLegal(true);
+    try {
+      await fetch(`/api/company/${companyId}/legal`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ termsContent, privacyContent }),
+      });
+      toast.success("Juridische documenten opgeslagen");
+    } catch {
+      toast.error("Opslaan mislukt");
+    } finally {
+      setSavingLegal(false);
+    }
+  }
+
   const isKoolhaas = companySlug === "koolhaas";
 
   return (
@@ -102,6 +125,7 @@ export function SettingsClient({
           <TabsTrigger value="branding"><Palette className="mr-2 h-4 w-4" />Branding</TabsTrigger>
           <TabsTrigger value="ai"><Bot className="mr-2 h-4 w-4" />AI & Prompts</TabsTrigger>
           <TabsTrigger value="api"><Key className="mr-2 h-4 w-4" />API Keys</TabsTrigger>
+          <TabsTrigger value="legal"><FileText className="mr-2 h-4 w-4" />Juridisch</TabsTrigger>
         </TabsList>
 
         {/* General */}
@@ -314,6 +338,79 @@ export function SettingsClient({
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Juridisch */}
+        <TabsContent value="legal">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Gebruik Markdown: <code className="text-xs bg-muted px-1 py-0.5 rounded">## Artikel</code> voor kopjes,{" "}
+                  <code className="text-xs bg-muted px-1 py-0.5 rounded">- item</code> voor lijsten,{" "}
+                  <code className="text-xs bg-muted px-1 py-0.5 rounded">---</code> voor een lijn.
+                </p>
+              </div>
+              <Button onClick={saveLegal} disabled={savingLegal}>
+                {savingLegal ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Opslaan
+              </Button>
+            </div>
+
+            <Card>
+              <CardHeader className="flex flex-row items-start justify-between">
+                <div>
+                  <CardTitle>Algemene Voorwaarden</CardTitle>
+                  <CardDescription>Verschijnt als downloadbare PDF in het offerteportaal</CardDescription>
+                </div>
+                <a
+                  href={`/api/legal/${companySlug}/terms`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Bekijk PDF
+                </a>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  rows={20}
+                  className="font-mono text-xs"
+                  value={termsContent}
+                  onChange={(e) => setTermsContent(e.target.value)}
+                  placeholder="## Artikel 1 — ..."
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-start justify-between">
+                <div>
+                  <CardTitle>Privacybeleid</CardTitle>
+                  <CardDescription>AVG-verplicht, verschijnt als downloadbare PDF in het offerteportaal</CardDescription>
+                </div>
+                <a
+                  href={`/api/legal/${companySlug}/privacy`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Bekijk PDF
+                </a>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  rows={20}
+                  className="font-mono text-xs"
+                  value={privacyContent}
+                  onChange={(e) => setPrivacyContent(e.target.value)}
+                  placeholder="## 1. Verantwoordelijke&#10;..."
+                />
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

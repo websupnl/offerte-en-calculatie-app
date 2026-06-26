@@ -108,6 +108,7 @@ type QuoteOption = {
   tag: string;
   price: number | null; // null = "Op aanvraag" (geen vaste prijs)
   vatRate: number;
+  required?: boolean;
   details: string[];
   technicalCondition?: string;
 };
@@ -165,7 +166,7 @@ type QuoteImportPreview = {
     technicalNotes?: string[];
     customerResponsibilities?: string[];
     planning?: { leadTime?: string; executionDuration?: string; preferredDate?: string };
-    commercial?: { validDays?: number; paymentTerms?: string; warranty?: string };
+    commercial?: { validDays?: number; paymentTerms?: string; warranty?: string; priceDisplayMode?: "incl" | "excl" };
     batteryAdvice?: Record<string, unknown>;
     configurations?: ChoiceGroup[];
     internalAdvice?: string;
@@ -333,6 +334,7 @@ export function QuoteBuilder({
       tag: option.tag || "Optioneel",
       price: option.price == null ? null : Number(option.price),
       vatRate: Number(option.vatRate || 21),
+      required: option.required === true,
       details: option.details || [],
       technicalCondition: option.technicalCondition || "",
     }))
@@ -350,7 +352,9 @@ export function QuoteBuilder({
   );
   const [importPreview, setImportPreview] = useState<QuoteImportPreview | null>(null);
   const [importErrors, setImportErrors] = useState<string[]>([]);
-  const [priceDisplayMode, setPriceDisplayMode] = useState<"incl" | "excl">("incl");
+  const [priceDisplayMode, setPriceDisplayMode] = useState<"incl" | "excl">(
+    initialQuote?.commercial?.priceDisplayMode === "excl" ? "excl" : "incl",
+  );
   const [dragItemId, setDragItemId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ id: string; position: "before" | "after"; indent: number } | null>(null);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
@@ -405,6 +409,7 @@ export function QuoteBuilder({
     approach,
     options,
     exclusions,
+    commercial: { ...commercial, priceDisplayMode },
     customer: {
       name: customer?.name || "Selecteer een klant",
       email: customer?.email || null,
@@ -461,7 +466,10 @@ export function QuoteBuilder({
     if (data.technicalNotes) setTechnicalNotes(data.technicalNotes);
     if (data.customerResponsibilities) setCustomerResponsibilities(data.customerResponsibilities);
     if (data.planning) setPlanning({ ...PLANNING_DEFAULTS, ...data.planning });
-    if (data.commercial) setCommercial({ ...COMMERCIAL_DEFAULTS, ...data.commercial });
+    if (data.commercial) {
+      setCommercial({ ...COMMERCIAL_DEFAULTS, ...data.commercial });
+      if (data.commercial.priceDisplayMode) setPriceDisplayMode(data.commercial.priceDisplayMode);
+    }
     if (data.batteryAdvice) setBatteryAdvice(data.batteryAdvice);
     if (data.configurations) setChoiceGroups(data.configurations);
     if (data.internalAdvice !== undefined) setInternalAdvice(data.internalAdvice);
@@ -569,7 +577,7 @@ export function QuoteBuilder({
           technicalNotes,
           customerResponsibilities,
           planning,
-          commercial,
+          commercial: { ...commercial, priceDisplayMode },
           batteryAdvice,
           internalAdvice,
           choiceGroups,

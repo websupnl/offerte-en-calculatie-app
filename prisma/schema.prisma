@@ -68,13 +68,15 @@ enum UserRole {
 }
 
 model Company {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  branding  Json     @default("{}")
-  settings  Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  branding       Json     @default("{}")
+  settings       Json     @default("{}")
+  termsContent   String?  @db.Text
+  privacyContent String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   users         CompanyUser[]
   customers     Customer[]

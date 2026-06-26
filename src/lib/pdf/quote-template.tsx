@@ -8,6 +8,11 @@ import {
   Font,
 } from "@react-pdf/renderer";
 import { readFileSync } from "node:fs";
+import {
+  getQuoteOptionPrice,
+  getQuoteOptionRecurringInterval,
+  getQuoteOptionRecurringPrice,
+} from "@/lib/quote-selection";
 
 type BrandKey = "websup" | "koolhaas";
 
@@ -72,14 +77,16 @@ type QuotePDFProps = {
   acceptedAt?: string;
   flow?: { n: number; t: string; d: string }[];
   approach?: { n: string; t: string; d: string }[];
-  options?: { t: string; d: string; tag: string; price?: number | null; vatRate?: number }[];
+  options?: { id?: string; t: string; d: string; tag: string; price?: number | null; vatRate?: number }[];
+  selectedOptionIds?: string[];
+  signerName?: string;
   exclusions?: string[];
   attachments?: QuoteAttachment[];
   choiceGroups?: PdfChoiceGroup[];
   technicalNotes?: string[];
   assumptions?: string[];
   planning?: { leadTime?: string; executionDuration?: string };
-  commercial?: { paymentTerms?: string; warranty?: string };
+  commercial?: { paymentTerms?: string; warranty?: string; priceDisplayMode?: "incl" | "excl" };
 };
 
 const logoDataUri = (fileName: string): string => {
@@ -113,6 +120,14 @@ const publicImageDataUri = (imageUrl: string): string => {
 // Profile photo — used on cover and signature avatar
 const PROFILE_PHOTO = logoDataUri("daan-koolhaas.jpg");
 const SIGNATURE_IMAGE = publicImageDataUri("/signatures/daan-koolhaas-signature.png");
+
+const stripPersonalSignOff = (value: string) =>
+  value
+    .replace(
+      /\n+\s*Met vriendelijke groet,?\s*\n+\s*Daan Koolhaas\s*(?:\n+\s*(?:WebsUp\.nl|Koolhaas Installaties))?\s*$/i,
+      "",
+    )
+    .trimEnd();
 
 type BrandConfig = {
   key: BrandKey;
@@ -192,13 +207,13 @@ const BRANDS: Record<BrandKey, BrandConfig> = {
     optionsTitle: "Klaar om mee te groeien.",
     exclusionsEyebrow: "Goed om te weten",
     exclusionsTitle: "Niet standaard inbegrepen.",
-    closingTitle: "Zetten we de stap?",
+    closingTitle: "Klaar om te starten?",
     contractor: "WebsUp.nl - Daan Koolhaas",
     colors: {
       primary: "#06040c",
-      accent: "#f97316",
-      accent2: "#ec4899",
-      accent3: "#a78bfa",
+      accent: "#f04f8f",
+      accent2: "#f04f8f",
+      accent3: "#9b78f2",
       bg: "#FFFFFF",
       surface: "#f8fafc",
       text: "#0F172A",
@@ -393,6 +408,8 @@ export function QuotePDF({
   flow: flowProp = [],
   approach: approachProp = [],
   options: optionsProp = [],
+  selectedOptionIds = [],
+  signerName,
   exclusions: exclusionsProp = [],
   attachments = [],
   choiceGroups: choiceGroupsProp = [],
@@ -412,6 +429,8 @@ export function QuotePDF({
   const category = categoryProp || brand.defaultCategory;
   const tagline = taglineProp || companyTagline || brand.defaultTagline;
   const showChoiceGroups = choiceGroupsProp.length > 0 && status !== "ACCEPTED";
+  const showExVat = commercialProp?.priceDisplayMode === "excl";
+  const priceLabel = showExVat ? "excl. btw" : "incl. btw";
 
   // Vaste werkzaamheden ("basis") zitten in elke configuratie. Per optie tonen we
   // daarom een all-in prijs: systeem + basis. Alle posten zijn 21% btw.
@@ -472,7 +491,7 @@ export function QuotePDF({
 
             {/* Mid: main content */}
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 1.3, color: brand.colors.accent, marginBottom: 10 }}>
+              <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 0.45, color: brand.colors.accent, marginBottom: 10, lineHeight: 1.3 }}>
                 {category}
               </Text>
               <Text style={{ fontSize: 52, fontFamily: "Helvetica-Bold", color: coverText, lineHeight: 1, marginBottom: 14 }}>
@@ -538,34 +557,33 @@ export function QuotePDF({
         {!/^\s*(beste|hoi|hallo|h[eé]|dag|goede)/i.test(intro ?? "") && (
           <H2 text={`Beste ${customerName.split(" ")[0]},`} />
         )}
-        <Text style={{ fontSize: 9.5, lineHeight: 1.65, color: "#334155", marginBottom: 16 }}>
-          {intro || brand.summaryGoal}
+        <Text style={{ fontSize: 9.5, lineHeight: 1.5, color: "#334155", marginBottom: 13 }}>
+          {intro ? stripPersonalSignOff(intro) : brand.summaryGoal}
         </Text>
 
-        {introVisual ? (
+        {introVisual && (
           <View style={{ marginTop: 2 }}>
             <Image
               src={publicImageDataUri(introVisual.imageUrl)}
               style={{ width: "100%", height: 185, objectFit: "contain" }}
             />
           </View>
-        ) : (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 }}>
-            <View style={{ width: 34, height: 34, borderRadius: 17, overflow: "hidden" }}>
-              {PROFILE_PHOTO ? (
-                <Image src={PROFILE_PHOTO} style={{ width: 32, height: 32, margin: 1, borderRadius: 16, objectFit: "cover", objectPositionY: "24%" }} />
-              ) : (
-                <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: brand.colors.accent, justifyContent: "center", alignItems: "center" }}>
-                  <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>DK</Text>
-                </View>
-              )}
-            </View>
-            <View>
-              <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold" }}>Daan Koolhaas</Text>
-              <Text style={{ fontSize: 7.5, color: brand.colors.muted }}>{brand.role}</Text>
-            </View>
-          </View>
         )}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: introVisual ? 10 : 0, marginBottom: 4 }}>
+          <View style={{ width: 34, height: 34, borderRadius: 17, overflow: "hidden" }}>
+            {PROFILE_PHOTO ? (
+              <Image src={PROFILE_PHOTO} style={{ width: 36, height: 36, marginLeft: -1, marginTop: -1, borderRadius: 18, objectFit: "cover", objectPositionY: "30%" }} />
+            ) : (
+              <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: brand.colors.accent, justifyContent: "center", alignItems: "center" }}>
+                <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>DK</Text>
+              </View>
+            )}
+          </View>
+          <View>
+            <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold" }}>Daan Koolhaas</Text>
+            <Text style={{ fontSize: 7.5, color: brand.colors.muted }}>{brand.role}</Text>
+          </View>
+        </View>
 
         <PageFooter tag="Offerte" customerName={customerName} />
       </Page>
@@ -653,9 +671,13 @@ export function QuotePDF({
                   <Image src={publicImageDataUri(attachment.imageUrl)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 </View>
                 {(attachment.title || attachment.caption) && (
-                  <View style={{ marginTop: 8, minHeight: 34 }}>
-                    {attachment.title && <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>{attachment.title}</Text>}
-                    {attachment.caption && <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.35, marginTop: 3 }}>{attachment.caption}</Text>}
+                  <View style={{ marginTop: 7, minHeight: 32 }}>
+                    <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: brand.colors.accent, textTransform: "uppercase", letterSpacing: 0.7 }}>
+                      Ontwerpimpressie
+                    </Text>
+                    <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.3, marginTop: 3 }}>
+                      {attachment.caption || "Een visuele indruk van de voorgestelde uitwerking."}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -713,11 +735,18 @@ export function QuotePDF({
               </View>
             );
           })}
-          {[
-            ["Totaal excl. btw", formatEur(totalExVat), false],
-            ["Btw", formatEur(totalVat), false],
-            ["Totaal incl. btw", formatEur(totalIncVat), true],
-          ].map(([label, value, strong]) => (
+          {(showExVat
+            ? [
+                ["Totaal excl. btw", formatEur(totalExVat), true],
+                ["Btw", formatEur(totalVat), false],
+                ["Totaal incl. btw", formatEur(totalIncVat), false],
+              ]
+            : [
+                ["Totaal excl. btw", formatEur(totalExVat), false],
+                ["Btw", formatEur(totalVat), false],
+                ["Totaal incl. btw", formatEur(totalIncVat), true],
+              ]
+          ).map(([label, value, strong]) => (
             <View key={String(label)} style={{ flexDirection: "row", justifyContent: "flex-end", backgroundColor: strong ? brand.colors.surface : "#FFFFFF" }}>
               <Text style={{ width: 180, padding: 8, fontSize: strong ? 10 : 8.5, fontFamily: strong ? "Helvetica-Bold" : "Helvetica", color: strong ? brand.colors.text : brand.colors.muted, textAlign: "right" }}>{label}</Text>
               <Text style={{ width: 96, padding: 8, fontSize: strong ? 10 : 8.5, fontFamily: strong ? "Helvetica-Bold" : "Helvetica", color: brand.colors.text, textAlign: "right" }}>{value}</Text>
@@ -829,15 +858,15 @@ export function QuotePDF({
                       <View style={{ borderTopWidth: 1, borderTopColor: brand.colors.border, backgroundColor: brand.colors.surface, paddingHorizontal: 10, paddingVertical: 8 }}>
                         <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 3 }}>
                           <Text style={{ fontSize: 8.5, color: brand.colors.muted }}>Systeem &amp; apparatuur</Text>
-                          <Text style={{ fontSize: 8.5, color: "#334155" }}>{formatEur(choiceTotal * VAT_FACTOR)}</Text>
+                          <Text style={{ fontSize: 8.5, color: "#334155" }}>{formatEur(showExVat ? choiceTotal : choiceTotal * VAT_FACTOR)}</Text>
                         </View>
                         <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 5 }}>
                           <Text style={{ fontSize: 8.5, color: brand.colors.muted }}>Montage &amp; installatie</Text>
-                          <Text style={{ fontSize: 8.5, color: "#334155" }}>{formatEur(baseExVat * VAT_FACTOR)}</Text>
+                          <Text style={{ fontSize: 8.5, color: "#334155" }}>{formatEur(showExVat ? baseExVat : baseExVat * VAT_FACTOR)}</Text>
                         </View>
                         <View style={{ borderTopWidth: 1, borderTopColor: brand.colors.border, paddingTop: 5, flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-                          <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>Totaal incl. btw</Text>
-                          <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>{formatEur((choiceTotal + baseExVat) * VAT_FACTOR)}</Text>
+                          <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>Totaal {priceLabel}</Text>
+                          <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>{formatEur((choiceTotal + baseExVat) * (showExVat ? 1 : VAT_FACTOR))}</Text>
                         </View>
                       </View>
                     )}
@@ -855,30 +884,96 @@ export function QuotePDF({
             <Eyebrow text="Mogelijke uitbreidingen" color={brand.colors.accent} />
             <H2 text={brand.optionsTitle} />
             <View style={{ gap: 7 }}>
-              {options.map((o, i) => (
-                <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: brand.colors.surface, padding: 10, borderRadius: 8 }}>
-                  <View style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: brand.colors.border, justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
-                    <Text style={{ fontSize: 11, color: brand.colors.accent }}>+</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", marginBottom: 2 }}>{o.t}</Text>
-                    <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.4 }}>{o.d}</Text>
-                    <View style={{ marginTop: 4, backgroundColor: brand.colors.border, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, alignSelf: "flex-start" }}>
-                      <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>{o.tag}</Text>
+              {options.map((o, i) => {
+                const isSelected = o.id ? selectedOptionIds.includes(o.id) : false;
+                const oneTimePrice = getQuoteOptionPrice(o);
+                const recurringPrice = getQuoteOptionRecurringPrice(o);
+                const recurringInterval = getQuoteOptionRecurringInterval(o);
+                const displayOneTimePrice = oneTimePrice == null
+                  ? null
+                  : showExVat
+                    ? oneTimePrice
+                    : oneTimePrice * (1 + (o.vatRate ?? 21) / 100);
+                const displayRecurringPrice = recurringPrice == null
+                  ? null
+                  : showExVat
+                    ? recurringPrice
+                    : recurringPrice * (1 + (o.vatRate ?? 21) / 100);
+                return (
+                  <View key={i} style={{
+                    flexDirection: "row", alignItems: "flex-start", gap: 10,
+                    backgroundColor: isSelected ? "#f0fdf4" : brand.colors.surface,
+                    padding: 10, borderRadius: 8,
+                    borderWidth: isSelected ? 1 : 0,
+                    borderColor: isSelected ? "#86efac" : "transparent",
+                  }}>
+                    <View style={{
+                      width: 24, height: 24, borderRadius: 6,
+                      backgroundColor: isSelected ? "#22c55e" : brand.colors.border,
+                      justifyContent: "center", alignItems: "center", flexShrink: 0,
+                    }}>
+                      <Text style={{ fontSize: isSelected ? 13 : 11, color: isSelected ? "#fff" : brand.colors.accent, fontFamily: "Helvetica-Bold" }}>
+                        {isSelected ? "✓" : "+"}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", marginBottom: 2, color: isSelected ? "#166534" : brand.colors.text }}>{o.t}</Text>
+                      <Text style={{ fontSize: 8, color: isSelected ? "#16a34a" : brand.colors.muted, lineHeight: 1.4 }}>{o.d}</Text>
+                      <View style={{ marginTop: 4, flexDirection: "row", gap: 4, flexWrap: "wrap" }}>
+                        {isSelected && (
+                          <View style={{ backgroundColor: "#dcfce7", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10 }}>
+                            <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: "#166534" }}>Geselecteerd</Text>
+                          </View>
+                        )}
+                        <View style={{ backgroundColor: isSelected ? "#bbf7d0" : brand.colors.border, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10 }}>
+                          <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: isSelected ? "#166534" : brand.colors.muted }}>{o.tag}</Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={{ alignItems: "flex-end", marginLeft: 8 }}>
+                      {displayOneTimePrice != null || displayRecurringPrice != null ? (
+                        <>
+                          {displayOneTimePrice != null && (
+                            <View style={{
+                              paddingHorizontal: 7,
+                              paddingVertical: 4,
+                              borderRadius: 999,
+                              borderWidth: 1,
+                              borderColor: isSelected ? "#86efac" : brand.colors.border,
+                              backgroundColor: isSelected ? "#dcfce7" : "#FFFFFF",
+                              alignItems: "flex-end",
+                            }}>
+                              <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", color: isSelected ? "#166534" : brand.colors.text }}>
+                                {isSelected ? "" : "+ "}{formatEur(displayOneTimePrice)}
+                              </Text>
+                              <Text style={{ fontSize: 6.2, color: brand.colors.muted, marginTop: 1 }}>eenmalig {priceLabel}</Text>
+                            </View>
+                          )}
+                          {displayRecurringPrice != null && recurringInterval && (
+                            <View style={{
+                              marginTop: displayOneTimePrice != null ? 4 : 0,
+                              paddingHorizontal: 7,
+                              paddingVertical: 4,
+                              borderRadius: 999,
+                              borderWidth: 1,
+                              borderColor: isSelected ? "#86efac" : brand.colors.border,
+                              backgroundColor: isSelected ? "#dcfce7" : "#FFFFFF",
+                              alignItems: "flex-end",
+                            }}>
+                              <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", color: isSelected ? "#166534" : brand.colors.text }}>
+                                {isSelected ? "" : "+ "}{formatEur(displayRecurringPrice)}
+                              </Text>
+                              <Text style={{ fontSize: 6.2, color: brand.colors.muted, marginTop: 1 }}>{recurringInterval} {priceLabel}</Text>
+                            </View>
+                          )}
+                        </>
+                      ) : (
+                        <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>Op aanvraag</Text>
+                      )}
                     </View>
                   </View>
-                  <View style={{ alignItems: "flex-end", marginLeft: 8 }}>
-                    {typeof o.price === "number" ? (
-                      <>
-                        <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: brand.colors.text }}>+ {formatEur(o.price * (1 + (o.vatRate ?? 21) / 100))}</Text>
-                        <Text style={{ fontSize: 6.5, color: brand.colors.muted, marginTop: 1 }}>incl. btw</Text>
-                      </>
-                    ) : (
-                      <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>Op aanvraag</Text>
-                    )}
-                  </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           </>
         )}
@@ -984,7 +1079,7 @@ export function QuotePDF({
         <Divider color={brand.colors.border} />
 
         {/* Sign */}
-        <Eyebrow text="Akkoord met de offerte" color={brand.colors.accent} />
+        <Eyebrow text={isKoolhaas ? "Akkoord voor uitvoering" : "Volgende stap"} color={brand.colors.muted} />
         <H2 text={brand.closingTitle} />
 
         <View style={{ flexDirection: "row", gap: 16, marginBottom: 20 }}>
@@ -995,12 +1090,16 @@ export function QuotePDF({
             <View style={{ borderBottomWidth: 1, borderBottomColor: brand.colors.border, marginBottom: 4 }} />
             <Text style={{ fontSize: 7, color: "#94A3B8" }}>Naam / Datum</Text>
             {status === "ACCEPTED" && acceptedAt && (
-              <View style={{ position: "absolute", top: 8, right: 10, transform: "rotate(-12deg)" }}>
-                <View style={{ width: 65, height: 65, borderRadius: 32.5, borderWidth: 2, borderStyle: "dashed", borderColor: "#22c55e", justifyContent: "center", alignItems: "center", padding: 5 }}>
-                  <Text style={{ fontSize: 5.5, fontFamily: "Helvetica-Bold", textTransform: "uppercase", color: "#22c55e", textAlign: "center" }}>Digitaal akkoord</Text>
-                  <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", textTransform: "uppercase", color: "#22c55e", textAlign: "center" }}>Geaccepteerd</Text>
-                  <Text style={{ fontSize: 5.5, color: "#22c55e", marginTop: 2 }}>{acceptedAt}</Text>
+              <View style={{ marginTop: 8, borderWidth: 1, borderColor: "#86efac", borderRadius: 6, padding: 8, backgroundColor: "#f0fdf4" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                  <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: "#22c55e", justifyContent: "center", alignItems: "center" }}>
+                    <Text style={{ fontSize: 8, color: "#fff", fontFamily: "Helvetica-Bold" }}>✓</Text>
+                  </View>
+                  <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", textTransform: "uppercase", color: "#166534", letterSpacing: 0.5 }}>Elektronisch akkoord</Text>
                 </View>
+                <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#15803d" }}>{signerName || customerName}</Text>
+                <Text style={{ fontSize: 6.5, color: "#16a34a", marginTop: 1 }}>Akkoord gegeven op {acceptedAt}</Text>
+                <Text style={{ fontSize: 6, color: "#4ade80", marginTop: 2 }}>Ref. {quoteNumber} · Geldig krachtens art. 3:15a BW</Text>
               </View>
             )}
           </View>
