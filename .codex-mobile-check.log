@@ -1,0 +1,15 @@
+2026-06-28T19:51:41.689Z db quote start
+2026-06-28T19:51:41.962Z quote WU-2026-0003 companies 2
+2026-06-28T19:51:42.108Z temp user ready
+2026-06-28T19:51:42.458Z goto login
+2026-06-28T19:51:42.786Z click login
+2026-06-28T19:51:46.068Z after login http://localhost:3000/login
+2026-06-28T19:51:46.274Z switch 200
+2026-06-28T19:51:46.275Z goto quote
+2026-06-28T19:51:47.439Z click edit
+2026-06-28T19:51:57.441Z ERROR locator.click: Timeout 10000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('tab', { name: /bewerken/i })[22m
+
+    at [stdin]:65:54
+2026-06-28T19:51:57.782Z cleanup done

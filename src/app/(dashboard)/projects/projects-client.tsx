@@ -1,22 +1,22 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useForm, Controller } from "react-hook-form";
+import { useRouter } from "next/navigation";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { ArrowUpRight, FileText, FolderKanban, Loader2, Paperclip, Plus, Search } from "lucide-react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { toast } from "sonner";
-import { Plus, Search, Loader2, FolderKanban, FileText, Paperclip, ArrowUpRight } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { PROJECT_STATUS_LABELS } from "@/lib/format";
 
 const schema = z.object({
@@ -101,79 +101,111 @@ export function ProjectsClient({
           </Button>
         }
       />
-      <div className="space-y-4 p-5 lg:p-8">
+      <div className="space-y-4 p-4 sm:p-5 lg:p-8">
         <div className="relative max-w-xl">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
-            placeholder="Zoek project, nummer of klant…"
+            placeholder="Zoek project, nummer of klant..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="h-10 bg-white pl-9 shadow-sm"
           />
         </div>
-        <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
+
+        <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
           {filtered.length === 0 ? (
-            <div className="grid min-h-72 place-items-center text-center text-slate-500">
-              <div><FolderKanban className="mx-auto mb-3 h-10 w-10 text-slate-300" />Geen projecten gevonden.</div>
+            <div className="grid min-h-72 place-items-center p-8 text-center text-slate-500">
+              <div>
+                <FolderKanban className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                Geen projecten gevonden.
+              </div>
             </div>
           ) : (
-            <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead className="pl-4">Project</TableHead>
-                  <TableHead>Klant</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Dossier</TableHead>
-                  <TableHead>Plaats</TableHead>
-                  <TableHead className="w-12" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="divide-y md:hidden">
                 {filtered.map((project) => (
-                  <TableRow
-                    key={project.id}
-                    tabIndex={0}
-                    role="link"
-                    aria-label={`Open project ${project.title}`}
-                    onClick={() => router.push(`/projects/${project.id}`)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        router.push(`/projects/${project.id}`);
-                      }
-                    }}
-                    className="cursor-pointer focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#167f88]"
-                  >
-                    <TableCell className="pl-4">
-                      <Link href={`/projects/${project.id}`} onClick={(event) => event.stopPropagation()}>
-                        <p className="font-semibold">{project.title}</p>
-                        <p className="font-mono text-xs text-slate-400">{project.number}</p>
-                      </Link>
-                    </TableCell>
-                    <TableCell className="font-medium">{project.customer?.name ?? "Geen klant"}</TableCell>
-                    <TableCell><Badge variant="secondary">{PROJECT_STATUS_LABELS[project.status] ?? project.status}</Badge></TableCell>
-                    <TableCell>
-                      <div className="flex gap-3 text-xs text-slate-500">
+                  <Link key={project.id} href={`/projects/${project.id}`} className="block p-4 active:bg-slate-50">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-950">{project.title}</p>
+                        <p className="mt-1 font-mono text-xs text-slate-500">{project.number}</p>
+                      </div>
+                      <Badge variant="secondary">{PROJECT_STATUS_LABELS[project.status] ?? project.status}</Badge>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{project.customer?.name ?? "Geen klant"}</p>
+                        <p className="truncate text-xs text-slate-500">{project.city || "Geen plaats"}</p>
+                      </div>
+                      <div className="flex shrink-0 gap-3 text-xs text-slate-500">
                         <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{project._count.quotes}</span>
                         <span className="flex items-center gap-1"><Paperclip className="h-3.5 w-3.5" />{project._count.files}</span>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-slate-500">{project.city || "—"}</TableCell>
-                    <TableCell>
-                      <Link href={`/projects/${project.id}`} onClick={(event) => event.stopPropagation()} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900">
-                        <ArrowUpRight className="h-4 w-4" />
-                      </Link>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                  </Link>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader className="bg-slate-50">
+                    <TableRow>
+                      <TableHead className="pl-4">Project</TableHead>
+                      <TableHead>Klant</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Dossier</TableHead>
+                      <TableHead>Plaats</TableHead>
+                      <TableHead className="w-12" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((project) => (
+                      <TableRow
+                        key={project.id}
+                        tabIndex={0}
+                        role="link"
+                        aria-label={`Open project ${project.title}`}
+                        onClick={() => router.push(`/projects/${project.id}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            router.push(`/projects/${project.id}`);
+                          }
+                        }}
+                        className="cursor-pointer focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#167f88]"
+                      >
+                        <TableCell className="pl-4">
+                          <Link href={`/projects/${project.id}`} onClick={(event) => event.stopPropagation()}>
+                            <p className="font-semibold">{project.title}</p>
+                            <p className="font-mono text-xs text-slate-400">{project.number}</p>
+                          </Link>
+                        </TableCell>
+                        <TableCell className="font-medium">{project.customer?.name ?? "Geen klant"}</TableCell>
+                        <TableCell><Badge variant="secondary">{PROJECT_STATUS_LABELS[project.status] ?? project.status}</Badge></TableCell>
+                        <TableCell>
+                          <div className="flex gap-3 text-xs text-slate-500">
+                            <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{project._count.quotes}</span>
+                            <span className="flex items-center gap-1"><Paperclip className="h-3.5 w-3.5" />{project._count.files}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-slate-500">{project.city || "-"}</TableCell>
+                        <TableCell>
+                          <Link href={`/projects/${project.id}`} onClick={(event) => event.stopPropagation()} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900">
+                            <ArrowUpRight className="h-4 w-4" />
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </div>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader><DialogTitle>Nieuw project</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
@@ -198,11 +230,11 @@ export function ProjectsClient({
               {errors.title && <p className="text-sm text-destructive">{errors.title.message}</p>}
             </div>
             <div className="space-y-2"><Label>Omschrijving</Label><Textarea {...register("description")} /></div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2"><Label>Adres</Label><Input {...register("address")} /></div>
               <div className="space-y-2"><Label>Plaats</Label><Input {...register("city")} /></div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-0">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Annuleren</Button>
               <Button type="submit" disabled={saving}>{saving && <Loader2 className="h-4 w-4 animate-spin" />}Aanmaken</Button>
             </DialogFooter>

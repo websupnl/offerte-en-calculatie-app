@@ -134,18 +134,122 @@ function MargeRow({
   const cost = costPrice != null ? costPrice * qty : null;
   const profit = cost != null ? revenue - cost : null;
   const pct = profit != null && revenue > 0 ? (profit / revenue) * 100 : null;
+  const unitPriceDisplay = unitPrice > 0 ? formatCurrency(unitPrice) : <span className="text-muted-foreground text-xs">inbegrepen</span>;
+  const costDisplay = cost != null ? formatCurrency(cost) : <span className="text-muted-foreground">-</span>;
+  const profitDisplay = profit != null ? (
+    <>
+      {formatCurrency(profit)}
+      {pct != null && <span className="ml-1 text-xs opacity-70">({pct.toFixed(0)}%)</span>}
+    </>
+  ) : "-";
 
   return (
-    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-6 items-center px-4 py-2 text-sm border-b last:border-0 hover:bg-muted/40">
-      <span className="truncate text-muted-foreground">{label}</span>
-      <span className="tabular-nums text-right w-8">{qty}×</span>
-      <span className="tabular-nums text-right w-24">{unitPrice > 0 ? formatCurrency(unitPrice) : <span className="text-muted-foreground text-xs">inbegrepen</span>}</span>
-      <span className="tabular-nums text-right w-24">{cost != null ? formatCurrency(cost) : <span className="text-muted-foreground">—</span>}</span>
-      <span className={`tabular-nums text-right w-24 font-medium ${profit != null && profit < 0 ? "text-destructive" : profit != null ? "text-emerald-600" : "text-muted-foreground"}`}>
-        {profit != null ? (
-          <>{formatCurrency(profit)}{pct != null && <span className="ml-1 text-xs opacity-70">({pct.toFixed(0)}%)</span>}</>
-        ) : "—"}
-      </span>
+    <div className="border-b px-4 py-3 text-sm last:border-0 hover:bg-muted/40 sm:py-2">
+      <div className="space-y-2 sm:hidden">
+        <p className="min-w-0 break-words font-medium text-muted-foreground">{label}</p>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <span className="block text-muted-foreground">Qty</span>
+            <span className="tabular-nums">{qty}x</span>
+          </div>
+          <div>
+            <span className="block text-muted-foreground">Verkoop</span>
+            <span className="tabular-nums">{unitPriceDisplay}</span>
+          </div>
+          <div>
+            <span className="block text-muted-foreground">Inkoop totaal</span>
+            <span className="tabular-nums">{costDisplay}</span>
+          </div>
+          <div>
+            <span className="block text-muted-foreground">Winst</span>
+            <span className={`tabular-nums font-medium ${profit != null && profit < 0 ? "text-destructive" : profit != null ? "text-emerald-600" : "text-muted-foreground"}`}>
+              {profitDisplay}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="hidden items-center gap-x-6 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">
+        <span className="min-w-0 truncate text-muted-foreground">{label}</span>
+        <span className="w-8 tabular-nums text-right">{qty}x</span>
+        <span className="w-24 tabular-nums text-right">{unitPriceDisplay}</span>
+        <span className="w-24 tabular-nums text-right">{costDisplay}</span>
+        <span className={`w-24 tabular-nums text-right font-medium ${profit != null && profit < 0 ? "text-destructive" : profit != null ? "text-emerald-600" : "text-muted-foreground"}`}>
+          {profitDisplay}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function CalculationHeader({
+  title,
+  variant = "default",
+}: {
+  title: string;
+  variant?: "default" | "recommended";
+}) {
+  const tone =
+    variant === "recommended"
+      ? "bg-emerald-50/50 text-emerald-700"
+      : "bg-muted/30 text-muted-foreground";
+
+  return (
+    <div className={`border-b px-4 py-3 text-xs font-semibold uppercase tracking-wide ${tone}`}>
+      <span className="block min-w-0 break-words sm:hidden">{title}</span>
+      <div className="hidden items-center gap-x-6 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">
+        <span className="min-w-0 truncate">{title}</span>
+        <span className="w-8 text-right">Qty</span>
+        <span className="w-24 text-right">Verkoop (ex)</span>
+        <span className="w-24 text-right">Inkoop totaal</span>
+        <span className="w-24 text-right">Winst</span>
+      </div>
+    </div>
+  );
+}
+
+function CalculationSubtotal({
+  revenue,
+  cost,
+  profit,
+  pct,
+}: {
+  revenue: number;
+  cost: number;
+  profit: number;
+  pct: number | null;
+}) {
+  return (
+    <div className="border-t bg-muted/20 px-4 py-3 text-sm font-medium sm:py-2">
+      <div className="space-y-2 sm:hidden">
+        <p className="text-muted-foreground">Subtotaal</p>
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <div>
+            <span className="block text-muted-foreground">Verkoop</span>
+            <span className="tabular-nums">{formatCurrency(revenue)}</span>
+          </div>
+          <div>
+            <span className="block text-muted-foreground">Inkoop</span>
+            <span className="tabular-nums">{formatCurrency(cost)}</span>
+          </div>
+          <div>
+            <span className="block text-muted-foreground">Winst</span>
+            <span className="tabular-nums text-emerald-600">
+              {formatCurrency(profit)}
+              {pct != null && <span className="ml-1 opacity-70">({pct.toFixed(0)}%)</span>}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="hidden items-center gap-x-6 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">
+        <span className="text-muted-foreground">Subtotaal</span>
+        <span className="w-8" />
+        <span className="w-24 text-right tabular-nums">{formatCurrency(revenue)}</span>
+        <span className="w-24 text-right tabular-nums">{formatCurrency(cost)}</span>
+        <span className="w-24 text-right tabular-nums text-emerald-600">
+          {formatCurrency(profit)}
+          {pct != null && <span className="ml-1 text-xs opacity-70">({pct.toFixed(0)}%)</span>}
+        </span>
+      </div>
     </div>
   );
 }
@@ -165,13 +269,7 @@ function CalculatieTab({ quote }: { quote: Quote }) {
       {baseItems.length > 0 && (
         <Card>
           <CardContent className="p-0">
-            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-6 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-b bg-muted/30">
-              <span>Vaste werkzaamheden</span>
-              <span className="w-8 text-right">Qty</span>
-              <span className="w-24 text-right">Verkoop (ex)</span>
-              <span className="w-24 text-right">Inkoop totaal</span>
-              <span className="w-24 text-right">Winst</span>
-            </div>
+            <CalculationHeader title="Vaste werkzaamheden" />
             {baseItems.map((item) => (
               <MargeRow
                 key={item.id}
@@ -199,13 +297,7 @@ function CalculatieTab({ quote }: { quote: Quote }) {
             return (
               <Card key={ci} className={isRecommended ? "border-emerald-300" : ""}>
                 <CardContent className="p-0">
-                  <div className={`grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-6 px-4 py-2 text-xs font-semibold uppercase tracking-wide border-b ${isRecommended ? "bg-emerald-50/50 text-emerald-700" : "bg-muted/30 text-muted-foreground"}`}>
-                    <span>{choice.title}{isRecommended && " ★"}</span>
-                    <span className="w-8 text-right">Qty</span>
-                    <span className="w-24 text-right">Verkoop (ex)</span>
-                    <span className="w-24 text-right">Inkoop totaal</span>
-                    <span className="w-24 text-right">Winst</span>
-                  </div>
+                  <CalculationHeader title={`${choice.title}${isRecommended ? " aanbevolen" : ""}`} variant={isRecommended ? "recommended" : "default"} />
                   {choice.items.map((item, ii) => (
                     <MargeRow
                       key={ii}
@@ -216,16 +308,7 @@ function CalculatieTab({ quote }: { quote: Quote }) {
                     />
                   ))}
                   {choiceProfit != null && (
-                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-6 px-4 py-2 text-sm border-t bg-muted/20 font-medium">
-                      <span className="text-muted-foreground">Subtotaal</span>
-                      <span className="w-8" />
-                      <span className="w-24 text-right tabular-nums">{formatCurrency(choiceRevenue)}</span>
-                      <span className="w-24 text-right tabular-nums">{formatCurrency(choiceCost)}</span>
-                      <span className="w-24 text-right tabular-nums text-emerald-600">
-                        {formatCurrency(choiceProfit)}
-                        {choicePct != null && <span className="ml-1 text-xs opacity-70">({choicePct.toFixed(0)}%)</span>}
-                      </span>
-                    </div>
+                    <CalculationSubtotal revenue={choiceRevenue} cost={choiceCost} profit={choiceProfit} pct={choicePct} />
                   )}
                 </CardContent>
               </Card>
@@ -238,13 +321,7 @@ function CalculatieTab({ quote }: { quote: Quote }) {
       {options.length > 0 && (
         <Card>
           <CardContent className="p-0">
-            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-6 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-b bg-muted/30">
-              <span>Optioneel meerwerk</span>
-              <span className="w-8 text-right">Qty</span>
-              <span className="w-24 text-right">Prijs (ex)</span>
-              <span className="w-24 text-right">—</span>
-              <span className="w-24 text-right">—</span>
-            </div>
+            <CalculationHeader title="Optioneel meerwerk" />
             {options.filter((o) => o.price != null).map((o, i) => (
               <MargeRow key={i} label={o.t} qty={1} unitPrice={o.price ?? 0} costPrice={null} />
             ))}
@@ -399,28 +476,28 @@ export function QuoteDetailClient({
   }
 
   return (
-    <div className="w-full max-w-[1800px] mx-auto space-y-6 p-6 lg:p-8 2xl:px-10">
+    <div className="w-full max-w-[1800px] mx-auto space-y-5 p-4 sm:p-5 lg:p-8 2xl:px-10">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
           <Link href="/quotes">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold">{quote.title || quote.number}</h1>
+          <div className="min-w-0">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <h1 className="min-w-0 truncate text-xl font-bold sm:text-2xl">{quote.title || quote.number}</h1>
               <Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>
                 {QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="mt-1 truncate text-sm text-muted-foreground">
               {quote.number} · {quote.customer.name} · {formatDate(quote.createdAt)}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 pl-12 md:pl-0">
           <Button variant="outline" size="sm" onClick={handlePrint} className="no-print">
             <Printer className="mr-2 h-4 w-4" />
             Print / PDF
@@ -459,7 +536,7 @@ export function QuoteDetailClient({
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="view">
             <FileText className="mr-2 h-4 w-4" />
             Offerte
@@ -562,3 +639,4 @@ export function QuoteDetailClient({
     </div>
   );
 }
+

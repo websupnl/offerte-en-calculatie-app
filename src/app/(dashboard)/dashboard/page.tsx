@@ -111,6 +111,24 @@ export default async function DashboardPage() {
               </div>
               <Link href="/quotes" className="text-xs font-semibold text-[#167f88] hover:underline">Alle offertes</Link>
             </div>
+            <div className="divide-y md:hidden">
+              {recentQuotes.map((quote) => (
+                <Link key={quote.id} href={`/quotes/${quote.id}`} className="block p-4 active:bg-slate-50">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-slate-950">{quote.title || quote.number}</p>
+                      <p className="mt-1 truncate text-xs text-slate-500">{quote.number} · {quote.customer.name}</p>
+                    </div>
+                    <Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>{QUOTE_STATUS_LABELS[quote.status]}</Badge>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+                    <p className="text-slate-500">{formatDate(quote.updatedAt)}</p>
+                    <p className="font-bold tabular-nums">{formatCurrency(Number(quote.totalIncVat))}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <div className="hidden md:block">
             <Table>
               <TableHeader className="bg-slate-50">
                 <TableRow>
@@ -136,6 +154,7 @@ export default async function DashboardPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
             {recentQuotes.length === 0 && (
               <div className="grid min-h-56 place-items-center text-center text-sm text-slate-400">
                 <div><FileText className="mx-auto mb-2 h-8 w-8" />Nog geen offertes.</div>

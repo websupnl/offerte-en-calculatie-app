@@ -4,25 +4,29 @@ import type React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { useCompany } from "@/lib/company-context";
-import { signOut } from "next-auth/react";
 import {
-  LayoutDashboard,
-  Users,
-  FileText,
-  Package,
-  Settings,
-  LogOut,
+  Brain,
+  BriefcaseBusiness,
+  Building2,
+  ChevronDown,
   ChevronsLeft,
   ChevronsRight,
-  Building2,
-  Brain,
-  TrendingUp,
-  ShieldCheck,
+  ClipboardList,
+  Database,
+  FileText,
   FolderKanban,
-  ChevronDown,
+  LayoutDashboard,
   LoaderCircle,
+  LogOut,
+  Package,
+  ReceiptText,
+  Settings,
+  ShieldCheck,
+  TrendingUp,
+  Users,
   X,
 } from "lucide-react";
 import {
@@ -32,31 +36,43 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }>; koolhaasOnly?: boolean };
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  koolhaasOnly?: boolean;
+};
+
 type NavGroup = { label: string | null; items: NavItem[] };
 
 const navGroups: NavGroup[] = [
   {
     label: null,
-    items: [
-      { href: "/dashboard", label: "Start", icon: LayoutDashboard },
-    ],
+    items: [{ href: "/dashboard", label: "Start", icon: LayoutDashboard }],
   },
   {
-    label: "Werk",
+    label: "CRM",
     items: [
-      { href: "/quotes", label: "Offertes", icon: FileText },
-      { href: "/projects", label: "Projecten", icon: FolderKanban, koolhaasOnly: true },
-      { href: "/advice", label: "Technisch advies", icon: ShieldCheck },
       { href: "/customers", label: "Klanten", icon: Users },
+      { href: "/quotes", label: "Offertes", icon: FileText },
+      { href: "/advice", label: "Adviesdocumenten", icon: ShieldCheck },
     ],
   },
   {
-    label: "Beheer",
+    label: "Operatie",
     items: [
-      { href: "/admin/products", label: "Artikelen & prijzen", icon: Package },
+      { href: "/projects", label: "Projecten", icon: FolderKanban, koolhaasOnly: true },
+      { href: "/workorders", label: "Werkbonnen", icon: ClipboardList, koolhaasOnly: true },
+      { href: "/invoices", label: "Facturen", icon: ReceiptText, koolhaasOnly: true },
+    ],
+  },
+  {
+    label: "ERP",
+    items: [
+      { href: "/admin/products", label: "Artikelen", icon: Package },
       { href: "/knowledge", label: "Kennisbank", icon: Brain },
       { href: "/admin/dashboard", label: "Financieel inzicht", icon: TrendingUp },
+      { href: "/admin/settings", label: "Inrichting", icon: Database },
     ],
   },
 ];
@@ -85,36 +101,36 @@ export function Sidebar({
         <button
           type="button"
           aria-label="Navigatie sluiten"
-          className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-[2px] lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] lg:hidden"
           onClick={onMobileClose}
         />
       )}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-white/8 bg-[#0b1628] text-slate-200 shadow-2xl transition-[width,transform] duration-200 lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:translate-x-0",
-          collapsed ? "lg:w-[76px]" : "lg:w-[252px]",
-          mobileOpen ? "w-[276px] translate-x-0" : "w-[276px] -translate-x-full",
+          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-[#18304c] bg-[#071421] text-slate-200 shadow-2xl transition-[width,transform] duration-200 lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:translate-x-0",
+          collapsed ? "lg:w-[78px]" : "lg:w-[286px]",
+          mobileOpen ? "w-[292px] translate-x-0" : "w-[292px] -translate-x-full",
         )}
       >
-        <div className="flex h-[72px] items-center gap-3 border-b border-white/8 px-3">
+        <div className="flex h-[72px] items-center gap-3 border-b border-[#18304c] px-3">
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label={`Bedrijf wisselen: ${activeCompany?.name ?? "selecteer bedrijf"}`}
               className={cn(
-                "flex min-w-0 flex-1 items-center gap-3 rounded-lg border-0 bg-transparent p-2 text-left hover:bg-white/6",
+                "flex min-w-0 flex-1 items-center gap-3 rounded-md border border-transparent bg-transparent p-2 text-left hover:border-white/10 hover:bg-white/6",
                 collapsed && "lg:justify-center",
               )}
             >
-              <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-md bg-white p-1">
+              <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-md bg-white p-1 shadow-sm">
                 <Image src={logoSrc} alt="" width={64} height={64} className="h-full w-full object-contain" />
               </div>
               <div className={cn("min-w-0 flex-1", collapsed && "lg:hidden")}>
                 <p className="truncate text-sm font-bold text-white">{activeCompany?.name ?? "Bedrijf"}</p>
-                <p className="truncate text-[11px] text-slate-400">Werkadministratie</p>
+                <p className="truncate text-[11px] text-slate-400">ERP & CRM werkplek</p>
               </div>
               <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-500", collapsed && "lg:hidden")} />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-60">
+            <DropdownMenuContent align="start" className="w-64">
               {companies.map((company) => (
                 <DropdownMenuItem
                   key={company.id}
@@ -136,7 +152,7 @@ export function Sidebar({
             type="button"
             aria-label="Navigatie sluiten"
             onClick={onMobileClose}
-            className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-white/8 hover:text-white lg:hidden"
+            className="grid h-9 w-9 place-items-center rounded-md text-slate-400 hover:bg-white/8 hover:text-white lg:hidden"
           >
             <X className="h-4 w-4" />
           </button>
@@ -151,9 +167,14 @@ export function Sidebar({
             return (
               <div key={group.label ?? "__home"} className="mb-5">
                 {group.label && (
-                  <p className={cn("mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500", collapsed && "lg:text-center lg:px-0")}>
+                  <p
+                    className={cn(
+                      "mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500",
+                      collapsed && "lg:px-0 lg:text-center",
+                    )}
+                  >
                     <span className={cn(collapsed && "lg:hidden")}>{group.label}</span>
-                    <span className={cn("hidden", collapsed && "lg:inline")}>·</span>
+                    <span className={cn("hidden", collapsed && "lg:inline")}>-</span>
                   </p>
                 )}
                 <div className="space-y-1">
@@ -168,9 +189,9 @@ export function Sidebar({
                         title={collapsed ? item.label : undefined}
                         onClick={onMobileClose}
                         className={cn(
-                          "group flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+                          "group flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
                           isActive
-                            ? "bg-[#1d8d96] text-white shadow-[inset_3px_0_0_#72d4d5]"
+                            ? "bg-[#0f7b83] text-white shadow-[inset_3px_0_0_#7bd6d9]"
                             : "text-slate-400 hover:bg-white/7 hover:text-white",
                           collapsed && "lg:justify-center lg:px-0",
                         )}
@@ -186,12 +207,19 @@ export function Sidebar({
           })}
         </nav>
 
-        <div className="border-t border-white/8 p-3">
+        <div className="border-t border-[#18304c] p-3">
+          <div className={cn("mb-3 rounded-md border border-white/8 bg-white/5 p-3", collapsed && "lg:grid lg:place-items-center lg:p-2")}>
+            <BriefcaseBusiness className="h-[18px] w-[18px] shrink-0 text-teal-300" />
+            <div className={cn("mt-2", collapsed && "lg:hidden")}>
+              <p className="text-xs font-semibold text-white">Werkproces</p>
+              <p className="mt-1 text-[11px] leading-4 text-slate-400">Relatie, offerte, project, werkbon en factuur.</p>
+            </div>
+          </div>
           <Link
             href="/admin/settings"
             onClick={onMobileClose}
             className={cn(
-              "mb-1 flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-slate-400 hover:bg-white/7 hover:text-white",
+              "mb-1 flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-slate-400 hover:bg-white/7 hover:text-white",
               pathname.startsWith("/admin/settings") && "bg-white/8 text-white",
               collapsed && "lg:justify-center lg:px-0",
             )}
@@ -203,7 +231,7 @@ export function Sidebar({
             type="button"
             onClick={() => signOut({ callbackUrl: "/login" })}
             className={cn(
-              "flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-slate-500 hover:bg-red-500/10 hover:text-red-300",
+              "flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm font-medium text-slate-500 hover:bg-red-500/10 hover:text-red-300",
               collapsed && "lg:justify-center lg:px-0",
             )}
           >
@@ -213,7 +241,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={onToggle}
-            className="mt-2 hidden h-9 w-full items-center justify-center rounded-lg border border-white/8 text-slate-500 hover:bg-white/6 hover:text-white lg:flex"
+            className="mt-2 hidden h-9 w-full items-center justify-center rounded-md border border-white/8 text-slate-500 hover:bg-white/6 hover:text-white lg:flex"
             aria-label={collapsed ? "Navigatie uitklappen" : "Navigatie inklappen"}
           >
             {collapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
