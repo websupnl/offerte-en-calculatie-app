@@ -112,6 +112,7 @@ type Quote = {
     acceptedAt: string | null;
     signerName?: string | null;
     acceptedTotalIncVat?: string | number | null;
+    selectedOptionIds?: string[] | null;
     acceptanceSnapshot?: {
       selectedChoices?: Array<{ groupTitle: string; choice: { title: string } }>;
       selectedOptions?: Array<{ t: string }>;
@@ -434,6 +435,13 @@ export function QuoteDetailClient({
     }
   }, [quote.share]);
 
+  // Auto-refresh when quote is awaiting customer response, so acceptance shows without manual reload
+  useEffect(() => {
+    if (quote.status !== "SENT" && quote.status !== "VIEWED") return;
+    const interval = setInterval(() => router.refresh(), 20_000);
+    return () => clearInterval(interval);
+  }, [quote.status, router]);
+
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   async function handleShare() {
@@ -605,7 +613,11 @@ export function QuoteDetailClient({
             </Card>
           )}
 
-          <QuoteSheetPreview quote={quote as never} companySlug={companySlug} />
+          <QuoteSheetPreview
+            quote={quote as never}
+            companySlug={companySlug}
+            selectedOptionIds={(quote.share?.selectedOptionIds as string[] | undefined) ?? []}
+          />
         </TabsContent>
 
         {/* Edit tab */}
