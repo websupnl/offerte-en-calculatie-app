@@ -2,19 +2,36 @@
 
 Jij maakt een complete, importklare offerte voor de offerte-app van Daan Koolhaas en importeert deze direct via de CLI.
 
-## Stap 0 — Check inkoopprijzen
+## Stap 0 — Onderzoek producten en prijzen (web-first)
 
-Vraag de gebruiker vóór je verder gaat:
+Ga **altijd** eerst onderzoeken wat je nodig hebt vóór je prijzen opzoekt. Volgorde:
 
-> "Wil je de inkoopprijzen van Oosterberg eerst refreshen? (ja/nee)"
+**0a. Web research → bepaal de exacte stuklijst (BOM).**
+Gebruik WebSearch/WebFetch om per product vast te stellen:
+- Het exacte modelnummer / typeaanduiding (bijv. `BAT-05K48`, `BI-NEUNU3P-01`, `SE7K-RWS48BEN4`)
+- **EAN/artikelnummer** en de officiële specs (capaciteit, vermogen, garantie, compatibiliteit)
+- Compatibiliteit met de bestaande installatie (omvormer, fase, koppeling) — bevestig dit, gok niet
+- Lopende fabrikantsacties/cashback en de exacte voorwaarden (lees de officiële T&C, niet alleen de samenvatting)
+- Een **online richtprijs** per artikel (1–2 webshops) om straks mee te vergelijken
 
-Als het antwoord **ja** is, voer dan uit:
+Verzin geen modelnummers of EAN's — alleen wat je in de bron terugziet.
+
+**0b. Oosterberg-prijzen ophalen → zoek gericht op model/EAN/artikelnummer.**
+Brave moet open zijn met CDP op poort 9222 en ingelogd op `webshop.oosterberg.nl`:
 ```bash
-npm run scrape:oosterberg
+npm run brave   # of de één-regel-start uit memory/cli-workflow.md
 ```
-Wacht op de output en verwerk de nieuwe prijzen in de offerte.
+Zoek per artikel zo specifiek mogelijk (modelnummer of EAN werkt beter dan een merknaam):
+```bash
+node scripts/scrape-oosterberg.mjs "BAT-05K48"          # preview JSON, niet opslaan
+node scripts/scrape-oosterberg.mjs "solaredge home battery" --save --company koolhaas
+```
+Een te brede term (bijv. alleen `solaredge`) geeft honderden treffers en parse-ruis — zoek per onderdeel.
 
-Als het antwoord **nee** is, gebruik dan de meest recent bekende prijzen (zie `memory/cli-workflow.md` of de Inkoopprijzen-tab in de admin).
+**0c. Vergelijk en kies de inkoopprijs.**
+Zet Oosterberg-netto naast de online richtprijzen uit 0a. Wijkt Oosterberg sterk af (niet op voorraad, oude prijs, andere variant), gebruik dan de best onderbouwde prijs en noteer de bron in `internalAdvice`. Reken een fabrikantscashback alleen mee als de voorwaarden uit 0a dat hard ondersteunen.
+
+Als de gebruiker expliciet zegt geen prijzen te willen refreshen, gebruik dan de meest recent bekende prijzen (zie `memory/cli-workflow.md` of de Inkoopprijzen-tab in de admin).
 
 ## Stap 1 — Verzamel informatie
 
