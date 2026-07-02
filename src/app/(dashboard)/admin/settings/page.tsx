@@ -2,7 +2,6 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SettingsClient } from "./settings-client";
 import { DEFAULT_SETTINGS } from "@/lib/branding";
-import { DEFAULT_TERMS, DEFAULT_PRIVACY } from "@/lib/pdf/legal-template";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -39,8 +38,16 @@ export default async function SettingsPage() {
         accentColor: (branding.accentColor as string) ?? "",
         tagline: (branding.tagline as string) ?? "",
       }}
-      termsContent={company.termsContent ?? DEFAULT_TERMS[company.slug] ?? DEFAULT_TERMS.websup}
-      privacyContent={company.privacyContent ?? DEFAULT_PRIVACY[company.slug] ?? DEFAULT_PRIVACY.websup}
+      legalDocuments={{
+        terms: {
+          name: company.termsPdfName,
+          size: company.termsPdfSize,
+        },
+        privacy: {
+          name: company.privacyPdfName,
+          size: company.privacyPdfSize,
+        },
+      }}
     />
   );
 }

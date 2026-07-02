@@ -347,8 +347,8 @@ export function QuotePortalClient({
           />
         )}
 
-        <div className={`portal-layout${submitted === "accepted" ? " portal-layout--full" : ""}`} ref={documentRef}>
-          <div className="doc-viewer">
+        <div className={`portal-layout${submitted === "accepted" ? " portal-layout--full" : ""}`}>
+          <div className="doc-viewer" id="offerte" ref={documentRef}>
               <QuoteSheetPreview
               quote={quote} 
               companySlug={quote.company.slug} 
@@ -423,7 +423,7 @@ export function QuotePortalClient({
                 </div>
               ) : (
                 <div className="portal-card portal-action-card">
-                  <p className="portal-form-kicker">Akkoord geven</p>
+                  <p className="portal-form-kicker" id="akkoord">Akkoord geven</p>
 
                   {(choiceGroups.length > 0 || optionalWork.length > 0) && (
                     <div className="portal-composer">

@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Loader2, Save, Settings, Palette, Bot, Key, FileText, ExternalLink } from "lucide-react";
+import { Loader2, Save, Settings, Palette, Bot, Key, FileText, ExternalLink, Upload, Trash2 } from "lucide-react";
 
 type CompanySettings = {
   defaultVatRate: number;
@@ -29,6 +29,11 @@ type CompanyBranding = {
   tagline: string;
 };
 
+type LegalDocumentState = {
+  terms: { name: string | null; size: number | null };
+  privacy: { name: string | null; size: number | null };
+};
+
 const PROMPT_LABELS: Record<string, string> = {
   BATTERY: "Thuisbatterij advies",
   EMS: "EMS & Energiemanagement",
@@ -46,23 +51,20 @@ export function SettingsClient({
   companySlug,
   settings: initialSettings,
   branding: initialBranding,
-  termsContent: initialTerms,
-  privacyContent: initialPrivacy,
+  legalDocuments: initialLegalDocuments,
 }: {
   companyId: string;
   companyName: string;
   companySlug: string;
   settings: CompanySettings;
   branding: CompanyBranding;
-  termsContent: string;
-  privacyContent: string;
+  legalDocuments: LegalDocumentState;
 }) {
   const [settings, setSettings] = useState(initialSettings);
   const [branding, setBranding] = useState(initialBranding);
-  const [termsContent, setTermsContent] = useState(initialTerms);
-  const [privacyContent, setPrivacyContent] = useState(initialPrivacy);
+  const [legalDocuments, setLegalDocuments] = useState(initialLegalDocuments);
   const [saving, setSaving] = useState(false);
-  const [savingLegal, setSavingLegal] = useState(false);
+  const [uploadingLegal, setUploadingLegal] = useState<"terms" | "privacy" | null>(null);
 
   async function saveSettings() {
     setSaving(true);
@@ -88,23 +90,88 @@ export function SettingsClient({
   }
 
 
-  async function saveLegal() {
-    setSavingLegal(true);
+  async function uploadLegal(type: "terms" | "privacy", file: File | undefined) {
+    if (!file) return;
+    setUploadingLegal(type);
     try {
-      await fetch(`/api/company/${companyId}/legal`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ termsContent, privacyContent }),
+      const formData = new FormData();
+      formData.set("type", type);
+      formData.set("file", file);
+
+      const response = await fetch(`/api/company/${companyId}/legal-pdf`, {
+        method: "POST",
+        body: formData,
       });
-      toast.success("Juridische documenten opgeslagen");
-    } catch {
-      toast.error("Opslaan mislukt");
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "Upload mislukt");
+      }
+
+      const body = await response.json();
+      setLegalDocuments((current) => ({
+        ...current,
+        [type]: {
+          name: body.document.name,
+          size: body.document.size,
+        },
+      }));
+      toast.success("PDF geupload");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Upload mislukt");
     } finally {
-      setSavingLegal(false);
+      setUploadingLegal(null);
+    }
+  }
+
+  async function deleteLegal(type: "terms" | "privacy") {
+    setUploadingLegal(type);
+    try {
+      const response = await fetch(`/api/company/${companyId}/legal-pdf`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "Verwijderen mislukt");
+      }
+
+      setLegalDocuments((current) => ({
+        ...current,
+        [type]: { name: null, size: null },
+      }));
+      toast.success("PDF verwijderd");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Verwijderen mislukt");
+    } finally {
+      setUploadingLegal(null);
     }
   }
 
   const isKoolhaas = companySlug === "koolhaas";
+
+  function formatFileSize(size: number | null) {
+    if (!size) return null;
+    if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+    return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  const legalUploads = [
+    {
+      type: "terms" as const,
+      title: "Algemene voorwaarden",
+      description: "Deze PDF wordt geopend via de link algemene voorwaarden in het offerteportaal.",
+      uploadLabel: "Upload voorwaarden",
+    },
+    {
+      type: "privacy" as const,
+      title: "Privacyverklaring",
+      description: "Deze PDF wordt geopend via de privacy-link in het offerteportaal.",
+      uploadLabel: "Upload privacyverklaring",
+    },
+  ];
 
   return (
     <div className="w-full max-w-[1400px] space-y-6 p-6 lg:p-8 2xl:px-10">
@@ -343,73 +410,87 @@ export function SettingsClient({
         {/* Juridisch */}
         <TabsContent value="legal">
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Gebruik Markdown: <code className="text-xs bg-muted px-1 py-0.5 rounded">## Artikel</code> voor kopjes,{" "}
-                  <code className="text-xs bg-muted px-1 py-0.5 rounded">- item</code> voor lijsten,{" "}
-                  <code className="text-xs bg-muted px-1 py-0.5 rounded">---</code> voor een lijn.
-                </p>
-              </div>
-              <Button onClick={saveLegal} disabled={savingLegal}>
-                {savingLegal ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Opslaan
-              </Button>
+            <p className="text-sm text-muted-foreground">
+              Upload hier de definitieve PDF-bestanden. De links in het offerteportaal tonen exact deze bestanden.
+            </p>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              {legalUploads.map((document) => {
+                const current = legalDocuments[document.type];
+                const isBusy = uploadingLegal === document.type;
+                const fileSize = formatFileSize(current.size);
+
+                return (
+                  <Card key={document.type}>
+                    <CardHeader className="space-y-2">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <CardTitle>{document.title}</CardTitle>
+                          <CardDescription>{document.description}</CardDescription>
+                        </div>
+                        {current.name && (
+                          <a
+                            href={`/api/legal/${companySlug}/${document.type}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Bekijk PDF
+                          </a>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="rounded-md border border-dashed p-4">
+                        {current.name ? (
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{current.name}</p>
+                              {fileSize && <p className="text-xs text-muted-foreground">{fileSize}</p>}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deleteLegal(document.type)}
+                              disabled={isBusy}
+                              aria-label={`${document.title} verwijderen`}
+                            >
+                              {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Nog geen PDF geupload.</p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Label
+                          htmlFor={`legal-${document.type}`}
+                          className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                        >
+                          {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          {document.uploadLabel}
+                        </Label>
+                        <Input
+                          id={`legal-${document.type}`}
+                          type="file"
+                          accept="application/pdf,.pdf"
+                          className="hidden"
+                          disabled={isBusy}
+                          onChange={(event) => {
+                            uploadLegal(document.type, event.target.files?.[0]);
+                            event.target.value = "";
+                          }}
+                        />
+                        <span className="text-xs text-muted-foreground">PDF, max. 15 MB</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
-
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between">
-                <div>
-                  <CardTitle>Algemene Voorwaarden</CardTitle>
-                  <CardDescription>Verschijnt als downloadbare PDF in het offerteportaal</CardDescription>
-                </div>
-                <a
-                  href={`/api/legal/${companySlug}/terms`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Bekijk PDF
-                </a>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  rows={20}
-                  className="font-mono text-xs"
-                  value={termsContent}
-                  onChange={(e) => setTermsContent(e.target.value)}
-                  placeholder="## Artikel 1 — ..."
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between">
-                <div>
-                  <CardTitle>Privacybeleid</CardTitle>
-                  <CardDescription>AVG-verplicht, verschijnt als downloadbare PDF in het offerteportaal</CardDescription>
-                </div>
-                <a
-                  href={`/api/legal/${companySlug}/privacy`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Bekijk PDF
-                </a>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  rows={20}
-                  className="font-mono text-xs"
-                  value={privacyContent}
-                  onChange={(e) => setPrivacyContent(e.target.value)}
-                  placeholder="## 1. Verantwoordelijke&#10;..."
-                />
-              </CardContent>
-            </Card>
           </div>
         </TabsContent>
       </Tabs>

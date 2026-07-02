@@ -4,7 +4,15 @@ import { authConfig } from "@/auth.config";
 
 const { auth } = NextAuth(authConfig);
 
-const PUBLIC_PATHS = ["/login", "/q/", "/print/portal/", "/api/auth", "/api/integrations/quote-contract", "/api/cli/"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/q/",
+  "/print/portal/",
+  "/api/auth",
+  "/api/legal/",
+  "/api/integrations/quote-contract",
+  "/api/cli/",
+];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;

@@ -53,32 +53,30 @@ const styles = StyleSheet.create({
   page: {
     fontFamily: "Helvetica",
     fontSize: 9.5,
-    color: "#1e293b",
+    color: "#1f2937",
     backgroundColor: "#ffffff",
-    paddingTop: 36,
+    paddingTop: 34,
     paddingBottom: 56,
-    paddingHorizontal: 44,
+    paddingHorizontal: 46,
     lineHeight: 1.5,
   },
   hero: {
-    padding: 20,
-    borderRadius: 18,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
+    paddingBottom: 20,
+    marginBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
   },
   heroStripe: {
     flexDirection: "row",
-    height: 4,
-    borderRadius: 999,
+    height: 3,
     overflow: "hidden",
-    marginBottom: 18,
+    marginBottom: 22,
   },
   heroTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 28,
+    marginBottom: 24,
   },
   brandName: { fontSize: 14, fontFamily: "Helvetica-Bold", color: "#0f172a" },
   eyebrow: {
@@ -87,40 +85,41 @@ const styles = StyleSheet.create({
     color: "#64748b",
     textTransform: "uppercase",
     letterSpacing: 1.1,
-    marginBottom: 7,
+    marginBottom: 8,
   },
-  docTitle: { fontSize: 28, fontFamily: "Helvetica-Bold", color: "#0f172a", marginBottom: 7, lineHeight: 1.05 },
-  docSubtitle: { fontSize: 9.5, color: "#64748b", lineHeight: 1.55, maxWidth: 360 },
-  metaRow: { flexDirection: "row", gap: 7, marginTop: 14, flexWrap: "wrap" },
-  versionBadge: {
-    fontSize: 7.5,
-    color: "#334155",
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  contentCard: {
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 14,
-    padding: 16,
-    backgroundColor: "#ffffff",
-  },
-  section: {
-    marginTop: 11,
+  docTitle: { fontSize: 31, fontFamily: "Helvetica-Bold", color: "#0f172a", marginBottom: 8, lineHeight: 1.02 },
+  docSubtitle: { fontSize: 9.5, color: "#64748b", lineHeight: 1.55, maxWidth: 380 },
+  metaRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 16,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
+    borderTopColor: "#e5e7eb",
+    flexWrap: "wrap",
+  },
+  versionBadge: {
+    fontSize: 7.8,
+    fontFamily: "Helvetica-Bold",
+    color: "#334155",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  contentIntroSpace: {
+    height: 10,
+  },
+  section: {
+    marginTop: 13,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
   },
   h1: { fontSize: 14, fontFamily: "Helvetica-Bold", color: "#0f172a", marginTop: 12, marginBottom: 7 },
-  h2: { fontSize: 11.5, fontFamily: "Helvetica-Bold", color: "#0f172a", marginBottom: 5 },
+  h2: { fontSize: 11.5, fontFamily: "Helvetica-Bold", color: "#0f172a", marginBottom: 6 },
   h3: { fontSize: 10, fontFamily: "Helvetica-Bold", color: "#334155", marginTop: 9, marginBottom: 4 },
-  p: { fontSize: 9.2, color: "#374151", marginBottom: 6, lineHeight: 1.55 },
-  li: { fontSize: 9.2, color: "#374151", marginBottom: 3, lineHeight: 1.45, paddingLeft: 12 },
-  liBullet: { position: "absolute", left: 0, top: 0, color: "#94a3b8" },
+  p: { fontSize: 9.2, color: "#374151", marginBottom: 6, lineHeight: 1.58 },
+  li: { fontSize: 9.2, color: "#374151", marginBottom: 3, lineHeight: 1.48, flex: 1 },
+  liBullet: { width: 14, fontSize: 9.2, color: "#94a3b8" },
   separator: { borderBottomWidth: 1, borderBottomColor: "#e2e8f0", marginVertical: 12 },
   footer: {
     position: "absolute",
@@ -131,7 +130,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
+    borderTopColor: "#e5e7eb",
     paddingTop: 8,
   },
   footerText: { fontSize: 7.5, color: "#94a3b8" },
@@ -164,7 +163,7 @@ function parseContent(content: string, accentColor: string) {
       elements.push(<Text key={i} style={styles.h3}>{trimmed.slice(4)}</Text>);
     } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
       elements.push(
-        <View key={i} style={{ position: "relative", paddingLeft: 12, marginBottom: 3 }}>
+        <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 3 }}>
           <Text style={[styles.liBullet, { color: accentColor }]}>•</Text>
           <Text style={styles.li}>{trimmed.slice(2)}</Text>
         </View>
@@ -173,8 +172,8 @@ function parseContent(content: string, accentColor: string) {
       const numMatch = trimmed.match(/^(\d+)\.\s(.*)$/);
       if (numMatch) {
         elements.push(
-          <View key={i} style={{ position: "relative", paddingLeft: 16, marginBottom: 3 }}>
-            <Text style={[styles.liBullet, { color: accentColor }]}>{numMatch[1]}.</Text>
+          <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 3 }}>
+            <Text style={[styles.liBullet, { color: accentColor, width: 18 }]}>{numMatch[1]}.</Text>
             <Text style={styles.li}>{numMatch[2]}</Text>
           </View>
         );
@@ -229,7 +228,7 @@ export function LegalPDF({
       language="nl"
     >
       <Page size="A4" style={styles.page}>
-        <View style={[styles.hero, { backgroundColor: brand.light, borderColor: brand.accent }]}>
+        <View style={[styles.hero, { borderBottomColor: brand.accent }]}>
           <View style={styles.heroStripe}>
             <View style={{ flex: 1, backgroundColor: brand.warm }} />
             <View style={{ flex: 1, backgroundColor: brand.accent2 }} />
@@ -240,7 +239,7 @@ export function LegalPDF({
               <Text style={[styles.brandName, { color: brand.text }]}>{companyName}</Text>
               <Text style={{ fontSize: 8.5, color: brand.muted, marginTop: 2 }}>{companyWebsite}</Text>
             </View>
-            <Text style={[styles.versionBadge, { color: brand.accentDark, borderColor: brand.accent }]}>
+            <Text style={[styles.versionBadge, { color: brand.accentDark }]}>
               {docKind}
             </Text>
           </View>
@@ -250,15 +249,14 @@ export function LegalPDF({
             Heldere afspraken, compact vastgelegd voor offertes, opdrachten en communicatie via het offerteportaal.
           </Text>
           <View style={styles.metaRow}>
-            {version && <Text style={styles.versionBadge}>Versie {version}</Text>}
-            {date && <Text style={styles.versionBadge}>Bijgewerkt {date}</Text>}
-            <Text style={styles.versionBadge}>{companyEmail}</Text>
+            {version && <Text style={[styles.versionBadge, { color: brand.muted }]}>Versie {version}</Text>}
+            {date && <Text style={[styles.versionBadge, { color: brand.muted }]}>Bijgewerkt {date}</Text>}
+            <Text style={[styles.versionBadge, { color: brand.accentDark }]}>{companyEmail}</Text>
           </View>
         </View>
 
-        <View style={[styles.contentCard, { backgroundColor: brand.surface }]}>
-          {parsed}
-        </View>
+        <View style={styles.contentIntroSpace} />
+        {parsed}
 
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>{companyName} - {companyEmail} - {companyWebsite}</Text>

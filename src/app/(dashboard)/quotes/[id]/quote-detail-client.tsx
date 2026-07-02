@@ -19,6 +19,7 @@ import {
   Zap,
   Printer,
   Calculator,
+  Mail,
 } from "lucide-react";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
 import { QuoteBuilder } from "@/components/forms/quote-builder";
@@ -425,6 +426,7 @@ export function QuoteDetailClient({
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("view");
   const [sharing, setSharing] = useState(false);
+  const [openingMail, setOpeningMail] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
 
   useEffect(() => {
@@ -458,6 +460,80 @@ export function QuoteDetailClient({
       toast.error("Delen mislukt");
     } finally {
       setSharing(false);
+    }
+  }
+
+  function buildQuoteEmail(portalUrl: string) {
+    const quoteTitle = quote.title || quote.number;
+    const validUntil = quote.validUntil ? formatDate(quote.validUntil) : null;
+    const totalExVat = formatCurrency(Number(quote.totalExVat));
+    const totalIncVat = formatCurrency(Number(quote.totalIncVat));
+
+    if (companySlug === "koolhaas") {
+      return {
+        subject: `Offerte van Koolhaas Installaties - ${quoteTitle}`,
+        body: [
+          `Beste ${quote.customer.name},`,
+          "",
+          "Hierbij stuur ik je de offerte toe.",
+          "",
+          "Via onderstaande link kun je de offerte rustig bekijken:",
+          portalUrl,
+          "",
+          `Offertenummer: ${quote.number}`,
+          `Totaalbedrag excl. btw: ${totalExVat}`,
+          `Totaalbedrag incl. btw: ${totalIncVat}`,
+          ...(validUntil ? [`Geldig t/m: ${validUntil}`] : []),
+          "",
+          "In de offerte vind je de werkzaamheden, materialen en voorwaarden. Bij vragen hoor ik het graag.",
+        ].join("\n"),
+      };
+    }
+
+    return {
+      subject: `Offerte van WebsUp.nl - ${quoteTitle}`,
+      body: [
+        `Beste ${quote.customer.name},`,
+        "",
+        "Zoals besproken heb ik de offerte voor je klaargezet.",
+        "",
+        "Via onderstaande link kun je de offerte rustig bekijken:",
+        portalUrl,
+        "",
+        `Offertenummer: ${quote.number}`,
+        `Totaalbedrag excl. btw: ${totalExVat}`,
+        `Totaalbedrag incl. btw: ${totalIncVat}`,
+        ...(validUntil ? [`Geldig t/m: ${validUntil}`] : []),
+        "",
+        "In de offerte vind je de werkzaamheden, planning en investering. Heb je vragen of wil je iets aanpassen? Laat het gerust weten.",
+      ].join("\n"),
+    };
+  }
+
+  async function handleSendQuoteEmail() {
+    if (!quote.customer.email) {
+      toast.error("Deze klant heeft geen e-mailadres");
+      return;
+    }
+
+    setOpeningMail(true);
+    try {
+      const res = await fetch(`/api/quotes/${quote.id}/share`, { method: "POST" });
+      if (!res.ok) throw new Error("Share link maken mislukt");
+
+      const data = await res.json();
+      const url = `${window.location.origin}/q/${data.token}`;
+      setShareUrl(url);
+
+      const email = buildQuoteEmail(url);
+      const mailto = `mailto:${quote.customer.email}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}`;
+      window.location.href = mailto;
+      toast.success("Mail geopend met offerte tekst");
+      router.refresh();
+    } catch {
+      toast.error("Mail openen mislukt");
+    } finally {
+      setOpeningMail(false);
     }
   }
 
@@ -510,6 +586,10 @@ export function QuoteDetailClient({
           <Button variant="outline" size="sm" onClick={handlePrint} className="no-print">
             <Printer className="mr-2 h-4 w-4" />
             Print / PDF
+          </Button>
+          <Button size="sm" onClick={handleSendQuoteEmail} disabled={openingMail}>
+            {openingMail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+            Verstuur offerte
           </Button>
           <Button variant="outline" size="sm" onClick={handleShare} disabled={sharing}>
             {sharing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}

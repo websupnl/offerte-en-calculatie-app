@@ -104,6 +104,22 @@ export async function presignDownload(
   );
 }
 
+export async function downloadObject(
+  key: string,
+  bucket: string = STORAGE_BUCKET,
+): Promise<Buffer> {
+  const response = await getStorageClient().send(
+    new GetObjectCommand({ Bucket: bucket, Key: key }),
+  );
+
+  if (!response.Body) {
+    throw new Error(`Object heeft geen inhoud: ${key}`);
+  }
+
+  const bytes = await response.Body.transformToByteArray();
+  return Buffer.from(bytes);
+}
+
 export async function deleteObject(
   key: string,
   bucket: string = STORAGE_BUCKET,

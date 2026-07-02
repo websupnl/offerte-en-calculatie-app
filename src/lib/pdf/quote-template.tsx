@@ -1,6 +1,7 @@
 import {
   Document,
   Image,
+  Link,
   Page,
   StyleSheet,
   Text,
@@ -27,6 +28,7 @@ type QuoteItem = {
 type QuoteAttachment = {
   title?: string;
   imageUrl: string;
+  liveUrl?: string | null;
   caption?: string;
 };
 
@@ -673,11 +675,33 @@ export function QuotePDF({
                 {(attachment.title || attachment.caption) && (
                   <View style={{ marginTop: 7, minHeight: 32 }}>
                     <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: brand.colors.accent, textTransform: "uppercase", letterSpacing: 0.7 }}>
-                      Ontwerpimpressie
+                      {attachment.liveUrl ? "Werkend ontwerp" : "Ontwerpimpressie"}
                     </Text>
                     <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.3, marginTop: 3 }}>
-                      {attachment.caption || "Een visuele indruk van de voorgestelde uitwerking."}
+                      {attachment.caption ||
+                        (attachment.liveUrl
+                          ? "Bekijk het ontwerp online om de interactie en volledige pagina te ervaren."
+                          : "Een visuele indruk van de voorgestelde uitwerking.")}
                     </Text>
+                    {attachment.liveUrl && (
+                      <Link
+                        src={attachment.liveUrl}
+                        style={{
+                          alignSelf: "flex-start",
+                          marginTop: 5,
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: 999,
+                          backgroundColor: brand.colors.accent,
+                          color: "#FFFFFF",
+                          fontSize: 7.5,
+                          fontFamily: "Helvetica-Bold",
+                          textDecoration: "none",
+                        }}
+                      >
+                        Bekijk voorbeeld
+                      </Link>
+                    )}
                   </View>
                 )}
               </View>
