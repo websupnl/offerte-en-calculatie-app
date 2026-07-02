@@ -24,6 +24,7 @@ import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
 import { QuoteBuilder } from "@/components/forms/quote-builder";
 import { AdviceDocumentForm } from "@/components/forms/advice-document-form";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
+import { SheetScaler } from "@/components/sheet-scaler";
 
 type QuoteItem = {
   id: string;
@@ -613,11 +614,13 @@ export function QuoteDetailClient({
             </Card>
           )}
 
-          <QuoteSheetPreview
-            quote={quote as never}
-            companySlug={companySlug}
-            selectedOptionIds={(quote.share?.selectedOptionIds as string[] | undefined) ?? []}
-          />
+          <SheetScaler>
+            <QuoteSheetPreview
+              quote={quote as never}
+              companySlug={companySlug}
+              selectedOptionIds={(quote.share?.selectedOptionIds as string[] | undefined) ?? []}
+            />
+          </SheetScaler>
         </TabsContent>
 
         {/* Edit tab */}

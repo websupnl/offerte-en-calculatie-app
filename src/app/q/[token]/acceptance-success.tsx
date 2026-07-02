@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, ArrowDown, Sparkles, Download, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
+import { filenameFromResponse } from "@/lib/download-filename";
 
 interface AcceptanceSuccessProps {
   customerName: string;
@@ -49,7 +50,7 @@ export function AcceptanceSuccess({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "offerte.pdf";
+      a.download = filenameFromResponse(res, "offerte.pdf");
       a.click();
       URL.revokeObjectURL(url);
     } finally {

@@ -10,6 +10,7 @@ import { formatDate } from "@/lib/format";
 import { createElement } from "react";
 import { DEFAULT_BRANDING } from "@/lib/branding";
 import { resolveQuoteAttachmentImages } from "@/lib/quote-attachments";
+import { pdfFilename } from "@/lib/pdf/filename";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,12 +24,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const quoteCheck = await prisma.quote.findFirst({
     where: { id, companyId: session.user.activeCompanyId },
-    select: { pdfUrl: true, number: true },
+    select: { pdfUrl: true, number: true, customer: { select: { name: true } } },
   });
 
   if (!quoteCheck) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const filename = `offerte-${quoteCheck.number || id}.pdf`;
+  const filename = pdfFilename("Offerte", quoteCheck.number || id, quoteCheck.customer?.name);
 
   // 1. Cached blob PDF
   if (quoteCheck.pdfUrl) {

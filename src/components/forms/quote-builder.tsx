@@ -41,6 +41,7 @@ import {
 import { formatCurrency } from "@/lib/format";
 import { calculateTotals } from "@/lib/calculation";
 import { QuoteSheetPreview, type QuotePreviewData } from "@/components/quote-sheet-preview";
+import { SheetScaler } from "@/components/sheet-scaler";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -1175,21 +1176,21 @@ export function QuoteBuilder({
   return (
     <div className="min-h-[calc(100vh-72px)] bg-slate-50">
       {/* ── Top Toolbar ── */}
-      <header className="sticky top-[72px] z-20 bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-4">
+      <header className="sticky top-[72px] z-20 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-200 bg-white px-4 py-3 shadow-sm lg:px-6">
+        <div className="flex min-w-0 items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => router.back()}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Terug
           </Button>
-          <div className="h-6 w-px bg-slate-200" />
-          <div className="leading-tight">
-            <h1 className="font-bold text-slate-900">
-              {initialQuote ? `${title || initialQuote.number} bewerken` : "Nieuwe offerte visueel bewerken"}
+          <div className="hidden h-6 w-px bg-slate-200 sm:block" />
+          <div className="min-w-0 leading-tight">
+            <h1 className="truncate font-bold text-slate-900">
+              {initialQuote ? `${title || initialQuote.number} bewerken` : "Nieuwe offerte"}
             </h1>
             {initialQuote && <p className="text-xs text-slate-400">{initialQuote.number}</p>}
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <label className="inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50/50 px-2.5 text-sm font-bold text-blue-600 transition-colors hover:bg-blue-50">
             {visionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
             Scan Situatie
@@ -1207,23 +1208,23 @@ export function QuoteBuilder({
             </Dialog>
           )}
 
-          {initialQuote && <div className="h-6 w-px bg-slate-200 mx-2" />}
+          {initialQuote && <div className="hidden h-6 w-px bg-slate-200 xl:block" />}
 
-          <div className="flex items-center gap-2 mr-4">
-            <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Naam:</Label>
+          <div className="flex items-center gap-2">
+            <Label className="hidden text-xs font-bold uppercase tracking-wider text-slate-500 2xl:block">Naam:</Label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Naam van de offerte"
-              className="w-[220px] h-9"
+              className="h-9 w-[150px] xl:w-[200px]"
             />
           </div>
 
-          <div className="flex items-center gap-2 mr-4">
-            <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Klant:</Label>
+          <div className="flex items-center gap-2">
+            <Label className="hidden text-xs font-bold uppercase tracking-wider text-slate-500 2xl:block">Klant:</Label>
             <Popover open={customerPickerOpen} onOpenChange={setCustomerPickerOpen}>
               <PopoverTrigger render={
-                <Button variant="outline" className="w-[200px] h-9 justify-between font-normal">
+                <Button variant="outline" className="h-9 w-[160px] justify-between font-normal xl:w-[190px]">
                   <span className="truncate">{customer?.name || "Selecteer klant"}</span>
                   <ChevronDown className="h-3.5 w-3.5 opacity-50 shrink-0" />
                 </Button>
@@ -1264,13 +1265,13 @@ export function QuoteBuilder({
             </Popover>
           </div>
 
-          <div className="flex items-center gap-2 mr-4">
-            <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Geldig tot:</Label>
-            <Input 
-              type="date" 
-              className="w-[160px] h-9" 
-              value={validUntil} 
-              onChange={(e) => setValidUntil(e.target.value)} 
+          <div className="flex items-center gap-2">
+            <Label className="hidden text-xs font-bold uppercase tracking-wider text-slate-500 2xl:block">Geldig tot:</Label>
+            <Input
+              type="date"
+              className="h-9 w-[140px] xl:w-[150px]"
+              value={validUntil}
+              onChange={(e) => setValidUntil(e.target.value)}
             />
           </div>
 
@@ -1281,22 +1282,24 @@ export function QuoteBuilder({
         </div>
       </header>
 
-      <div className="flex w-full max-w-[1920px] flex-col gap-8 p-4 lg:p-8 2xl:px-10 mx-auto items-start xl:flex-row">
+      <div className="flex w-full max-w-[1920px] flex-col gap-6 p-4 lg:flex-row lg:gap-8 lg:p-6 2xl:px-10 mx-auto items-start">
         {/* ── Visual Editor (The Paper) ── */}
-        <div className="flex-1">
-          <QuoteSheetPreview 
-            quote={quoteData}
-            companySlug={companySlug}
-            isEditable={true} 
-            onUpdate={handleUpdate}
-            onUpdateItem={handlePreviewItemUpdate}
-            onAddItem={addItem}
-            onRemoveItem={removeItem}
-          />
+        <div className="w-full min-w-0 flex-1">
+          <SheetScaler>
+            <QuoteSheetPreview
+              quote={quoteData}
+              companySlug={companySlug}
+              isEditable={true}
+              onUpdate={handleUpdate}
+              onUpdateItem={handlePreviewItemUpdate}
+              onAddItem={addItem}
+              onRemoveItem={removeItem}
+            />
+          </SheetScaler>
         </div>
 
         {/* ── Right Panel (Controls) ── */}
-        <aside className="w-full space-y-6 pb-2 xl:sticky xl:top-[152px] xl:max-h-[calc(100vh-168px)] xl:w-[420px] xl:overflow-y-auto xl:overscroll-contain xl:pr-2 [scrollbar-gutter:stable] 2xl:w-[460px]">
+        <aside className="w-full space-y-6 pb-2 lg:w-[360px] lg:shrink-0 xl:sticky xl:top-[132px] xl:max-h-[calc(100vh-148px)] xl:w-[400px] xl:overflow-y-auto xl:overscroll-contain xl:pr-2 [scrollbar-gutter:stable] 2xl:w-[440px]">
           <Tabs defaultValue="quote" className="w-full">
             <TabsList className="sticky top-0 z-10 mb-4 grid w-full grid-cols-3 shadow-sm">
               <TabsTrigger value="quote"><FileText className="h-4 w-4 mr-2" />Offerte</TabsTrigger>

@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/format";
 import { createElement } from "react";
 import { DEFAULT_BRANDING } from "@/lib/branding";
 import { resolveQuoteAttachmentImages } from "@/lib/quote-attachments";
+import { pdfFilename } from "@/lib/pdf/filename";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   if (!share) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const quote = share.quote;
-  const filename = `offerte-${quote.number || token}.pdf`;
+  const filename = pdfFilename("Offerte", quote.number || token, quote.customer?.name);
 
   // Primary: render the actual print page via headless Chromium (pixel-perfect match)
   const host = req.headers.get("host") ?? "localhost:3001";

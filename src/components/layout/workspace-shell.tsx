@@ -20,6 +20,7 @@ const routeLabels: Record<string, string> = {
   admin: "Beheer",
   products: "Artikelen",
   settings: "Instellingen",
+  new: "Nieuw",
 };
 
 export function WorkspaceShell({
@@ -90,7 +91,7 @@ export function WorkspaceShell({
             <Menu className="h-5 w-5" />
           </button>
 
-          <div className="hidden min-w-0 flex-col md:flex">
+          <div className="hidden shrink-0 flex-col md:flex">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#167f88]">Werkplek</p>
             <nav className="mt-1 flex min-w-0 items-center gap-1 text-sm text-slate-500">
               {crumbs.length === 0 ? (
@@ -114,10 +115,13 @@ export function WorkspaceShell({
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="mx-auto flex h-10 w-full max-w-2xl items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 text-left text-sm text-slate-500 shadow-sm transition-colors hover:border-slate-300 hover:bg-white"
+            className="mx-auto flex h-10 w-full min-w-0 max-w-2xl flex-1 items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 text-left text-sm text-slate-500 shadow-sm transition-colors hover:border-slate-300 hover:bg-white"
           >
-            <Search className="h-4 w-4" />
-            <span className="flex-1 truncate">Zoek klant, project, offerte, werkbon of artikel...</span>
+            <Search className="h-4 w-4 shrink-0" />
+            <span className="flex-1 truncate">
+              <span className="hidden xl:inline">Zoek klant, project, offerte, werkbon of artikel...</span>
+              <span className="xl:hidden">Zoeken...</span>
+            </span>
             <kbd className="hidden rounded border bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-400 sm:block">
               Ctrl K
             </kbd>
@@ -125,7 +129,7 @@ export function WorkspaceShell({
 
           <Link
             href="/projects"
-            className="hidden h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 shadow-sm hover:bg-slate-50 xl:flex"
+            className="hidden h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 shadow-sm hover:bg-slate-50 lg:flex"
           >
             <CalendarDays className="h-4 w-4" />
             Planning
@@ -139,12 +143,12 @@ export function WorkspaceShell({
           </Link>
           <button
             type="button"
-            className="hidden h-9 w-9 place-items-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 xl:grid"
+            className="hidden h-9 w-9 place-items-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 lg:grid"
             aria-label="Meldingen"
           >
             <Bell className="h-4 w-4" />
           </button>
-          <div className="hidden min-w-0 border-l border-slate-200 pl-4 text-right xl:block">
+          <div className="hidden min-w-0 shrink-0 border-l border-slate-200 pl-4 text-right lg:block">
             <p className="max-w-44 truncate text-xs font-semibold text-slate-800">{userName || "Gebruiker"}</p>
             <p className="max-w-44 truncate text-[11px] text-slate-400">
               {activeCompany?.name ?? currentSection}
