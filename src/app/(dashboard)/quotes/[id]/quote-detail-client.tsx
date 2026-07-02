@@ -93,6 +93,7 @@ type Quote = {
   number: string;
   title: string | null;
   status: string;
+  pdfUrl: string | null;
   validUntil: string | null;
   intro: string | null;
   outro: string | null;
@@ -428,6 +429,30 @@ export function QuoteDetailClient({
   const [sharing, setSharing] = useState(false);
   const [openingMail, setOpeningMail] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
+  const [pdfReady, setPdfReady] = useState(!!quote.pdfUrl);
+
+  // Sync pdfReady when quote props change (after router.refresh)
+  useEffect(() => {
+    setPdfReady(!!quote.pdfUrl);
+  }, [quote.pdfUrl]);
+
+  // Poll for PDF readiness while generating
+  useEffect(() => {
+    if (pdfReady) return;
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      if (attempts > 15) { clearInterval(interval); return; }
+      try {
+        const res = await fetch(`/api/quotes/${quote.id}/pdf/status`);
+        if (res.ok) {
+          const { pdfReady: ready } = await res.json();
+          if (ready) { setPdfReady(true); clearInterval(interval); }
+        }
+      } catch { /* ignore */ }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [pdfReady, quote.id]);
 
   useEffect(() => {
     if (quote.share) {
@@ -557,6 +582,7 @@ export function QuoteDetailClient({
   }
 
   function handlePrint() {
+    if (!pdfReady) return;
     window.location.href = `/api/quotes/${quote.id}/pdf`;
   }
 
@@ -583,9 +609,11 @@ export function QuoteDetailClient({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 pl-12 md:pl-0">
-          <Button variant="outline" size="sm" onClick={handlePrint} className="no-print">
-            <Printer className="mr-2 h-4 w-4" />
-            Print / PDF
+          <Button variant="outline" size="sm" onClick={handlePrint} disabled={!pdfReady} className="no-print">
+            {pdfReady
+              ? <><Printer className="mr-2 h-4 w-4" />Print / PDF</>
+              : <><Loader2 className="mr-2 h-4 w-4 animate-spin" />PDF wordt aangemaakt...</>
+            }
           </Button>
           <Button size="sm" onClick={handleSendQuoteEmail} disabled={openingMail}>
             {openingMail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}

@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { generateAndStorePortalPdf } from "@/lib/pdf/generate-and-store";
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -29,6 +30,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const url = `${appUrl}/q/${share.token}`;
+
+  // Pre-generate portal PDF in background so it's ready when customer opens the link
+  const host = req.headers.get("host") ?? "localhost:3000";
+  after(async () => {
+    await generateAndStorePortalPdf(share.token, host);
+  });
 
   return NextResponse.json({ token: share.token, url });
 }

@@ -134,6 +134,8 @@ model Customer {
   adviceReports AdviceDocument[]
   projects      Project[]
   salesInvoices SalesInvoice[]
+
+  @@index([companyId])
 }
 
 // ─── Products & Sets ───────────────────────────────────────────────────────
@@ -159,6 +161,8 @@ model Product {
   datasheet  Datasheet?       @relation(fields: [datasheetId], references: [id], onDelete: SetNull)
   quoteItems QuoteItem[]
   setItems   ProductSetItem[]
+
+  @@index([companyId, active])
 }
 
 model ProductSet {
@@ -238,6 +242,9 @@ model Quote {
   share           QuoteShare?
   findings        ResearchFinding[]
   salesInvoices   SalesInvoice[]
+
+  @@index([companyId, updatedAt(sort: Desc)])
+  @@index([companyId, status])
 }
 
 enum QuoteStatus {
@@ -425,6 +432,8 @@ model QuoteItem {
 
   quote   Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([quoteId])
 }
 
 // ─── Advice Documents ──────────────────────────────────────────────────────
@@ -441,6 +450,8 @@ model QuoteAttachment {
   updatedAt DateTime @updatedAt
 
   quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
 }
 
 model AdviceDocument {
@@ -479,6 +490,9 @@ model AdviceDocument {
   quote    Quote?   @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([customerId])
 }
 
 enum AdviceType {
@@ -523,6 +537,8 @@ model ResearchFinding {
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   quote   Quote?  @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
 }
 
 // ─── Quote Sharing (klantportaal) ──────────────────────────────────────────
@@ -542,6 +558,7 @@ model QuoteShare {
   acceptedTotalIncVat Decimal?  @db.Decimal(10, 2)
   acceptanceSnapshot  Json?
   message             String?   @db.Text
+  portalPdfUrl        String?   @db.Text
   createdAt           DateTime  @default(now())
 
   quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)

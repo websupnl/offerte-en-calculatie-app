@@ -1,11 +1,15 @@
 import { PrismaClient } from "@/generated/prisma";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
 // Re-triggering build for schema changes
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL!;
-  const adapter = new PrismaPg({ connectionString });
+  // On serverless (Vercel) each function instance must limit connections.
+  // max:1 prevents exhausting PG's connection limit across concurrent invocations.
+  const pool = new Pool({ connectionString, max: 1 });
+  const adapter = new PrismaPg(pool);
   return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["error"] : ["error"],

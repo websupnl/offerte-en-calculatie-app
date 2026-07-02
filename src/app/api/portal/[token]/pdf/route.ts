@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { renderPageAsPdf } from "@/lib/pdf/render-page-as-pdf";
+import { generateAndStorePortalPdf } from "@/lib/pdf/generate-and-store";
 // Fallback if Chromium not available
 import { renderToBuffer } from "@react-pdf/renderer";
 import { QuotePDF } from "@/lib/pdf/quote-template";
@@ -35,14 +36,32 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
 
   const quote = share.quote;
   const filename = pdfFilename("Offerte", quote.number || token, quote.customer?.name);
-
-  // Primary: render the actual print page via headless Chromium (pixel-perfect match)
   const host = req.headers.get("host") ?? "localhost:3001";
+
+  // 1. Serve from cache if available
+  if (share.portalPdfUrl) {
+    const res = await fetch(share.portalPdfUrl);
+    if (res.ok) {
+      const buffer = await res.arrayBuffer();
+      return new NextResponse(new Uint8Array(buffer), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+        },
+      });
+    }
+  }
+
+  // 2. Render via headless Chromium
   const proto = host.startsWith("localhost") ? "http" : "https";
   const printUrl = `${proto}://${host}/print/portal/${token}`;
   const pdfBuffer = await renderPageAsPdf(printUrl);
 
   if (pdfBuffer) {
+    // Cache for next request
+    after(async () => {
+      await generateAndStorePortalPdf(token, host);
+    });
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",

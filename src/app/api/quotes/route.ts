@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -11,6 +11,7 @@ import {
 import { calculateLine, calculateTotals } from "@/lib/calculation";
 import { normalizeQuoteCopyValue } from "@/lib/quote-copy";
 import { getQuoteAttachmentStorageKey } from "@/lib/quote-attachments";
+import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
 
 const itemSchema = z.object({
   productId: z.string().optional(),
@@ -158,6 +159,12 @@ export async function POST(req: NextRequest) {
         : undefined,
     },
     include: { customer: true, items: true, attachments: { orderBy: { sortOrder: "asc" } } },
+  });
+
+  const host = req.headers.get("host") ?? "localhost:3000";
+  const cookie = req.headers.get("cookie") ?? "";
+  after(async () => {
+    await generateAndStorePdf(quote.id, host, cookie);
   });
 
   return NextResponse.json(quote, { status: 201 });
