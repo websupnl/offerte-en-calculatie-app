@@ -17,6 +17,7 @@ import {
   PackageCheck,
 } from "lucide-react";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
+import { filenameFromResponse } from "@/lib/download-filename";
 import "./portal.css";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
 import { AcceptanceSuccess } from "./acceptance-success";
@@ -172,7 +173,7 @@ export function QuotePortalClient({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "offerte.pdf";
+      a.download = filenameFromResponse(res, "offerte.pdf");
       a.click();
       URL.revokeObjectURL(url);
     } finally {

@@ -8,6 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 import { createElement } from "react";
 import { DEFAULT_BRANDING } from "@/lib/branding";
+import { pdfFilename } from "@/lib/pdf/filename";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -50,7 +51,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdfBuffer: Buffer = await renderToBuffer(element as any);
 
-  const filename = `advies-${doc.type.toLowerCase()}-${doc.quote.customer.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
+  const filename = pdfFilename("Advies", doc.type, doc.quote.customer.name);
 
   return new NextResponse(new Uint8Array(pdfBuffer), {
     headers: {
