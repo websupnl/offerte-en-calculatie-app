@@ -51,7 +51,7 @@ export default async function WorkOrdersPage() {
         }
       />
       <div className="p-4 sm:p-5 lg:p-8">
-        <section className="overflow-hidden rounded-lg border bg-white shadow-sm">
+        <section className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
           <div className="divide-y md:hidden">
             {workOrders.map((workOrder) => (
               <Link key={workOrder.id} href={`/workorders/${workOrder.id}`} className="block p-4 active:bg-slate-50">
@@ -93,13 +93,13 @@ export default async function WorkOrdersPage() {
               {workOrders.map((workOrder) => (
                 <TableRow key={workOrder.id}>
                   <TableCell className="pl-4">
-                    <Link href={`/workorders/${workOrder.id}`} className="font-semibold text-slate-950 hover:text-[#167f88]">
+                    <Link href={`/workorders/${workOrder.id}`} className="font-semibold text-slate-950 hover:text-[var(--ws-accent)]">
                       {workOrder.number}
                     </Link>
                     <p className="max-w-80 truncate text-xs text-slate-500">{workOrder.title}</p>
                   </TableCell>
                   <TableCell>
-                    <Link href={`/projects/${workOrder.project.id}`} className="font-medium hover:text-[#167f88]">
+                    <Link href={`/projects/${workOrder.project.id}`} className="font-medium hover:text-[var(--ws-accent)]">
                       {workOrder.project.number}
                     </Link>
                     <p className="max-w-64 truncate text-xs text-slate-500">{workOrder.project.title}</p>

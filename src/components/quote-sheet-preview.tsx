@@ -185,7 +185,8 @@ const COMPANY_COPY = {
     ),
     website: "websup.nl",
     email: "hallo@websup.nl",
-    phone: "+31 6 12 34 56 78",
+    phone: "06 82 20 21 48",
+    kvk: "95524061",
     role: "Eigenaar WebsUp.nl",
     defaultCategory: "Maatwerk project",
     defaultTitle: "Persoonlijk voorstel op maat",
@@ -214,8 +215,9 @@ const COMPANY_COPY = {
     name: "Koolhaas Installaties",
     logoText: null,
     website: "koolhaasinstallaties.nl",
-    email: "daan@koolhaasinstallaties.nl",
-    phone: "+31 6 82 20 21 48",
+    email: "hallo@koolhaasinstallaties.nl",
+    phone: "06 82 20 21 48",
+    kvk: "95524061",
     role: "Koolhaas Installaties",
     defaultCategory: "Installatie - Energieopslag",
     defaultTitle: "Thuisbatterij installatie",
@@ -392,6 +394,7 @@ export function QuoteSheetPreview({
           {!isKoolhaas && <span>{brand.website}</span>}
           <span>{brand.email}</span>
           <span>{brand.phone}</span>
+          <span>KVK {brand.kvk}</span>
         </div>
         <div className="doc-foot-meta-row">
           {validUntilLabel && <span>Geldig tot {validUntilLabel}</span>}
@@ -661,8 +664,10 @@ export function QuoteSheetPreview({
                 </div>
                 <div className="cov-foot">
                   {!isKoolhaas && <img src="/logos/websup-icon-w.png" alt="" className="cov-foot-icon" />}
-                  <span>{brand.email}</span>
-                  <span>{brand.phone}</span>
+                  <span><small>Web</small><b>{brand.website}</b></span>
+                  <span><small>Mail</small><b>{brand.email}</b></span>
+                  <span><small>Telefoon</small><b>{brand.phone}</b></span>
+                  <span><small>KVK</small><b>{brand.kvk}</b></span>
                 </div>
               </div>
             </div>
@@ -805,7 +810,7 @@ export function QuoteSheetPreview({
                   <h3 className="mt-1 text-lg font-bold text-slate-900">{group.title}</h3>
                   {group.description && <p className="mt-1 text-sm text-slate-500">{group.description}</p>}
                 </div>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4">
                   {group.choices.map(choice => {
                     const isActive = selectedChoiceIds[group.id] === choice.id;
                     const systeemIncVat = choice.items.reduce((sum, item) => {
@@ -821,16 +826,16 @@ export function QuoteSheetPreview({
                       : systeemIncVat + baseIncVat;
                     const isRecommended = group.recommendedChoiceId === choice.id || choice.label?.toLowerCase() === "aanbevolen";
                     return (
-                      <div key={choice.id} className={`relative rounded-xl border p-4 ${isActive ? "border-blue-600 bg-blue-50/40" : "border-slate-200 bg-white"}`}>
+                      <div key={choice.id} className={`relative rounded-xl border p-5 ${isActive ? "border-blue-600 bg-blue-50/40" : "border-slate-200 bg-white"}`}>
                         <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-                          <h4 className="font-bold text-slate-900">{choice.title}</h4>
+                          <h4 className="text-base font-bold leading-tight text-slate-900">{choice.title}</h4>
                           {(choice.label || isRecommended) && (
-                            <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${isRecommended ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${isRecommended ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}>
                               {choice.label || "Aanbevolen"}
                             </span>
                           )}
                         </div>
-                        {choice.summary && <p className="mb-3 text-xs leading-relaxed text-slate-500">{choice.summary}</p>}
+                        {choice.summary && <p className="mb-3 text-sm leading-relaxed text-slate-600">{choice.summary}</p>}
                         <ul className="choice-details">
                           {choice.items
                             .filter((item) => (item.indent ?? 0) > 0)
@@ -842,8 +847,8 @@ export function QuoteSheetPreview({
                             ))}
                         </ul>
                         <div className="flex items-end justify-between gap-3">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isActive ? "Geselecteerd" : "Keuze bij akkoord"}</span>
-                          <strong className="text-sm text-slate-900">
+                          <span className="text-xs font-bold uppercase tracking-wide text-slate-500">{isActive ? "Geselecteerd" : "Keuze bij akkoord"}</span>
+                          <strong className="text-base text-slate-900">
                             {formatCurrency(total)} {showExVat ? "excl. btw" : "incl. btw"}
                           </strong>
                         </div>

@@ -233,7 +233,7 @@ function Metric({
 
 function ContactLine({ icon: Icon, value, href, fallback }: { icon: typeof Mail; value?: string | null; href?: string; fallback: string }) {
   const content = <><Icon className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" /><span className="min-w-0 break-words">{value || fallback}</span></>;
-  return href ? <a href={href} className="flex gap-2 text-[#167f88] hover:underline">{content}</a> : <div className="flex gap-2 text-slate-600">{content}</div>;
+  return href ? <a href={href} className="flex gap-2 text-[var(--ws-accent)] hover:underline">{content}</a> : <div className="flex gap-2 text-slate-600">{content}</div>;
 }
 
 function InfoLine({ label, value }: { label: string; value: string }) {

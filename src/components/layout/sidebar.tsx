@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 import { useCompany } from "@/lib/company-context";
 import {
   Brain,
-  BriefcaseBusiness,
   Building2,
   ChevronDown,
   ChevronsLeft,
@@ -107,12 +106,13 @@ export function Sidebar({
       )}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-[#18304c] bg-[#071421] text-slate-200 shadow-2xl transition-[width,transform] duration-200 lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:translate-x-0",
-          collapsed ? "lg:w-[78px]" : "lg:w-[286px]",
+          "fixed inset-y-0 left-0 z-50 flex flex-col rounded-r-2xl bg-[var(--ws-sidebar)] text-slate-200 shadow-xl transition-[width,transform] duration-200",
+          "lg:sticky lg:top-4 lg:z-30 lg:my-4 lg:ml-4 lg:h-[calc(100vh-32px)] lg:translate-x-0 lg:rounded-2xl",
+          collapsed ? "lg:w-[78px]" : "lg:w-[276px]",
           mobileOpen ? "w-[292px] translate-x-0" : "w-[292px] -translate-x-full",
         )}
       >
-        <div className="flex h-[72px] items-center gap-3 border-b border-[#18304c] px-3">
+        <div className="flex h-[72px] items-center gap-3 border-b border-white/10 px-3">
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label={`Bedrijf wisselen: ${activeCompany?.name ?? "selecteer bedrijf"}`}
@@ -126,9 +126,9 @@ export function Sidebar({
               </div>
               <div className={cn("min-w-0 flex-1", collapsed && "lg:hidden")}>
                 <p className="truncate text-sm font-bold text-white">{activeCompany?.name ?? "Bedrijf"}</p>
-                <p className="truncate text-[11px] text-slate-400">ERP & CRM werkplek</p>
+                <p className="truncate text-[11px] text-white/50">ERP & CRM werkplek</p>
               </div>
-              <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-500", collapsed && "lg:hidden")} />
+              <ChevronDown className={cn("h-4 w-4 shrink-0 text-white/45", collapsed && "lg:hidden")} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">
               {companies.map((company) => (
@@ -152,7 +152,7 @@ export function Sidebar({
             type="button"
             aria-label="Navigatie sluiten"
             onClick={onMobileClose}
-            className="grid h-9 w-9 place-items-center rounded-md text-slate-400 hover:bg-white/8 hover:text-white lg:hidden"
+            className="grid h-9 w-9 place-items-center rounded-md text-white/60 hover:bg-white/8 hover:text-white lg:hidden"
           >
             <X className="h-4 w-4" />
           </button>
@@ -169,7 +169,7 @@ export function Sidebar({
                 {group.label && (
                   <p
                     className={cn(
-                      "mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500",
+                      "mb-1.5 px-4 text-[11px] font-bold uppercase tracking-[0.14em] text-white/40",
                       collapsed && "lg:px-0 lg:text-center",
                     )}
                   >
@@ -189,11 +189,11 @@ export function Sidebar({
                         title={collapsed ? item.label : undefined}
                         onClick={onMobileClose}
                         className={cn(
-                          "group flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
+                          "group flex h-10 items-center gap-3 rounded-full px-4 text-sm font-medium transition-colors",
                           isActive
-                            ? "bg-[#0f7b83] text-white shadow-[inset_3px_0_0_#7bd6d9]"
-                            : "text-slate-400 hover:bg-white/7 hover:text-white",
-                          collapsed && "lg:justify-center lg:px-0",
+                            ? "bg-[var(--ws-pill)] font-semibold text-[var(--ws-pill-fg)] shadow-sm"
+                            : "text-[var(--ws-sidebar-fg)] hover:bg-white/8 hover:text-white",
+                          collapsed && "lg:justify-center lg:rounded-xl lg:px-0",
                         )}
                       >
                         <item.icon className="h-[18px] w-[18px] shrink-0" />
@@ -207,21 +207,14 @@ export function Sidebar({
           })}
         </nav>
 
-        <div className="border-t border-[#18304c] p-3">
-          <div className={cn("mb-3 rounded-md border border-white/8 bg-white/5 p-3", collapsed && "lg:grid lg:place-items-center lg:p-2")}>
-            <BriefcaseBusiness className="h-[18px] w-[18px] shrink-0 text-teal-300" />
-            <div className={cn("mt-2", collapsed && "lg:hidden")}>
-              <p className="text-xs font-semibold text-white">Werkproces</p>
-              <p className="mt-1 text-[11px] leading-4 text-slate-400">Relatie, offerte, project, werkbon en factuur.</p>
-            </div>
-          </div>
+        <div className="border-t border-white/10 p-3">
           <Link
             href="/admin/settings"
             onClick={onMobileClose}
             className={cn(
-              "mb-1 flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-slate-400 hover:bg-white/7 hover:text-white",
-              pathname.startsWith("/admin/settings") && "bg-white/8 text-white",
-              collapsed && "lg:justify-center lg:px-0",
+              "mb-1 flex h-10 items-center gap-3 rounded-full px-4 text-sm font-medium text-[var(--ws-sidebar-fg)] hover:bg-white/8 hover:text-white",
+              pathname.startsWith("/admin/settings") && "bg-white/10 text-white",
+              collapsed && "lg:justify-center lg:rounded-xl lg:px-0",
             )}
           >
             <Settings className="h-[18px] w-[18px] shrink-0" />
@@ -231,8 +224,8 @@ export function Sidebar({
             type="button"
             onClick={() => signOut({ callbackUrl: "/login" })}
             className={cn(
-              "flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm font-medium text-slate-500 hover:bg-red-500/10 hover:text-red-300",
-              collapsed && "lg:justify-center lg:px-0",
+              "flex h-10 w-full items-center gap-3 rounded-full px-4 text-sm font-medium text-white/50 hover:bg-red-500/15 hover:text-red-200",
+              collapsed && "lg:justify-center lg:rounded-xl lg:px-0",
             )}
           >
             <LogOut className="h-[18px] w-[18px] shrink-0" />
@@ -241,7 +234,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={onToggle}
-            className="mt-2 hidden h-9 w-full items-center justify-center rounded-md border border-white/8 text-slate-500 hover:bg-white/6 hover:text-white lg:flex"
+            className="mt-2 hidden h-9 w-full items-center justify-center rounded-full border border-white/10 text-white/50 hover:bg-white/8 hover:text-white lg:flex"
             aria-label={collapsed ? "Navigatie uitklappen" : "Navigatie inklappen"}
           >
             {collapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}

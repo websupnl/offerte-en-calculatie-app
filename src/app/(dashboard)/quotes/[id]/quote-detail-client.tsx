@@ -6,7 +6,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -18,7 +17,6 @@ import {
   FileText,
   Zap,
   Printer,
-  Calculator,
   Mail,
 } from "lucide-react";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
@@ -26,6 +24,7 @@ import { QuoteBuilder } from "@/components/forms/quote-builder";
 import { AdviceDocumentForm } from "@/components/forms/advice-document-form";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
 import { SheetScaler } from "@/components/sheet-scaler";
+import { filenameFromResponse } from "@/lib/download-filename";
 
 type QuoteItem = {
   id: string;
@@ -123,287 +122,6 @@ type Quote = {
   } | null;
 };
 
-function MargeRow({
-  label,
-  qty,
-  unitPrice,
-  costPrice,
-}: {
-  label: string;
-  qty: number;
-  unitPrice: number;
-  costPrice?: number | null;
-}) {
-  const revenue = unitPrice * qty;
-  const cost = costPrice != null ? costPrice * qty : null;
-  const profit = cost != null ? revenue - cost : null;
-  const pct = profit != null && revenue > 0 ? (profit / revenue) * 100 : null;
-  const unitPriceDisplay = unitPrice > 0 ? formatCurrency(unitPrice) : <span className="text-muted-foreground text-xs">inbegrepen</span>;
-  const costDisplay = cost != null ? formatCurrency(cost) : <span className="text-muted-foreground">-</span>;
-  const profitDisplay = profit != null ? (
-    <>
-      {formatCurrency(profit)}
-      {pct != null && <span className="ml-1 text-xs opacity-70">({pct.toFixed(0)}%)</span>}
-    </>
-  ) : "-";
-
-  return (
-    <div className="border-b px-4 py-3 text-sm last:border-0 hover:bg-muted/40 sm:py-2">
-      <div className="space-y-2 sm:hidden">
-        <p className="min-w-0 break-words font-medium text-muted-foreground">{label}</p>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div>
-            <span className="block text-muted-foreground">Qty</span>
-            <span className="tabular-nums">{qty}x</span>
-          </div>
-          <div>
-            <span className="block text-muted-foreground">Verkoop</span>
-            <span className="tabular-nums">{unitPriceDisplay}</span>
-          </div>
-          <div>
-            <span className="block text-muted-foreground">Inkoop totaal</span>
-            <span className="tabular-nums">{costDisplay}</span>
-          </div>
-          <div>
-            <span className="block text-muted-foreground">Winst</span>
-            <span className={`tabular-nums font-medium ${profit != null && profit < 0 ? "text-destructive" : profit != null ? "text-emerald-600" : "text-muted-foreground"}`}>
-              {profitDisplay}
-            </span>
-          </div>
-        </div>
-      </div>
-      <div className="hidden items-center gap-x-6 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">
-        <span className="min-w-0 truncate text-muted-foreground">{label}</span>
-        <span className="w-8 tabular-nums text-right">{qty}x</span>
-        <span className="w-24 tabular-nums text-right">{unitPriceDisplay}</span>
-        <span className="w-24 tabular-nums text-right">{costDisplay}</span>
-        <span className={`w-24 tabular-nums text-right font-medium ${profit != null && profit < 0 ? "text-destructive" : profit != null ? "text-emerald-600" : "text-muted-foreground"}`}>
-          {profitDisplay}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function CalculationHeader({
-  title,
-  variant = "default",
-}: {
-  title: string;
-  variant?: "default" | "recommended";
-}) {
-  const tone =
-    variant === "recommended"
-      ? "bg-emerald-50/50 text-emerald-700"
-      : "bg-muted/30 text-muted-foreground";
-
-  return (
-    <div className={`border-b px-4 py-3 text-xs font-semibold uppercase tracking-wide ${tone}`}>
-      <span className="block min-w-0 break-words sm:hidden">{title}</span>
-      <div className="hidden items-center gap-x-6 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">
-        <span className="min-w-0 truncate">{title}</span>
-        <span className="w-8 text-right">Qty</span>
-        <span className="w-24 text-right">Verkoop (ex)</span>
-        <span className="w-24 text-right">Inkoop totaal</span>
-        <span className="w-24 text-right">Winst</span>
-      </div>
-    </div>
-  );
-}
-
-function CalculationSubtotal({
-  revenue,
-  cost,
-  profit,
-  pct,
-}: {
-  revenue: number;
-  cost: number;
-  profit: number;
-  pct: number | null;
-}) {
-  return (
-    <div className="border-t bg-muted/20 px-4 py-3 text-sm font-medium sm:py-2">
-      <div className="space-y-2 sm:hidden">
-        <p className="text-muted-foreground">Subtotaal</p>
-        <div className="grid grid-cols-3 gap-2 text-xs">
-          <div>
-            <span className="block text-muted-foreground">Verkoop</span>
-            <span className="tabular-nums">{formatCurrency(revenue)}</span>
-          </div>
-          <div>
-            <span className="block text-muted-foreground">Inkoop</span>
-            <span className="tabular-nums">{formatCurrency(cost)}</span>
-          </div>
-          <div>
-            <span className="block text-muted-foreground">Winst</span>
-            <span className="tabular-nums text-emerald-600">
-              {formatCurrency(profit)}
-              {pct != null && <span className="ml-1 opacity-70">({pct.toFixed(0)}%)</span>}
-            </span>
-          </div>
-        </div>
-      </div>
-      <div className="hidden items-center gap-x-6 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">
-        <span className="text-muted-foreground">Subtotaal</span>
-        <span className="w-8" />
-        <span className="w-24 text-right tabular-nums">{formatCurrency(revenue)}</span>
-        <span className="w-24 text-right tabular-nums">{formatCurrency(cost)}</span>
-        <span className="w-24 text-right tabular-nums text-emerald-600">
-          {formatCurrency(profit)}
-          {pct != null && <span className="ml-1 text-xs opacity-70">({pct.toFixed(0)}%)</span>}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function CalculatieTab({ quote }: { quote: Quote }) {
-  const baseItems = quote.items.filter((i) => Number(i.unitPrice) > 0 || Number(i.costPrice) > 0);
-  const choiceGroups: ChoiceGroup[] = Array.isArray(quote.choiceGroups) ? quote.choiceGroups : [];
-  const options: OptionItem[] = Array.isArray(quote.options) ? quote.options : [];
-
-  const baseCost = quote.items.reduce((sum, i) => sum + (Number(i.costPrice) || 0) * Number(i.qty), 0);
-  const baseRevenue = quote.items.reduce((sum, i) => sum + Number(i.unitPrice) * Number(i.qty), 0);
-  const hasBaseCostData = quote.items.some((item) => item.costPrice != null);
-
-  return (
-    <div className="space-y-6">
-      {/* Vaste basis */}
-      {baseItems.length > 0 && (
-        <Card>
-          <CardContent className="p-0">
-            <CalculationHeader title="Vaste werkzaamheden" />
-            {baseItems.map((item) => (
-              <MargeRow
-                key={item.id}
-                label={item.description}
-                qty={Number(item.qty)}
-                unitPrice={Number(item.unitPrice)}
-                costPrice={item.costPrice != null ? Number(item.costPrice) : null}
-              />
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Configuraties */}
-      {choiceGroups.map((group, gi) => (
-        <div key={gi} className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{group.title}</h3>
-          {group.choices.map((choice, ci) => {
-            const isRecommended = choice.id === group.recommendedChoiceId || (!group.recommendedChoiceId && choice.label === "Aanbevolen");
-            const choiceRevenue = choice.items.reduce((s, i) => s + i.unitPrice * i.qty, 0);
-            const choiceCost = choice.items.reduce((s, i) => s + (i.costPrice ?? 0) * i.qty, 0);
-            const hasCostData = choice.items.some((item) => item.costPrice != null);
-            const choiceProfit = choiceRevenue > 0 && hasCostData ? choiceRevenue - choiceCost : null;
-            const choicePct = choiceProfit != null && choiceRevenue > 0 ? (choiceProfit / choiceRevenue) * 100 : null;
-            return (
-              <Card key={ci} className={isRecommended ? "border-emerald-300" : ""}>
-                <CardContent className="p-0">
-                  <CalculationHeader title={`${choice.title}${isRecommended ? " aanbevolen" : ""}`} variant={isRecommended ? "recommended" : "default"} />
-                  {choice.items.map((item, ii) => (
-                    <MargeRow
-                      key={ii}
-                      label={item.description}
-                      qty={item.qty}
-                      unitPrice={item.unitPrice}
-                      costPrice={item.costPrice}
-                    />
-                  ))}
-                  {choiceProfit != null && (
-                    <CalculationSubtotal revenue={choiceRevenue} cost={choiceCost} profit={choiceProfit} pct={choicePct} />
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      ))}
-
-      {/* Optioneel meerwerk */}
-      {options.length > 0 && (
-        <Card>
-          <CardContent className="p-0">
-            <CalculationHeader title="Optioneel meerwerk" />
-            {options.filter((o) => o.price != null).map((o, i) => (
-              <MargeRow key={i} label={o.t} qty={1} unitPrice={o.price ?? 0} costPrice={null} />
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Samenvatting — aanbevolen scenario */}
-      {(() => {
-        const recommended = choiceGroups
-          .map((group) =>
-            group.choices.find((choice) => choice.id === group.recommendedChoiceId) ??
-            group.choices.find((choice) => choice.label === "Aanbevolen") ??
-            group.choices[0],
-          )
-          .filter(Boolean);
-
-        if (recommended.length === 0) return null;
-
-        const recRevenue = recommended.reduce(
-          (sum, choice) => sum + choice.items.reduce((choiceSum, item) => choiceSum + item.unitPrice * item.qty, 0),
-          0,
-        );
-        const recCost = recommended.reduce(
-          (sum, choice) => sum + choice.items.reduce((choiceSum, item) => choiceSum + (item.costPrice ?? 0) * item.qty, 0),
-          0,
-        );
-        const hasRecommendedCostData = recommended.some((choice) => choice.items.some((item) => item.costPrice != null));
-
-        const totalRevenue = baseRevenue + recRevenue;
-        const totalCost = baseCost + recCost;
-        const totalProfit = totalRevenue - totalCost;
-        const totalPct = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
-
-        if (!hasBaseCostData && !hasRecommendedCostData) return null;
-
-        return (
-          <Card className="border-2">
-            <CardContent className="pt-5 pb-4 px-5 space-y-3">
-              <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                Samenvatting — aanbevolen configuratie
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">Omzet (excl. BTW)</p>
-                  <p className="text-lg font-bold tabular-nums">{formatCurrency(totalRevenue)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Inkoopkosten</p>
-                  <p className="text-lg font-bold tabular-nums text-muted-foreground">{formatCurrency(totalCost)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Brutowinst</p>
-                  <p className={`text-lg font-bold tabular-nums ${totalProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                    {formatCurrency(totalProfit)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Brutomarge</p>
-                  <p className={`text-lg font-bold ${totalPct >= 15 ? "text-emerald-600" : totalPct >= 10 ? "text-amber-600" : "text-destructive"}`}>
-                    {totalPct.toFixed(1)}%
-                  </p>
-                </div>
-              </div>
-              {quote.internalAdvice && (
-                <details className="mt-2">
-                  <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Intern advies tonen</summary>
-                  <pre className="mt-2 text-xs bg-muted p-3 rounded-md whitespace-pre-wrap font-mono">{quote.internalAdvice}</pre>
-                </details>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })()}
-    </div>
-  );
-}
-
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   DRAFT: "secondary", SENT: "outline", VIEWED: "outline",
   ACCEPTED: "default", DECLINED: "destructive", EXPIRED: "secondary",
@@ -430,6 +148,7 @@ export function QuoteDetailClient({
   const [openingMail, setOpeningMail] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [pdfReady, setPdfReady] = useState(!!quote.pdfUrl);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
 
   // Sync pdfReady when quote props change (after router.refresh)
   useEffect(() => {
@@ -581,9 +300,28 @@ export function QuoteDetailClient({
     router.push("/quotes");
   }
 
-  function handlePrint() {
-    if (!pdfReady) return;
-    window.location.href = `/api/quotes/${quote.id}/pdf`;
+  async function handlePrint() {
+    if (pdfDownloading) return;
+    setPdfDownloading(true);
+    try {
+      const res = await fetch(`/api/quotes/${quote.id}/pdf`);
+      if (!res.ok) throw new Error("PDF downloaden mislukt");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filenameFromResponse(res, "offerte.pdf");
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setPdfReady(true);
+    } catch {
+      toast.error("PDF downloaden mislukt");
+    } finally {
+      setPdfDownloading(false);
+    }
   }
 
   return (
@@ -609,10 +347,10 @@ export function QuoteDetailClient({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 pl-12 md:pl-0">
-          <Button variant="outline" size="sm" onClick={handlePrint} disabled={!pdfReady} className="no-print">
-            {pdfReady
-              ? <><Printer className="mr-2 h-4 w-4" />Print / PDF</>
-              : <><Loader2 className="mr-2 h-4 w-4 animate-spin" />PDF wordt aangemaakt...</>
+          <Button variant="outline" size="sm" onClick={handlePrint} disabled={pdfDownloading} className="no-print">
+            {pdfDownloading
+              ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />PDF wordt gemaakt...</>
+              : <><Printer className="mr-2 h-4 w-4" />Print / PDF{pdfReady ? "" : " maken"}</>
             }
           </Button>
           <Button size="sm" onClick={handleSendQuoteEmail} disabled={openingMail}>
@@ -652,32 +390,69 @@ export function QuoteDetailClient({
         </div>
       )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value="view">
-            <FileText className="mr-2 h-4 w-4" />
-            Offerte
-          </TabsTrigger>
-          {quote.status !== "ACCEPTED" && (
-            <TabsTrigger value="edit">
-              <Pencil className="mr-2 h-4 w-4" />
-              Bewerken
-            </TabsTrigger>
-          )}
-          {companySlug === "koolhaas" && (
-            <TabsTrigger value="advice">
-              <Zap className="mr-2 h-4 w-4" />
-              AI Advies ({quote.adviceDocuments.length})
-            </TabsTrigger>
-          )}
-          <TabsTrigger value="calculatie">
-            <Calculator className="mr-2 h-4 w-4" />
-            Calculatie
-          </TabsTrigger>
-        </TabsList>
+      <div className="grid gap-5 lg:grid-cols-[230px_minmax(0,1fr)]">
+        <aside className="lg:sticky lg:top-6 lg:self-start">
+          <div className="rounded-lg border bg-card p-2 shadow-sm">
+            <p className="px-2 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Offerte editor
+            </p>
+            <div className="grid gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab("view")}
+                className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
+                  activeTab === "view" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <FileText className="h-4 w-4 shrink-0" />
+                <span className="min-w-0">
+                  <span className="block font-medium">Preview</span>
+                  <span className={`block text-xs ${activeTab === "view" ? "text-primary-foreground/75" : "text-muted-foreground"}`}>
+                    Bekijk klantversie
+                  </span>
+                </span>
+              </button>
+              {quote.status !== "ACCEPTED" && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("edit")}
+                  className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
+                    activeTab === "edit" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <Pencil className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block font-medium">Bewerken</span>
+                    <span className={`block text-xs ${activeTab === "edit" ? "text-primary-foreground/75" : "text-muted-foreground"}`}>
+                      Inhoud, prijzen, opties
+                    </span>
+                  </span>
+                </button>
+              )}
+              {companySlug === "koolhaas" && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("advice")}
+                  className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
+                    activeTab === "advice" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <Zap className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block font-medium">AI advies</span>
+                    <span className={`block text-xs ${activeTab === "advice" ? "text-primary-foreground/75" : "text-muted-foreground"}`}>
+                      {quote.adviceDocuments.length} document(en)
+                    </span>
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
+        </aside>
 
-        {/* View tab */}
-        <TabsContent value="view" className="space-y-4">
+        <section className="min-w-0">
+        {activeTab === "view" && (
+          <div className="space-y-4">
           {/* Quick status update */}
           <Card>
             <CardContent className="pt-4">
@@ -729,10 +504,10 @@ export function QuoteDetailClient({
               selectedOptionIds={(quote.share?.selectedOptionIds as string[] | undefined) ?? []}
             />
           </SheetScaler>
-        </TabsContent>
+          </div>
+        )}
 
-        {/* Edit tab */}
-        <TabsContent value="edit">
+        {activeTab === "edit" && (
           <QuoteBuilder
             customers={customers}
             products={products}
@@ -741,24 +516,17 @@ export function QuoteDetailClient({
             companyName={company?.name ?? ""}
             initialQuote={quote}
           />
-        </TabsContent>
+        )}
 
-        {/* Advice tab (Koolhaas only) */}
-        {companySlug === "koolhaas" && (
-          <TabsContent value="advice">
+        {activeTab === "advice" && companySlug === "koolhaas" && (
             <AdviceDocumentForm
               quoteId={quote.id}
               products={products}
               existingDocs={quote.adviceDocuments}
             />
-          </TabsContent>
         )}
-
-        {/* Calculatie tab */}
-        <TabsContent value="calculatie">
-          <CalculatieTab quote={quote} />
-        </TabsContent>
-      </Tabs>
+        </section>
+      </div>
     </div>
   );
 }

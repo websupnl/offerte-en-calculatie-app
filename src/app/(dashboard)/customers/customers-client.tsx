@@ -132,14 +132,14 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Zoek op naam of e-mail..."
-            className="h-10 bg-white pl-9 shadow-sm"
+            className="h-10 rounded-full border-transparent bg-white pl-9 shadow-sm"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
         </div>
 
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border bg-white px-6 py-16 text-center">
+          <div className="flex flex-col items-center justify-center rounded-2xl bg-white px-6 py-16 text-center ring-1 ring-slate-950/[0.06]">
             <Users className="mb-4 h-12 w-12 text-muted-foreground/30" />
             <p className="text-muted-foreground">Geen klanten gevonden</p>
             <Button variant="outline" className="mt-4" onClick={openCreate}>
@@ -147,7 +147,7 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
             </Button>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
+          <div className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
             <div className="divide-y md:hidden">
               {filtered.map((customer) => (
                 <div key={customer.id} className="p-4">
@@ -201,7 +201,7 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
                           router.push(`/customers/${customer.id}`);
                         }
                       }}
-                      className="cursor-pointer focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#167f88]"
+                      className="cursor-pointer focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ws-accent)]"
                     >
                       <TableCell className="pl-4 font-semibold">{customer.name}</TableCell>
                       <TableCell>

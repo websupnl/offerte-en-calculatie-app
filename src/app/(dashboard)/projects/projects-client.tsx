@@ -108,11 +108,11 @@ export function ProjectsClient({
             placeholder="Zoek project, nummer of klant..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            className="h-10 bg-white pl-9 shadow-sm"
+            className="h-10 rounded-full border-transparent bg-white pl-9 shadow-sm"
           />
         </div>
 
-        <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
           {filtered.length === 0 ? (
             <div className="grid min-h-72 place-items-center p-8 text-center text-slate-500">
               <div>
@@ -172,7 +172,7 @@ export function ProjectsClient({
                             router.push(`/projects/${project.id}`);
                           }
                         }}
-                        className="cursor-pointer focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#167f88]"
+                        className="cursor-pointer focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ws-accent)]"
                       >
                         <TableCell className="pl-4">
                           <Link href={`/projects/${project.id}`} onClick={(event) => event.stopPropagation()}>

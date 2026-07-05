@@ -87,29 +87,27 @@ export default async function DashboardPage() {
       <div className="space-y-6 p-5 lg:p-8">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {metrics.map((metric) => (
-            <div key={metric.label} className="rounded-xl border bg-white p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500">{metric.label}</p>
-                  <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{metric.value}</p>
-                  <p className="mt-1 text-xs text-slate-400">{metric.meta}</p>
-                </div>
-                <div className={`grid h-10 w-10 place-items-center rounded-lg ${metric.surface} ${metric.color}`}>
+            <div key={metric.label} className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+              <div className="flex items-center gap-3">
+                <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${metric.surface} ${metric.color}`}>
                   <metric.icon className="h-5 w-5" />
                 </div>
+                <p className="text-sm font-semibold text-slate-500">{metric.label}</p>
               </div>
+              <p className="mt-4 text-[26px] font-bold leading-none tracking-tight text-slate-950">{metric.value}</p>
+              <p className="mt-2 text-[13px] text-slate-400">{metric.meta}</p>
             </div>
           ))}
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
-          <section className="overflow-hidden rounded-xl border bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b px-4 py-3">
+          <section className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <div>
-                <h2 className="font-bold text-slate-900">Recent bijgewerkt</h2>
-                <p className="text-xs text-slate-400">Laatste offertes binnen het actieve bedrijf</p>
+                <h2 className="text-base font-bold text-slate-900">Recent bijgewerkt</h2>
+                <p className="text-[13px] text-slate-400">Laatste offertes binnen het actieve bedrijf</p>
               </div>
-              <Link href="/quotes" className="text-xs font-semibold text-[#167f88] hover:underline">Alle offertes</Link>
+              <Link href="/quotes" className="rounded-full border border-slate-200 px-3 py-1.5 text-[13px] font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900">Alle offertes</Link>
             </div>
             <div className="divide-y md:hidden">
               {recentQuotes.map((quote) => (
@@ -163,17 +161,17 @@ export default async function DashboardPage() {
           </section>
 
           <aside className="space-y-4">
-            <div className="rounded-xl border bg-[#0b1628] p-5 text-white shadow-sm">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-teal-300">Snel starten</p>
+            <div className="rounded-2xl bg-[var(--ws-sidebar)] p-5 text-white shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--ws-pill)]">Snel starten</p>
               <h2 className="mt-2 text-lg font-bold">Van aanvraag naar opdracht</h2>
-              <p className="mt-1 text-sm leading-6 text-slate-400">Maak eerst de relatie en het project aan. Voeg daarna artikelen toe aan de offerte.</p>
+              <p className="mt-1 text-sm leading-6 text-white/60">Maak eerst de relatie en het project aan. Voeg daarna artikelen toe aan de offerte.</p>
               <div className="mt-4 space-y-2">
-                <Link href="/customers" className="flex items-center justify-between rounded-lg bg-white/7 px-3 py-2 text-sm hover:bg-white/12"><span>1. Klant kiezen</span><ArrowUpRight className="h-4 w-4" /></Link>
-                <Link href="/projects" className="flex items-center justify-between rounded-lg bg-white/7 px-3 py-2 text-sm hover:bg-white/12"><span>2. Project openen</span><ArrowUpRight className="h-4 w-4" /></Link>
-                <Link href="/quotes/new" className="flex items-center justify-between rounded-lg bg-[#167f88] px-3 py-2 text-sm font-semibold hover:bg-[#116b73]"><span>3. Offerte maken</span><ArrowUpRight className="h-4 w-4" /></Link>
+                <Link href="/customers" className="flex items-center justify-between rounded-full bg-white/8 px-4 py-2 text-sm hover:bg-white/14"><span>1. Klant kiezen</span><ArrowUpRight className="h-4 w-4" /></Link>
+                <Link href="/projects" className="flex items-center justify-between rounded-full bg-white/8 px-4 py-2 text-sm hover:bg-white/14"><span>2. Project openen</span><ArrowUpRight className="h-4 w-4" /></Link>
+                <Link href="/quotes/new" className="flex items-center justify-between rounded-full bg-[var(--ws-pill)] px-4 py-2 text-sm font-semibold text-[var(--ws-pill-fg)] hover:opacity-90"><span>3. Offerte maken</span><ArrowUpRight className="h-4 w-4" /></Link>
               </div>
             </div>
-            <div className="rounded-xl border bg-white p-4 shadow-sm">
+            <div className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
               <div className="flex items-center gap-2 text-sm font-semibold"><Clock3 className="h-4 w-4 text-slate-400" /> Werkvoorraad</div>
               <div className="mt-3 space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-slate-500">Conceptoffertes</span><strong>{stat("DRAFT")?._count ?? 0}</strong></div>

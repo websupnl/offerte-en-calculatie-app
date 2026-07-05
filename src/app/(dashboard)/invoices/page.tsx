@@ -45,7 +45,7 @@ export default async function InvoicesPage() {
         }
       />
       <div className="p-4 sm:p-5 lg:p-8">
-        <section className="overflow-hidden rounded-lg border bg-white shadow-sm">
+        <section className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
           <div className="divide-y md:hidden">
             {invoices.map((invoice) => (
               <Link key={invoice.id} href={`/invoices/${invoice.id}`} className="block p-4 active:bg-slate-50">
@@ -84,7 +84,7 @@ export default async function InvoicesPage() {
               {invoices.map((invoice) => (
                 <TableRow key={invoice.id}>
                   <TableCell className="pl-4">
-                    <Link href={`/invoices/${invoice.id}`} className="font-semibold text-slate-950 hover:text-[#167f88]">
+                    <Link href={`/invoices/${invoice.id}`} className="font-semibold text-slate-950 hover:text-[var(--ws-accent)]">
                       {invoice.number}
                     </Link>
                     {invoice.reference && <p className="max-w-72 truncate text-xs text-slate-500">{invoice.reference}</p>}
@@ -93,7 +93,7 @@ export default async function InvoicesPage() {
                   <TableCell>
                     {invoice.project ? (
                       <>
-                        <Link href={`/projects/${invoice.project.id}`} className="font-medium hover:text-[#167f88]">
+                        <Link href={`/projects/${invoice.project.id}`} className="font-medium hover:text-[var(--ws-accent)]">
                           {invoice.project.number}
                         </Link>
                         <p className="max-w-64 truncate text-xs text-slate-500">{invoice.project.title}</p>

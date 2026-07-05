@@ -444,7 +444,7 @@ export function ProductsClient({
                             openEdit(p);
                           }
                         }}
-                        className="flex cursor-pointer items-center justify-between px-6 py-3 hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#167f88]"
+                        className="flex cursor-pointer items-center justify-between px-6 py-3 hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ws-accent)]"
                       >
                         <div>
                           <p className="font-medium text-sm">{p.name}</p>
@@ -511,7 +511,7 @@ export function ProductsClient({
                     openEditSet(s);
                   }
                 }}
-                className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#167f88]"
+                className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ws-accent)]"
               >
                 <CardHeader>
                   <div className="flex items-center justify-between">

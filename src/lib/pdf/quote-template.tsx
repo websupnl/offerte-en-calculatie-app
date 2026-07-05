@@ -140,6 +140,7 @@ type BrandConfig = {
   website: string;
   email: string;
   phone: string;
+  kvk: string;
   role: string;
   defaultCategory: string;
   defaultTitle: string;
@@ -186,9 +187,10 @@ const BRANDS: Record<BrandKey, BrandConfig> = {
     logoWhite: logoDataUri("websup-white.png"),
     logoColor: logoDataUri("websup-color.png"),
     logoIcon: logoDataUri("websup-icon.png"),
-    website: "webs-up.nl",
+    website: "websup.nl",
     email: "hallo@websup.nl",
-    phone: "+31 6 82 20 21 48",
+    phone: "06 82 20 21 48",
+    kvk: "95524061",
     role: "Eigenaar WebsUp.nl",
     defaultCategory: "Maatwerk project",
     defaultTitle: "Persoonlijk voorstel op maat",
@@ -252,8 +254,9 @@ const BRANDS: Record<BrandKey, BrandConfig> = {
     logoColor: logoDataUri("koolhaas-logo-tight.png"),
     logoIcon: logoDataUri("koolhaas-icon.png"),
     website: "koolhaasinstallaties.nl",
-    email: "daan@koolhaasinstallaties.nl",
-    phone: "+31 6 82 20 21 48",
+    email: "hallo@koolhaasinstallaties.nl",
+    phone: "06 82 20 21 48",
+    kvk: "95524061",
     role: "Koolhaas Installaties",
     defaultCategory: "Installatie - Energieopslag",
     defaultTitle: "Thuisbatterij installatie",
@@ -528,6 +531,7 @@ export function QuotePDF({
               <Text style={{ fontSize: 8, color: coverMuted }}>{brand.website}</Text>
               <Text style={{ fontSize: 8, color: coverMuted }}>{brand.email}</Text>
               <Text style={{ fontSize: 8, color: coverMuted }}>{brand.phone}</Text>
+              <Text style={{ fontSize: 8, color: coverMuted }}>KVK {brand.kvk}</Text>
             </View>
           </View>
 
@@ -1153,7 +1157,7 @@ export function QuotePDF({
         <View style={{ borderTopWidth: 1, borderTopColor: "#F1F5F9", paddingTop: 12, flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-end", marginTop: "auto" }}>
           <View style={{ alignItems: "flex-end" }}>
             <Text style={{ fontSize: 7.5, color: "#94A3B8" }}>{brand.name} &nbsp;&middot;&nbsp; Daan Koolhaas &nbsp;&middot;&nbsp; Friesland</Text>
-            <Text style={{ fontSize: 7.5, color: "#94A3B8", marginTop: 2 }}>{brand.website} &nbsp;&middot;&nbsp; {brand.email}</Text>
+            <Text style={{ fontSize: 7.5, color: "#94A3B8", marginTop: 2 }}>{brand.website} &nbsp;&middot;&nbsp; {brand.email} &nbsp;&middot;&nbsp; {brand.phone} &nbsp;&middot;&nbsp; KVK {brand.kvk}</Text>
             <Text style={{ fontSize: 7.5, color: "#94A3B8", marginTop: 2 }}>Offerte geldig tot {validUntil || "—"}</Text>
           </View>
         </View>

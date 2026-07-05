@@ -117,23 +117,53 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-/* Company branding themes */
+/* Company branding themes + workspace (admin UI) tokens.
+   --ws-* stuurt de app-schil: achtergrond, sidebar, actieve pill en accentkleur. */
+:root {
+  --ws-bg: #edf2f1;
+  --ws-sidebar: #0d3b41;
+  --ws-sidebar-fg: rgba(255, 255, 255, 0.62);
+  --ws-pill: #99f6e4;
+  --ws-pill-fg: #0f3f3a;
+  --ws-accent: #116b73;
+  --ws-accent-hover: #0d565c;
+  --ws-accent-soft: #d9edee;
+}
+
 [data-company="websup"] {
   --primary: oklch(0.13 0.02 250);
   --primary-foreground: oklch(0.985 0 0);
   --accent: oklch(0.55 0.22 270);
   --accent-foreground: oklch(0.985 0 0);
   --brand-primary: #0F172A;
-  --brand-accent: #6366F1;
+  --brand-accent: #f97316;
+
+  --ws-bg: #f2f0f3;
+  --ws-sidebar: #0d0916;
+  --ws-sidebar-fg: rgba(255, 255, 255, 0.6);
+  --ws-pill: #fed7aa;
+  --ws-pill-fg: #7c2d12;
+  --ws-accent: #c2410c;
+  --ws-accent-hover: #9a3412;
+  --ws-accent-soft: #ffedd5;
 }
 
 [data-company="koolhaas"] {
-  --primary: oklch(0.18 0.06 150);
+  --primary: oklch(0.45 0.07 195);
   --primary-foreground: oklch(0.985 0 0);
-  --accent: oklch(0.52 0.17 150);
+  --accent: oklch(0.52 0.1 195);
   --accent-foreground: oklch(0.985 0 0);
-  --brand-primary: #0F2818;
-  --brand-accent: #16A34A;
+  --brand-primary: #0d3b41;
+  --brand-accent: #167f88;
+
+  --ws-bg: #edf2f1;
+  --ws-sidebar: #0d3b41;
+  --ws-sidebar-fg: rgba(255, 255, 255, 0.62);
+  --ws-pill: #99f6e4;
+  --ws-pill-fg: #0f3f3a;
+  --ws-accent: #116b73;
+  --ws-accent-hover: #0d565c;
+  --ws-accent-soft: #d9edee;
 }
 
 @layer base {

@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus,
   Loader2,
@@ -26,12 +25,7 @@ import {
   ChevronLeft,
   ChevronDown,
   CornerDownRight,
-  Activity,
   FileText,
-  Calculator,
-  ShieldCheck,
-  Calendar,
-  Zap,
   Search,
   Package,
   Layers,
@@ -1300,14 +1294,7 @@ export function QuoteBuilder({
 
         {/* ── Right Panel (Controls) ── */}
         <aside className="w-full space-y-6 pb-2 lg:w-[360px] lg:shrink-0 xl:sticky xl:top-[132px] xl:max-h-[calc(100vh-148px)] xl:w-[400px] xl:overflow-y-auto xl:overscroll-contain xl:pr-2 [scrollbar-gutter:stable] 2xl:w-[440px]">
-          <Tabs defaultValue="quote" className="w-full">
-            <TabsList className="sticky top-0 z-10 mb-4 grid w-full grid-cols-3 shadow-sm">
-              <TabsTrigger value="quote"><FileText className="h-4 w-4 mr-2" />Offerte</TabsTrigger>
-              <TabsTrigger value="tech"><Zap className="h-4 w-4 mr-2" />Technisch</TabsTrigger>
-              <TabsTrigger value="margin"><Calculator className="h-4 w-4 mr-2" />Marge</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="quote" className="space-y-6">
+          <div className="space-y-6">
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-bold flex items-center justify-between">
@@ -1574,7 +1561,7 @@ export function QuoteBuilder({
                                 />
                                 <div className="space-y-2">
                                   {choice.items.map((item, itemIndex) => (
-                                    <div key={itemIndex} className="grid grid-cols-[1fr_54px_78px_78px_58px_32px] gap-2">
+                                    <div key={itemIndex} className="grid grid-cols-[1fr_54px_78px_58px_32px] gap-2">
                                       <div className="relative">
                                         <Input
                                           value={item.description}
@@ -1603,17 +1590,7 @@ export function QuoteBuilder({
                                         value={item.unitPrice}
                                         onChange={(e) => updateChoiceItem(group.id, choice.id, itemIndex, { unitPrice: Number(e.target.value) })}
                                         className="h-8 bg-white px-2 text-xs"
-                                        title="Verkoopprijs excl. btw"
-                                      />
-                                      <Input
-                                        type="number"
-                                        value={item.costPrice ?? ""}
-                                        onChange={(e) => updateChoiceItem(group.id, choice.id, itemIndex, {
-                                          costPrice: e.target.value === "" ? null : Number(e.target.value),
-                                        })}
-                                        className="h-8 bg-white px-2 text-xs"
-                                        placeholder="Inkoop"
-                                        title="Inkoopprijs excl. btw"
+                                        title="Stukprijs excl. btw"
                                       />
                                       <Input
                                         type="number"
@@ -1740,152 +1717,7 @@ export function QuoteBuilder({
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
-
-            <TabsContent value="tech" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-green-600" /> Intern Technisch Advies
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase">Offerte Type</Label>
-                    <Select value={quoteType} onValueChange={(value) => setQuoteType(value || "GENERAL")}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="GENERAL">Algemeen Project</SelectItem>
-                        <SelectItem value="BATTERY">Thuisbatterij</SelectItem>
-                        <SelectItem value="SOLAR">Zonnepanelen</SelectItem>
-                        <SelectItem value="WEB">Webdevelopment</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase">Onderbouwing (Intern)</Label>
-                    <Textarea 
-                      rows={6} 
-                      value={internalAdvice} 
-                      onChange={(e) => setInternalAdvice(e.target.value)} 
-                      placeholder="Waarom dit advies? Bronnen, berekeningen..."
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase">Technische Aannames</Label>
-                    <Textarea 
-                      rows={3} 
-                      value={assumptions.join("\n")} 
-                      onChange={(e) => setAssumptions(e.target.value.split("\n"))} 
-                      placeholder="Meterkast is geschikt, etc."
-                    />
-                  </div>
-
-                  {quoteType === "BATTERY" && (
-                    <div className="p-3 bg-orange-50 rounded-lg border border-orange-100 space-y-3">
-                      <Label className="text-[10px] font-black text-orange-800 uppercase tracking-widest flex items-center gap-2">
-                        <Activity className="h-3 w-3" /> Batterij Dimensionering
-                      </Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Capaciteit (kWh)</Label>
-                          <Input type="number" value={typeof batteryAdvice.nominalCapacityKwh === "number" ? batteryAdvice.nominalCapacityKwh : ""} onChange={(e) => setBatteryAdvice({...batteryAdvice, nominalCapacityKwh: Number(e.target.value)})} className="h-8 bg-white" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Vermogen (kW)</Label>
-                          <Input type="number" value={typeof batteryAdvice.chargePowerKw === "number" ? batteryAdvice.chargePowerKw : ""} onChange={(e) => setBatteryAdvice({...batteryAdvice, chargePowerKw: Number(e.target.value)})} className="h-8 bg-white" />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-blue-600" /> Planning & Commercieel
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs font-bold">Levertijd</Label>
-                      <Input value={planning.leadTime || ""} onChange={(e) => setPlanning({...planning, leadTime: e.target.value})} className="h-8" placeholder="4-6 weken" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-bold">Doorlooptijd</Label>
-                      <Input value={planning.executionDuration || ""} onChange={(e) => setPlanning({...planning, executionDuration: e.target.value})} className="h-8" placeholder="1 dag" />
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-bold">Garantie</Label>
-                    <Input value={commercial.warranty || ""} onChange={(e) => setCommercial({...commercial, warranty: e.target.value})} className="h-8" placeholder="10 jaar fabrieksgarantie" />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="margin" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-bold">Winst & Marge Analyse</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    {items.map((item) => {
-                      const cost = item.costPrice || 0;
-                      const profit = item.total - (cost * item.qty);
-                      const margin = item.total > 0 ? (profit / item.total) * 100 : 0;
-                      
-                      return (
-                        <div key={item.id} className="p-2 bg-slate-50 rounded border text-xs space-y-1">
-                          <div className="font-medium truncate">{item.description}</div>
-                          <div className="flex justify-between items-center gap-4">
-                            <div className="flex items-center gap-2">
-                              <span className="text-slate-400">Inkoop:</span>
-                              <Input 
-                                type="number" 
-                                value={cost} 
-                                onChange={(e) => updateItem(item.id, { costPrice: Number(e.target.value) })}
-                                className="h-6 w-20 text-[10px] px-1"
-                              />
-                            </div>
-                            <div className="text-right">
-                              <span className={`font-bold ${profit >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                {formatCurrency(profit)}
-                              </span>
-                              <span className="text-slate-400 ml-1">({margin.toFixed(1)}%)</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <Separator />
-
-                  <div className="bg-slate-900 text-white p-4 rounded-lg space-y-2">
-                    <div className="flex justify-between text-xs text-slate-400">
-                      <span>Totale Inkoop</span>
-                      <span>{formatCurrency(totals.costExVat)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-slate-400">
-                      <span>Totale Omzet (Ex)</span>
-                      <span>{formatCurrency(totalExVat)}</span>
-                    </div>
-                    <Separator className="bg-white/10" />
-                    <div className="flex justify-between font-bold text-lg">
-                      <span className="text-orange-400">Netto Winst</span>
-                      <span>{formatCurrency(totals.profit)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+          </div>
 
           <Card className={`relative overflow-hidden border-none text-white shadow-xl ${isKoolhaas ? "bg-[#08111f]" : "bg-[#06040c]"}`}>
             <div className="pointer-events-none absolute inset-0">
