@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
   Plus,
@@ -31,6 +30,7 @@ import {
   Layers,
   PackagePlus,
   Upload,
+  Copy,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { calculateTotals } from "@/lib/calculation";
@@ -207,10 +207,91 @@ type VisionSuggestedItem = {
   unitPrice?: number;
 };
 
+type QuoteContractResponse = {
+  version: string;
+  systemPrompt: string;
+  jsonSchema: unknown;
+  rules: Record<string, string>;
+};
+
 // ─── Defaults ────────────────────────────────────────────────────────────────
 
 const PLANNING_DEFAULTS = { leadTime: "", executionDuration: "", preferredDate: "" };
 const COMMERCIAL_DEFAULTS = { validDays: 30, paymentTerms: "", warranty: "" };
+
+const QUOTE_IMPORT_PROMPT_TEMPLATE = {
+  quoteType: "installatie",
+  title: "Concrete titel van de offerte",
+  category: "Korte categorie",
+  tagline: "Levering, montage en inbedrijfstelling",
+  intro: "Persoonlijke opening namens Daan. Geen prijslijst of technische specificaties.",
+  itemsHeader: "Vaste werkzaamheden",
+  items: [
+    {
+      description: "Hoofdregel voor vaste basis",
+      qty: 1,
+      unitPrice: 0,
+      costPrice: 0,
+      vatRate: 21,
+      indent: 0,
+    },
+    {
+      description: "Inbegrepen onderdeel onder de hoofdregel",
+      qty: 1,
+      unitPrice: 0,
+      vatRate: 21,
+      indent: 1,
+    },
+  ],
+  configurations: [
+    {
+      title: "Kies je systeem",
+      description: "Alleen gebruiken bij echte, volledige alternatieven.",
+      choices: [
+        {
+          title: "Concrete keuze A",
+          summary: "Korte uitleg waarom deze keuze past.",
+          items: [
+            { description: "Levering en montage keuze A", qty: 1, unitPrice: 0, vatRate: 21, indent: 0 },
+          ],
+        },
+        {
+          label: "Aanbevolen",
+          title: "Concrete keuze B",
+          summary: "Korte uitleg waarom dit de aanbevolen keuze is.",
+          items: [
+            { description: "Levering en montage keuze B", qty: 1, unitPrice: 0, vatRate: 21, indent: 0 },
+          ],
+        },
+      ],
+    },
+  ],
+  optionalWork: [
+    {
+      t: "Los selecteerbaar meerwerk",
+      d: "Korte klantgerichte uitleg.",
+      tag: "Optioneel",
+      price: 0,
+      vatRate: 21,
+      details: ["Concrete detailregel"],
+      technicalCondition: "Alleen invullen wanneer relevant.",
+    },
+  ],
+  exclusions: ["Concrete uitsluiting als de klant dit redelijkerwijs inbegrepen kan verwachten"],
+  assumptions: ["Concreet uitgangspunt waarop de prijs is gebaseerd"],
+  technicalNotes: ["Technisch uitgangspunt of aandachtspunt"],
+  customerResponsibilities: ["Wat de klant zelf aanlevert of regelt"],
+  flow: [{ n: 1, t: "Akkoord", d: "De klant bevestigt de offerte digitaal." }],
+  approach: [],
+  planning: { leadTime: "", executionDuration: "", preferredDate: "" },
+  commercial: { validDays: 30, paymentTerms: "", warranty: "" },
+  batteryAdvice: {},
+  attachments: [{ title: "Bijlage", imageUrl: "https://...", liveUrl: "", caption: "" }],
+  outro: "Tot slot\nKorte persoonlijke afsluiting.\n\nVolgende stap\nConcrete vervolgstap na akkoord.",
+  notes: "",
+  internalAdvice: "Alleen interne aandachtspunten. Niet zichtbaar voor klant.",
+  validDays: 30,
+};
 
 function genId() {
   return Math.random().toString(36).slice(2);
@@ -340,6 +421,7 @@ export function QuoteBuilder({
   const [saving, setSaving] = useState(false);
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [copyPromptLoading, setCopyPromptLoading] = useState(false);
   const [visionLoading, setVisionLoading] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
   const [creationMode, setCreationMode] = useState<"manual" | "ai" | null>(
@@ -970,6 +1052,66 @@ export function QuoteBuilder({
     if (updates.exclusions !== undefined) setExclusions(updates.exclusions);
   };
 
+  function buildQuoteImportPrompt(contract: QuoteContractResponse) {
+    const rulesText = Object.entries(contract.rules)
+      .map(([key, value]) => `- ${key}: ${value}`)
+      .join("\n");
+
+    return [
+      "Je bent een offerte-assistent voor de offerte-app van Daan Koolhaas.",
+      "Maak op basis van mijn input exact een JSON-object dat direct geplakt kan worden in de offerte-app.",
+      "",
+      "Belangrijk:",
+      "- Retourneer uitsluitend geldige JSON. Geen markdown, geen uitleg, geen codeblok.",
+      "- Gebruik alleen velden uit het schema hieronder.",
+      "- Alle prijzen zijn exclusief btw.",
+      "- Bereken geen totalen.",
+      "- Verzin geen prijzen, typenummers, garanties of technische claims.",
+      "- Gebruik configurations alleen bij echte volledige alternatieven.",
+      "- Gebruik optionalWork alleen voor los selecteerbaar meerwerk.",
+      "- Gebruik geen id-velden en geen recommendedChoiceId.",
+      "- Markeer een aanbevolen configuratie met label: \"Aanbevolen\".",
+      "",
+      `Bedrijf: ${companySlug}`,
+      `Klant: ${customer?.name || "[vul klantnaam in]"}`,
+      "",
+      "Systeeminstructie uit de app:",
+      contract.systemPrompt,
+      "",
+      `Contractversie: ${contract.version}`,
+      "",
+      "Regels per veld:",
+      rulesText,
+      "",
+      "JSON Schema:",
+      JSON.stringify(contract.jsonSchema, null, 2),
+      "",
+      "Gebruik deze structuur als uitgangspunt. Laat optionele secties leeg of weg wanneer ze niets toevoegen:",
+      JSON.stringify(QUOTE_IMPORT_PROMPT_TEMPLATE, null, 2),
+      "",
+      "Mijn input voor de offerte:",
+      "[plak hier gesprek, klantwens, producten, prijzen, foto's/links, technische opname of notities]",
+    ].join("\n");
+  }
+
+  async function copyQuoteImportPrompt() {
+    setCopyPromptLoading(true);
+    try {
+      const response = await fetch("/api/integrations/quote-contract");
+      const contract = await response.json() as QuoteContractResponse;
+      if (!response.ok || !contract?.jsonSchema || !contract?.systemPrompt) {
+        throw new Error("Promptstructuur kon niet worden opgehaald");
+      }
+
+      await navigator.clipboard.writeText(buildQuoteImportPrompt(contract));
+      toast.success("Prompt gekopieerd. Plak hem in je AI-model en voeg je klantsituatie toe.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Kopiëren mislukt");
+    } finally {
+      setCopyPromptLoading(false);
+    }
+  }
+
   const importDialogContent = (
     <DialogContent className="max-h-[90vh] max-w-2xl overflow-hidden">
       <DialogHeader>
@@ -984,6 +1126,26 @@ export function QuoteBuilder({
       <div className="max-h-[calc(90vh-120px)] space-y-4 overflow-y-auto py-4 pr-2">
         {!importPreview ? (
           <>
+            <div className="rounded-lg border border-orange-100 bg-orange-50/70 p-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-bold text-slate-900">AI-prompt nodig?</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">
+                    Kopieer de actuele schema-instructie, plak die in ChatGPT of Claude en plak de JSON daarna hier terug.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={copyQuoteImportPrompt}
+                  disabled={copyPromptLoading}
+                  className="shrink-0 border-orange-200 bg-white text-orange-700 hover:bg-orange-50"
+                >
+                  {copyPromptLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
+                  Copy prompt
+                </Button>
+              </div>
+            </div>
             <Textarea
               placeholder='Plak hier je offerte-JSON of gewone tekst. Bijvoorbeeld: {"title":"...","items":[...]}'
               rows={12}
