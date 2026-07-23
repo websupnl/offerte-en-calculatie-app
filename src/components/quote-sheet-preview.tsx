@@ -810,7 +810,7 @@ export function QuoteSheetPreview({
                   <h3 className="mt-1 text-lg font-bold text-slate-900">{group.title}</h3>
                   {group.description && <p className="mt-1 text-sm text-slate-500">{group.description}</p>}
                 </div>
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
                   {group.choices.map(choice => {
                     const isActive = selectedChoiceIds[group.id] === choice.id;
                     const systeemIncVat = choice.items.reduce((sum, item) => {
@@ -826,15 +826,14 @@ export function QuoteSheetPreview({
                       : systeemIncVat + baseIncVat;
                     const isRecommended = group.recommendedChoiceId === choice.id || choice.label?.toLowerCase() === "aanbevolen";
                     return (
-                      <div key={choice.id} className={`relative rounded-xl border p-5 ${isActive ? "border-blue-600 bg-blue-50/40" : "border-slate-200 bg-white"}`}>
+                      <div key={choice.id} className={`relative flex flex-col rounded-xl border p-5 ${isActive ? "border-blue-600 bg-blue-50/40" : "border-slate-200 bg-white"}`}>
                         {(choice.imageUrl || choice.image) && (
-                          <div className="choice-photo mb-3 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                          <div className="choice-photo mb-3 aspect-[4/3] overflow-hidden rounded-lg border border-slate-200 bg-white">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={choice.imageUrl || choice.image}
                               alt={choice.title}
-                              className="block w-full"
-                              style={{ maxHeight: 220, objectFit: "cover" }}
+                              className="h-full w-full object-contain"
                             />
                           </div>
                         )}
@@ -857,7 +856,7 @@ export function QuoteSheetPreview({
                               </li>
                             ))}
                         </ul>
-                        <div className="flex items-end justify-between gap-3">
+                        <div className="mt-auto flex items-end justify-between gap-3 pt-2">
                           <span className="text-xs font-bold uppercase tracking-wide text-slate-500">{isActive ? "Geselecteerd" : "Keuze bij akkoord"}</span>
                           <strong className="text-base text-slate-900">
                             {formatCurrency(total)} {showExVat ? "excl. btw" : "incl. btw"}
