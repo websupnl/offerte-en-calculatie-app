@@ -84,6 +84,8 @@ type Choice = {
   title: string;
   summary?: string;
   tag?: string;
+  image?: string; // persisted ref (s3://... of externe URL)
+  imageUrl?: string; // tijdelijke weergave-URL, niet opgeslagen
   items: ChoiceItem[];
 };
 
@@ -399,6 +401,7 @@ export function QuoteBuilder({
   const [choiceGroups, setChoiceGroups] = useState<ChoiceGroup[]>(initialQuote?.choiceGroups || []);
   const [internalAdvice, setInternalAdvice] = useState(initialQuote?.internalAdvice || initialAdvice?.analysis || "");
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [uploadingChoiceImageId, setUploadingChoiceImageId] = useState<string | null>(null);
   
   const [flow, setFlow] = useState(initialQuote?.flow || []);
   const [approach, setApproach] = useState(initialQuote?.approach || []);
@@ -657,7 +660,15 @@ export function QuoteBuilder({
           commercial: { ...commercial, priceDisplayMode },
           batteryAdvice,
           internalAdvice,
-          choiceGroups,
+          choiceGroups: choiceGroups.map((group) => ({
+            ...group,
+            choices: group.choices.map((choice) => {
+              // imageUrl is een tijdelijke presigned URL; alleen `image` (ref) opslaan
+              const sanitized = { ...choice };
+              delete sanitized.imageUrl;
+              return sanitized;
+            }),
+          })),
           flow,
           approach,
           options,
@@ -854,6 +865,36 @@ export function QuoteBuilder({
         recommendedChoiceId: group.recommendedChoiceId === choiceId ? choices[0]?.id : group.recommendedChoiceId,
       };
     }));
+  }
+
+  async function uploadChoiceImage(groupId: string, choiceId: string, file: File) {
+    setUploadingChoiceImageId(choiceId);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/quote-attachments/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const result = (await response.json().catch(() => null)) as {
+        error?: string;
+        url?: string;
+        previewUrl?: string;
+      } | null;
+      if (!response.ok || !result?.url || !result.previewUrl) {
+        throw new Error(result?.error || "Uploaden mislukt");
+      }
+      updateChoice(groupId, choiceId, { image: result.url, imageUrl: result.previewUrl });
+      toast.success("Foto toegevoegd");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Uploaden mislukt");
+    } finally {
+      setUploadingChoiceImageId(null);
+    }
+  }
+
+  function removeChoiceImage(groupId: string, choiceId: string) {
+    updateChoice(groupId, choiceId, { image: undefined, imageUrl: undefined });
   }
 
   function addChoiceItem(groupId: string, choiceId: string) {
@@ -1721,6 +1762,41 @@ export function QuoteBuilder({
                                   className="resize-none bg-white text-sm"
                                   placeholder="Waarom deze keuze logisch is"
                                 />
+                                <div className="flex items-center gap-3">
+                                  {(choice.imageUrl || choice.image) && (
+                                    <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img src={choice.imageUrl || choice.image} alt="" className="h-full w-full object-cover" />
+                                      <button
+                                        type="button"
+                                        onClick={() => removeChoiceImage(group.id, choice.id)}
+                                        className="absolute right-0.5 top-0.5 rounded-full bg-white/90 p-0.5 text-red-500 shadow"
+                                        aria-label="Foto verwijderen"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  )}
+                                  <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400 ${uploadingChoiceImageId === choice.id ? "pointer-events-none opacity-60" : ""}`}>
+                                    {uploadingChoiceImageId === choice.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <ImageIcon className="h-3.5 w-3.5" />
+                                    )}
+                                    {(choice.imageUrl || choice.image) ? "Vervang foto" : "Foto toevoegen"}
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      disabled={uploadingChoiceImageId === choice.id}
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) void uploadChoiceImage(group.id, choice.id, file);
+                                        e.target.value = "";
+                                      }}
+                                    />
+                                  </label>
+                                </div>
                                 <div className="space-y-2">
                                   {choice.items.map((item, itemIndex) => (
                                     <div key={itemIndex} className="grid grid-cols-[1fr_54px_78px_58px_32px] gap-2">

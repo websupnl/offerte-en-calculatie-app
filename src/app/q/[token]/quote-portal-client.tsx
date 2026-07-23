@@ -463,6 +463,12 @@ export function QuotePortalClient({
                                   />
                                   <span className="portal-select-indicator" />
                                   <span className="portal-select-copy">
+                                    {(choice.imageUrl || choice.image) && (
+                                      <span className="portal-choice-photo">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={choice.imageUrl || choice.image} alt={choice.title} />
+                                      </span>
+                                    )}
                                     <span className="portal-select-title">
                                       <b>{choice.title}</b>
                                       {(isRecommended || choice.label) && <em>{choice.label || "Aanbevolen"}</em>}

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
 import { PrintOnLoad } from "@/components/print-on-load";
-import { resolveQuoteAttachmentImages } from "@/lib/quote-attachments";
+import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
 
 export default async function PortalPrintPage({
   params,
@@ -35,9 +35,16 @@ export default async function PortalPrintPage({
     share.quote.attachments,
     { expiresIn: 21600 },
   );
+  const choiceGroups = await resolveChoiceGroupImages(
+    (Array.isArray(share.quote.choiceGroups) ? share.quote.choiceGroups : []) as Array<{
+      choices: Array<{ image?: string | null; imageUrl?: string | null }>;
+    }>,
+    { expiresIn: 21600 },
+  );
   const serialized = JSON.parse(JSON.stringify({
     ...share.quote,
     attachments,
+    choiceGroups,
   }));
   const selectedChoiceIds = (share.selectedChoiceIds as Record<string, string> | null)
     ?? parseJsonParam<Record<string, string>>(choices, {});

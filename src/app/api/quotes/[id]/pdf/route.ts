@@ -9,7 +9,7 @@ import { QuotePDF } from "@/lib/pdf/quote-template";
 import { formatDate } from "@/lib/format";
 import { createElement } from "react";
 import { DEFAULT_BRANDING } from "@/lib/branding";
-import { resolveQuoteAttachmentImages } from "@/lib/quote-attachments";
+import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
 import { pdfFilename } from "@/lib/pdf/filename";
 
 export const runtime = "nodejs";
@@ -80,6 +80,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const attachments = await resolveQuoteAttachmentImages(quote.attachments, { expiresIn: 3600 });
+  const resolvedChoiceGroups = await resolveChoiceGroupImages(
+    (Array.isArray(quote.choiceGroups) ? quote.choiceGroups : []) as Array<{
+      title: string;
+      description?: string;
+      choices: Array<{
+        label?: string;
+        title: string;
+        summary?: string;
+        image?: string | null;
+        imageUrl?: string | null;
+        items: Array<{ description: string; qty: number; unitPrice: number; indent?: number }>;
+      }>;
+    }>,
+    { expiresIn: 3600 },
+  );
   const companySlug = quote.company.slug;
   const branding = DEFAULT_BRANDING[companySlug] ?? DEFAULT_BRANDING.websup;
 
@@ -106,7 +121,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     options: (quote.options as Array<{ id?: string; t: string; d: string; tag: string; price?: number | null; vatRate?: number }> | null) || [],
     selectedOptionIds: [],
     exclusions: (quote.exclusions as string[]) || [],
-    choiceGroups: (quote.choiceGroups as Array<{ title: string; description?: string; choices: Array<{ label?: string; title: string; summary?: string; items: Array<{ description: string; qty: number; unitPrice: number; indent?: number }> }> }> | null) || [],
+    choiceGroups: resolvedChoiceGroups.map((group) => ({
+      title: group.title,
+      description: group.description,
+      choices: group.choices.map((choice) => ({
+        label: choice.label,
+        title: choice.title,
+        summary: choice.summary,
+        image: choice.imageUrl ?? choice.image ?? undefined,
+        items: choice.items,
+      })),
+    })),
     technicalNotes: (quote.technicalNotes as string[] | null) || [],
     assumptions: (quote.assumptions as string[] | null) || [],
     planning: (quote.planning as { leadTime?: string; executionDuration?: string } | null) ?? undefined,

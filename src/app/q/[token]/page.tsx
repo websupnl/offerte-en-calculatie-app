@@ -5,7 +5,7 @@ import { QuotePortalClient } from "./quote-portal-client";
 import { sendTelegramMessage } from "@/lib/notifications";
 import { quoteChoiceGroupSchema, quoteOptionSchema } from "@/lib/quote-selection";
 import { z } from "zod";
-import { resolveQuoteAttachmentImages } from "@/lib/quote-attachments";
+import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
 
 export default async function QuotePortalPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -72,7 +72,9 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
   );
   const parsedChoiceGroups = z.array(quoteChoiceGroupSchema).safeParse(serialized.quote.choiceGroups);
   const parsedOptions = z.array(quoteOptionSchema).safeParse(serialized.quote.options);
-  serialized.quote.choiceGroups = parsedChoiceGroups.success ? parsedChoiceGroups.data : [];
+  serialized.quote.choiceGroups = parsedChoiceGroups.success
+    ? await resolveChoiceGroupImages(parsedChoiceGroups.data, { expiresIn: 21600 })
+    : [];
   serialized.quote.options = parsedOptions.success ? parsedOptions.data : [];
 
   return (

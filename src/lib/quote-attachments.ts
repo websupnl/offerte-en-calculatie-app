@@ -33,6 +33,34 @@ export async function resolveQuoteAttachmentImageUrl(
   return presignDownload(key, expiresIn);
 }
 
+/**
+ * Zet de opgeslagen `image`-ref (storage-ref of externe URL) van elke keuze om
+ * naar een bruikbare `imageUrl` voor weergave. `image` blijft ongemoeid, zodat
+ * de editor de originele ref kan blijven opslaan (presigned URLs verlopen).
+ */
+export async function resolveChoiceGroupImages<
+  C extends { image?: string | null; imageUrl?: string | null },
+  G extends { choices: C[] },
+>(groups: G[], options: { expiresIn?: number } = {}): Promise<G[]> {
+  const { expiresIn = 3600 } = options;
+
+  return Promise.all(
+    groups.map(async (group) => ({
+      ...group,
+      choices: await Promise.all(
+        group.choices.map(async (choice) => {
+          if (!choice.image) return choice;
+          const imageUrl = await resolveQuoteAttachmentImageUrl(
+            choice.image,
+            expiresIn,
+          );
+          return { ...choice, imageUrl };
+        }),
+      ),
+    })),
+  );
+}
+
 export async function resolveQuoteAttachmentImages<
   T extends { imageUrl: string },
 >(

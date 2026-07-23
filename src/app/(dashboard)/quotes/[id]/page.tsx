@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { QuoteDetailClient } from "./quote-detail-client";
-import { resolveQuoteAttachmentImages } from "@/lib/quote-attachments";
+import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
 
 export default async function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -37,8 +37,14 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
     expiresIn: 21600,
     includeStorageRef: true,
   });
+  const choiceGroups = await resolveChoiceGroupImages(
+    (Array.isArray(quote.choiceGroups) ? quote.choiceGroups : []) as Array<{
+      choices: Array<{ image?: string | null; imageUrl?: string | null }>;
+    }>,
+    { expiresIn: 21600 },
+  );
   const serialized = JSON.parse(JSON.stringify({
-    quote: { ...quote, attachments },
+    quote: { ...quote, attachments, choiceGroups },
     company,
     customers,
     products,

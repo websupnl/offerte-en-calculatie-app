@@ -43,6 +43,7 @@ type PdfChoice = {
   label?: string;
   title: string;
   summary?: string;
+  image?: string;
   items: PdfChoiceItem[];
 };
 
@@ -849,6 +850,13 @@ export function QuotePDF({
                 const choiceTotal = mainItems.reduce((sum, i) => sum + i.unitPrice * i.qty, 0);
                 return (
                   <View key={ci} style={{ borderWidth: 1.5, borderColor: isRec ? brand.colors.accent : brand.colors.border, borderRadius: 8, overflow: "hidden" }}>
+                    {/* Foto per keuze */}
+                    {choice.image && (
+                      <Image
+                        src={publicImageDataUri(choice.image)}
+                        style={{ width: "100%", height: 150, objectFit: "cover" }}
+                      />
+                    )}
                     {/* Header: titel + samenvatting */}
                     <View style={{ padding: 10, backgroundColor: isRec ? brand.colors.surface : "#FFFFFF" }}>
                       {isRec && (

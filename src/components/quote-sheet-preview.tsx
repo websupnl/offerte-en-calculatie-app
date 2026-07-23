@@ -827,6 +827,17 @@ export function QuoteSheetPreview({
                     const isRecommended = group.recommendedChoiceId === choice.id || choice.label?.toLowerCase() === "aanbevolen";
                     return (
                       <div key={choice.id} className={`relative rounded-xl border p-5 ${isActive ? "border-blue-600 bg-blue-50/40" : "border-slate-200 bg-white"}`}>
+                        {(choice.imageUrl || choice.image) && (
+                          <div className="choice-photo mb-3 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={choice.imageUrl || choice.image}
+                              alt={choice.title}
+                              className="block w-full"
+                              style={{ maxHeight: 220, objectFit: "cover" }}
+                            />
+                          </div>
+                        )}
                         <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                           <h4 className="text-base font-bold leading-tight text-slate-900">{choice.title}</h4>
                           {(choice.label || isRecommended) && (

@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
 import { PrintOnLoad } from "@/components/print-on-load";
-import { resolveQuoteAttachmentImages } from "@/lib/quote-attachments";
+import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
 
 export default async function QuotePrintPage({
   params,
@@ -35,7 +35,13 @@ export default async function QuotePrintPage({
   const attachments = await resolveQuoteAttachmentImages(quote.attachments, {
     expiresIn: 21600,
   });
-  const serialized = JSON.parse(JSON.stringify({ ...quote, attachments }));
+  const choiceGroups = await resolveChoiceGroupImages(
+    (Array.isArray(quote.choiceGroups) ? quote.choiceGroups : []) as Array<{
+      choices: Array<{ image?: string | null; imageUrl?: string | null }>;
+    }>,
+    { expiresIn: 21600 },
+  );
+  const serialized = JSON.parse(JSON.stringify({ ...quote, attachments, choiceGroups }));
 
   return (
     <main className="print-document-page">

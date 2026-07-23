@@ -16,6 +16,12 @@ export const quoteChoiceSchema = z.object({
   title: z.string().trim().min(1),
   summary: z.string().trim().optional(),
   tag: z.string().trim().optional(),
+  // Foto per keuze (bijv. productafbeelding). Opgeslagen als storage-ref
+  // (s3://bucket/key) of externe URL. `imageUrl` is een tijdelijke, resolvede
+  // weergave-URL die nooit persistent wordt opgeslagen — hij wordt bij elke
+  // render opnieuw afgeleid uit `image`.
+  image: z.string().trim().optional(),
+  imageUrl: z.string().trim().optional(),
   items: z.array(selectableLineSchema).min(1),
 });
 
