@@ -34,6 +34,7 @@ const attachmentSchema = z.object({
   imageUrl: z.string().optional().default(""),
   liveUrl: z.string().optional().nullable(),
   caption: z.string().optional().nullable(),
+  section: z.string().optional().nullable(),
 }).refine((attachment) => attachment.imageUrl.trim() || attachment.liveUrl?.trim(), {
   message: "Voeg een screenshot of live link toe",
 });

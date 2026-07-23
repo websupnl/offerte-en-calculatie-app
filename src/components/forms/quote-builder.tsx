@@ -117,6 +117,7 @@ type QuoteAttachment = {
   storageRef?: string;
   liveUrl: string;
   caption: string;
+  section: string;
 };
 
 type InitialQuoteAttachment = {
@@ -126,7 +127,19 @@ type InitialQuoteAttachment = {
   storageRef?: string | null;
   liveUrl?: string | null;
   caption?: string | null;
+  section?: string | null;
 };
+
+// Waar een afbeelding in de offerte terechtkomt. Bij een sectie staat hij onderaan
+// die pagina, in de vrije ruimte. "eigen-pagina" geeft een losse voorbeeldpagina.
+const ATTACHMENT_SECTIONS: { value: string; label: string }[] = [
+  { value: "intro", label: "Bij de toelichting (intro)" },
+  { value: "werking", label: "Bij Werking van de installatie" },
+  { value: "items", label: "Bij Levering en montage (prijzen)" },
+  { value: "terms", label: "Bij de uitgangspunten" },
+  { value: "sign", label: "Bij de slotpagina" },
+  { value: "eigen-pagina", label: "Op een eigen pagina" },
+];
 
 type GeneratedQuoteItem = {
   description?: string | null;
@@ -381,6 +394,7 @@ export function QuoteBuilder({
       storageRef: attachment.storageRef || undefined,
       liveUrl: attachment.liveUrl || "",
       caption: attachment.caption || "",
+      section: attachment.section || "intro",
     })) || []
   );
 
@@ -561,6 +575,7 @@ export function QuoteBuilder({
         storageRef: attachment.storageRef || undefined,
         liveUrl: attachment.liveUrl || "",
         caption: attachment.caption || "",
+        section: attachment.section || "intro",
       })));
     }
 
@@ -675,12 +690,13 @@ export function QuoteBuilder({
           exclusions,
           attachments: attachments
             .filter((attachment) => attachment.imageUrl.trim() || attachment.liveUrl.trim())
-            .map(({ id, title, imageUrl, storageRef, liveUrl, caption }) => {
+            .map(({ id, title, imageUrl, storageRef, liveUrl, caption, section }) => {
               const attachment = {
                 title,
                 imageUrl: storageRef || imageUrl,
                 liveUrl,
                 caption,
+                section,
               };
               return initialQuote?.id && id.length > 20
                 ? { ...attachment, id }
@@ -1029,7 +1045,7 @@ export function QuoteBuilder({
   function addAttachmentUrl() {
     setAttachments((prev) => [
       ...prev,
-      { id: genId(), title: "Ontwerp", imageUrl: "", liveUrl: "", caption: "" },
+      { id: genId(), title: "Ontwerp", imageUrl: "", liveUrl: "", caption: "", section: "intro" },
     ]);
   }
 
@@ -1065,6 +1081,7 @@ export function QuoteBuilder({
           storageRef,
           liveUrl: "",
           caption: "",
+          section: "intro",
         },
       ]);
       toast.success("Afbeelding geüpload");
@@ -1901,15 +1918,13 @@ export function QuoteBuilder({
                 <CardContent>
                   {attachments.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
-                      Voeg een installatie-, product- of projectfoto toe. Bij Koolhaas wordt de eerste afbeelding onder de persoonlijke toelichting geplaatst.
+                      Voeg een installatie-, product- of projectfoto toe en kies bij welke sectie hij hoort. De afbeelding komt onderaan die pagina in de vrije ruimte.
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {isKoolhaas && (
-                        <p className="text-xs leading-relaxed text-slate-500">
-                          De eerste afbeelding staat onder de toelichting. Overige afbeeldingen krijgen een eigen vervolgpagina.
-                        </p>
-                      )}
+                      <p className="text-xs leading-relaxed text-slate-500">
+                        Kies per afbeelding bij welke sectie hij hoort. Hij staat dan onderaan die pagina en schaalt automatisch mee, zodat de opmaak altijd heel blijft.
+                      </p>
                       {attachments.map((attachment) => (
                         <div key={attachment.id} className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
                           {attachment.imageUrl && (
@@ -1930,6 +1945,18 @@ export function QuoteBuilder({
                               <X className="h-4 w-4" />
                             </Button>
                           </div>
+                          <label className="flex items-center gap-2 text-xs text-slate-600">
+                            <span className="shrink-0 font-medium">Hoort bij</span>
+                            <select
+                              value={attachment.section || "intro"}
+                              onChange={(e) => updateAttachment(attachment.id, { section: e.target.value })}
+                              className="h-8 flex-1 rounded-md border border-slate-200 bg-white px-2 text-sm"
+                            >
+                              {ATTACHMENT_SECTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </label>
                           <Input
                             value={attachment.storageRef ? "" : attachment.imageUrl}
                             onChange={(e) => updateAttachment(attachment.id, { imageUrl: e.target.value })}

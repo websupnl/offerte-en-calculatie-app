@@ -111,7 +111,7 @@ type QuoteItem = {
 
 type FlowItem = { n: number | string; t: string; d: string };
 type ApproachStep = { n: number | string; t: string; d: string };
-type QuoteAttachment = { id?: string; title?: string | null; imageUrl: string; liveUrl?: string | null; caption?: string | null };
+type QuoteAttachment = { id?: string; title?: string | null; imageUrl: string; liveUrl?: string | null; caption?: string | null; section?: string | null };
 
 export type QuotePreviewData = {
   number: string;
@@ -291,11 +291,30 @@ export function QuoteSheetPreview({
     : [];
   const customerResponsibilities = isKoolhaas ? (quote.customerResponsibilities ?? []).filter(Boolean) : [];
   const attachments = quote.attachments ?? [];
-  const introVisual = isKoolhaas ? attachments.find((attachment) => attachment.imageUrl) : undefined;
-  const standaloneAttachments = introVisual
-    ? attachments.filter((attachment) => attachment !== introVisual)
-    : attachments;
+  // Een afbeelding hoort bij een sectie (staat onderaan die pagina) of krijgt een eigen pagina.
+  const SECTION_KEYS = ["intro", "werking", "items", "terms", "sign"];
+  const isSectionImage = (a: QuoteAttachment) =>
+    Boolean(a.imageUrl) && SECTION_KEYS.includes(a.section ?? "intro");
+  const sectionImages = (key: string) =>
+    attachments.filter((a) => isSectionImage(a) && (a.section ?? "intro") === key);
+  const standaloneAttachments = attachments.filter((a) => !isSectionImage(a));
   const attachmentPages = standaloneAttachments.length;
+  // Rendert de afbeelding(en) van een sectie in de vrije ruimte onderaan die pagina,
+  // of een lege spacer als er geen afbeelding is. Nooit overloop dankzij max-height.
+  const renderSectionSpace = (key: string) => {
+    const imgs = sectionImages(key);
+    if (imgs.length === 0) return <div className="spacer"></div>;
+    return (
+      <div className="section-figure">
+        {imgs.map((att, i) => (
+          <figure className="section-figure-item" key={att.id ?? `${att.imageUrl}-${i}`}>
+            <img src={att.imageUrl} alt={att.title || "Afbeelding bij deze sectie"} />
+            {att.caption && <figcaption>{att.caption}</figcaption>}
+          </figure>
+        ))}
+      </div>
+    );
+  };
   const validUntilLabel = quote.validUntil ? formatDate(quote.validUntil) : null;
   const hasOptionsPage = options.length > 0;
   const hasTermsPage = Boolean(exclusions.length || technicalNotes.length || customerResponsibilities.length || quote.outro);
@@ -833,14 +852,6 @@ export function QuoteSheetPreview({
               onChange={(v) => onUpdate?.({ intro: v })} 
               className="letter" 
             />
-            {introVisual && (
-              <figure className="intro-visual">
-                <img
-                  src={introVisual.imageUrl}
-                  alt={introVisual.title || "Voorbeeld van de voorgestelde installatie"}
-                />
-              </figure>
-            )}
             <div className="sig">
               <div className="sig-av">
                 <img src="/logos/daan-koolhaas.jpg" alt="Daan Koolhaas" />
@@ -850,7 +861,7 @@ export function QuoteSheetPreview({
                 <div className="sig-role">{brand.role}</div>
               </div>
             </div>
-            <div className="spacer"></div>
+            {renderSectionSpace("intro")}
             {renderPageFooter(pageLabel(2))}
           </div>
         </section>
@@ -881,7 +892,7 @@ export function QuoteSheetPreview({
                   </div>
                 ))}
               </div>
-              <div className="spacer"></div>
+              {renderSectionSpace("werking")}
               {renderPageFooter(pageLabel(3))}
             </div>
           </section>
@@ -1032,7 +1043,7 @@ export function QuoteSheetPreview({
 
             {!splitItemsPage && itemsTableBlock}
 
-            <div className="spacer"></div>
+            {renderSectionSpace("items")}
             {renderPageFooter(pageLabel(3 + approachPageOffset + attachmentPages))}
           </div>
         </section>
@@ -1048,7 +1059,7 @@ export function QuoteSheetPreview({
 
               {itemsTableBlock}
 
-              <div className="spacer"></div>
+              {renderSectionSpace("items")}
               {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages))}
             </div>
           </section>
@@ -1096,7 +1107,7 @@ export function QuoteSheetPreview({
                 </>
               )}
 
-              <div className="spacer"></div>
+              {splitTermsPage ? <div className="spacer"></div> : renderSectionSpace("terms")}
               {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + itemsPageOffset + (hasOptionsPage ? 1 : 0)))}
             </div>
           </section>
@@ -1117,7 +1128,7 @@ export function QuoteSheetPreview({
 
               {exclusionsBlock}
 
-              <div className="spacer"></div>
+              {renderSectionSpace("terms")}
               {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + itemsPageOffset + (hasOptionsPage ? 1 : 0) + 1))}
             </div>
           </section>
@@ -1168,7 +1179,7 @@ export function QuoteSheetPreview({
               </div>
             </div>
 
-            <div className="spacer"></div>
+            {renderSectionSpace("sign")}
             {renderPageFooter(pageLabel(totalPages))}
           </div>
         </section>

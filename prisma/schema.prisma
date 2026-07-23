@@ -445,6 +445,7 @@ model QuoteAttachment {
   imageUrl  String   @db.Text
   liveUrl   String?  @db.Text
   caption   String?  @db.Text
+  section   String?
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
