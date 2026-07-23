@@ -122,6 +122,7 @@ export type QuotePreviewData = {
   status: string;
   intro: string | null;
   outro: string | null;
+  notes?: string | null;
   validUntil: string | null;
   acceptedAt?: string | null;
   totalExVat: string | number;
@@ -250,6 +251,8 @@ export function QuoteSheetPreview({
   isEditable = false,
   onUpdate,
   onUpdateItem,
+  onAddItem,
+  onRemoveItem,
   selectedChoiceIds: externalSelectedChoiceIds,
   selectedOptionIds = [],
 }: QuoteSheetPreviewProps) {
@@ -283,12 +286,15 @@ export function QuoteSheetPreview({
     0,
   );
   const exclusions = quote.exclusions ?? [];
-  const technicalNotesField = quote.technicalNotes?.length ? "technicalNotes" : "assumptions";
-  const technicalNotes = isKoolhaas
-    ? [...(quote.assumptions ?? []), ...(quote.technicalNotes ?? [])]
-        .filter(Boolean)
-        .filter((item) => !isMisplacedIntroLine(item, quote.customer.name))
+  // Uitgangspunten worden getoond onder één kopje, maar blijven twee aparte velden.
+  // We houden ze gescheiden zodat bewerken en verwijderen naar het juiste veld gaat.
+  const assumptionsOwn = isKoolhaas
+    ? (quote.assumptions ?? []).filter(Boolean).filter((item) => !isMisplacedIntroLine(item, quote.customer.name))
     : [];
+  const technicalNotesOwn = isKoolhaas
+    ? (quote.technicalNotes ?? []).filter(Boolean).filter((item) => !isMisplacedIntroLine(item, quote.customer.name))
+    : [];
+  const technicalNotes = [...assumptionsOwn, ...technicalNotesOwn];
   const customerResponsibilities = isKoolhaas ? (quote.customerResponsibilities ?? []).filter(Boolean) : [];
   const attachments = quote.attachments ?? [];
   // Een afbeelding hoort bij een sectie (staat onderaan die pagina) of krijgt een eigen pagina.
@@ -497,7 +503,8 @@ export function QuoteSheetPreview({
   const renderTextList = (
     field: "exclusions" | "assumptions" | "technicalNotes" | "customerResponsibilities",
     values: string[],
-    fallback: string
+    fallback: string,
+    showAdd: boolean = true
   ) => (
     <div className="doc-text-list">
       {values.map((item, index) => (
@@ -520,7 +527,7 @@ export function QuoteSheetPreview({
           )}
         </div>
       ))}
-      {isEditable && (
+      {isEditable && showAdd && (
         <button
           type="button"
           className="doc-edit-btn doc-list-add"
@@ -570,6 +577,16 @@ export function QuoteSheetPreview({
                           className="article-description"
                         />
                       </span>
+                      {isEditable && (
+                        <button
+                          type="button"
+                          className="inline-delete"
+                          onClick={() => onRemoveItem?.(item.id)}
+                          aria-label="Regel verwijderen"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -577,15 +594,37 @@ export function QuoteSheetPreview({
               return (
                 <tr key={item.id}>
                   <td className="article-description">
-                    <InlineTextarea
-                      isEditable={isEditable}
-                      value={item.description}
-                      onChange={(v) => onUpdateItem?.(item.id, { description: v })}
-                    />
+                    <span style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
+                      <InlineTextarea
+                        isEditable={isEditable}
+                        value={item.description}
+                        onChange={(v) => onUpdateItem?.(item.id, { description: v })}
+                      />
+                      {isEditable && (
+                        <button
+                          type="button"
+                          className="inline-delete"
+                          onClick={() => onRemoveItem?.(item.id)}
+                          aria-label="Regel verwijderen"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </span>
                   </td>
                 </tr>
               );
             })}
+            {isEditable && onAddItem && (
+              <tr>
+                <td>
+                  <button type="button" className="doc-edit-btn doc-list-add" onClick={() => onAddItem()}>
+                    <PlusCircle size={14} />
+                    Regel
+                  </button>
+                </td>
+              </tr>
+            )}
           </tbody>
           <tfoot>
             <tr className="grand-total">
@@ -608,7 +647,10 @@ export function QuoteSheetPreview({
           <h2 className="h2">Uitgangspunten voor de uitvoering.</h2>
         </div>
       </div>
-      {renderTextList(technicalNotesField, technicalNotes, "Nieuw uitgangspunt voor deze offerte.")}
+      {assumptionsOwn.length > 0 &&
+        renderTextList("assumptions", assumptionsOwn, "Nieuw uitgangspunt voor deze offerte.", technicalNotesOwn.length === 0)}
+      {technicalNotesOwn.length > 0 &&
+        renderTextList("technicalNotes", technicalNotesOwn, "Nieuw uitgangspunt voor deze offerte.", true)}
     </>
   ) : null;
 
@@ -883,14 +925,59 @@ export function QuoteSheetPreview({
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px", marginTop: "16px" }}>
                 {approach.map((step, index) => (
-                  <div className="flow-item" key={index}>
+                  <div className="flow-item" key={index} style={{ position: "relative" }}>
                     <div className="fn">{step.n ?? index + 1}</div>
-                    <div>
-                      <h4>{step.t}</h4>
-                      <p>{step.d}</p>
+                    <div style={{ flex: 1 }}>
+                      <h4>
+                        <InlineInput
+                          isEditable={Boolean(isEditable)}
+                          value={step.t}
+                          onChange={(value) =>
+                            onUpdate?.({ approach: approach.map((s, i) => (i === index ? { ...s, t: value } : s)) })
+                          }
+                          placeholder="Titel van de stap"
+                        />
+                      </h4>
+                      <p>
+                        <InlineTextarea
+                          isEditable={Boolean(isEditable)}
+                          value={step.d}
+                          onChange={(value) =>
+                            onUpdate?.({ approach: approach.map((s, i) => (i === index ? { ...s, d: value } : s)) })
+                          }
+                          placeholder="Uitleg van deze stap"
+                        />
+                      </p>
                     </div>
+                    {isEditable && (
+                      <button
+                        type="button"
+                        className="inline-delete"
+                        onClick={() => onUpdate?.({ approach: approach.filter((_, i) => i !== index) })}
+                        aria-label="Stap verwijderen"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </div>
                 ))}
+                {isEditable && (
+                  <button
+                    type="button"
+                    className="doc-edit-btn doc-list-add"
+                    onClick={() =>
+                      onUpdate?.({
+                        approach: [
+                          ...approach,
+                          { n: approach.length + 1, t: "Nieuwe stap", d: "Korte uitleg van deze stap." },
+                        ],
+                      })
+                    }
+                  >
+                    <PlusCircle size={14} />
+                    Stap
+                  </button>
+                )}
               </div>
               {renderSectionSpace("werking")}
               {renderPageFooter(pageLabel(3))}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,7 @@ import {
   PackagePlus,
   Upload,
   Copy,
+  Check,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { calculateTotals } from "@/lib/calculation";
@@ -436,6 +437,12 @@ export function QuoteBuilder({
 
   // ─── UI State ───
   const [saving, setSaving] = useState(false);
+  // Autosave-status: idle = nog niks gewijzigd, unsaved = wijziging in behandeling,
+  // saving = bezig, saved = opgeslagen, error = mislukt.
+  const [saveStatus, setSaveStatus] = useState<"idle" | "unsaved" | "saving" | "saved" | "error">("idle");
+  const autosaveInFlight = useRef(false);
+  const firstAutosaveRender = useRef(true);
+  const savedSignatureRef = useRef<string | null>(null);
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [copyPromptLoading, setCopyPromptLoading] = useState(false);
@@ -640,6 +647,130 @@ export function QuoteBuilder({
     }
   }
 
+  // Bouwt de offerte-payload uit de huidige builder-state.
+  // includeAttachments = false bij autosave: dan blijven afbeeldingen ongemoeid,
+  // zodat autosave nooit per ongeluk een foto kan wissen. Afbeeldingen worden
+  // bewaard via de handmatige opslag (die stuurt de volledige lijst mee).
+  function buildPayload(includeAttachments: boolean = true) {
+    const attachmentsPayload = attachments
+      .filter((attachment) => attachment.imageUrl.trim() || attachment.liveUrl.trim())
+      .map(({ id, title, imageUrl, storageRef, liveUrl, caption, section }) => {
+        const attachment = {
+          title,
+          imageUrl: storageRef || imageUrl,
+          liveUrl,
+          caption,
+          section,
+        };
+        return initialQuote?.id && id.length > 20
+          ? { ...attachment, id }
+          : attachment;
+      });
+    return {
+      customerId,
+      title,
+      category,
+      tagline,
+      itemsHeader,
+      validUntil,
+      intro,
+      outro,
+      notes,
+      quoteType,
+      assumptions,
+      technicalNotes,
+      customerResponsibilities,
+      planning,
+      commercial: { ...commercial, priceDisplayMode },
+      batteryAdvice,
+      internalAdvice,
+      choiceGroups: choiceGroups.map((group) => ({
+        ...group,
+        choices: group.choices.map((choice) => {
+          // imageUrl is een tijdelijke presigned URL; alleen `image` (ref) opslaan
+          const sanitized = { ...choice };
+          delete sanitized.imageUrl;
+          return sanitized;
+        }),
+      })),
+      flow,
+      approach,
+      options,
+      exclusions,
+      ...(includeAttachments ? { attachments: attachmentsPayload } : {}),
+      items: items.map(({ id, ...rest }) => ({
+        ...rest,
+        id: (initialQuote?.id && id.length > 20) ? id : undefined,
+      })),
+    };
+  }
+
+  // Is de offerte in een staat die opgeslagen kan worden?
+  function canPersist() {
+    if (!customerId) return false;
+    if (items.length === 0 && choiceGroups.length === 0) return false;
+    if (items.some((i) => !i.description)) return false;
+    if (choiceGroups.some((group) => group.choices.length < 2)) return false;
+    return true;
+  }
+
+  // Stille opslag voor autosave: PUT zonder navigatie of toast, met statusindicatie.
+  async function silentSave() {
+    if (!initialQuote?.id) return;
+    if (autosaveInFlight.current) return;
+    if (!canPersist()) return;
+    // Autosave laat afbeeldingen ongemoeid (includeAttachments = false).
+    const payload = buildPayload(false);
+    const signature = JSON.stringify(payload);
+    autosaveInFlight.current = true;
+    setSaveStatus("saving");
+    try {
+      const res = await fetch(`/api/quotes/${initialQuote.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error();
+      savedSignatureRef.current = signature;
+      setSaveStatus("saved");
+    } catch {
+      setSaveStatus("error");
+    } finally {
+      autosaveInFlight.current = false;
+    }
+  }
+
+  // Debounce: 1,5s na de laatste wijziging automatisch opslaan (alleen bestaande offertes).
+  // Afbeeldingen tellen niet mee: die worden via de handmatige opslag bewaard.
+  const currentSignature = JSON.stringify(buildPayload(false));
+  useEffect(() => {
+    if (!initialQuote?.id) return;
+    if (firstAutosaveRender.current) {
+      firstAutosaveRender.current = false;
+      savedSignatureRef.current = currentSignature;
+      return;
+    }
+    if (currentSignature === savedSignatureRef.current) return;
+    setSaveStatus("unsaved");
+    const timer = setTimeout(() => {
+      void silentSave();
+    }, 1500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSignature]);
+
+  // Waarschuw bij weggaan met niet-opgeslagen wijzigingen.
+  useEffect(() => {
+    const handler = (event: BeforeUnloadEvent) => {
+      if (saveStatus === "unsaved" || saveStatus === "saving") {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [saveStatus]);
+
   async function handleSave() {
     if (!customerId) return toast.error("Selecteer een klant");
     if (items.length === 0 && choiceGroups.length === 0) return toast.error("Voeg minimaal één offerteregel of configuratie toe");
@@ -653,64 +784,17 @@ export function QuoteBuilder({
     try {
       const method = initialQuote?.id ? "PUT" : "POST";
       const url = initialQuote?.id ? `/api/quotes/${initialQuote.id}` : "/api/quotes";
-      
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          customerId, 
-          title, 
-          category, 
-          tagline,
-          itemsHeader,
-          validUntil, 
-          intro, 
-          outro, 
-          notes,
-          quoteType,
-          assumptions,
-          technicalNotes,
-          customerResponsibilities,
-          planning,
-          commercial: { ...commercial, priceDisplayMode },
-          batteryAdvice,
-          internalAdvice,
-          choiceGroups: choiceGroups.map((group) => ({
-            ...group,
-            choices: group.choices.map((choice) => {
-              // imageUrl is een tijdelijke presigned URL; alleen `image` (ref) opslaan
-              const sanitized = { ...choice };
-              delete sanitized.imageUrl;
-              return sanitized;
-            }),
-          })),
-          flow,
-          approach,
-          options,
-          exclusions,
-          attachments: attachments
-            .filter((attachment) => attachment.imageUrl.trim() || attachment.liveUrl.trim())
-            .map(({ id, title, imageUrl, storageRef, liveUrl, caption, section }) => {
-              const attachment = {
-                title,
-                imageUrl: storageRef || imageUrl,
-                liveUrl,
-                caption,
-                section,
-              };
-              return initialQuote?.id && id.length > 20
-                ? { ...attachment, id }
-                : attachment;
-            }),
-          items: items.map(({ id, ...rest }) => ({
-            ...rest,
-            id: (initialQuote?.id && id.length > 20) ? id : undefined
-          }))
-        }),
+        body: JSON.stringify(buildPayload()),
       });
 
       if (!res.ok) throw new Error();
       const data = await res.json();
+      savedSignatureRef.current = currentSignature;
+      setSaveStatus("saved");
       toast.success(initialQuote?.id ? "Offerte opgeslagen" : "Offerte aangemaakt");
       router.push(`/quotes/${initialQuote?.id ?? data.id}`);
       router.refresh();
@@ -1108,6 +1192,10 @@ export function QuoteBuilder({
       })));
     }
     if (updates.exclusions !== undefined) setExclusions(updates.exclusions);
+    if (updates.assumptions !== undefined) setAssumptions(updates.assumptions ?? []);
+    if (updates.technicalNotes !== undefined) setTechnicalNotes(updates.technicalNotes ?? []);
+    if (updates.customerResponsibilities !== undefined) setCustomerResponsibilities(updates.customerResponsibilities ?? []);
+    if (updates.notes !== undefined) setNotes(updates.notes ?? "");
   };
 
   function buildQuoteImportPrompt(contract: QuoteContractResponse) {
@@ -1487,6 +1575,21 @@ export function QuoteBuilder({
               value={validUntil}
               onChange={(e) => setValidUntil(e.target.value)}
             />
+          </div>
+
+          <div className="flex min-w-[130px] items-center justify-end gap-1.5 text-xs font-medium" aria-live="polite">
+            {saveStatus === "saving" && (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" /><span className="text-slate-500">Bezig met opslaan…</span></>
+            )}
+            {saveStatus === "saved" && (
+              <><Check className="h-3.5 w-3.5 text-emerald-600" /><span className="text-emerald-600">Opgeslagen</span></>
+            )}
+            {saveStatus === "unsaved" && (
+              <span className="text-amber-600">Wijzigingen worden opgeslagen…</span>
+            )}
+            {saveStatus === "error" && (
+              <span className="text-red-600">Opslaan mislukt, klik Opslaan</span>
+            )}
           </div>
 
           <Button onClick={handleSave} disabled={saving} className="bg-orange-600 hover:bg-orange-700">
