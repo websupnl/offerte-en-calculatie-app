@@ -299,8 +299,34 @@ export function QuoteSheetPreview({
   const validUntilLabel = quote.validUntil ? formatDate(quote.validUntil) : null;
   const hasOptionsPage = options.length > 0;
   const hasTermsPage = Boolean(exclusions.length || technicalNotes.length || customerResponsibilities.length || quote.outro);
-  
-  const totalPages = 4 + attachmentPages + (hasOptionsPage ? 1 : 0) + (hasTermsPage ? 1 : 0);
+  // Werking van de installatie (approach-stappen) krijgt een eigen pagina na de intro.
+  const hasApproachPage = approach.length > 0;
+  const approachPageOffset = hasApproachPage ? 1 : 0;
+
+  // Bij keuze-configuraties krijgt de inbegrepen-tabel een eigen pagina, zodat
+  // de keuze-kaarten een volle pagina houden en niets afgesneden wordt.
+  const splitItemsPage = choiceGroups.length > 0 && visibleItems.length > 0;
+  const itemsPageOffset = splitItemsPage ? 1 : 0;
+
+  // Voorwaarden-pagina opsplitsen als de tekst te vol wordt: technische
+  // uitgangspunten op pagina 1, voorbereiding + niet-inbegrepen op pagina 2.
+  // Schatting van het aantal regels bepaalt of splitsen nodig is (ca. 55 tekens
+  // per regel); bij weinig tekst blijft alles compact op één pagina.
+  const estimateTermLines = (arr: string[]) =>
+    arr.reduce((n, s) => n + Math.max(1, Math.ceil((s?.length ?? 0) / 55)), 0);
+  const termsLineLoad =
+    estimateTermLines(technicalNotes) +
+    estimateTermLines(customerResponsibilities) +
+    estimateTermLines(exclusions);
+  const splitTermsPage =
+    hasTermsPage &&
+    technicalNotes.length > 0 &&
+    customerResponsibilities.length + exclusions.length > 0 &&
+    termsLineLoad > 24;
+  const termsPageOffset = splitTermsPage ? 1 : 0;
+
+  const totalPages =
+    4 + approachPageOffset + attachmentPages + itemsPageOffset + (hasOptionsPage ? 1 : 0) + (hasTermsPage ? 1 : 0) + termsPageOffset;
   const pageLabel = (page: number) =>
     `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
   const coverHeading = isKoolhaas ? (quote.title || brand.defaultTitle) : "Offerte";
@@ -487,6 +513,109 @@ export function QuoteSheetPreview({
       )}
     </div>
   );
+
+  const itemsTableBlock = (
+    <>
+      <div className="article-table-head">
+        <div>
+          <span className="eyebrow">{isKoolhaas ? "Inbegrepen werkzaamheden" : "Diensten"}</span>
+          <h2 className="h2">
+            <InlineInput
+              isEditable={isEditable}
+              value={quote.itemsHeader || (isKoolhaas ? "Materiaaloverzicht" : "Prijsopbouw")}
+              onChange={(v) => onUpdate?.({ itemsHeader: v })}
+            />
+          </h2>
+        </div>
+      </div>
+      <div className="article-table-wrap">
+        <table className="article-table">
+          <thead>
+            <tr>
+              <th>Omschrijving</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleItems.map((item) => {
+              const isSubItem = (item.indent ?? 0) > 0 || (Number(item.unitPrice) === 0 && Number(item.total) === 0);
+              if (isSubItem) {
+                return (
+                  <tr key={item.id} className="article-sub-row">
+                    <td>
+                      <span className="article-sub-dot"><Check size={9} strokeWidth={3} /></span>
+                      <span className="article-sub-content">
+                        <InlineTextarea
+                          isEditable={isEditable}
+                          value={item.description}
+                          onChange={(v) => onUpdateItem?.(item.id, { description: v })}
+                          className="article-description"
+                        />
+                      </span>
+                    </td>
+                  </tr>
+                );
+              }
+              return (
+                <tr key={item.id}>
+                  <td className="article-description">
+                    <InlineTextarea
+                      isEditable={isEditable}
+                      value={item.description}
+                      onChange={(v) => onUpdateItem?.(item.id, { description: v })}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="grand-total">
+              <td>
+                <span>Totaal {showExVat ? "excl." : "incl."} btw</span>
+                <strong>{formatCurrency(Number(showExVat ? totals.totalExVat : totals.totalIncVat))}</strong>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </>
+  );
+
+  const technicalNotesBlock = technicalNotes.length > 0 ? (
+    <>
+      <div className="row-badge">
+        <div>
+          <span className="eyebrow">Technische uitgangspunten</span>
+          <h2 className="h2">Uitgangspunten voor de uitvoering.</h2>
+        </div>
+      </div>
+      {renderTextList(technicalNotesField, technicalNotes, "Nieuw uitgangspunt voor deze offerte.")}
+    </>
+  ) : null;
+
+  const responsibilitiesBlock = customerResponsibilities.length > 0 ? (
+    <>
+      <div className="row-badge">
+        <div>
+          <span className="eyebrow">Voorbereiding voor de uitvoering</span>
+          <h2 className="h2">Wat vooraf nodig is.</h2>
+        </div>
+      </div>
+      {renderTextList("customerResponsibilities", customerResponsibilities, "Nieuwe afspraak voor voorbereiding door opdrachtgever.")}
+    </>
+  ) : null;
+
+  const exclusionsBlock = exclusions.length > 0 ? (
+    <>
+      <div className="row-badge">
+        <div>
+          <span className="eyebrow">{brand.exclusionsEyebrow}</span>
+          <h2 className="h2">{brand.exclusionsTitle}</h2>
+        </div>
+      </div>
+      {renderTextList("exclusions", exclusions, "Nieuwe uitsluiting of randvoorwaarde.")}
+    </>
+  ) : null;
 
   const optionsBlock = (
     <>
@@ -726,6 +855,38 @@ export function QuoteSheetPreview({
           </div>
         </section>
 
+        {/* ── WERKING VAN DE INSTALLATIE ── */}
+        {hasApproachPage && (
+          <section className="sheet">
+            <div className="bar"></div>
+            <div className="pad">
+              <div className="ph">
+                {renderHeaderLogo()}
+                <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
+              </div>
+              <div className="row-badge">
+                <div>
+                  <span className="eyebrow">Werking van de installatie</span>
+                  <h2 className="h2">Zo werkt het in de praktijk.</h2>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px", marginTop: "16px" }}>
+                {approach.map((step, index) => (
+                  <div className="flow-item" key={index}>
+                    <div className="fn">{step.n ?? index + 1}</div>
+                    <div>
+                      <h4>{step.t}</h4>
+                      <p>{step.d}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="spacer"></div>
+              {renderPageFooter(pageLabel(3))}
+            </div>
+          </section>
+        )}
+
         {/* ── ONTWERPVOORBEELDEN ── */}
         {standaloneAttachments.map((attachment, index) => (
           <section className="sheet design-sheet" key={attachment.id ?? `${attachment.imageUrl}-${index}`}>
@@ -788,7 +949,7 @@ export function QuoteSheetPreview({
               </figure>
 
               <div className="spacer"></div>
-              {renderPageFooter(pageLabel(3 + index))}
+              {renderPageFooter(pageLabel(3 + approachPageOffset + index))}
             </div>
           </section>
         ))}
@@ -869,73 +1030,29 @@ export function QuoteSheetPreview({
               </div>
             ))}
 
-            <div className="article-table-head">
-              <div>
-                <span className="eyebrow">{isKoolhaas ? "Inbegrepen werkzaamheden" : "Diensten"}</span>
-                <h2 className="h2">
-                  <InlineInput
-                    isEditable={isEditable}
-                    value={quote.itemsHeader || (isKoolhaas ? "Materiaaloverzicht" : "Prijsopbouw")}
-                    onChange={(v) => onUpdate?.({ itemsHeader: v })}
-                  />
-                </h2>
-              </div>
-            </div>
-            <div className="article-table-wrap">
-              <table className="article-table">
-                <thead>
-                  <tr>
-                    <th>Omschrijving</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleItems.map((item) => {
-                    const isSubItem = (item.indent ?? 0) > 0 || (Number(item.unitPrice) === 0 && Number(item.total) === 0);
-                    if (isSubItem) {
-                      return (
-                        <tr key={item.id} className="article-sub-row">
-                          <td>
-                            <span className="article-sub-dot"><Check size={9} strokeWidth={3} /></span>
-                            <span className="article-sub-content">
-                              <InlineTextarea
-                                isEditable={isEditable}
-                                value={item.description}
-                                onChange={(v) => onUpdateItem?.(item.id, { description: v })}
-                                className="article-description"
-                              />
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    }
-                    return (
-                      <tr key={item.id}>
-                        <td className="article-description">
-                          <InlineTextarea 
-                            isEditable={isEditable} 
-                            value={item.description} 
-                            onChange={(v) => onUpdateItem?.(item.id, { description: v })}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr className="grand-total">
-                    <td>
-                      <span>Totaal {showExVat ? "excl." : "incl."} btw</span>
-                      <strong>{formatCurrency(Number(showExVat ? totals.totalExVat : totals.totalIncVat))}</strong>
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            {!splitItemsPage && itemsTableBlock}
 
             <div className="spacer"></div>
-            {renderPageFooter(pageLabel(3 + attachmentPages))}
+            {renderPageFooter(pageLabel(3 + approachPageOffset + attachmentPages))}
           </div>
         </section>
+
+        {splitItemsPage && (
+          <section className="sheet">
+            <div className="bar"></div>
+            <div className="pad">
+              <div className="ph">
+                {renderHeaderLogo()}
+                <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
+              </div>
+
+              {itemsTableBlock}
+
+              <div className="spacer"></div>
+              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages))}
+            </div>
+          </section>
+        )}
 
         {hasOptionsPage && (
           <section className="sheet">
@@ -949,7 +1066,7 @@ export function QuoteSheetPreview({
               {optionsBlock}
 
               <div className="spacer"></div>
-              {renderPageFooter(pageLabel(4 + attachmentPages))}
+              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + itemsPageOffset))}
             </div>
           </section>
         )}
@@ -963,46 +1080,45 @@ export function QuoteSheetPreview({
                 <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
               </div>
 
-              {technicalNotes.length > 0 && (
+              {technicalNotesBlock}
+
+              {!splitTermsPage && responsibilitiesBlock && (
                 <>
-                  <div className="row-badge">
-                    <div>
-                      <span className="eyebrow">Technische uitgangspunten</span>
-                      <h2 className="h2">Uitgangspunten voor de uitvoering.</h2>
-                    </div>
-                  </div>
-                  {renderTextList(technicalNotesField, technicalNotes, "Nieuw uitgangspunt voor deze offerte.")}
+                  <div className="div"></div>
+                  {responsibilitiesBlock}
                 </>
               )}
 
-              {customerResponsibilities.length > 0 && (
+              {!splitTermsPage && exclusionsBlock && (
                 <>
                   <div className="div"></div>
-                  <div className="row-badge">
-                    <div>
-                      <span className="eyebrow">Voorbereiding voor de uitvoering</span>
-                      <h2 className="h2">Wat vooraf nodig is.</h2>
-                    </div>
-                  </div>
-                  {renderTextList("customerResponsibilities", customerResponsibilities, "Nieuwe afspraak voor voorbereiding door opdrachtgever.")}
-                </>
-              )}
-
-              {exclusions.length > 0 && (
-                <>
-                  <div className="div"></div>
-                  <div className="row-badge">
-                    <div>
-                      <span className="eyebrow">{brand.exclusionsEyebrow}</span>
-                      <h2 className="h2">{brand.exclusionsTitle}</h2>
-                    </div>
-                  </div>
-                  {renderTextList("exclusions", exclusions, "Nieuwe uitsluiting of randvoorwaarde.")}
+                  {exclusionsBlock}
                 </>
               )}
 
               <div className="spacer"></div>
-              {renderPageFooter(pageLabel(4 + attachmentPages + (hasOptionsPage ? 1 : 0)))}
+              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + itemsPageOffset + (hasOptionsPage ? 1 : 0)))}
+            </div>
+          </section>
+        )}
+
+        {splitTermsPage && (
+          <section className="sheet">
+            <div className="bar"></div>
+            <div className="pad">
+              <div className="ph">
+                {renderHeaderLogo()}
+                <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
+              </div>
+
+              {responsibilitiesBlock}
+
+              {responsibilitiesBlock && exclusionsBlock && <div className="div"></div>}
+
+              {exclusionsBlock}
+
+              <div className="spacer"></div>
+              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + itemsPageOffset + (hasOptionsPage ? 1 : 0) + 1))}
             </div>
           </section>
         )}
