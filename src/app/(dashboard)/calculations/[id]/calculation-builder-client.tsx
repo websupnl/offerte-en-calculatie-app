@@ -216,10 +216,12 @@ export function CalculationBuilderClient({
   const totals = useMemo(() => {
     let totalCost = 0;
     let totalSales = 0;
+    let totalVat = 0;
 
     items.forEach((item) => {
       totalCost += item.qty * item.costPrice;
       totalSales += item.qty * item.unitPrice;
+      totalVat += item.qty * item.unitPrice * (item.vatRate / 100);
     });
 
     const margin = totalSales - totalCost;
@@ -228,6 +230,8 @@ export function CalculationBuilderClient({
     return {
       totalCost,
       totalSales,
+      totalVat,
+      totalSalesIncVat: totalSales + totalVat,
       margin,
       marginPct,
     };
@@ -533,6 +537,9 @@ export function CalculationBuilderClient({
                 {formatCurrency(totals.totalSales)}
               </p>
               <span className="text-[11px] text-slate-400">Excl. BTW (voorgesteld aan klant)</span>
+              <p className="mt-1 text-sm font-semibold tabular-nums text-slate-300">
+                {formatCurrency(totals.totalSalesIncVat)} <span className="text-[11px] font-normal text-slate-500">incl. BTW</span>
+              </p>
             </CardContent>
           </Card>
 
@@ -811,6 +818,9 @@ export function CalculationBuilderClient({
                     </td>
                     <td className="py-3 px-3 text-right tabular-nums text-emerald-400 font-bold text-sm">
                       {formatCurrency(totals.totalSales)}
+                      <div className="text-[10px] font-normal text-slate-400">
+                        {formatCurrency(totals.totalSalesIncVat)} incl. BTW
+                      </div>
                     </td>
                     <td></td>
                   </tr>
