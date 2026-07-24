@@ -93,6 +93,7 @@ console.error(`\n✓ ${allProducts.length} producten gescraped\n`);
 
 if (shouldSave) {
   const { prisma, getCompany } = await import('./db.mjs');
+  const { updateLinkedProductPrice } = await import('./pricing.mjs');
   const company = await getCompany(companySlug);
   let saved = 0;
 
@@ -116,10 +117,7 @@ if (shouldSave) {
           sourceUrl: 'https://www.4blue.nl',
         },
       });
-      await prisma.product.updateMany({
-        where: { datasheetId: datasheet.id },
-        data: { costPrice: p.netto, supplier: "4Blue", priceUpdatedAt: new Date() },
-      });
+      await updateLinkedProductPrice(prisma, datasheet.id, p.netto, { supplier: "4Blue" });
       saved++;
     } catch (e) {
       console.error(`  ✗ ${p.brand} ${p.model}: ${e.message.slice(0, 80)}`);

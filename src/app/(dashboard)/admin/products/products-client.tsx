@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +21,7 @@ import { formatCurrency, formatRelativeDate } from "@/lib/format";
 import { KOOLHAAS_CATEGORIES, WEBSUP_CATEGORIES } from "@/lib/format";
 import { ArticlePickerDialog } from "@/components/products/article-picker-dialog";
 import { SupplierSelect } from "@/components/forms/supplier-select";
+import { computeSalesPrice } from "@/lib/pricing";
 
 const productSchema = z.object({
   category: z.string().min(1, "Categorie is verplicht"),
@@ -28,7 +29,9 @@ const productSchema = z.object({
   description: z.string().optional(),
   unit: z.string().default("stuk"),
   basePrice: z.number().min(0),
+  basePriceAuto: z.boolean().default(true),
   costPrice: z.number().min(0).nullable().optional(),
+  defaultMarkupPercent: z.number().min(0).nullable().optional(),
   vatRate: z.number().min(0).max(100).default(21),
   supplier: z.string().optional(),
   sku: z.string().optional(),
@@ -46,7 +49,9 @@ type Product = {
   description: string | null;
   unit: string;
   basePrice: string | number;
+  basePriceAuto?: boolean;
   costPrice: string | number | null;
+  defaultMarkupPercent?: string | number | null;
   vatRate: string | number;
   supplier?: string | null;
   sku?: string | null;
@@ -176,7 +181,7 @@ export function ProductsClient({
       ? [...KOOLHAAS_CATEGORIES]
       : [...WEBSUP_CATEGORIES];
 
-  const { register, handleSubmit, reset, setValue, control, formState: { errors } } = useForm<ProductFormInput, unknown, ProductForm>({
+  const { register, handleSubmit, reset, setValue, watch, control, formState: { errors } } = useForm<ProductFormInput, unknown, ProductForm>({
     resolver: zodResolver(productSchema),
     defaultValues: initialSelectedProduct
       ? {
@@ -185,14 +190,26 @@ export function ProductsClient({
           description: initialSelectedProduct.description ?? "",
           unit: initialSelectedProduct.unit,
           basePrice: Number(initialSelectedProduct.basePrice),
+          basePriceAuto: initialSelectedProduct.basePriceAuto ?? true,
           costPrice: initialSelectedProduct.costPrice == null ? null : Number(initialSelectedProduct.costPrice),
+          defaultMarkupPercent: initialSelectedProduct.defaultMarkupPercent != null ? Number(initialSelectedProduct.defaultMarkupPercent) : 25,
           vatRate: Number(initialSelectedProduct.vatRate),
           supplier: initialSelectedProduct.supplier ?? "",
           sku: initialSelectedProduct.sku ?? "",
           ean: initialSelectedProduct.ean ?? "",
         }
-      : { vatRate: 21, unit: "stuk" },
+      : { vatRate: 21, unit: "stuk", basePriceAuto: true, defaultMarkupPercent: 25 },
   });
+
+  const watchedCostPrice = watch("costPrice");
+  const watchedMarkup = watch("defaultMarkupPercent");
+  const watchedBasePriceAuto = watch("basePriceAuto");
+
+  useEffect(() => {
+    if (watchedBasePriceAuto) {
+      setValue("basePrice", computeSalesPrice(watchedCostPrice ?? 0, watchedMarkup ?? 0));
+    }
+  }, [watchedBasePriceAuto, watchedCostPrice, watchedMarkup, setValue]);
 
   const pickerProducts = products.map((p) => ({
     ...p,
@@ -226,7 +243,7 @@ export function ProductsClient({
   })).filter((g) => g.products.length > 0);
 
   function openCreate() {
-    reset({ vatRate: 21, unit: "stuk" });
+    reset({ vatRate: 21, unit: "stuk", basePriceAuto: true, defaultMarkupPercent: 25, basePrice: 0 });
     setEditingId(null);
     setSelectedDatasheetId(null);
     setProductDialog(true);
@@ -238,8 +255,10 @@ export function ProductsClient({
     setValue("name", p.name);
     setValue("description", p.description ?? "");
     setValue("unit", p.unit);
-    setValue("basePrice", Number(p.basePrice));
     setValue("costPrice", p.costPrice ? Number(p.costPrice) : null);
+    setValue("defaultMarkupPercent", p.defaultMarkupPercent != null ? Number(p.defaultMarkupPercent) : 25);
+    setValue("basePriceAuto", p.basePriceAuto ?? true);
+    setValue("basePrice", Number(p.basePrice));
     setValue("vatRate", Number(p.vatRate));
     setValue("supplier", p.supplier ?? "");
     setValue("sku", p.sku ?? "");
@@ -250,13 +269,14 @@ export function ProductsClient({
 
   function openCreateFromDatasheet(datasheet: Datasheet) {
     const costPrice = Number(datasheet.price ?? 0);
-    const suggestedSalesPrice = Math.ceil((costPrice / 0.8) * 100) / 100;
     reset({
       category: datasheet.category || "Overig",
       name: `${datasheet.brand} ${datasheet.model}`,
       description: datasheet.notes ?? "",
       unit: "stuk",
-      basePrice: suggestedSalesPrice,
+      basePriceAuto: true,
+      defaultMarkupPercent: 25,
+      basePrice: computeSalesPrice(costPrice, 25),
       costPrice,
       vatRate: 21,
     });
@@ -837,10 +857,6 @@ export function ProductsClient({
             </div>
             <div className="grid grid-cols-4 gap-4">
               <div className="space-y-2">
-                <Label>Verkoop (ex)</Label>
-                <Input {...register("basePrice", { valueAsNumber: true })} type="number" step="0.01" placeholder="0.00" />
-              </div>
-              <div className="space-y-2">
                 <Label>Inkoop (ex)</Label>
                 <Input
                   {...register("costPrice", {
@@ -852,6 +868,17 @@ export function ProductsClient({
                 />
               </div>
               <div className="space-y-2">
+                <Label>Opslag %</Label>
+                <Input
+                  {...register("defaultMarkupPercent", {
+                    setValueAs: (value) => value === "" ? null : Number(value),
+                  })}
+                  type="number"
+                  step="0.5"
+                  placeholder="25"
+                />
+              </div>
+              <div className="space-y-2">
                 <Label>BTW %</Label>
                 <Input {...register("vatRate", { valueAsNumber: true })} type="number" placeholder="21" />
               </div>
@@ -859,6 +886,29 @@ export function ProductsClient({
                 <Label>Eenheid</Label>
                 <Input {...register("unit")} placeholder="stuk" />
               </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Verkoop (ex)</Label>
+                <button
+                  type="button"
+                  className="text-xs text-blue-600 hover:underline"
+                  onClick={() => setValue("basePriceAuto", !watchedBasePriceAuto)}
+                >
+                  {watchedBasePriceAuto ? "Handmatig aanpassen" : "Automatisch berekenen"}
+                </button>
+              </div>
+              <Input
+                {...register("basePrice", { valueAsNumber: true })}
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                disabled={watchedBasePriceAuto}
+                className={watchedBasePriceAuto ? "bg-slate-50 text-slate-500" : ""}
+              />
+              {watchedBasePriceAuto && (
+                <p className="text-[11px] text-slate-400">Automatisch berekend: inkoop × (1 + opslag%)</p>
+              )}
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">

@@ -95,6 +95,7 @@ if (products.length === 0) {
 
 if (shouldSave) {
   const { prisma, getCompany } = await import('./db.mjs');
+  const { updateLinkedProductPrice } = await import('./pricing.mjs');
   const company = await getCompany(companySlug);
   let saved = 0;
 
@@ -119,10 +120,7 @@ if (shouldSave) {
           sourceUrl: 'https://www.elektramat.nl',
         },
       });
-      await prisma.product.updateMany({
-        where: { datasheetId: datasheet.id },
-        data: { costPrice: p.netto, supplier: "Elektramat", sku: p.artikelnr, priceUpdatedAt: new Date() },
-      });
+      await updateLinkedProductPrice(prisma, datasheet.id, p.netto, { supplier: "Elektramat", sku: p.artikelnr });
       saved++;
     } catch (e) {
       console.error(`  ✗ ${p.brand} ${p.model}: ${e.message.slice(0, 80)}`);

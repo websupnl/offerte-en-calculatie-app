@@ -105,6 +105,7 @@ console.error(`\n✓ ${products.length} producten gescraped${total ? ` (van ${to
 
 if (shouldSave) {
   const { prisma, getCompany } = await import('./db.mjs');
+  const { updateLinkedProductPrice } = await import('./pricing.mjs');
   const company = await getCompany(companySlug);
   let saved = 0;
 
@@ -129,10 +130,7 @@ if (shouldSave) {
           sourceUrl: 'https://www.rexel.nl',
         },
       });
-      await prisma.product.updateMany({
-        where: { datasheetId: datasheet.id },
-        data: { costPrice: p.netto, supplier: 'Rexel', sku: p.artikelnr, priceUpdatedAt: new Date() },
-      });
+      await updateLinkedProductPrice(prisma, datasheet.id, p.netto, { supplier: 'Rexel', sku: p.artikelnr });
       saved++;
     } catch (e) {
       console.error(`  ✗ ${p.brand} ${p.model}: ${e.message.slice(0, 80)}`);

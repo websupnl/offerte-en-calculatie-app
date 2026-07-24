@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { computeSalesPrice } from "@/lib/pricing";
 import { z } from "zod";
 
 const schema = z.object({
@@ -9,6 +10,7 @@ const schema = z.object({
   description: z.string().optional(),
   unit: z.string().default("stuk"),
   basePrice: z.coerce.number().min(0),
+  basePriceAuto: z.boolean().default(true),
   costPrice: z.coerce.number().min(0).nullable().optional(),
   supplier: z.string().nullable().optional(),
   sku: z.string().nullable().optional(),
@@ -53,13 +55,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     select: { costPrice: true },
   });
 
-  const costPrice = datasheet?.price ?? parsed.data.costPrice;
+  const costPrice = datasheet?.price != null ? Number(datasheet.price) : parsed.data.costPrice;
   const costPriceChanged = existing && Number(existing.costPrice ?? 0) !== Number(costPrice ?? 0);
+  const basePrice = parsed.data.basePriceAuto
+    ? computeSalesPrice(costPrice, parsed.data.defaultMarkupPercent)
+    : parsed.data.basePrice;
 
   const result = await prisma.product.updateMany({
     where: { id, companyId: session.user.activeCompanyId },
     data: {
       ...parsed.data,
+      basePrice,
       costPrice,
       ...(costPriceChanged ? { priceUpdatedAt: new Date() } : {}),
       specs: JSON.parse(JSON.stringify(parsed.data.specs ?? {})),
