@@ -185,7 +185,7 @@ const COMPANY_COPY = {
       </>
     ),
     website: "websup.nl",
-    email: "hallo@websup.nl",
+    email: "info@websup.nl",
     phone: "06 82 20 21 48",
     kvk: "95524061",
     role: "Eigenaar WebsUp.nl",
@@ -216,7 +216,7 @@ const COMPANY_COPY = {
     name: "Koolhaas Installaties",
     logoText: null,
     website: "koolhaasinstallaties.nl",
-    email: "hallo@koolhaasinstallaties.nl",
+    email: "info@koolhaasinstallaties.nl",
     phone: "06 82 20 21 48",
     kvk: "95524061",
     role: "Koolhaas Installaties",

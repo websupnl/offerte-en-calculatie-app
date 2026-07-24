@@ -84,18 +84,19 @@ model Company {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  users         CompanyUser[]
-  customers     Customer[]
-  products      Product[]
-  productSets   ProductSet[]
-  quotes        Quote[]
-  datasheets    Datasheet[]
+  users            CompanyUser[]
+  customers        Customer[]
+  products         Product[]
+  productSets      ProductSet[]
+  quotes           Quote[]
+  datasheets       Datasheet[]
   findings         ResearchFinding[]
   adviceReports    AdviceDocument[]
   projects         Project[]
   workOrders       WorkOrder[]
   salesInvoices    SalesInvoice[]
   purchaseInvoices PurchaseInvoice[]
+  calculations     Calculation[]
 }
 
 model CompanyUser {
@@ -134,6 +135,7 @@ model Customer {
   adviceReports AdviceDocument[]
   projects      Project[]
   salesInvoices SalesInvoice[]
+  calculations  Calculation[]
 
   @@index([companyId])
 }
@@ -141,28 +143,36 @@ model Customer {
 // ─── Products & Sets ───────────────────────────────────────────────────────
 
 model Product {
-  id          String   @id @default(cuid())
-  companyId   String
-  datasheetId String?  @unique
-  category    String
-  name        String
-  description String?  @db.Text
-  unit        String   @default("stuk")
-  basePrice   Decimal  @default(0) @db.Decimal(10, 2)
-  costPrice   Decimal? @db.Decimal(10, 2)
-  vatRate     Decimal  @default(21) @db.Decimal(5, 2)
-  specs       Json     @default("{}")
-  active      Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                   String    @id @default(cuid())
+  companyId            String
+  datasheetId          String?   @unique
+  category             String
+  name                 String
+  description          String?   @db.Text
+  unit                 String    @default("stuk")
+  basePrice            Decimal   @default(0) @db.Decimal(10, 2)
+  costPrice            Decimal?  @db.Decimal(10, 2)
+  vatRate              Decimal   @default(21) @db.Decimal(5, 2)
+  supplier             String?
+  sku                  String?
+  ean                  String?
+  priceUpdatedAt       DateTime?
+  defaultMarkupPercent Decimal?  @default(25) @db.Decimal(5, 2)
+  laborHours           Decimal?  @db.Decimal(5, 2)
+  specs                Json      @default("{}")
+  active               Boolean   @default(true)
+  sortOrder            Int       @default(0)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  datasheet  Datasheet?       @relation(fields: [datasheetId], references: [id], onDelete: SetNull)
-  quoteItems QuoteItem[]
-  setItems   ProductSetItem[]
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  datasheet        Datasheet?        @relation(fields: [datasheetId], references: [id], onDelete: SetNull)
+  quoteItems       QuoteItem[]
+  setItems         ProductSetItem[]
+  calculationItems CalculationItem[]
 
   @@index([companyId, active])
+  @@index([companyId, supplier])
 }
 
 model ProductSet {
@@ -171,6 +181,8 @@ model ProductSet {
   name        String
   description String?  @db.Text
   category    String?
+  laborHours  Decimal? @default(0) @db.Decimal(5, 2)
+  laborRate   Decimal? @default(65) @db.Decimal(10, 2)
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -242,6 +254,7 @@ model Quote {
   share           QuoteShare?
   findings        ResearchFinding[]
   salesInvoices   SalesInvoice[]
+  calculation     Calculation?
 
   @@index([companyId, updatedAt(sort: Desc)])
   @@index([companyId, status])
@@ -281,6 +294,7 @@ model Project {
   workOrders       WorkOrder[]
   invoices         SalesInvoice[]
   purchaseInvoices PurchaseInvoice[]
+  calculations     Calculation[]
 
   @@index([companyId])
 }
@@ -520,7 +534,7 @@ model Datasheet {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   product Product?
 
   @@unique([companyId, brand, model])
@@ -563,4 +577,74 @@ model QuoteShare {
   createdAt           DateTime  @default(now())
 
   quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+}
+
+// ─── Calculations ───────────────────────────────────────────────────────────
+
+model Calculation {
+  id          String            @id @default(cuid())
+  companyId   String
+  customerId  String?
+  projectId   String?
+  quoteId     String?           @unique
+  number      String // bijv. KI-2026-C001
+  title       String
+  description String?           @db.Text
+  status      CalculationStatus @default(DRAFT)
+  vatRate     Decimal           @default(21) @db.Decimal(5, 2)
+
+  // Totale kosten, verkoop en marges
+  totalCostPrice  Decimal @default(0) @db.Decimal(10, 2)
+  totalSalesPrice Decimal @default(0) @db.Decimal(10, 2)
+  marginAmount    Decimal @default(0) @db.Decimal(10, 2)
+  marginPercent   Decimal @default(0) @db.Decimal(5, 2)
+
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company  Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  project  Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  quote    Quote?            @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  items    CalculationItem[]
+
+  @@index([companyId])
+}
+
+enum CalculationStatus {
+  DRAFT
+  COMPLETED
+  QUOTED
+}
+
+model CalculationItem {
+  id              String              @id @default(cuid())
+  calculationId   String
+  productId       String?
+  type            CalculationItemType @default(MATERIAL)
+  supplier        String?
+  sku             String?
+  description     String              @db.Text
+  qty             Decimal             @default(1) @db.Decimal(10, 2)
+  unit            String?             @default("stuk")
+  costPrice       Decimal             @default(0) @db.Decimal(10, 2)
+  markupPercent   Decimal             @default(0) @db.Decimal(5, 2)
+  unitPrice       Decimal             @default(0) @db.Decimal(10, 2)
+  totalCostPrice  Decimal             @default(0) @db.Decimal(10, 2)
+  totalSalesPrice Decimal             @default(0) @db.Decimal(10, 2)
+  vatRate         Decimal             @default(21) @db.Decimal(5, 2)
+  sortOrder       Int                 @default(0)
+
+  calculation Calculation @relation(fields: [calculationId], references: [id], onDelete: Cascade)
+  product     Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([calculationId])
+}
+
+enum CalculationItemType {
+  MATERIAL
+  LABOR
+  CUSTOM
+  SET
 }

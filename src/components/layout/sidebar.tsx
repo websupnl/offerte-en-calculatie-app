@@ -10,6 +10,7 @@ import { useCompany } from "@/lib/company-context";
 import {
   Brain,
   Building2,
+  Calculator,
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
@@ -53,6 +54,7 @@ const navGroups: NavGroup[] = [
     label: "CRM",
     items: [
       { href: "/customers", label: "Klanten", icon: Users },
+      { href: "/calculations", label: "Calculaties", icon: Calculator },
       { href: "/quotes", label: "Offertes", icon: FileText },
       { href: "/advice", label: "Adviesdocumenten", icon: ShieldCheck },
     ],

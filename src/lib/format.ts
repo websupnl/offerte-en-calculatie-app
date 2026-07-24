@@ -13,6 +13,17 @@ export function formatDate(date: Date | string): string {
   }).format(new Date(date));
 }
 
+export function formatRelativeDate(date: Date | string | null | undefined): string {
+  if (!date) return "onbekend";
+  const d = new Date(date);
+  const days = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
+  if (days <= 0) return "vandaag";
+  if (days === 1) return "gisteren";
+  if (days < 14) return `${days} dagen geleden`;
+  if (days < 60) return `${Math.floor(days / 7)} weken geleden`;
+  return formatDate(d);
+}
+
 export function generateQuoteNumber(companySlug: string, count: number): string {
   const prefix = companySlug === "koolhaas" ? "KI" : "WU";
   const year = new Date().getFullYear();
@@ -119,6 +130,24 @@ export const QUOTE_STATUS_COLORS: Record<string, string> = {
   EXPIRED: "secondary",
 };
 
+export function generateCalculationNumber(companySlug: string, count: number): string {
+  const prefix = companySlug === "koolhaas" ? "KI" : "WU";
+  const year = new Date().getFullYear();
+  return `${prefix}-${year}-C${String(count).padStart(3, "0")}`;
+}
+
+export const CALCULATION_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Concept",
+  COMPLETED: "Afgerond",
+  QUOTED: "Omgezet naar offerte",
+};
+
+export const CALCULATION_STATUS_COLORS: Record<string, string> = {
+  DRAFT: "secondary",
+  COMPLETED: "default",
+  QUOTED: "default",
+};
+
 export const KOOLHAAS_CATEGORIES = [
   "Thuisbatterij",
   "EMS & Energiemanagement",
@@ -135,4 +164,13 @@ export const WEBSUP_CATEGORIES = [
   "Hosting & Onderhoud",
   "Maatwerk Module",
   "Overig",
+] as const;
+
+export const SUPPLIERS = [
+  "Oosterberg",
+  "Rexel",
+  "ESTG",
+  "4Blue",
+  "Elektramat",
+  "Technim",
 ] as const;

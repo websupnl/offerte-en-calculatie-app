@@ -10,6 +10,11 @@ const schema = z.object({
   unit: z.string().default("stuk"),
   basePrice: z.coerce.number().min(0),
   costPrice: z.coerce.number().min(0).nullable().optional(),
+  supplier: z.string().nullable().optional(),
+  sku: z.string().nullable().optional(),
+  ean: z.string().nullable().optional(),
+  defaultMarkupPercent: z.coerce.number().min(0).nullable().optional(),
+  laborHours: z.coerce.number().min(0).nullable().optional(),
   vatRate: z.coerce.number().min(0).max(100).default(21),
   specs: z.record(z.string(), z.unknown()).optional().default({}),
   active: z.boolean().default(true),
@@ -61,10 +66,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Deze leveranciersprijs is al aan een artikel gekoppeld." }, { status: 409 });
   }
 
+  const costPrice = datasheet?.price ?? parsed.data.costPrice;
+
   const product = await prisma.product.create({
     data: {
       ...parsed.data,
-      costPrice: datasheet?.price ?? parsed.data.costPrice,
+      costPrice,
+      priceUpdatedAt: costPrice != null ? new Date() : null,
       specs: JSON.parse(JSON.stringify(parsed.data.specs ?? {})),
       companyId: session.user.activeCompanyId,
     },

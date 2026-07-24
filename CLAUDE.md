@@ -24,7 +24,7 @@ npm run db:seed       # Seed bedrijven + admin user
 npm run dev
 ```
 
-Login: `daan@websup.nl` / `Admin123!`
+Login: `info@websup.nl` / `Admin123!`
 
 ## Deploy (Coolify)
 1. Push naar Git repo

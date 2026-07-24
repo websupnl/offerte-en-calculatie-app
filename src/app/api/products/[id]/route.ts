@@ -10,6 +10,11 @@ const schema = z.object({
   unit: z.string().default("stuk"),
   basePrice: z.coerce.number().min(0),
   costPrice: z.coerce.number().min(0).nullable().optional(),
+  supplier: z.string().nullable().optional(),
+  sku: z.string().nullable().optional(),
+  ean: z.string().nullable().optional(),
+  defaultMarkupPercent: z.coerce.number().min(0).nullable().optional(),
+  laborHours: z.coerce.number().min(0).nullable().optional(),
   vatRate: z.coerce.number().min(0).max(100).default(21),
   specs: z.record(z.string(), z.unknown()).optional().default({}),
   active: z.boolean().default(true),
@@ -43,11 +48,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Deze leveranciersprijs is al aan een ander artikel gekoppeld." }, { status: 409 });
   }
 
+  const existing = await prisma.product.findFirst({
+    where: { id, companyId: session.user.activeCompanyId },
+    select: { costPrice: true },
+  });
+
+  const costPrice = datasheet?.price ?? parsed.data.costPrice;
+  const costPriceChanged = existing && Number(existing.costPrice ?? 0) !== Number(costPrice ?? 0);
+
   const result = await prisma.product.updateMany({
     where: { id, companyId: session.user.activeCompanyId },
     data: {
       ...parsed.data,
-      costPrice: datasheet?.price ?? parsed.data.costPrice,
+      costPrice,
+      ...(costPriceChanged ? { priceUpdatedAt: new Date() } : {}),
       specs: JSON.parse(JSON.stringify(parsed.data.specs ?? {})),
     },
   });

@@ -17,7 +17,7 @@ export default async function ProductsPage({
         prisma.product.findMany({
           where: { companyId, active: true },
           orderBy: [{ category: "asc" }, { name: "asc" }],
-          take: 500,
+          take: 2000,
         }),
         prisma.productSet.findMany({
           where: { companyId, active: true },

@@ -16,9 +16,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Loader2, Package, Layers, X, Database, ExternalLink } from "lucide-react";
-import { formatCurrency } from "@/lib/format";
+import { Plus, Pencil, Trash2, Loader2, Package, Layers, X, Database, ExternalLink, Terminal, Search, Truck, Clock } from "lucide-react";
+import { formatCurrency, formatRelativeDate } from "@/lib/format";
 import { KOOLHAAS_CATEGORIES, WEBSUP_CATEGORIES } from "@/lib/format";
+import { ArticlePickerDialog } from "@/components/products/article-picker-dialog";
+import { SupplierSelect } from "@/components/forms/supplier-select";
 
 const productSchema = z.object({
   category: z.string().min(1, "Categorie is verplicht"),
@@ -28,6 +30,9 @@ const productSchema = z.object({
   basePrice: z.number().min(0),
   costPrice: z.number().min(0).nullable().optional(),
   vatRate: z.number().min(0).max(100).default(21),
+  supplier: z.string().optional(),
+  sku: z.string().optional(),
+  ean: z.string().optional(),
 });
 
 type ProductForm = z.infer<typeof productSchema>;
@@ -43,6 +48,10 @@ type Product = {
   basePrice: string | number;
   costPrice: string | number | null;
   vatRate: string | number;
+  supplier?: string | null;
+  sku?: string | null;
+  ean?: string | null;
+  priceUpdatedAt?: string | null;
 };
 
 type ProductSetItem = {
@@ -111,6 +120,8 @@ export function ProductsClient({
     initialSelectedProduct?.datasheetId ?? null,
   );
   const [saving, setSaving] = useState(false);
+  const [productSearch, setProductSearch] = useState("");
+  const [productSupplierFilter, setProductSupplierFilter] = useState("all");
 
   // ProductSet dialog state
   const [setDialog, setSetDialog] = useState(false);
@@ -120,6 +131,45 @@ export function ProductsClient({
   const [setCategory, setSetCategory] = useState("");
   const [setItems, setSetItems] = useState<SetItemDraft[]>([]);
   const [savingSet, setSavingSet] = useState(false);
+
+  // CLI Runner state
+  const [cliDialogOpen, setCliDialogOpen] = useState(false);
+  const [cliSupplier, setCliSupplier] = useState("oosterberg");
+  const [cliQuery, setCliQuery] = useState("sigenergy");
+  const [cliRunning, setCliRunning] = useState(false);
+  const [cliLogs, setCliLogs] = useState("");
+
+  async function runCliScraper() {
+    setCliRunning(true);
+    setCliLogs(`▶ Gestart: CLI Scraper voor ${cliSupplier} (zoekterm: '${cliQuery}')\n--------------------------------------------------\n`);
+
+    try {
+      const res = await fetch("/api/cli/run-scraper", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ supplier: cliSupplier, query: cliQuery }),
+      });
+
+      if (!res.ok || !res.body) {
+        throw new Error("Kan CLI proces niet starten");
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const text = decoder.decode(value);
+        setCliLogs((prev) => prev + text);
+      }
+    } catch (err) {
+      setCliLogs((prev) => prev + `\n✖ Fout: ${err instanceof Error ? err.message : "Fout"}\n`);
+    } finally {
+      setCliRunning(false);
+      router.refresh();
+    }
+  }
 
   const categories =
     companySlug === "koolhaas"
@@ -137,8 +187,33 @@ export function ProductsClient({
           basePrice: Number(initialSelectedProduct.basePrice),
           costPrice: initialSelectedProduct.costPrice == null ? null : Number(initialSelectedProduct.costPrice),
           vatRate: Number(initialSelectedProduct.vatRate),
+          supplier: initialSelectedProduct.supplier ?? "",
+          sku: initialSelectedProduct.sku ?? "",
+          ean: initialSelectedProduct.ean ?? "",
         }
       : { vatRate: 21, unit: "stuk" },
+  });
+
+  const pickerProducts = products.map((p) => ({
+    ...p,
+    basePrice: Number(p.basePrice),
+    costPrice: p.costPrice != null ? Number(p.costPrice) : null,
+  }));
+
+  const productSuppliers = [...new Set(products.map((p) => p.supplier).filter((s): s is string => Boolean(s)))].sort();
+
+  const filteredProducts = products.filter((p) => {
+    if (productSupplierFilter !== "all" && p.supplier !== productSupplierFilter) return false;
+    const q = productSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      p.name.toLowerCase().includes(q) ||
+      (p.description ?? "").toLowerCase().includes(q) ||
+      (p.sku ?? "").toLowerCase().includes(q) ||
+      (p.ean ?? "").toLowerCase().includes(q) ||
+      (p.supplier ?? "").toLowerCase().includes(q) ||
+      p.category.toLowerCase().includes(q)
+    );
   });
 
   const allCategories = [
@@ -147,7 +222,7 @@ export function ProductsClient({
   ];
   const grouped = [...new Set(allCategories)].map((cat) => ({
     name: cat,
-    products: products.filter((p) => p.category === cat),
+    products: filteredProducts.filter((p) => p.category === cat),
   })).filter((g) => g.products.length > 0);
 
   function openCreate() {
@@ -166,6 +241,9 @@ export function ProductsClient({
     setValue("basePrice", Number(p.basePrice));
     setValue("costPrice", p.costPrice ? Number(p.costPrice) : null);
     setValue("vatRate", Number(p.vatRate));
+    setValue("supplier", p.supplier ?? "");
+    setValue("sku", p.sku ?? "");
+    setValue("ean", p.ean ?? "");
     setSelectedDatasheetId(p.datasheetId ?? null);
     setProductDialog(true);
   }
@@ -392,7 +470,18 @@ export function ProductsClient({
         eyebrow="Catalogus"
         title="Artikelen & prijzen"
         description={`${products.length} artikelen · ${sets.length} sets · ${datasheets.length} leveranciersprijzen`}
-        actions={<Button onClick={openCreate}><Plus className="h-4 w-4" />Nieuw artikel</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setCliDialogOpen(true)}>
+              <Terminal className="mr-2 h-4 w-4 text-emerald-600" />
+              Sync Leverancier (CLI)
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nieuw artikel
+            </Button>
+          </div>
+        }
       />
       <div className="space-y-6 p-5 lg:p-8">
       <Tabs defaultValue="products">
@@ -412,6 +501,36 @@ export function ProductsClient({
         </TabsList>
 
         <TabsContent value="products" className="space-y-4">
+          {products.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              <div className="relative flex-1 min-w-[240px]">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  placeholder="Zoek op naam, omschrijving, EAN, artikelcode of leverancier..."
+                  className="pl-8 bg-white"
+                />
+              </div>
+              {productSuppliers.length > 0 && (
+                <Select value={productSupplierFilter} onValueChange={(v) => setProductSupplierFilter(v || "all")}>
+                  <SelectTrigger className="w-[190px] bg-white shrink-0">
+                    <Truck className="mr-1.5 h-3.5 w-3.5 text-slate-400" />
+                    <SelectValue placeholder="Leverancier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle leveranciers</SelectItem>
+                    {productSuppliers.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <span className="text-xs text-muted-foreground self-center shrink-0">
+                {filteredProducts.length} van {products.length} artikelen
+              </span>
+            </div>
+          )}
           {products.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center py-16">
@@ -420,6 +539,14 @@ export function ProductsClient({
                 <Button variant="outline" className="mt-4" onClick={openCreate}>
                   Voeg eerste artikel toe
                 </Button>
+              </CardContent>
+            </Card>
+          ) : filteredProducts.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center py-16">
+                <Search className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                <p className="text-muted-foreground">Geen artikelen gevonden</p>
+                <p className="text-xs text-muted-foreground mt-1">Pas je zoekterm of leverancier-filter aan.</p>
               </CardContent>
             </Card>
           ) : (
@@ -446,14 +573,30 @@ export function ProductsClient({
                         }}
                         className="flex cursor-pointer items-center justify-between px-6 py-3 hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ws-accent)]"
                       >
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-medium text-sm">{p.name}</p>
-                          {p.datasheetId && <Badge variant="outline" className="mt-1">Leveranciersprijs gekoppeld</Badge>}
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            {p.supplier && (
+                              <Badge className="text-[10px] py-0 px-1.5 font-normal bg-slate-100 text-slate-600 hover:bg-slate-100">
+                                <Truck className="mr-1 h-2.5 w-2.5" />
+                                {p.supplier}
+                              </Badge>
+                            )}
+                            {p.datasheetId && <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-normal">Leveranciersprijs gekoppeld</Badge>}
+                            {p.sku && <span className="text-[10px] text-muted-foreground font-mono">Art# {p.sku}</span>}
+                            {p.ean && <span className="text-[10px] text-muted-foreground font-mono">EAN {p.ean}</span>}
+                            {p.priceUpdatedAt && (
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                <Clock className="h-2.5 w-2.5" />
+                                prijs {formatRelativeDate(p.priceUpdatedAt)}
+                              </span>
+                            )}
+                          </div>
                           {p.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-1">{p.description}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-1 mt-1">{p.description}</p>
                           )}
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 shrink-0">
                           <div className="text-right">
                             <p className="text-sm font-medium">{formatCurrency(Number(p.basePrice))}</p>
                             <p className="text-xs text-muted-foreground">
@@ -717,6 +860,30 @@ export function ProductsClient({
                 <Input {...register("unit")} placeholder="stuk" />
               </div>
             </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Leverancier</Label>
+                <Controller
+                  name="supplier"
+                  control={control}
+                  render={({ field }) => (
+                    <SupplierSelect
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      extraSuppliers={products.map((p) => p.supplier)}
+                    />
+                  )}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Artikelcode</Label>
+                <Input {...register("sku")} placeholder="Leveranciers-SKU" />
+              </div>
+              <div className="space-y-2">
+                <Label>EAN</Label>
+                <Input {...register("ean")} placeholder="8712345678901" />
+              </div>
+            </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setProductDialog(false)}>
                 Annuleren
@@ -775,21 +942,21 @@ export function ProductsClient({
               <div className="space-y-2">
                 {setItems.map((item, idx) => (
                   <div key={idx} className="flex gap-2 items-center">
-                    <Select
-                      onValueChange={(v) => { if (v) updateSetItem(idx, "productId", v); }}
-                      value={item.productId}
-                    >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Selecteer product" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name} ({p.category})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <ArticlePickerDialog
+                      products={pickerProducts}
+                      onSelect={(sel) => updateSetItem(idx, "productId", sel.id)}
+                      title="Artikel kiezen voor set"
+                      trigger={
+                        <Button type="button" variant="outline" className="flex-1 justify-start font-normal min-w-0">
+                          <Search className="mr-2 h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">
+                            {item.productId
+                              ? products.find((p) => p.id === item.productId)?.name ?? "Onbekend artikel"
+                              : "Selecteer artikel..."}
+                          </span>
+                        </Button>
+                      }
+                    />
                     <Input
                       type="number"
                       min="0.01"
@@ -830,6 +997,71 @@ export function ProductsClient({
             <Button onClick={saveSet} disabled={savingSet}>
               {savingSet && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editingSetId ? "Opslaan" : "Aanmaken"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* CLI Scraper Runner Dialog */}
+      <Dialog open={cliDialogOpen} onOpenChange={setCliDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Terminal className="h-5 w-5 text-emerald-600" />
+              CLI Scraper Uitvoeren (Realtime Output)
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Leverancier</Label>
+                <Select value={cliSupplier} onValueChange={(val) => setCliSupplier(val || "oosterberg")}>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Selecteer leverancier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="oosterberg">Oosterberg (Webshop / Brave CDP)</SelectItem>
+                    <SelectItem value="rexel">Rexel (Netto inkoopprijzen)</SelectItem>
+                    <SelectItem value="estg">ESTG (Zonnepanelen & Batterijen)</SelectItem>
+                    <SelectItem value="4blue">4Blue (Solar & Montage)</SelectItem>
+                    <SelectItem value="elektramat">Elektramat (publieke prijs, vergelijking)</SelectItem>
+                    <SelectItem value="technim">Technim (publieke prijs, vergelijking)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Zoekterm / Categorie</Label>
+                <Input
+                  value={cliQuery}
+                  onChange={(e) => setCliQuery(e.target.value)}
+                  placeholder="Bijv. sigenergy, huawei, abb, eaton..."
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Terminal Stdout / Stderr Output</Label>
+                {cliRunning && (
+                  <span className="text-xs text-emerald-600 font-mono animate-pulse flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Process actief...
+                  </span>
+                )}
+              </div>
+              <pre className="bg-slate-950 text-emerald-400 font-mono text-xs p-4 rounded-lg h-64 overflow-y-auto whitespace-pre-wrap break-all shadow-inner border border-slate-800">
+                {cliLogs || "// Klik op 'Start CLI Process' om de scraper lokaal uit te voeren..."}
+              </pre>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-2">
+            <Button variant="outline" onClick={() => setCliDialogOpen(false)} disabled={cliRunning}>
+              Sluiten
+            </Button>
+            <Button onClick={runCliScraper} disabled={cliRunning} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {cliRunning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Terminal className="mr-2 h-4 w-4" />}
+              Start CLI Process
             </Button>
           </DialogFooter>
         </DialogContent>

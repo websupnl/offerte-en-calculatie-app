@@ -142,6 +142,18 @@
   .toast {
     display: none !important;
   }
+  /* Fix: zachte box-shadows met alpha worden door iOS PDFKit (Bestanden/Quick
+     Look op iPhone) als harde gevulde rechthoeken getekend i.p.v. een subtiele
+     schaduw. Op desktop-viewers klopt het wel. Haal de decoratieve schaduwen
+     op badges/pills weg voor de PDF — ze voegen op papier niets toe. */
+  .fn,
+  .article-sub-dot,
+  .article-included-legend,
+  .opt-price-badge,
+  .choice-price-badge,
+  .design-open-link {
+    box-shadow: none !important;
+  }
 }
 
 .portal-container {
@@ -2724,9 +2736,9 @@ a.portal-preview-link:hover {
   .portal-koolhaas .cov-h1 {
     width: 100%;
     max-width: 100%;
-    font-size: clamp(42px, 18vw, 68px);
-    line-height: .92;
-    overflow-wrap: anywhere;
+    font-size: clamp(26px, 8vw, 40px);
+    line-height: 1.05;
+    overflow-wrap: break-word;
   }
   .cov-project,
   .portal-websup .cov-project,
@@ -2744,6 +2756,30 @@ a.portal-preview-link:hover {
   .cov-foot {
     gap: 8px 14px;
     font-size: 12px;
+  }
+  .cov-foot span {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .cov-foot b {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: 12px;
+  }
+  .doc-foot {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .doc-foot-meta {
+    font-size: 11px;
+  }
+  .doc-foot-meta-row {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 3px;
+  }
+  .doc-foot-meta-row span {
+    white-space: nowrap;
   }
   .portal-topbar {
     padding: 11px 14px;

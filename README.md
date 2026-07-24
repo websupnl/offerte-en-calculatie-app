@@ -30,7 +30,7 @@ npm run db:seed               # Seed bedrijven + admin gebruiker
 npm run dev
 ```
 
-Login: `daan@websup.nl` / `Admin123!`
+Login: `info@websup.nl` / `Admin123!`
 
 ## MCP Server
 

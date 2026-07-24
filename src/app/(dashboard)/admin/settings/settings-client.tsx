@@ -397,7 +397,7 @@ export function SettingsClient({
                   type="email"
                   value={settings.notifyEmail}
                   onChange={(e) => setSettings((s) => ({ ...s, notifyEmail: e.target.value }))}
-                  placeholder="daan@websup.nl"
+                  placeholder="info@websup.nl"
                 />
                 <p className="text-xs text-muted-foreground">
                   Ontvang een melding wanneer een klant een offerte accepteert of afwijst

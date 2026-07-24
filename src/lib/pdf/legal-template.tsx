@@ -338,7 +338,7 @@ Geschillen worden bij voorkeur in onderling overleg opgelost. Indien dat niet lu
 
 ---
 
-WebsUp.nl - hallo@websup.nl - websup.nl - KVK 95524061`,
+WebsUp.nl - info@websup.nl - websup.nl - KVK 95524061`,
 
   koolhaas: `## Artikel 1 — Definities
 
@@ -380,13 +380,13 @@ Op alle overeenkomsten is Nederlands recht van toepassing. Geschillen worden voo
 
 ---
 
-Koolhaas Installaties - hallo@koolhaasinstallaties.nl - koolhaasinstallaties.nl - KVK 95524061`,
+Koolhaas Installaties - info@koolhaasinstallaties.nl - koolhaasinstallaties.nl - KVK 95524061`,
 };
 
 export const DEFAULT_PRIVACY: Record<string, string> = {
   websup: `## 1. Wie is verantwoordelijk?
 
-WebsUp.nl (hierna: "wij") is verantwoordelijk voor de verwerking van persoonsgegevens zoals beschreven in dit privacybeleid. Vragen? Mail naar hallo@websup.nl.
+WebsUp.nl (hierna: "wij") is verantwoordelijk voor de verwerking van persoonsgegevens zoals beschreven in dit privacybeleid. Vragen? Mail naar info@websup.nl.
 
 ## 2. Welke gegevens verzamelen wij?
 
@@ -430,7 +430,7 @@ Wij nemen passende technische en organisatorische maatregelen om persoonsgegeven
 
 ## 8. Uw rechten
 
-U heeft het recht op inzage, correctie, verwijdering en overdracht van uw persoonsgegevens. Neem hiervoor contact op via hallo@websup.nl.
+U heeft het recht op inzage, correctie, verwijdering en overdracht van uw persoonsgegevens. Neem hiervoor contact op via info@websup.nl.
 
 ## 9. Klachten
 
@@ -442,11 +442,11 @@ Dit privacybeleid kan worden gewijzigd. De meest actuele versie is beschikbaar v
 
 ---
 
-WebsUp.nl - hallo@websup.nl - websup.nl - KVK 95524061`,
+WebsUp.nl - info@websup.nl - websup.nl - KVK 95524061`,
 
   koolhaas: `## 1. Verantwoordelijke
 
-Koolhaas Installaties verwerkt persoonsgegevens in het kader van het uitbrengen en afhandelen van offertes. Vragen? Mail naar hallo@koolhaasinstallaties.nl.
+Koolhaas Installaties verwerkt persoonsgegevens in het kader van het uitbrengen en afhandelen van offertes. Vragen? Mail naar info@koolhaasinstallaties.nl.
 
 ## 2. Welke gegevens?
 
@@ -475,7 +475,7 @@ Gegevens worden uitsluitend gedeeld met verwerkers die noodzakelijk zijn voor de
 
 ## 7. Uw rechten
 
-U heeft recht op inzage, correctie en verwijdering. Neem contact op via hallo@koolhaasinstallaties.nl.
+U heeft recht op inzage, correctie en verwijdering. Neem contact op via info@koolhaasinstallaties.nl.
 
 ## 8. Klachten
 
@@ -483,5 +483,5 @@ U kunt een klacht indienen bij de Autoriteit Persoonsgegevens (autoriteitpersoon
 
 ---
 
-Koolhaas Installaties - hallo@koolhaasinstallaties.nl - koolhaasinstallaties.nl - KVK 95524061`,
+Koolhaas Installaties - info@koolhaasinstallaties.nl - koolhaasinstallaties.nl - KVK 95524061`,
 };

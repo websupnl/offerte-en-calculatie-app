@@ -13,6 +13,11 @@
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
     "scrape:oosterberg": "node scripts/scrape-oosterberg.mjs sigenergy --save --company koolhaas",
+    "scrape:rexel": "node scripts/scrape-rexel.mjs installatieautomaat --save --company koolhaas",
+    "scrape:estg": "node scripts/scrape-estg.mjs sigenergy --save --company koolhaas",
+    "scrape:4blue": "node scripts/scrape-4blue.mjs growatt --save --company koolhaas",
+    "scrape:elektramat": "node scripts/scrape-elektramat.mjs installatieautomaat --save --company koolhaas",
+    "scrape:technim": "node scripts/scrape-technim.mjs installatieautomaat --save --company koolhaas",
     "import:quote": "node scripts/import-quote.mjs",
     "brave": "/snap/brave/642/opt/brave.com/brave/brave-browser --remote-debugging-port=9222 --user-data-dir=\"$HOME/snap/brave/642/.config/BraveSoftware/Brave-Browser\" &"
   },
