@@ -6,6 +6,7 @@ import { sendTelegramMessage } from "@/lib/notifications";
 import { quoteChoiceGroupSchema, quoteOptionSchema } from "@/lib/quote-selection";
 import { z } from "zod";
 import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
+import { isStorageConfigured, presignDownload } from "@/lib/storage";
 
 export default async function QuotePortalPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -23,6 +24,7 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
           customer: true,
           items: { orderBy: { sortOrder: "asc" } },
           attachments: { orderBy: { sortOrder: "asc" } },
+          documents: { include: { productDocument: true }, orderBy: { sortOrder: "asc" } },
           adviceDocuments: { orderBy: { createdAt: "desc" } },
           company: true,
         },
@@ -76,6 +78,14 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
     ? await resolveChoiceGroupImages(parsedChoiceGroups.data, { expiresIn: 21600 })
     : [];
   serialized.quote.options = parsedOptions.success ? parsedOptions.data : [];
+  serialized.quote.documents = await Promise.all(
+    serialized.quote.documents.map(async (d: { id: string; productDocument: { name: string; type: string; objectKey: string } }) => ({
+      id: d.id,
+      name: d.productDocument.name,
+      type: d.productDocument.type,
+      url: isStorageConfigured() ? await presignDownload(d.productDocument.objectKey, 21600) : null,
+    })),
+  );
 
   return (
     <QuotePortalClient

@@ -97,6 +97,7 @@ model Company {
   salesInvoices    SalesInvoice[]
   purchaseInvoices PurchaseInvoice[]
   calculations     Calculation[]
+  productDocuments ProductDocument[]
 }
 
 model CompanyUser {
@@ -171,9 +172,49 @@ model Product {
   quoteItems       QuoteItem[]
   setItems         ProductSetItem[]
   calculationItems CalculationItem[]
+  documents        ProductDocument[]
 
   @@index([companyId, active])
   @@index([companyId, supplier])
+}
+
+// ─── Datasheets & brochures (bestanden) ────────────────────────────────────
+
+model ProductDocument {
+  id        String              @id @default(cuid())
+  companyId String
+  productId String
+  name      String
+  objectKey String
+  mimeType  String?
+  size      Int?
+  type      ProductDocumentType @default(DATASHEET)
+  createdAt DateTime            @default(now())
+
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quoteDocuments QuoteDocument[]
+
+  @@index([productId])
+  @@index([companyId])
+}
+
+enum ProductDocumentType {
+  DATASHEET
+  BROCHURE
+}
+
+model QuoteDocument {
+  id                String   @id @default(cuid())
+  quoteId           String
+  productDocumentId String
+  sortOrder         Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  quote           Quote           @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  productDocument ProductDocument @relation(fields: [productDocumentId], references: [id], onDelete: Cascade)
+
+  @@unique([quoteId, productDocumentId])
 }
 
 model ProductSet {
@@ -256,6 +297,7 @@ model Quote {
   findings        ResearchFinding[]
   salesInvoices   SalesInvoice[]
   calculation     Calculation?
+  documents       QuoteDocument[]
 
   @@index([companyId, updatedAt(sort: Desc)])
   @@index([companyId, status])
@@ -635,6 +677,7 @@ model CalculationItem {
   totalCostPrice  Decimal             @default(0) @db.Decimal(10, 2)
   totalSalesPrice Decimal             @default(0) @db.Decimal(10, 2)
   vatRate         Decimal             @default(21) @db.Decimal(5, 2)
+  optional        Boolean             @default(false)
   sortOrder       Int                 @default(0)
 
   calculation Calculation @relation(fields: [calculationId], references: [id], onDelete: Cascade)

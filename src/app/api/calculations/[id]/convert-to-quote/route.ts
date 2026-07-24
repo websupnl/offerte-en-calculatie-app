@@ -37,8 +37,12 @@ export async function POST(
   const company = await prisma.company.findUnique({ where: { id: companyId } });
   const quoteNumber = generateQuoteNumber(company?.slug ?? "xx", count + 1);
 
-  // Group or map CalculationItems to QuoteItems
-  const quoteItemsData = calculation.items.map((item, index) => {
+  // Verplichte regels worden gewone QuoteItems; optionele regels worden offerte-opties
+  // (Quote.options), zodat ze als losse meerprijs zichtbaar zijn en niet meetellen in het totaal.
+  const mainItems = calculation.items.filter((item) => !item.optional);
+  const optionalItems = calculation.items.filter((item) => item.optional);
+
+  const quoteItemsData = mainItems.map((item, index) => {
     const total = Number(item.totalSalesPrice);
     return {
       productId: item.productId,
@@ -53,6 +57,17 @@ export async function POST(
       type: "main",
     };
   });
+
+  const quoteOptions = optionalItems.map((item) => ({
+    id: item.id,
+    t: item.description,
+    d: `${item.qty} × ${item.unit ?? "stuk"}`,
+    tag: "Optioneel",
+    price: Number(item.unitPrice) * Number(item.qty),
+    vatRate: Number(item.vatRate),
+    required: false,
+    details: [],
+  }));
 
   const totalExVat = Number(calculation.totalSalesPrice);
   const totalVat = Math.round(totalExVat * (Number(calculation.vatRate) / 100) * 100) / 100;
@@ -71,6 +86,7 @@ export async function POST(
       totalVat,
       totalIncVat,
       projectId: calculation.projectId,
+      options: quoteOptions,
       items: {
         create: quoteItemsData,
       },

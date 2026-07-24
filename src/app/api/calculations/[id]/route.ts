@@ -16,6 +16,7 @@ const calculationItemSchema = z.object({
   markupPercent: z.coerce.number().default(0),
   unitPrice: z.coerce.number().min(0),
   vatRate: z.coerce.number().default(21),
+  optional: z.boolean().default(false),
 });
 
 const schema = z.object({
@@ -91,8 +92,10 @@ export async function PUT(
       : Math.round(item.costPrice * (1 + item.markupPercent / 100) * 100) / 100;
     const itemSales = item.qty * calculatedUnitPrice;
 
-    totalCostPrice += itemCost;
-    totalSalesPrice += itemSales;
+    if (!item.optional) {
+      totalCostPrice += itemCost;
+      totalSalesPrice += itemSales;
+    }
 
     return {
       productId: item.productId || null,
@@ -108,6 +111,7 @@ export async function PUT(
       totalCostPrice: itemCost,
       totalSalesPrice: itemSales,
       vatRate: item.vatRate,
+      optional: item.optional,
       sortOrder: index,
     };
   });

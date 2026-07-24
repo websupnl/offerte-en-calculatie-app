@@ -131,12 +131,20 @@ type InitialQuoteAttachment = {
   section?: string | null;
 };
 
+type QuoteDocumentLink = {
+  id: string;
+  productDocument: { id: string; name: string; type: string; url: string | null };
+};
+
+type AvailableProductDocument = { id: string; name: string; type: string; productId: string; productName: string };
+
 // Waar een afbeelding in de offerte terechtkomt. Bij een sectie staat hij onderaan
 // die pagina, in de vrije ruimte. "eigen-pagina" geeft een losse voorbeeldpagina.
 const ATTACHMENT_SECTIONS: { value: string; label: string }[] = [
   { value: "intro", label: "Bij de toelichting (intro)" },
   { value: "werking", label: "Bij Werking van de installatie" },
   { value: "items", label: "Bij Levering en montage (prijzen)" },
+  { value: "opties", label: "Bij Optioneel meerwerk" },
   { value: "terms", label: "Bij de uitgangspunten" },
   { value: "sign", label: "Bij de slotpagina" },
   { value: "eigen-pagina", label: "Op een eigen pagina" },
@@ -199,6 +207,7 @@ type InitialQuote = Partial<Omit<QuotePreviewData, "items" | "customer" | "choic
   choiceGroups?: ChoiceGroup[] | null;
   options?: QuoteOption[] | null;
   attachments?: InitialQuoteAttachment[] | null;
+  documents?: QuoteDocumentLink[] | null;
   quoteType?: string;
   notes?: string | null;
   planning?: Record<string, string>;
@@ -398,6 +407,13 @@ export function QuoteBuilder({
       section: attachment.section || "intro",
     })) || []
   );
+
+  // Datasheets & brochures Logic
+  const [documents, setDocuments] = useState<QuoteDocumentLink[]>(initialQuote?.documents ?? []);
+  const [docPickerOpen, setDocPickerOpen] = useState(false);
+  const [docPickerLoading, setDocPickerLoading] = useState(false);
+  const [docPickerQuery, setDocPickerQuery] = useState("");
+  const [availableDocs, setAvailableDocs] = useState<AvailableProductDocument[]>([]);
 
   // Text & Content State
   const [intro, setIntro] = useState(initialQuote?.intro || initialAdvice?.summary || (isKoolhaas ? "" : "Bedankt voor je interesse. In dit voorstel staat een professionele website centraal waarmee bezoekers snel kunnen zien wat je aanbiedt en eenvoudig contact kunnen opnemen. Daarnaast krijg je een praktische beheeromgeving, zodat je zelf zonder technische kennis inhoud kunt aanpassen."));
@@ -871,13 +887,17 @@ export function QuoteBuilder({
     total?: string | number;
     indent?: number;
   }) {
-    updateItem(id, {
-      ...updates,
-      qty: updates.qty === undefined ? undefined : Number(updates.qty),
-      unitPrice: updates.unitPrice === undefined ? undefined : Number(updates.unitPrice),
-      vatRate: updates.vatRate === undefined ? undefined : Number(updates.vatRate),
-      total: updates.total === undefined ? undefined : Number(updates.total),
-    });
+    // Alleen meegegeven velden omzetten naar number — anders overschrijft dit
+    // ongewenst qty/unitPrice/vatRate/total met undefined (-> NaN) wanneer bv.
+    // alleen de omschrijving wordt aangepast.
+    const converted: Partial<QuoteItem> = {};
+    if (updates.description !== undefined) converted.description = updates.description;
+    if (updates.indent !== undefined) converted.indent = updates.indent;
+    if (updates.qty !== undefined) converted.qty = Number(updates.qty);
+    if (updates.unitPrice !== undefined) converted.unitPrice = Number(updates.unitPrice);
+    if (updates.vatRate !== undefined) converted.vatRate = Number(updates.vatRate);
+    if (updates.total !== undefined) converted.total = Number(updates.total);
+    updateItem(id, converted);
   }
 
   function choiceItemTotal(item: ChoiceItem) {
@@ -1174,6 +1194,45 @@ export function QuoteBuilder({
     } finally {
       setUploadingAttachment(false);
     }
+  }
+
+  async function openDocPicker() {
+    setDocPickerOpen(true);
+    setDocPickerLoading(true);
+    try {
+      const res = await fetch("/api/products/documents");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Ophalen mislukt");
+      setAvailableDocs(data);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Ophalen documenten mislukt");
+    } finally {
+      setDocPickerLoading(false);
+    }
+  }
+
+  async function attachDocument(productDocumentId: string) {
+    if (!initialQuote?.id) return;
+    try {
+      const res = await fetch(`/api/quotes/${initialQuote.id}/documents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productDocumentId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Koppelen mislukt");
+      setDocuments((prev) => [...prev, data]);
+      setDocPickerOpen(false);
+      toast.success("Document gekoppeld aan offerte");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Koppelen mislukt");
+    }
+  }
+
+  async function removeDocument(quoteDocumentId: string) {
+    if (!initialQuote?.id) return;
+    setDocuments((prev) => prev.filter((d) => d.id !== quoteDocumentId));
+    await fetch(`/api/quotes/${initialQuote.id}/documents/${quoteDocumentId}`, { method: "DELETE" });
   }
 
   const handleUpdate = (updates: Partial<QuotePreviewData>) => {
@@ -2085,6 +2144,91 @@ export function QuoteBuilder({
                   )}
                 </CardContent>
               </Card>
+
+              {initialQuote?.id && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-bold flex items-center justify-between">
+                      Documenten & datasheets
+                      <Button size="sm" variant="outline" onClick={openDocPicker} className="h-8">
+                        <Plus className="h-3 w-3 mr-1" /> Toevoegen
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {documents.length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
+                        Koppel een datasheet of brochure van een artikel (upload die eerst bij het artikel in Beheer &rarr; Artikelen).
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {documents.map((doc) => (
+                          <div key={doc.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{doc.productDocument.name}</p>
+                              <p className="text-xs text-slate-400">
+                                {doc.productDocument.type === "BROCHURE" ? "Brochure" : "Datasheet"}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {doc.productDocument.url && (
+                                <a href={doc.productDocument.url} target="_blank" rel="noopener noreferrer">
+                                  <Button size="sm" variant="outline" className="h-8">Bekijk</Button>
+                                </a>
+                              )}
+                              <Button size="sm" variant="ghost" className="h-8 text-destructive hover:text-destructive" onClick={() => removeDocument(doc.id)}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              <Dialog open={docPickerOpen} onOpenChange={setDocPickerOpen}>
+                <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+                  <DialogHeader>
+                    <DialogTitle>Document koppelen aan offerte</DialogTitle>
+                  </DialogHeader>
+                  <Input
+                    value={docPickerQuery}
+                    onChange={(e) => setDocPickerQuery(e.target.value)}
+                    placeholder="Zoek op artikel- of bestandsnaam..."
+                    autoFocus
+                  />
+                  <div className="flex-1 overflow-y-auto space-y-1">
+                    {docPickerLoading ? (
+                      <div className="py-8 text-center text-sm text-slate-400">Laden...</div>
+                    ) : (
+                      (() => {
+                        const q = docPickerQuery.trim().toLowerCase();
+                        const filtered = availableDocs.filter(
+                          (d) =>
+                            !documents.some((existing) => existing.productDocument.id === d.id) &&
+                            (!q || d.name.toLowerCase().includes(q) || d.productName.toLowerCase().includes(q)),
+                        );
+                        if (filtered.length === 0) {
+                          return <div className="py-8 text-center text-sm text-slate-400">Geen documenten gevonden.</div>;
+                        }
+                        return filtered.map((d) => (
+                          <button
+                            key={d.id}
+                            type="button"
+                            onClick={() => attachDocument(d.id)}
+                            className="w-full rounded-md p-2 text-left text-sm hover:bg-slate-100"
+                          >
+                            <span className="block font-medium">{d.name}</span>
+                            <span className="block text-xs text-slate-400">{d.productName} · {d.type === "BROCHURE" ? "Brochure" : "Datasheet"}</span>
+                          </button>
+                        ));
+                      })()
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
           </div>
 
           <Card className={`relative overflow-hidden border-none text-white shadow-xl ${isKoolhaas ? "bg-[#08111f]" : "bg-[#06040c]"}`}>

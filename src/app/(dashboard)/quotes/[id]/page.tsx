@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { QuoteDetailClient } from "./quote-detail-client";
 import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
+import { isStorageConfigured, presignDownload } from "@/lib/storage";
 
 export default async function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,6 +19,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
         items: { orderBy: { sortOrder: "asc" } },
         attachments: { orderBy: { sortOrder: "asc" } },
         adviceDocuments: { orderBy: { createdAt: "desc" } },
+        documents: { include: { productDocument: true }, orderBy: { sortOrder: "asc" } },
         share: true,
       },
     }),
@@ -43,8 +45,18 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
     }>,
     { expiresIn: 21600 },
   );
+  const documents = await Promise.all(
+    quote.documents.map(async (d) => ({
+      id: d.id,
+      productDocument: {
+        ...d.productDocument,
+        url: isStorageConfigured() ? await presignDownload(d.productDocument.objectKey, 3600) : null,
+      },
+    })),
+  );
+
   const serialized = JSON.parse(JSON.stringify({
-    quote: { ...quote, attachments, choiceGroups },
+    quote: { ...quote, attachments, choiceGroups, documents },
     company,
     customers,
     products,

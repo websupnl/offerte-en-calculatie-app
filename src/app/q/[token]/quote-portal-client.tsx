@@ -66,6 +66,7 @@ type Quote = {
   options?: QuoteOption[];
   exclusions?: string[];
   attachments?: QuoteAttachment[];
+  documents?: { id: string; name: string; type: string; url: string | null }[];
   adviceDocuments: { id: string; type: string }[];
   choiceGroups?: QuoteChoiceGroup[];
   commercial?: { priceDisplayMode?: "incl" | "excl"; [key: string]: unknown };
@@ -105,6 +106,7 @@ export function QuotePortalClient({
 }) {
   const choiceGroups = quote.choiceGroups ?? [];
   const optionalWork = quote.options ?? [];
+  const documents = quote.documents ?? [];
   const requiredOptionIds = optionalWork.filter((option) => option.required).map((option) => option.id);
   // Standaard de aanbevolen optie voorselecteren (recommendedChoiceId → label "Aanbevolen" → eerste optie),
   // zodat de totale investering meteen een echte all-in prijs toont i.p.v. alleen de vaste basis.
@@ -594,6 +596,28 @@ export function QuotePortalClient({
                         <b>{formatCurrency(showExVat ? totals.totalExVat : totals.totalIncVat)} <small>{priceLabel}</small></b>
                       </div>
                     </div>
+                  )}
+
+                  {documents.length > 0 && (
+                    <fieldset className="portal-choice-group">
+                      <legend>Documenten & datasheets</legend>
+                      <div className="portal-choice-list">
+                        {documents.map((doc) => (
+                          <a
+                            key={doc.id}
+                            href={doc.url ?? "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="portal-select-card"
+                            style={{ display: "flex", alignItems: "center", gap: "0.6rem", textDecoration: "none" }}
+                          >
+                            <FileText className="h-4 w-4 shrink-0" />
+                            <span className="portal-select-title" style={{ flex: 1 }}>{doc.name}</span>
+                            <Download className="h-4 w-4 shrink-0" />
+                          </a>
+                        ))}
+                      </div>
+                    </fieldset>
                   )}
 
                   <div className="portal-field">

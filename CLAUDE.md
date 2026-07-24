@@ -62,7 +62,7 @@ De app draait lokaal op **`:3001`** (niet :3000 — dat is een andere app).
 ```bash
 npm run brave
 # of direct:
-/snap/brave/642/opt/brave.com/brave/brave-browser --remote-debugging-port=9222 --user-data-dir="$HOME/snap/brave/642/.config/BraveSoftware/Brave-Browser" &
+/snap/bin/brave --remote-debugging-port=9222 --user-data-dir="$HOME/snap/brave/current/.config/BraveSoftware/Brave-Browser" &
 ```
 **Altijd als één regel** — argumenten op een nieuwe regel worden niet doorgegeven.
 

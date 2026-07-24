@@ -19,7 +19,7 @@
     "scrape:elektramat": "node scripts/scrape-elektramat.mjs installatieautomaat --save --company koolhaas",
     "scrape:technim": "node scripts/scrape-technim.mjs installatieautomaat --save --company koolhaas",
     "import:quote": "node scripts/import-quote.mjs",
-    "brave": "/snap/brave/642/opt/brave.com/brave/brave-browser --remote-debugging-port=9222 --user-data-dir=\"$HOME/snap/brave/642/.config/BraveSoftware/Brave-Browser\" &"
+    "brave": "/snap/bin/brave --remote-debugging-port=9222 --user-data-dir=\"$HOME/snap/brave/current/.config/BraveSoftware/Brave-Browser\" &"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",

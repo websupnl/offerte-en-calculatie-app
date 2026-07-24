@@ -80,6 +80,7 @@ type CalculationItemState = {
   totalCostPrice: number;
   totalSalesPrice: number;
   vatRate: number;
+  optional: boolean;
 };
 
 type CalculationDetail = {
@@ -217,8 +218,13 @@ export function CalculationBuilderClient({
     let totalCost = 0;
     let totalSales = 0;
     let totalVat = 0;
+    let optionalSales = 0;
 
     items.forEach((item) => {
+      if (item.optional) {
+        optionalSales += item.qty * item.unitPrice;
+        return;
+      }
       totalCost += item.qty * item.costPrice;
       totalSales += item.qty * item.unitPrice;
       totalVat += item.qty * item.unitPrice * (item.vatRate / 100);
@@ -231,6 +237,7 @@ export function CalculationBuilderClient({
       totalCost,
       totalSales,
       totalVat,
+      optionalSales,
       totalSalesIncVat: totalSales + totalVat,
       margin,
       marginPct,
@@ -282,6 +289,7 @@ export function CalculationBuilderClient({
       totalCostPrice: costPrice,
       totalSalesPrice: unitPrice,
       vatRate: p.vatRate || 21,
+      optional: false,
     };
 
     setItems((prev) => [...prev, newItem]);
@@ -300,6 +308,7 @@ export function CalculationBuilderClient({
       totalCostPrice: 180,
       totalSalesPrice: 260,
       vatRate: 21,
+      optional: false,
     };
 
     setItems((prev) => [...prev, newItem]);
@@ -317,6 +326,7 @@ export function CalculationBuilderClient({
       totalCostPrice: 100,
       totalSalesPrice: 125,
       vatRate: 21,
+      optional: false,
     };
 
     setItems((prev) => [...prev, newItem]);
@@ -346,6 +356,7 @@ export function CalculationBuilderClient({
         totalCostPrice: item.qty * costPrice,
         totalSalesPrice: item.qty * unitPrice,
         vatRate: p.vatRate || 21,
+        optional: false,
       });
     });
 
@@ -366,6 +377,7 @@ export function CalculationBuilderClient({
         totalCostPrice: setOption.laborHours * laborCost,
         totalSalesPrice: setOption.laborHours * laborSales,
         vatRate: 21,
+        optional: false,
       });
     }
 
@@ -690,6 +702,7 @@ export function CalculationBuilderClient({
                 <thead>
                   <tr className="bg-slate-50 text-slate-600 font-semibold border-b">
                     <th className="py-2.5 px-3 w-8">#</th>
+                    <th className="py-2.5 px-3 w-16 text-center" title="Optionele regels tellen niet mee in het hoofdtotaal">Optie</th>
                     <th className="py-2.5 px-3 min-w-[220px]">Omschrijving</th>
                     <th className="py-2.5 px-3 w-20">Aantal</th>
                     <th className="py-2.5 px-3 w-20">Eenheid</th>
@@ -703,8 +716,19 @@ export function CalculationBuilderClient({
                 </thead>
                 <tbody className="divide-y">
                   {items.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                    <tr key={idx} className={`hover:bg-slate-50/80 transition-colors ${item.optional ? "bg-amber-50/60" : ""}`}>
                       <td className="py-2 px-3 text-slate-400 font-mono text-[11px]">{idx + 1}</td>
+
+                      {/* Optional toggle */}
+                      <td className="py-2 px-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={item.optional}
+                          onChange={(e) => updateItem(idx, "optional", e.target.checked)}
+                          className="h-4 w-4 accent-amber-600"
+                          title="Optioneel: telt niet mee in het hoofdtotaal"
+                        />
+                      </td>
 
                       {/* Description */}
                       <td className="py-2 px-3">
@@ -809,8 +833,19 @@ export function CalculationBuilderClient({
 
                 {/* Footer Totals */}
                 <tfoot>
+                  {totals.optionalSales > 0 && (
+                    <tr className="bg-amber-50 text-amber-700 text-[11px]">
+                      <td colSpan={8} className="py-1.5 px-4 text-right">
+                        Optionele extra&apos;s (niet in hoofdtotaal, excl. BTW):
+                      </td>
+                      <td className="py-1.5 px-3 text-right tabular-nums font-semibold">
+                        {formatCurrency(totals.optionalSales)}
+                      </td>
+                      <td></td>
+                    </tr>
+                  )}
                   <tr className="bg-slate-900 text-white font-semibold">
-                    <td colSpan={7} className="py-3 px-4 text-right">
+                    <td colSpan={8} className="py-3 px-4 text-right">
                       Totaal Generaal (Excl. BTW):
                     </td>
                     <td className="py-3 px-3 text-right tabular-nums text-slate-300">

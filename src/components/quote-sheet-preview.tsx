@@ -298,7 +298,7 @@ export function QuoteSheetPreview({
   const customerResponsibilities = isKoolhaas ? (quote.customerResponsibilities ?? []).filter(Boolean) : [];
   const attachments = quote.attachments ?? [];
   // Een afbeelding hoort bij een sectie (staat onderaan die pagina) of krijgt een eigen pagina.
-  const SECTION_KEYS = ["intro", "werking", "items", "terms", "sign"];
+  const SECTION_KEYS = ["intro", "werking", "items", "terms", "sign", "opties"];
   const isSectionImage = (a: QuoteAttachment) =>
     Boolean(a.imageUrl) && SECTION_KEYS.includes(a.section ?? "intro");
   const sectionImages = (key: string) =>
@@ -801,6 +801,16 @@ export function QuoteSheetPreview({
                   />
                 </div>
               )}
+              {!isEditable && o.details.length > 0 && (
+                <ul className="mt-2 space-y-1 text-sm leading-relaxed text-slate-700">
+                  {o.details.map((detail, detailIdx) => (
+                    <li key={detailIdx}>{detail}</li>
+                  ))}
+                </ul>
+              )}
+              {!isEditable && o.technicalCondition && (
+                <p className="mt-1 text-[11px] italic text-slate-400">{o.technicalCondition}</p>
+              )}
             </div>
           </div>
           );
@@ -938,16 +948,14 @@ export function QuoteSheetPreview({
                           placeholder="Titel van de stap"
                         />
                       </h4>
-                      <p>
-                        <InlineTextarea
-                          isEditable={Boolean(isEditable)}
-                          value={step.d}
-                          onChange={(value) =>
-                            onUpdate?.({ approach: approach.map((s, i) => (i === index ? { ...s, d: value } : s)) })
-                          }
-                          placeholder="Uitleg van deze stap"
-                        />
-                      </p>
+                      <InlineTextarea
+                        isEditable={Boolean(isEditable)}
+                        value={step.d}
+                        onChange={(value) =>
+                          onUpdate?.({ approach: approach.map((s, i) => (i === index ? { ...s, d: value } : s)) })
+                        }
+                        placeholder="Uitleg van deze stap"
+                      />
                     </div>
                     {isEditable && (
                       <button
@@ -1163,7 +1171,7 @@ export function QuoteSheetPreview({
 
               {optionsBlock}
 
-              <div className="spacer"></div>
+              {renderSectionSpace("opties")}
               {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + itemsPageOffset))}
             </div>
           </section>

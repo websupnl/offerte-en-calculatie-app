@@ -16,7 +16,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Loader2, Package, Layers, X, Database, ExternalLink, Terminal, Search, Truck, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Package, Layers, X, Database, ExternalLink, Terminal, Search, Truck, Clock, Copy, Upload, FileText } from "lucide-react";
+
+const BRAVE_CDP_COMMAND = '/snap/bin/brave --remote-debugging-port=9222 --user-data-dir="$HOME/snap/brave/current/.config/BraveSoftware/Brave-Browser" &';
 import { formatCurrency, formatRelativeDate } from "@/lib/format";
 import { KOOLHAAS_CATEGORIES, WEBSUP_CATEGORIES } from "@/lib/format";
 import { ArticlePickerDialog } from "@/components/products/article-picker-dialog";
@@ -125,6 +127,9 @@ export function ProductsClient({
     initialSelectedProduct?.datasheetId ?? null,
   );
   const [saving, setSaving] = useState(false);
+  const [productDocs, setProductDocs] = useState<{ id: string; name: string; type: string; url: string | null }[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docUploading, setDocUploading] = useState(false);
   const [productSearch, setProductSearch] = useState("");
   const [productSupplierFilter, setProductSupplierFilter] = useState("all");
 
@@ -246,6 +251,7 @@ export function ProductsClient({
     reset({ vatRate: 21, unit: "stuk", basePriceAuto: true, defaultMarkupPercent: 25, basePrice: 0 });
     setEditingId(null);
     setSelectedDatasheetId(null);
+    setProductDocs([]);
     setProductDialog(true);
   }
 
@@ -265,6 +271,43 @@ export function ProductsClient({
     setValue("ean", p.ean ?? "");
     setSelectedDatasheetId(p.datasheetId ?? null);
     setProductDialog(true);
+    void loadProductDocs(p.id);
+  }
+
+  async function loadProductDocs(productId: string) {
+    setDocsLoading(true);
+    try {
+      const res = await fetch(`/api/products/${productId}/documents`);
+      const data = await res.json();
+      if (res.ok) setProductDocs(data);
+    } finally {
+      setDocsLoading(false);
+    }
+  }
+
+  async function uploadProductDoc(file: File) {
+    if (!editingId) return;
+    setDocUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", "DATASHEET");
+      const res = await fetch(`/api/products/${editingId}/documents`, { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Uploaden mislukt");
+      setProductDocs((prev) => [data, ...prev]);
+      toast.success("Datasheet geüpload");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Uploaden mislukt");
+    } finally {
+      setDocUploading(false);
+    }
+  }
+
+  async function deleteProductDoc(docId: string) {
+    if (!editingId) return;
+    setProductDocs((prev) => prev.filter((d) => d.id !== docId));
+    await fetch(`/api/products/${editingId}/documents/${docId}`, { method: "DELETE" });
   }
 
   function openCreateFromDatasheet(datasheet: Datasheet) {
@@ -934,6 +977,60 @@ export function ProductsClient({
                 <Input {...register("ean")} placeholder="8712345678901" />
               </div>
             </div>
+
+            {editingId && (
+              <div className="space-y-2 rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold">Datasheets & brochures</Label>
+                  <label
+                    className={`inline-flex h-7 cursor-pointer items-center rounded-md border px-2 text-xs font-medium hover:bg-slate-50 ${docUploading ? "pointer-events-none opacity-60" : ""}`}
+                  >
+                    {docUploading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Upload className="mr-1 h-3 w-3" />}
+                    Uploaden
+                    <input
+                      type="file"
+                      accept="application/pdf,image/*"
+                      className="sr-only"
+                      disabled={docUploading}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void uploadProductDoc(file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+                {docsLoading ? (
+                  <p className="text-xs text-slate-400">Laden...</p>
+                ) : productDocs.length === 0 ? (
+                  <p className="text-xs text-slate-400">Nog geen bestanden geüpload.</p>
+                ) : (
+                  <div className="space-y-1">
+                    {productDocs.map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-2 py-1.5">
+                        <span className="flex items-center gap-1.5 min-w-0 text-xs">
+                          <FileText className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                          <span className="truncate">{doc.name}</span>
+                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {doc.url && (
+                            <a href={doc.url} target="_blank" rel="noopener noreferrer">
+                              <Button type="button" size="icon" variant="ghost" className="h-6 w-6">
+                                <ExternalLink className="h-3 w-3" />
+                              </Button>
+                            </a>
+                          )}
+                          <Button type="button" size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => deleteProductDoc(doc.id)}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setProductDialog(false)}>
                 Annuleren
@@ -1062,6 +1159,25 @@ export function ProductsClient({
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-amber-800">Vereist: Brave open met CDP-debugging</p>
+                <code className="block truncate text-[11px] text-amber-700">{BRAVE_CDP_COMMAND}</code>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 bg-white"
+                onClick={() => {
+                  navigator.clipboard.writeText(BRAVE_CDP_COMMAND);
+                  toast.success("Commando gekopieerd");
+                }}
+              >
+                <Copy className="mr-1.5 h-3.5 w-3.5" />
+                Kopieer
+              </Button>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Leverancier</Label>
