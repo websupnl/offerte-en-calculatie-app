@@ -2,7 +2,7 @@
 /**
  * AI-relay: laat de (online) app de Claude/Codex CLI op deze laptop gebruiken.
  *
- *   Vercel-app  ──HTTPS──►  tunnel  ──►  deze relay  ──►  claude / codex CLI
+ *   Vercel-app  ──HTTPS──►  vaste tunnel  ──►  deze relay  ──►  claude / codex CLI
  *
  * Waarom: de CLI draait op mijn abonnement, dus geen OpenAI-API-kosten per token.
  * Zolang deze laptop aan staat werkt AI ook vanaf de telefoon.
@@ -149,7 +149,7 @@ function json(res, status, body) {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
 
-  if (url.pathname === "/health") {
+  if ((url.pathname === "/" || url.pathname === "/health") && req.method === "GET") {
     return json(res, 200, { ok: true, cli: CLI, running, max: MAX_CONCURRENT });
   }
 
@@ -200,5 +200,5 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`AI-relay luistert op http://127.0.0.1:${PORT} (CLI: ${CLI})`);
-  console.log(`Tunnel openen:  cloudflared tunnel --url http://localhost:${PORT}`);
+  console.log("Publiek bereikbaar via de bestaande named Cloudflare Tunnel.");
 });

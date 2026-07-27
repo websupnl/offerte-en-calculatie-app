@@ -20,7 +20,9 @@
     "scrape:technim": "node scripts/scrape-technim.mjs installatieautomaat --save --company koolhaas",
     "import:quote": "node scripts/import-quote.mjs",
     "ai:relay": "node scripts/ai-relay.mjs",
-    "ai:tunnel": "cloudflared tunnel --url http://localhost:8787",
+    "ai:relay:status": "systemctl status ai-relay.service --no-pager --full",
+    "ai:relay:logs": "journalctl -u ai-relay.service -f",
+    "ai:relay:restart": "sudo systemctl restart ai-relay.service",
     "brave": "/snap/bin/brave --remote-debugging-port=9222 --user-data-dir=\"$HOME/snap/brave/current/.config/BraveSoftware/Brave-Browser\" &"
   },
   "dependencies": {

@@ -1,0 +1,22 @@
+[Unit]
+Description=Lokale AI-relay voor offerte-app
+Documentation=https://ai-relay.websup.nl
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=daan-koolhaas
+Group=daan-koolhaas
+WorkingDirectory=/home/daan-koolhaas/Documenten/GitHub/offerte-en-calculatie-app
+Environment=HOME=/home/daan-koolhaas
+Environment=PATH=/home/daan-koolhaas/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+ExecStart=/usr/bin/node /home/daan-koolhaas/Documenten/GitHub/offerte-en-calculatie-app/scripts/ai-relay.mjs
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=15s
+KillSignal=SIGTERM
+SyslogIdentifier=ai-relay
+
+[Install]
+WantedBy=multi-user.target

@@ -543,8 +543,9 @@ Vercel app  ──HTTPS──►  Cloudflare Tunnel  ──►  ai-relay op lapt
   `task-from-text`), elk met een eigen systeemprompt in de relay — de webapp stuurt data,
   geen vrije systeemprompt
 
-**2. Tunnel** — Cloudflare Tunnel (named tunnel = vast hostname, gratis) of Tailscale
-Funnel. `npm run ai:relay` start relay + tunnel samen via `concurrently` (zit al in devDeps).
+**2. Tunnel** — de bestaande named Cloudflare Tunnel publiceert de lokale relay via
+`https://ai-relay.websup.nl` en stuurt door naar `http://localhost:8787`. De relay zelf
+draait permanent als `ai-relay.service`; er wordt geen losse Quick Tunnel gestart.
 
 **3. `src/lib/ai/provider.ts`** — abstractielaag boven het huidige `src/lib/openai.ts`:
 

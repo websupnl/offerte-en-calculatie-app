@@ -39,7 +39,7 @@ export default async function WerkplekSettingsPage() {
         ai.provider === "local-cli"
           ? ai.online
             ? "De relay is bereikbaar. Draait op je abonnement, dus geen kosten per token."
-            : "De relay reageert niet. Start 'm met npm run ai:relay en zet de tunnel aan."
+            : "De relay reageert niet. Controleer de service met npm run ai:relay:status."
           : ai.reason ?? "Kost per token via OpenAI.",
     },
     {

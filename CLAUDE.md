@@ -143,10 +143,14 @@ Concepten tellen nooit mee in cijfers: `src/lib/stats.ts`.
 
 ### AI zonder API-kosten
 ```bash
-npm run ai:relay     # relay op :8787, gebruikt de claude CLI
-npm run ai:tunnel    # cloudflared tunnel eroverheen
+npm run ai:relay          # relay op :8787 handmatig in de voorgrond
+npm run ai:relay:status   # status van de permanente systemd-service
+npm run ai:relay:logs     # live logs van de permanente systemd-service
+npm run ai:relay:restart  # permanente systemd-service herstarten
 ```
-Zet `AI_RELAY_URL` (het tunneladres) + `AI_RELAY_KEY` in Vercel. Staat de laptop
+De bestaande named Cloudflare Tunnel publiceert de relay via
+`https://ai-relay.websup.nl`; start geen losse Quick Tunnel. Zet `AI_RELAY_URL`
+(het tunneladres) + `AI_RELAY_KEY` in Vercel. Staat de laptop
 uit, dan valt de app terug op OpenAI — of toont "AI offline" als die key weg is.
 
 ### Review-widget op een klantsite
