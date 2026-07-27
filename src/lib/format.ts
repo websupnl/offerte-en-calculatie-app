@@ -174,3 +174,33 @@ export const SUPPLIERS = [
   "Elektramat",
   "Technim",
 ] as const;
+
+export function generateContractNumber(companySlug: string, count: number): string {
+  const prefix = companySlug === "koolhaas" ? "KI" : "WU";
+  const year = new Date().getFullYear();
+  return `${prefix}-${year}-C${String(count).padStart(3, "0")}`;
+}
+
+export const CONTRACT_STATUS_LABELS: Record<string, string> = {
+  CONCEPT: "Concept",
+  VERZONDEN: "Verzonden",
+  GETEKEND: "Getekend",
+  ACTIEF: "Actief",
+  OPGEZEGD: "Opgezegd",
+  VERLOPEN: "Verlopen",
+};
+
+export const CONTRACT_STATUS_COLORS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  CONCEPT: "secondary",
+  VERZONDEN: "outline",
+  GETEKEND: "default",
+  ACTIEF: "default",
+  OPGEZEGD: "destructive",
+  VERLOPEN: "secondary",
+};
+
+export const CONTRACT_PERIOD_LABELS: Record<string, string> = {
+  MONTH: "per maand",
+  QUARTER: "per kwartaal",
+  YEAR: "per jaar",
+};

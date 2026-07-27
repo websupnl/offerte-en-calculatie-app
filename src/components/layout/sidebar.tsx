@@ -11,20 +11,24 @@ import {
   Brain,
   Building2,
   Calculator,
+  CalendarDays,
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
   ClipboardList,
   Database,
+  FileSignature,
   FileText,
   FolderKanban,
   LayoutDashboard,
+  ListTodo,
   LoaderCircle,
   LogOut,
   Package,
   ReceiptText,
   Settings,
   ShieldCheck,
+  StickyNote,
   TrendingUp,
   Users,
   X,
@@ -48,7 +52,12 @@ type NavGroup = { label: string | null; items: NavItem[] };
 const navGroups: NavGroup[] = [
   {
     label: null,
-    items: [{ href: "/dashboard", label: "Start", icon: LayoutDashboard }],
+    items: [
+      { href: "/dashboard", label: "Start", icon: LayoutDashboard },
+      { href: "/tasks", label: "Taken", icon: ListTodo },
+      { href: "/agenda", label: "Agenda", icon: CalendarDays },
+      { href: "/notes", label: "Notities", icon: StickyNote },
+    ],
   },
   {
     label: "CRM",
@@ -56,13 +65,16 @@ const navGroups: NavGroup[] = [
       { href: "/customers", label: "Klanten", icon: Users },
       { href: "/calculations", label: "Calculaties", icon: Calculator },
       { href: "/quotes", label: "Offertes", icon: FileText },
+      { href: "/contracts", label: "Contracten", icon: FileSignature },
       { href: "/advice", label: "Adviesdocumenten", icon: ShieldCheck },
     ],
   },
   {
     label: "Operatie",
     items: [
-      { href: "/projects", label: "Projecten", icon: FolderKanban, koolhaasOnly: true },
+      // Projecten staan bewust voor beide bedrijven aan: bij WebsUp zijn ze de
+      // drager van klantfeedback (zie PLAN-werkplek.md fase 5/6).
+      { href: "/projects", label: "Projecten", icon: FolderKanban },
       { href: "/workorders", label: "Werkbonnen", icon: ClipboardList, koolhaasOnly: true },
       { href: "/invoices", label: "Facturen", icon: ReceiptText, koolhaasOnly: true },
     ],
@@ -74,6 +86,7 @@ const navGroups: NavGroup[] = [
       { href: "/knowledge", label: "Kennisbank", icon: Brain },
       { href: "/admin/dashboard", label: "Financieel inzicht", icon: TrendingUp },
       { href: "/admin/settings", label: "Inrichting", icon: Database },
+      { href: "/settings/werkplek", label: "Werkplek & koppelingen", icon: Settings },
     ],
   },
 ];

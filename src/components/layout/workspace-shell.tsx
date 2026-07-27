@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, CalendarDays, ChevronRight, Menu, Plus, Search } from "lucide-react";
+import { AiStatusBadge } from "@/components/ai-status-badge";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { Sidebar } from "@/components/layout/sidebar";
 import { useCompany } from "@/lib/company-context";
@@ -142,6 +143,7 @@ export function WorkspaceShell({
             <CalendarDays className="h-4 w-4" />
             Planning
           </Link>
+          <AiStatusBadge className="hidden lg:inline-flex" />
           <Link
             href="/quotes/new"
             className="hidden h-10 items-center rounded-full bg-[var(--ws-accent)] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[var(--ws-accent-hover)] sm:flex"

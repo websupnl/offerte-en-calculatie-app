@@ -12,6 +12,14 @@ const PUBLIC_PATHS = [
   "/api/legal/",
   "/api/integrations/quote-contract",
   "/api/cli/",
+  // Werkplek: klant heeft geen account, alleen een geheim token.
+  "/portal/", // klantomgeving
+  "/c/", // contract ondertekenen
+  "/api/portal/", // feedback + reacties vanuit het portaal
+  "/api/contracts/sign/", // handtekening zetten
+  "/api/review/", // review-widget op klantsites
+  "/review.js", // het widget-script zelf
+  "/api/calendar/ics/", // ICS-feed: Google/Apple halen 'm op zonder browser
 ];
 
 export default auth((req) => {

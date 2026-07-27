@@ -60,6 +60,21 @@ model User {
   sessions     Session[]
   companyUsers CompanyUser[]
   quotes       Quote[]
+
+  taskLists     TaskList[]
+  ownedTasks    Task[]     @relation("TaskOwner")
+  assignedTasks Task[]     @relation("TaskAssignee")
+  notes         Note[]
+  comments      Comment[]
+  tags          Tag[]
+  attachments   Attachment[]
+  integrations  UserIntegration[]
+  pushSubs      PushSubscription[]
+  timeEntries   TimeEntry[]
+
+  /// Token voor de persoonlijke ICS-agendafeed. Los van de sessie zodat
+  /// Google/Apple 'm kan blijven ophalen zonder in te loggen.
+  calendarFeedToken String? @unique
 }
 
 enum UserRole {
@@ -98,6 +113,16 @@ model Company {
   purchaseInvoices PurchaseInvoice[]
   calculations     Calculation[]
   productDocuments ProductDocument[]
+
+  taskLists    TaskList[]
+  tasks        Task[]
+  notes        Note[]
+  tags         Tag[]
+  attachments  Attachment[]
+  contracts    Contract[]
+  portalAccess PortalAccess[]
+  reviewBoards ReviewBoard[]
+  timeEntries  TimeEntry[]
 }
 
 model CompanyUser {
@@ -137,6 +162,10 @@ model Customer {
   projects      Project[]
   salesInvoices SalesInvoice[]
   calculations  Calculation[]
+  tasks         Task[]
+  customerNotes Note[]
+  contracts     Contract[]
+  portalAccess  PortalAccess[]
 
   @@index([companyId])
 }
@@ -298,6 +327,8 @@ model Quote {
   salesInvoices   SalesInvoice[]
   calculation     Calculation?
   documents       QuoteDocument[]
+  tasks           Task[]
+  contracts       Contract[]
 
   @@index([companyId, updatedAt(sort: Desc)])
   @@index([companyId, status])
@@ -338,6 +369,15 @@ model Project {
   invoices         SalesInvoice[]
   purchaseInvoices PurchaseInvoice[]
   calculations     Calculation[]
+  tasks            Task[]
+  notes            Note[]
+  contracts        Contract[]
+  portalAccess     PortalAccess[]
+  reviewBoards     ReviewBoard[]
+  timeEntries      TimeEntry[]
+
+  /// Waar staat de site die de klant mag reviewen (fase 6).
+  previewUrl String? @db.Text
 
   @@index([companyId])
 }
@@ -691,4 +731,395 @@ enum CalculationItemType {
   LABOR
   CUSTOM
   SET
+}
+
+// ─── Werkplek: taken, notities, bijlagen ───────────────────────────────────
+//
+// Scope-regel: companyId = null betekent PRIVÉ (hangt alleen aan ownerId).
+// Alle bestaande queries filteren op companyId, dus privédata kan per
+// constructie niet in een zakelijk overzicht opduiken. Zie src/lib/tasks.ts.
+
+model TaskList {
+  id         String    @id @default(cuid())
+  companyId  String? // null = privé
+  ownerId    String
+  name       String
+  kind       String    @default("LIST") // LIST | SHOPPING | BOARD
+  icon       String? // lucide-icoonnaam
+  color      String?
+  sortOrder  Int       @default(0)
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@index([companyId])
+  @@index([ownerId])
+}
+
+model Task {
+  id        String  @id @default(cuid())
+  companyId String? // null = privé
+  ownerId   String
+  listId    String?
+
+  // Koppelingen zijn allemaal optioneel — een taak mag los bestaan.
+  projectId     String?
+  customerId    String?
+  quoteId       String?
+  reviewBoardId String?
+
+  title       String
+  description String? @db.Text
+  status      String  @default("OPEN") // OPEN | DOING | WAITING | DONE | CANCELLED
+  priority    Int     @default(0) // 0 normaal | 1 hoog | 2 urgent
+
+  // Agenda
+  startAt  DateTime?
+  endAt    DateTime?
+  allDay   Boolean   @default(false)
+  dueAt    DateTime?
+  remindAt DateTime?
+
+  // Herhaling
+  recurRule    String? // subset RRULE: FREQ=YEARLY;INTERVAL=1
+  recurUntil   DateTime?
+  parentTaskId String? // uit welke herhaling gegenereerd
+
+  // Externe agenda (fase 3)
+  calendarEventId  String?
+  calendarSyncedAt DateTime?
+
+  // Review-pin (fase 6): { url, selector, xPct, yPct, scrollY, viewport, thumbKey, deployId }
+  pin Json?
+
+  source       String  @default("MANUAL") // MANUAL | PORTAL_PIN | PORTAL_MESSAGE | EMAIL | AI | RECURRING
+  visibility   String  @default("INTERNAL") // INTERNAL | SHARED
+  assignedToId String? // toekomst: personeel/onderaannemer
+
+  sortOrder   Int       @default(0)
+  completedAt DateTime?
+  deletedAt   DateTime? // prullenbak
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company     Company?     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  owner       User         @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  assignedTo  User?        @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  list        TaskList?    @relation(fields: [listId], references: [id], onDelete: SetNull)
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  customer    Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  quote       Quote?       @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  reviewBoard ReviewBoard? @relation(fields: [reviewBoardId], references: [id], onDelete: Cascade)
+  comments    Comment[]
+  attachments Attachment[]
+  tags        TagOnTask[]
+  timeEntries TimeEntry[]
+
+  @@index([companyId, status])
+  @@index([ownerId, status])
+  @@index([listId, sortOrder])
+  @@index([projectId])
+  @@index([dueAt])
+}
+
+model Note {
+  id         String  @id @default(cuid())
+  companyId  String? // null = privé
+  ownerId    String
+  projectId  String?
+  customerId String?
+
+  title      String?
+  body       String  @db.Text // markdown
+  pinned     Boolean @default(false)
+  visibility String  @default("INTERNAL") // INTERNAL | SHARED
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  company     Company?     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  owner       User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  customer    Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  attachments Attachment[]
+  tags        TagOnNote[]
+
+  @@index([companyId, updatedAt(sort: Desc)])
+  @@index([ownerId, updatedAt(sort: Desc)])
+}
+
+// Gespreksregel onder een taak. Wordt in fase 5 hergebruikt voor klantfeedback:
+// een INTERNAL comment op een gedeelde taak is mijn eigen kladblok, klant ziet 'm niet.
+model Comment {
+  id     String @id @default(cuid())
+  taskId String
+
+  authorUserId   String? // ik
+  authorPortalId String? // klant, via PortalAccess
+  authorName     String // gedenormaliseerd voor weergave
+
+  body       String @db.Text
+  visibility String @default("INTERNAL") // INTERNAL | SHARED
+
+  createdAt DateTime @default(now())
+
+  task         Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorUser   User?         @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  authorPortal PortalAccess? @relation(fields: [authorPortalId], references: [id], onDelete: SetNull)
+  attachments  Attachment[]
+
+  @@index([taskId, createdAt])
+}
+
+// Nullable FK's i.p.v. polymorfie — zelfde patroon als SalesInvoice.quoteId?/workOrderId?.
+model Attachment {
+  id        String  @id @default(cuid())
+  companyId String?
+
+  taskId     String?
+  noteId     String?
+  commentId  String?
+  contractId String?
+
+  objectKey String @db.Text // MinIO
+  fileName  String
+  mimeType  String
+  size      Int
+  width     Int?
+  height    Int?
+
+  uploadedByUserId String?
+  uploadedByName   String? // klantnaam als het uit het portaal komt
+  createdAt        DateTime @default(now())
+
+  company        Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  task           Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  note           Note?     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  comment        Comment?  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  contract       Contract? @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  uploadedByUser User?     @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+  @@index([noteId])
+  @@index([commentId])
+}
+
+model Tag {
+  id        String  @id @default(cuid())
+  companyId String? // null = privé
+  ownerId   String
+  name      String
+  color     String?
+
+  createdAt DateTime @default(now())
+
+  company Company?    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  owner   User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tasks   TagOnTask[]
+  notes   TagOnNote[]
+
+  @@unique([ownerId, companyId, name])
+  @@index([companyId])
+}
+
+model TagOnTask {
+  tagId  String
+  taskId String
+
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([tagId, taskId])
+  @@index([taskId])
+}
+
+model TagOnNote {
+  tagId  String
+  noteId String
+
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@id([tagId, noteId])
+  @@index([noteId])
+}
+
+// ─── Contracten (fase 4) ───────────────────────────────────────────────────
+
+model Contract {
+  id         String  @id @default(cuid())
+  companyId  String
+  customerId String
+  projectId  String?
+  quoteId    String?
+
+  number String
+  title  String
+  body   String? @db.Text // markdown, leeg als het een geüploade PDF is
+  status String  @default("CONCEPT") // CONCEPT | VERZONDEN | GETEKEND | ACTIEF | OPGEZEGD | VERLOPEN
+
+  startDate        DateTime?
+  endDate          DateTime?
+  noticePeriodDays Int?
+  autoRenew        Boolean   @default(false)
+  renewalNoticeAt  DateTime? // wanneer moet ik erover nadenken → wordt een Task
+
+  recurringAmount Decimal? @db.Decimal(10, 2)
+  recurringPeriod String? // MONTH | QUARTER | YEAR
+
+  // Ondertekening — hergebruikt de werkbon-handtekeningflow
+  signatureKey String? @db.Text
+  signedAt     DateTime?
+  signedBy     String?
+  shareToken   String? @unique @default(uuid())
+  viewedAt     DateTime?
+
+  pdfKey    String?   @db.Text
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer    Customer        @relation(fields: [customerId], references: [id])
+  project     Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  quote       Quote?          @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  attachments Attachment[]
+  events      ContractEvent[]
+
+  @@index([companyId, status])
+  @@index([projectId])
+}
+
+model ContractEvent {
+  id         String   @id @default(cuid())
+  contractId String
+  type       String // CREATED | SENT | VIEWED | SIGNED | RENEWED | TERMINATED | NOTE
+  detail     String?  @db.Text
+  actor      String?
+  createdAt  DateTime @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId, createdAt])
+}
+
+// ─── Klantportaal (fase 5) ─────────────────────────────────────────────────
+
+model PortalAccess {
+  id         String  @id @default(cuid())
+  companyId  String
+  customerId String
+  projectId  String? // null = alle projecten van deze klant
+
+  token String  @unique @default(uuid())
+  email String?
+  name  String?
+  label String?
+
+  canComment Boolean @default(true)
+  canUpload  Boolean @default(true)
+
+  lastSeenAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  project  Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  comments Comment[]
+
+  @@index([customerId])
+  @@index([projectId])
+}
+
+// ─── Review-tool (fase 6) ──────────────────────────────────────────────────
+
+model ReviewBoard {
+  id        String @id @default(cuid())
+  companyId String
+  projectId String
+
+  name String
+  kind String  @default("LIVE") // LIVE | IMAGE
+  url  String? @db.Text
+
+  imageKey    String? @db.Text
+  imageWidth  Int?
+  imageHeight Int?
+
+  status    String   @default("OPEN") // OPEN | RESOLVED | ARCHIVED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  pins    Task[]
+
+  @@index([projectId])
+}
+
+// ─── Integraties & push (fase 3 + 7) ───────────────────────────────────────
+
+model UserIntegration {
+  id       String @id @default(cuid())
+  userId   String
+  provider String // GOOGLE_CALENDAR
+
+  accessToken  String    @db.Text
+  refreshToken String    @db.Text
+  expiresAt    DateTime?
+  calendarId   String?
+  privateCalendarId String?
+  syncToken    String?   @db.Text
+  lastSyncAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique @db.Text
+  p256dh    String   @db.Text
+  auth      String   @db.Text
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── Tijdregistratie (fase 8, model nu al zodat het later geen migratie is) ─
+
+model TimeEntry {
+  id        String    @id @default(cuid())
+  companyId String
+  userId    String
+  taskId    String?
+  projectId String?
+  startedAt DateTime
+  endedAt   DateTime?
+  minutes   Int?
+  note      String?   @db.Text
+  billable  Boolean   @default(true)
+  invoicedOnId String? // SalesInvoice waarin dit is meegenomen
+  createdAt DateTime  @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task    Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, startedAt])
+  @@index([taskId])
 }

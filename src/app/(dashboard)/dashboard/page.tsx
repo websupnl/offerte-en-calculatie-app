@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
+import { isOpenQuote } from "@/lib/stats";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,16 +52,20 @@ export default async function DashboardPage() {
   ]);
 
   const stat = (status: string) => quoteStats.find((item) => item.status === status);
+  // Concepten tellen niet mee in bedragen — alleen wat daadwerkelijk bij de klant ligt.
   const totalOpen = quoteStats
-    .filter((item) => ["DRAFT", "SENT", "VIEWED"].includes(item.status))
+    .filter((item) => isOpenQuote(item.status))
     .reduce((sum, item) => sum + Number(item._sum.totalIncVat ?? 0), 0);
+  const openCount = quoteStats
+    .filter((item) => isOpenQuote(item.status))
+    .reduce((sum, item) => sum + item._count, 0);
   const totalAccepted = Number(stat("ACCEPTED")?._sum.totalIncVat ?? 0);
   const sentCount = (stat("SENT")?._count ?? 0) + (stat("VIEWED")?._count ?? 0) + (stat("ACCEPTED")?._count ?? 0) + (stat("DECLINED")?._count ?? 0);
   const acceptedCount = stat("ACCEPTED")?._count ?? 0;
   const conversionRate = sentCount > 0 ? Math.round((acceptedCount / sentCount) * 100) : 0;
 
   const metrics = [
-    { label: "Open offertewaarde", value: formatCurrency(totalOpen), meta: `${stat("DRAFT")?._count ?? 0} concepten`, icon: Euro, color: "text-amber-600", surface: "bg-amber-50" },
+    { label: "Open offertewaarde", value: formatCurrency(totalOpen), meta: `${openCount} bij de klant`, icon: Euro, color: "text-amber-600", surface: "bg-amber-50" },
     { label: "Geaccepteerd", value: formatCurrency(totalAccepted), meta: `${acceptedCount} opdrachten`, icon: TrendingUp, color: "text-emerald-600", surface: "bg-emerald-50" },
     { label: "Actieve projecten", value: String(projectCount), meta: "Niet gearchiveerd", icon: FolderKanban, color: "text-sky-600", surface: "bg-sky-50" },
     { label: "Conversie", value: `${conversionRate}%`, meta: `${customerCount} klanten`, icon: Users, color: "text-violet-600", surface: "bg-violet-50" },

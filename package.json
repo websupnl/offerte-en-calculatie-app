@@ -19,6 +19,8 @@
     "scrape:elektramat": "node scripts/scrape-elektramat.mjs installatieautomaat --save --company koolhaas",
     "scrape:technim": "node scripts/scrape-technim.mjs installatieautomaat --save --company koolhaas",
     "import:quote": "node scripts/import-quote.mjs",
+    "ai:relay": "node scripts/ai-relay.mjs",
+    "ai:tunnel": "cloudflared tunnel --url http://localhost:8787",
     "brave": "/snap/bin/brave --remote-debugging-port=9222 --user-data-dir=\"$HOME/snap/brave/current/.config/BraveSoftware/Brave-Browser\" &"
   },
   "dependencies": {
@@ -42,6 +44,7 @@
     "@react-pdf/renderer": "^4.5.1",
     "@sparticuz/chromium-min": "^149.0.0",
     "@types/canvas-confetti": "^1.9.0",
+    "@types/web-push": "^3.6.4",
     "@vercel/blob": "^2.4.0",
     "bcryptjs": "^3.0.3",
     "canvas-confetti": "^1.9.4",
@@ -65,6 +68,7 @@
     "tailwind-merge": "^3.6.0",
     "tw-animate-css": "^1.4.0",
     "uuid": "^14.0.0",
+    "web-push": "^3.6.7",
     "zod": "^4.4.3"
   },
   "devDependencies": {

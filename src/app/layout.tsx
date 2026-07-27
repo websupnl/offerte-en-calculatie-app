@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Bricolage_Grotesque, Nunito } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import { CompanyProvider } from "@/lib/company-context";
 import { Toaster } from "@/components/ui/sonner";
+import { PwaRegister } from "@/components/pwa-register";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -23,6 +24,12 @@ const nunito = Nunito({
 export const metadata: Metadata = {
   title: "Offerte App",
   description: "Offerte- en calculatietool voor WebsUp & Koolhaas Installaties",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Werkplek" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -42,6 +49,7 @@ export default function RootLayout({
           <CompanyProvider>{children}</CompanyProvider>
         </SessionProvider>
         <Toaster richColors position="bottom-right" />
+        <PwaRegister />
       </body>
     </html>
   );

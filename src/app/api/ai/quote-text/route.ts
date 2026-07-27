@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateText } from "@/lib/openai";
+import { AiUnavailableError, aiGenerate } from "@/lib/ai/provider";
 import { DEFAULT_SETTINGS } from "@/lib/branding";
 import { normalizeQuoteCopyText } from "@/lib/quote-copy";
 import { z } from "zod";
@@ -45,6 +45,18 @@ export async function POST(req: NextRequest) {
   const tenantInstruction = company?.slug === "koolhaas"
     ? "Schrijf als Daan van Koolhaas Installaties: persoonlijk, nuchter, praktisch en technisch zorgvuldig. Gebruik geen fabrikantentaal of consultancytaal."
     : "Schrijf als Daan van WebsUp: persoonlijk, concreet en gericht op het zakelijke vraagstuk. Gebruik geen bureautaal.";
-  const text = await generateText(`${systemPrompt}\n${tenantInstruction}`, userPrompt, apiKey);
-  return NextResponse.json({ text: normalizeQuoteCopyText(text) });
+  try {
+    const { text, provider } = await aiGenerate({
+      type: "quote-text",
+      systemPrompt: `${systemPrompt}\n${tenantInstruction}`,
+      prompt: userPrompt,
+      openaiApiKey: apiKey,
+    });
+    return NextResponse.json({ text: normalizeQuoteCopyText(text), provider });
+  } catch (error) {
+    if (error instanceof AiUnavailableError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
+    throw error;
+  }
 }

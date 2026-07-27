@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
+import { countsInStats, isOpenQuote } from "@/lib/stats";
 import { PageHeader } from "@/components/layout/page-header";
 import { 
   TrendingUp, 
@@ -30,11 +31,15 @@ export default async function AdminDashboardPage() {
     },
   });
 
+  // Concepten tellen niet mee in cijfers — alleen wat daadwerkelijk de deur uit is.
+  const counted = quotes.filter(q => countsInStats(q.status));
+  const draftCount = quotes.length - counted.length;
+
   const stats = {
-    total: quotes.length,
-    accepted: quotes.filter(q => q.status === "ACCEPTED"),
-    open: quotes.filter(q => ["SENT", "VIEWED", "DRAFT"].includes(q.status)),
-    declined: quotes.filter(q => q.status === "DECLINED"),
+    total: counted.length,
+    accepted: counted.filter(q => q.status === "ACCEPTED"),
+    open: counted.filter(q => isOpenQuote(q.status)),
+    declined: counted.filter(q => q.status === "DECLINED"),
   };
 
   const calculateMargin = (quoteList: typeof quotes) => {
@@ -58,14 +63,16 @@ export default async function AdminDashboardPage() {
     ? (actualMargin.profit / actualMargin.revenue) * 100 
     : 0;
 
-  const conversionBase = stats.total - stats.open.filter((quote) => quote.status === "DRAFT").length;
+  const conversionBase = stats.total;
 
   return (
     <div>
       <PageHeader
         eyebrow="Inzicht"
         title="Financieel inzicht"
-        description="Omzet, inkoop, brutowinst en conversie op basis van je offertes."
+        description={`Omzet, inkoop, brutowinst en conversie op basis van je verstuurde offertes.${
+          draftCount === 0 ? "" : draftCount === 1 ? " 1 concept telt niet mee." : ` ${draftCount} concepten tellen niet mee.`
+        }`}
       />
       <div className="p-5 space-y-8 lg:p-8">
 

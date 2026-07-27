@@ -114,3 +114,53 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
 const prisma = new PrismaClient({ adapter })
 ```
 Of gebruik `scripts/db.mjs` die dit al regelt.
+
+## Werkplek (PLAN-werkplek.md — fase 0 t/m 7)
+
+Taken, notities, agenda, contracten, klantportaal en review-tool. Zie
+`PLAN-werkplek.md` voor de onderbouwing per keuze.
+
+### Scope-regel (belangrijk)
+Een privé-item heeft `companyId = null` en hangt alleen aan `ownerId`.
+Gebruik **altijd** `scopeWhere()` / `scopeData()` uit `src/lib/tasks.ts` — dan
+kan privéwerk niet in een zakelijk overzicht opduiken.
+Concepten tellen nooit mee in cijfers: `src/lib/stats.ts`.
+
+### Sleutelbestanden
+| Bestand | Wat |
+|---|---|
+| `src/lib/tasks.ts` | Scope-helpers + Nederlandse quick-add parser |
+| `src/lib/stats.ts` | Wat telt mee in de cijfers (concepten niet) |
+| `src/lib/ai/provider.ts` | Kiest lokale CLI-relay of OpenAI |
+| `scripts/ai-relay.mjs` | Relay die de Claude/Codex CLI aanroept |
+| `src/lib/calendar/ics.ts` | ICS-feed bouwen (RFC 5545) |
+| `src/lib/calendar/google.ts` | Google Calendar push-sync |
+| `src/lib/calendar/recurrence.ts` | Herhalende taken |
+| `src/lib/portal.ts` | Klanttoegang (server-only!) |
+| `src/lib/portal-labels.ts` | Labels voor de browser — niet uit portal.ts importeren |
+| `src/lib/push.ts` | Web Push |
+| `public/review.js` | Review-widget voor klantsites |
+
+### AI zonder API-kosten
+```bash
+npm run ai:relay     # relay op :8787, gebruikt de claude CLI
+npm run ai:tunnel    # cloudflared tunnel eroverheen
+```
+Zet `AI_RELAY_URL` (het tunneladres) + `AI_RELAY_KEY` in Vercel. Staat de laptop
+uit, dan valt de app terug op OpenAI — of toont "AI offline" als die key weg is.
+
+### Review-widget op een klantsite
+```html
+<script defer src="https://app.websup.nl/review.js"></script>
+```
+Doet niets tot de URL `?review=TOKEN` bevat. Een iframe van een andere site kan
+dit níet: die is cross-origin afgeschermd, dus je kunt er niet in klikken of de
+scrollpositie lezen.
+
+### Extra env-variabelen
+```
+AI_RELAY_URL, AI_RELAY_KEY, AI_CLI          # AI via lokale CLI
+GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET      # Google Calendar
+VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY         # Web Push
+NEXT_PUBLIC_VAPID_PUBLIC_KEY                # zelfde publieke sleutel, voor de browser
+```

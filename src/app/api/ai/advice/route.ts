@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateAdviceDocument } from "@/lib/openai";
+import { AiUnavailableError, aiGenerate } from "@/lib/ai/provider";
 import { DEFAULT_SETTINGS } from "@/lib/branding";
 import { z } from "zod";
 
@@ -44,12 +44,30 @@ export async function POST(req: NextRequest) {
       })
     : [];
 
-  const content = await generateAdviceDocument(
-    systemPrompt,
-    customerData,
-    products.map((p) => ({ name: p.name, specs: p.specs as Record<string, unknown> })),
-    apiKey
-  );
+  const userPrompt = `
+Klantgegevens:
+${JSON.stringify(customerData, null, 2)}
+
+Aanbevolen producten:
+${products.map((p) => `- ${p.name}: ${JSON.stringify(p.specs)}`).join("\n")}
+
+Schrijf nu het volledige adviesdocument in Markdown-formaat met kopjes, bullet points en berekeningen waar relevant.
+`;
+
+  let content: string;
+  try {
+    ({ text: content } = await aiGenerate({
+      type: "advice",
+      systemPrompt,
+      prompt: userPrompt,
+      openaiApiKey: apiKey,
+    }));
+  } catch (error) {
+    if (error instanceof AiUnavailableError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
+    throw error;
+  }
 
   // Save advice document
   const doc = await prisma.adviceDocument.create({
