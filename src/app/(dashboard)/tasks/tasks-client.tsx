@@ -37,6 +37,17 @@ type Task = {
 
 type Comment = { id: string; body: string; authorName: string; createdAt: string; visibility: string };
 
+type CalendarSyncResult = {
+  status: "synced" | "skipped" | "failed";
+  message?: string;
+};
+
+function warnIfCalendarSyncFailed(result?: CalendarSyncResult) {
+  if (result?.status === "failed") {
+    toast.warning(result.message ?? "De taak is opgeslagen, maar Google Agenda kon niet worden bijgewerkt.");
+  }
+}
+
 const PRIORITY_DOT: Record<number, string> = {
   0: "bg-slate-300",
   1: "bg-amber-500",
@@ -163,6 +174,7 @@ export function TasksClient({
       const body = await response.json();
       if (!response.ok) throw new Error(body.error?.formErrors?.[0] ?? body.error ?? "Toevoegen mislukt");
       setTasks((current) => [body, ...current]);
+      warnIfCalendarSyncFailed(body.calendarSync);
       setQuick("");
       quickRef.current?.focus();
     } catch (error) {
@@ -186,6 +198,7 @@ export function TasksClient({
       if (!response.ok) throw new Error(body.error ?? "Opslaan mislukt");
       setTasks((current) => current.map((task) => (task.id === id ? body : task)));
       setOpenTask((current) => (current?.id === id ? body : current));
+      warnIfCalendarSyncFailed(body.calendarSync);
     } catch (error) {
       setTasks(previous);
       toast.error(error instanceof Error ? error.message : "Opslaan mislukt");
@@ -207,8 +220,10 @@ export function TasksClient({
     setOpenTask(null);
     try {
       const response = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+      const body = await response.json();
       if (!response.ok) throw new Error();
       toast.success("Taak verwijderd");
+      warnIfCalendarSyncFailed(body.calendarSync);
     } catch {
       setTasks(previous);
       toast.error("Verwijderen mislukt");

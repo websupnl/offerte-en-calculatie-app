@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
     include: taskInclude,
   });
 
-  void syncTaskToGoogle({
+  const calendarSync = await syncTaskToGoogle({
     id: task.id,
     title: task.title,
     description: task.description,
@@ -143,5 +143,5 @@ export async function POST(req: NextRequest) {
     ownerId: scoped.ownerId,
   });
 
-  return NextResponse.json(task, { status: 201 });
+  return NextResponse.json({ ...task, calendarSync }, { status: 201 });
 }

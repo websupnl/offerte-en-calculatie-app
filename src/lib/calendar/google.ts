@@ -100,7 +100,9 @@ async function accessTokenFor(userId: string): Promise<{ token: string; integrat
 
 async function api(userId: string, path: string, init: RequestInit = {}) {
   const auth = await accessTokenFor(userId);
-  if (!auth) return null;
+  if (!auth) {
+    throw new Error("Google Calendar-koppeling is verlopen of ingetrokken");
+  }
 
   const response = await fetch(`${API}${path}`, {
     ...init,
@@ -150,8 +152,21 @@ type SyncTask = {
   ownerId: string;
 };
 
+export type CalendarSyncResult =
+  | { status: "synced" }
+  | { status: "skipped" }
+  | { status: "failed"; message: string };
+
 function eventBody(task: SyncTask) {
   const start = task.startAt ?? task.dueAt!;
+  const metadata = {
+    extendedProperties: {
+      private: {
+        websupTaskId: task.id,
+      },
+    },
+  };
+
   if (task.allDay) {
     const day = (d: Date) => {
       const copy = new Date(d);
@@ -160,6 +175,7 @@ function eventBody(task: SyncTask) {
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
     return {
+      ...metadata,
       summary: task.title,
       description: task.description ?? undefined,
       start: { date: day(start) },
@@ -168,6 +184,7 @@ function eventBody(task: SyncTask) {
   }
   const end = task.endAt ?? new Date(start.getTime() + 30 * 60000);
   return {
+    ...metadata,
     summary: task.title,
     description: task.description ?? undefined,
     start: { dateTime: start.toISOString(), timeZone: "Europe/Amsterdam" },
@@ -176,17 +193,25 @@ function eventBody(task: SyncTask) {
 }
 
 /**
- * Zet één taak in Google. Faalt stil: een agenda die even niet meewerkt mag
- * nooit het opslaan van een taak tegenhouden.
+ * Zet één taak in Google. De aanroeper wacht dit resultaat af, maar de
+ * taakmutatie blijft leidend: een Google-fout wordt apart aan de UI gemeld.
  */
-export async function syncTaskToGoogle(task: SyncTask): Promise<void> {
-  if (!googleConfigured()) return;
+export async function syncTaskToGoogle(task: SyncTask): Promise<CalendarSyncResult> {
+  if (!googleConfigured()) return { status: "skipped" };
 
   try {
-    const calendarId = task.companyId ? "primary" : await privateCalendarId(task.ownerId);
-    if (!calendarId) return;
-
     const hasDate = Boolean(task.startAt ?? task.dueAt);
+
+    // Nooit een privé-agenda aanmaken voor een taak zonder datum.
+    if (!hasDate && !task.calendarEventId) return { status: "skipped" };
+
+    const calendarId = task.companyId ? "primary" : await privateCalendarId(task.ownerId);
+    if (!calendarId) {
+      return {
+        status: "failed",
+        message: "Google Agenda is niet meer bereikbaar. Koppel je agenda opnieuw.",
+      };
+    }
 
     // Geen datum meer → event weghalen.
     if (!hasDate) {
@@ -199,7 +224,7 @@ export async function syncTaskToGoogle(task: SyncTask): Promise<void> {
           data: { calendarEventId: null, calendarSyncedAt: null },
         });
       }
-      return;
+      return { status: "synced" };
     }
 
     const body = eventBody(task);
@@ -216,7 +241,7 @@ export async function syncTaskToGoogle(task: SyncTask): Promise<void> {
         return syncTaskToGoogle({ ...task, calendarEventId: null });
       }
       await prisma.task.update({ where: { id: task.id }, data: { calendarSyncedAt: new Date() } });
-      return;
+      return { status: "synced" };
     }
 
     const created = await api(task.ownerId, `/calendars/${encodeURIComponent(calendarId)}/events`, {
@@ -228,9 +253,18 @@ export async function syncTaskToGoogle(task: SyncTask): Promise<void> {
         where: { id: task.id },
         data: { calendarEventId: created.id, calendarSyncedAt: new Date() },
       });
+      return { status: "synced" };
     }
+    return {
+      status: "failed",
+      message: "Google Agenda accepteerde de afspraak niet. De taak is wel opgeslagen.",
+    };
   } catch (error) {
     console.error("[google-calendar] sync mislukt:", error);
+    return {
+      status: "failed",
+      message: "Google Agenda kon niet worden bijgewerkt. De taak is wel opgeslagen.",
+    };
   }
 }
 
@@ -239,16 +273,32 @@ export async function removeTaskFromGoogle(task: {
   ownerId: string;
   companyId: string | null;
   calendarEventId: string | null;
-}): Promise<void> {
-  if (!googleConfigured() || !task.calendarEventId) return;
+}): Promise<CalendarSyncResult> {
+  if (!task.calendarEventId) return { status: "skipped" };
+  if (!googleConfigured()) {
+    return {
+      status: "failed",
+      message: "De taak is verwijderd, maar Google Agenda kon niet worden bijgewerkt.",
+    };
+  }
   try {
     const calendarId = task.companyId ? "primary" : await privateCalendarId(task.ownerId);
-    if (!calendarId) return;
+    if (!calendarId) {
+      return {
+        status: "failed",
+        message: "De taak is verwijderd, maar Google Agenda is niet meer gekoppeld.",
+      };
+    }
     await api(task.ownerId, `/calendars/${encodeURIComponent(calendarId)}/events/${task.calendarEventId}`, {
       method: "DELETE",
     });
+    return { status: "synced" };
   } catch (error) {
     console.error("[google-calendar] verwijderen mislukt:", error);
+    return {
+      status: "failed",
+      message: "De taak is verwijderd, maar de afspraak kon niet uit Google Agenda worden verwijderd.",
+    };
   }
 }
 

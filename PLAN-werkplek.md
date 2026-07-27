@@ -589,6 +589,8 @@ telefoon.
 Incrementele sync via `syncToken`. Afspraken uit mijn gewone agenda verschijnen in het
 dagoverzicht van de app, zodat ik één plek heb om te kijken. Conflictregel: wie het laatst
 wijzigde wint, en events die de app niet zelf heeft aangemaakt zijn read-only in de app.
+Het concrete datamodel, webhookgedrag en de veilige conflictregels staan in
+`docs/google-calendar-tweerichtingssync.md`.
 
 Privé-taken syncen standaard naar een aparte Google-agenda ("Privé") — niet naar dezelfde
 als zakelijke afspraken.

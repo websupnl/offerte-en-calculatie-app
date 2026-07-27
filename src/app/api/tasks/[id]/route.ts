@@ -134,6 +134,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // gepláánde datum, niet vanaf vandaag — anders schuift een jaarlijkse keuring
   // elk jaar op omdat je 'm een week te laat afvinkt.
   let repeated: { id: string; dueAt: Date | null } | null = null;
+  let repeatedForSync: {
+    id: string;
+    title: string;
+    description: string | null;
+    startAt: Date | null;
+    dueAt: Date | null;
+    endAt: Date | null;
+    allDay: boolean;
+    companyId: string | null;
+    calendarEventId: string | null;
+    ownerId: string;
+  } | null = null;
   const rule = data.recurRule ?? existing.recurRule;
   if (becomesDone && rule && existing.dueAt) {
     const next = nextOccurrence(existing.dueAt, rule);
@@ -158,14 +170,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           parentTaskId: existing.id,
           source: "RECURRING",
         },
-        select: { id: true, dueAt: true },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          startAt: true,
+          dueAt: true,
+          endAt: true,
+          allDay: true,
+          companyId: true,
+          calendarEventId: true,
+          ownerId: true,
+        },
       });
-      repeated = created;
+      repeated = { id: created.id, dueAt: created.dueAt };
+      repeatedForSync = created;
     }
   }
 
-  // Agenda bijwerken op de achtergrond — mag het opslaan nooit ophouden.
-  void syncTaskToGoogle({
+  // Wacht de externe call af: anders kan Vercel de functie na de response stoppen.
+  // De taak is al opgeslagen; een Google-fout wordt afzonderlijk teruggegeven.
+  let calendarSync = await syncTaskToGoogle({
     id: task.id,
     title: task.title,
     description: task.description,
@@ -177,8 +202,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     calendarEventId: existing.calendarEventId,
     ownerId: existing.ownerId,
   });
+  if (repeatedForSync) {
+    const repeatedCalendarSync = await syncTaskToGoogle(repeatedForSync);
+    if (repeatedCalendarSync.status === "failed") calendarSync = repeatedCalendarSync;
+  }
 
-  return NextResponse.json({ ...task, repeated });
+  return NextResponse.json({ ...task, repeated, calendarSync });
 }
 
 /** Zachte verwijdering — belandt in de prullenbak, niet direct weg. */
@@ -193,7 +222,13 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   });
   if (!existing) return NextResponse.json({ error: "Taak niet gevonden" }, { status: 404 });
 
-  await prisma.task.update({ where: { id }, data: { deletedAt: new Date(), calendarEventId: null } });
-  void removeTaskFromGoogle(existing);
-  return NextResponse.json({ ok: true });
+  await prisma.task.update({ where: { id }, data: { deletedAt: new Date() } });
+  const calendarSync = await removeTaskFromGoogle(existing);
+  if (calendarSync.status !== "failed") {
+    await prisma.task.update({
+      where: { id },
+      data: { calendarEventId: null, calendarSyncedAt: null },
+    });
+  }
+  return NextResponse.json({ ok: true, calendarSync });
 }

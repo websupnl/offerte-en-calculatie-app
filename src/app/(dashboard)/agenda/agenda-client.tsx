@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Check, Copy, Link2, Loader2, Lock, Repeat, Unlink } from "lucide-react";
+import { CalendarDays, Check, Copy, Link2, Loader2, Lock, RefreshCw, Repeat, Unlink } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,7 @@ export function AgendaClient({
   const [weekOffset, setWeekOffset] = useState(0);
   const [feed, setFeed] = useState(feedUrl);
   const [busy, setBusy] = useState(false);
+  const [googleSyncing, setGoogleSyncing] = useState(false);
 
   const weekStart = useMemo(() => {
     const base = startOfWeek(new Date());
@@ -75,6 +76,27 @@ export function AgendaClient({
       toast.error("Aanmaken mislukt");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function syncGoogle() {
+    setGoogleSyncing(true);
+    try {
+      const response = await fetch("/api/integrations/google/sync", { method: "POST" });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Synchroniseren mislukt");
+      if (body.failed > 0) {
+        toast.warning(`${body.synced} taken gesynchroniseerd, ${body.failed} mislukt.`);
+      } else {
+        toast.success(`${body.synced} taken gesynchroniseerd met Google Agenda.`);
+      }
+      if (body.limited) {
+        toast.info("Er staan nog meer taken klaar; synchroniseer nog een keer.");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Synchroniseren mislukt");
+    } finally {
+      setGoogleSyncing(false);
     }
   }
 
@@ -207,18 +229,30 @@ export function AgendaClient({
                 Nog niet ingesteld — <code>GOOGLE_CLIENT_ID</code> en <code>GOOGLE_CLIENT_SECRET</code> ontbreken in de omgeving.
               </p>
             ) : google.connected ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3 text-red-600 hover:bg-red-50"
-                onClick={async () => {
-                  await fetch("/api/integrations/google", { method: "DELETE" });
-                  toast.success("Koppeling verbroken");
-                  location.reload();
-                }}
-              >
-                <Unlink className="h-4 w-4" /> Ontkoppelen
-              </Button>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={syncGoogle}
+                  disabled={googleSyncing}
+                >
+                  {googleSyncing
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <RefreshCw className="h-4 w-4" />}
+                  Nu synchroniseren
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:bg-red-50"
+                  onClick={async () => {
+                    await fetch("/api/integrations/google", { method: "DELETE" });
+                    toast.success("Koppeling verbroken");
+                    location.reload();
+                  }}
+                >
+                  <Unlink className="h-4 w-4" /> Ontkoppelen
+                </Button>
+              </div>
             ) : (
               <Button nativeButton={false} className="mt-3" size="sm" render={<a href="/api/integrations/google/connect" />}>
                 <Check className="h-4 w-4" /> Koppelen met Google
