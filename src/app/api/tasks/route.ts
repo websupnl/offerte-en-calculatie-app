@@ -19,8 +19,12 @@ const createSchema = z.object({
   priority: z.number().int().min(0).max(2).optional(),
   dueAt: z.string().datetime().nullish(),
   startAt: z.string().datetime().nullish(),
+  endAt: z.string().datetime().nullish(),
   allDay: z.boolean().optional(),
   recurRule: z.string().nullish(),
+  // Al bestaand Google-event linken (bv. bij "maak hiervan een taak") in
+  // plaats van er een nieuw, dubbel event voor aan te maken.
+  calendarEventId: z.string().optional(),
 });
 
 const taskInclude = {
@@ -124,24 +128,30 @@ export async function POST(req: NextRequest) {
       priority: data.priority ?? quick?.priority ?? 0,
       dueAt: data.dueAt ? new Date(data.dueAt) : quick?.dueAt ?? null,
       startAt: data.startAt ? new Date(data.startAt) : quick?.startAt ?? null,
+      endAt: data.endAt ? new Date(data.endAt) : null,
       allDay: data.allDay ?? quick?.allDay ?? false,
       recurRule: data.recurRule ?? null,
+      ...(data.calendarEventId ? { calendarEventId: data.calendarEventId, calendarSyncedAt: new Date() } : {}),
     },
     include: taskInclude,
   });
 
-  const calendarSync = await syncTaskToGoogle({
-    id: task.id,
-    title: task.title,
-    description: task.description,
-    startAt: task.startAt,
-    dueAt: task.dueAt,
-    endAt: task.endAt,
-    allDay: task.allDay,
-    companyId: task.companyId,
-    calendarEventId: null,
-    ownerId: scoped.ownerId,
-  });
+  // Al gekoppeld aan een bestaand Google-event (vanuit "maak hiervan een
+  // taak" in de agenda) — niet nogmaals pushen, dat zou een duplicaat geven.
+  const calendarSync = data.calendarEventId
+    ? { status: "synced" as const }
+    : await syncTaskToGoogle({
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        startAt: task.startAt,
+        dueAt: task.dueAt,
+        endAt: task.endAt,
+        allDay: task.allDay,
+        companyId: task.companyId,
+        calendarEventId: null,
+        ownerId: scoped.ownerId,
+      });
 
   return NextResponse.json({ ...task, calendarSync }, { status: 201 });
 }

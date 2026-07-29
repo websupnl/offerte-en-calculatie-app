@@ -302,6 +302,81 @@ export async function removeTaskFromGoogle(task: {
   }
 }
 
+export type ForeignGoogleEvent = {
+  id: string;
+  calendarId: string;
+  isPrivate: boolean;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+};
+
+/**
+ * Haalt events op die rechtstreeks in Google zijn aangemaakt (dus niet
+ * eerder vanuit deze app gepusht — die herkennen we aan extendedProperties).
+ * Alleen-lezen: wordt in de agenda getoond, met een knop om er alsnog een
+ * taak van te maken. Faalt stil (lege lijst) zodat de pagina nooit breekt
+ * op een hapering aan Google's kant.
+ */
+export async function listForeignGoogleEvents(userId: string, from: Date, until: Date): Promise<ForeignGoogleEvent[]> {
+  if (!googleConfigured()) return [];
+  const integration = await prisma.userIntegration.findUnique({
+    where: { userId_provider: { userId, provider: "GOOGLE_CALENDAR" } },
+    select: { privateCalendarId: true },
+  });
+  if (!integration) return [];
+
+  const calendars = [{ id: "primary", isPrivate: false }];
+  if (integration.privateCalendarId) calendars.push({ id: integration.privateCalendarId, isPrivate: true });
+
+  const results = await Promise.all(
+    calendars.map(async ({ id, isPrivate }) => {
+      try {
+        const params = new URLSearchParams({
+          timeMin: from.toISOString(),
+          timeMax: until.toISOString(),
+          singleEvents: "true",
+          orderBy: "startTime",
+          maxResults: "250",
+        });
+        const response = await api(userId, `/calendars/${encodeURIComponent(id)}/events?${params}`);
+        const items = (response?.items ?? []) as Array<{
+          id: string;
+          status?: string;
+          summary?: string;
+          start?: { date?: string; dateTime?: string };
+          end?: { date?: string; dateTime?: string };
+          extendedProperties?: { private?: { websupTaskId?: string } };
+        }>;
+        return items
+          .filter((event) => event.status !== "cancelled" && !event.extendedProperties?.private?.websupTaskId)
+          .map((event): ForeignGoogleEvent | null => {
+            const allDay = Boolean(event.start?.date);
+            const start = event.start?.dateTime ?? event.start?.date;
+            const end = event.end?.dateTime ?? event.end?.date;
+            if (!start || !end) return null;
+            return {
+              id: event.id,
+              calendarId: id,
+              isPrivate,
+              title: event.summary || "(geen titel)",
+              start,
+              end,
+              allDay,
+            };
+          })
+          .filter((event): event is ForeignGoogleEvent => event !== null);
+      } catch (error) {
+        console.error(`[google-calendar] ophalen van agenda ${id} mislukt:`, error);
+        return [];
+      }
+    }),
+  );
+
+  return results.flat();
+}
+
 export async function googleStatus(userId: string) {
   if (!googleConfigured()) return { configured: false, connected: false };
   const integration = await prisma.userIntegration.findUnique({

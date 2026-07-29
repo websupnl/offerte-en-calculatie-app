@@ -1,12 +1,13 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { googleStatus } from "@/lib/calendar/google";
+import { googleStatus, listForeignGoogleEvents } from "@/lib/calendar/google";
 import { AgendaClient } from "./agenda-client";
 
 export default async function AgendaPage() {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return null;
+  const companyId = session?.user?.activeCompanyId;
 
   // Vier weken terug, twaalf vooruit — genoeg om te plannen zonder alles te laden.
   const from = new Date();
@@ -15,7 +16,7 @@ export default async function AgendaPage() {
   const until = new Date();
   until.setDate(until.getDate() + 84);
 
-  const [tasks, feed, google] = await Promise.all([
+  const [tasks, feed, google, projects, googleEvents] = await Promise.all([
     // Bewust op ownerId en niet op bedrijf: dit is jouw agenda, zakelijk én privé
     // door elkaar, want je hebt er maar één dag voor.
     prisma.task.findMany({
@@ -36,6 +37,15 @@ export default async function AgendaPage() {
     }),
     prisma.user.findUnique({ where: { id: userId }, select: { calendarFeedToken: true } }),
     googleStatus(userId),
+    companyId
+      ? prisma.project.findMany({
+          where: { companyId, status: { not: "ARCHIVED" } },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, number: true, title: true },
+          take: 200,
+        })
+      : Promise.resolve([]),
+    listForeignGoogleEvents(userId, from, until),
   ]);
 
   const base = process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? "";
@@ -45,6 +55,9 @@ export default async function AgendaPage() {
       tasks={JSON.parse(JSON.stringify(tasks))}
       feedUrl={feed?.calendarFeedToken ? `${base}/api/calendar/ics/${feed.calendarFeedToken}` : null}
       google={{ ...google, since: google.since?.toISOString() ?? null }}
+      projects={projects}
+      hasCompany={Boolean(companyId)}
+      googleEvents={googleEvents}
     />
   );
 }

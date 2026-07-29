@@ -149,6 +149,7 @@ export function QuoteDetailClient({
   const [shareUrl, setShareUrl] = useState("");
   const [pdfReady, setPdfReady] = useState(!!quote.pdfUrl);
   const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
 
   // Sync pdfReady when quote props change (after router.refresh)
   useEffect(() => {
@@ -300,6 +301,21 @@ export function QuoteDetailClient({
     router.push("/quotes");
   }
 
+  async function handleDuplicate() {
+    setDuplicating(true);
+    try {
+      const res = await fetch(`/api/quotes/${quote.id}/duplicate`, { method: "POST" });
+      if (!res.ok) throw new Error("Dupliceren mislukt");
+      const created = await res.json();
+      toast.success(`Offerte gedupliceerd als ${created.number}`);
+      router.push(`/quotes/${created.id}`);
+    } catch {
+      toast.error("Dupliceren mislukt");
+    } finally {
+      setDuplicating(false);
+    }
+  }
+
   async function handlePrint() {
     if (pdfDownloading) return;
     setPdfDownloading(true);
@@ -360,6 +376,10 @@ export function QuoteDetailClient({
           <Button variant="outline" size="sm" onClick={handleShare} disabled={sharing}>
             {sharing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
             Delen
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleDuplicate} disabled={duplicating}>
+            {duplicating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
+            Dupliceren
           </Button>
           <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={handleDelete}>
             <Trash2 className="h-4 w-4" />

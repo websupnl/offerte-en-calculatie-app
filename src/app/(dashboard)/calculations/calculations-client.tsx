@@ -23,6 +23,7 @@ import {
   ArrowUpRight,
   Loader2,
   Trash2,
+  Copy,
 } from "lucide-react";
 import {
   formatCurrency,
@@ -133,6 +134,21 @@ export function CalculationsClient({
       toast.success("Calculatie verwijderd");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Fout bij verwijderen");
+    }
+  }
+
+  async function handleDuplicate(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+
+    try {
+      const res = await fetch(`/api/calculations/${id}/duplicate`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Dupliceren mislukt");
+      toast.success(`Calculatie gedupliceerd als ${data.number}`);
+      router.push(`/calculations/${data.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Fout bij dupliceren");
     }
   }
 
@@ -320,6 +336,14 @@ export function CalculationsClient({
                         </div>
 
                         <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                            onClick={(e) => handleDuplicate(calc.id, e)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
