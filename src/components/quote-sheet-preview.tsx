@@ -259,9 +259,21 @@ export function QuoteSheetPreview({
   const defaultSelectedChoiceIds = useMemo(() => {
     return getRecommendedSelection(quote.choiceGroups ?? []).selectedChoiceIds;
   }, [quote.choiceGroups]);
-  const selectedChoiceIds = externalSelectedChoiceIds !== undefined
-    ? externalSelectedChoiceIds
-    : defaultSelectedChoiceIds;
+  // Val per configuratiegroep terug op de aanbevolen keuze zolang de klant nog niets
+  // heeft geselecteerd. Een lege of onvolledige `selectedChoiceIds` (zoals de portal
+  // vóór akkoord opslaat) mag nooit een totaal van € 0,00 opleveren.
+  const selectedChoiceIds = useMemo(() => {
+    const merged = { ...defaultSelectedChoiceIds };
+    if (externalSelectedChoiceIds) {
+      for (const group of quote.choiceGroups ?? []) {
+        const candidate = externalSelectedChoiceIds[group.id];
+        if (candidate && group.choices.some((choice) => choice.id === candidate)) {
+          merged[group.id] = candidate;
+        }
+      }
+    }
+    return merged;
+  }, [externalSelectedChoiceIds, defaultSelectedChoiceIds, quote.choiceGroups]);
 
   const today = new Date().toISOString();
   const activeSlug = companySlug || quote.company?.slug || "websup";
