@@ -21,10 +21,33 @@ const nunito = Nunito({
   display: "swap",
 });
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://app.websup.nl");
+
 export const metadata: Metadata = {
-  title: "Offerte App",
-  description: "Offerte- en calculatietool voor WebsUp & Koolhaas Installaties",
+  metadataBase: new URL(appUrl),
+  title: {
+    default: "Werkplek — WebsUp & Koolhaas Installaties",
+    template: "%s — Werkplek",
+  },
+  description: "Offertes, projecten, taken, notities en agenda op één plek voor WebsUp & Koolhaas Installaties.",
+  icons: {
+    icon: [{ url: "/favicon.ico" }, { url: "/icons/icon-192.png", type: "image/png", sizes: "192x192" }],
+    apple: [{ url: "/icons/icon-192.png", sizes: "192x192" }],
+  },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Werkplek" },
+  openGraph: {
+    type: "website",
+    locale: "nl_NL",
+    siteName: "Werkplek — WebsUp & Koolhaas Installaties",
+    title: "Werkplek — WebsUp & Koolhaas Installaties",
+    description: "Offertes, projecten, taken, notities en agenda op één plek.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Werkplek — WebsUp & Koolhaas Installaties",
+    description: "Offertes, projecten, taken, notities en agenda op één plek.",
+  },
 };
 
 export const viewport: Viewport = {
