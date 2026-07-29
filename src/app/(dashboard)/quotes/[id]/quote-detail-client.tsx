@@ -18,6 +18,7 @@ import {
   Zap,
   Printer,
   Mail,
+  Calculator,
 } from "lucide-react";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
 import { QuoteBuilder } from "@/components/forms/quote-builder";
@@ -381,6 +382,12 @@ export function QuoteDetailClient({
             {duplicating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
             Dupliceren
           </Button>
+          <Link href={`/quotes/${quote.id}/calculatie`}>
+            <Button variant="outline" size="sm">
+              <Calculator className="mr-2 h-4 w-4" />
+              Calculatie
+            </Button>
+          </Link>
           <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={handleDelete}>
             <Trash2 className="h-4 w-4" />
           </Button>
