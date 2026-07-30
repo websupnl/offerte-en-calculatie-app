@@ -62,6 +62,7 @@ export default async function PortalPrintPage({
         companySlug={serialized.company.slug}
         selectedChoiceIds={selectedChoiceIds}
         selectedOptionIds={selectedOptionIds}
+        isPrint
       />
     </main>
   );

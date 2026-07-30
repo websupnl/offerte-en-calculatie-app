@@ -173,6 +173,9 @@ interface QuoteSheetPreviewProps {
   onRemoveItem?: (id: string) => void;
   selectedChoiceIds?: Record<string, string>;
   selectedOptionIds?: string[];
+  // Statische render (PDF/print): geen "kies hieronder"-teksten, want er is
+  // geen interactieve keuze-UI beschikbaar zoals in het klantportaal.
+  isPrint?: boolean;
 }
 
 const COMPANY_COPY = {
@@ -255,6 +258,7 @@ export function QuoteSheetPreview({
   onRemoveItem,
   selectedChoiceIds: externalSelectedChoiceIds,
   selectedOptionIds = [],
+  isPrint = false,
 }: QuoteSheetPreviewProps) {
   const defaultSelectedChoiceIds = useMemo(() => {
     return getRecommendedSelection(quote.choiceGroups ?? []).selectedChoiceIds;
@@ -1164,15 +1168,19 @@ export function QuoteSheetPreview({
                         </li>
                       ))}
                   </ul>
-                  <div className="mt-auto flex items-end justify-between gap-3 border-t border-slate-100 pt-4">
-                    <span className="text-sm font-bold uppercase tracking-wide text-slate-500">{isActive ? "Geselecteerd" : "Keuze bij akkoord"}</span>
+                  <div className={`mt-auto flex items-end gap-3 border-t border-slate-100 pt-4 ${isActive || !isPrint ? "justify-between" : "justify-end"}`}>
+                    {(isActive || !isPrint) && (
+                      <span className="text-sm font-bold uppercase tracking-wide text-slate-500">
+                        {isActive ? "Geselecteerd" : "Keuze bij akkoord"}
+                      </span>
+                    )}
                     <strong className="text-xl text-slate-900">
                       {formatCurrency(total)} {showExVat ? "excl. btw" : "incl. btw"}
                     </strong>
                   </div>
                 </div>
 
-                {isLast && !splitItemsPage && itemsTableBlock}
+                {isLast && !splitItemsPage && visibleItems.length > 0 && itemsTableBlock}
 
                 {isLast ? renderSectionSpace("items") : <div className="spacer"></div>}
                 {renderPageFooter(pageLabel(3 + approachPageOffset + attachmentPages + entryIndex))}

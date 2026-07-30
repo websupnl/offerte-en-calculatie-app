@@ -53,6 +53,7 @@ export default async function QuotePrintPage({
         }}
         companySlug={serialized.company.slug}
         selectedOptionIds={(serialized.share?.selectedOptionIds as string[] | undefined) ?? []}
+        isPrint
       />
     </main>
   );
