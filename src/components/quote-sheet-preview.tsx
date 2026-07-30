@@ -345,6 +345,11 @@ export function QuoteSheetPreview({
   const splitItemsPage = choiceGroups.length > 0 && visibleItems.length > 0;
   const itemsPageOffset = splitItemsPage ? 1 : 0;
 
+  // Elke systeemoptie krijgt een eigen volle pagina i.p.v. samen op één pagina
+  // gepropt te worden — anders wordt de langste checklist afgesneden.
+  const choiceEntries = choiceGroups.flatMap((group) => group.choices.map((choice) => ({ group, choice })));
+  const choicePagesOffset = choiceEntries.length > 0 ? choiceEntries.length - 1 : 0;
+
   // Voorwaarden-pagina opsplitsen als de tekst te vol wordt: technische
   // uitgangspunten op pagina 1, voorbereiding + niet-inbegrepen op pagina 2.
   // Schatting van het aantal regels bepaalt of splitsen nodig is (ca. 55 tekens
@@ -363,7 +368,7 @@ export function QuoteSheetPreview({
   const termsPageOffset = splitTermsPage ? 1 : 0;
 
   const totalPages =
-    4 + approachPageOffset + attachmentPages + itemsPageOffset + (hasOptionsPage ? 1 : 0) + (hasTermsPage ? 1 : 0) + termsPageOffset;
+    4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0) + (hasTermsPage ? 1 : 0) + termsPageOffset;
   const pageLabel = (page: number) =>
     `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
   const coverHeading = isKoolhaas ? (quote.title || brand.defaultTitle) : "Offerte";
@@ -1079,90 +1084,102 @@ export function QuoteSheetPreview({
           </section>
         ))}
 
-        {/* ── PAGINA 4: INVESTERING + CHOICES ── */}
-        <section className="sheet">
-          <div className="bar"></div>
-          <div className="pad">
-            <div className="ph">
-              {renderHeaderLogo()}
-              <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
-            </div>
-
-            {/* Systeemconfiguraties worden hier samengevat; kiezen gebeurt bij akkoord. */}
-            {choiceGroups.map(group => (
-              <div key={group.id} className="choice-section mb-8">
-                <div className="mb-4">
-                  <span className="eyebrow">Mogelijke systemen</span>
-                  <h3 className="mt-1 text-lg font-bold text-slate-900">{group.title}</h3>
-                  {group.description && <p className="mt-1 text-sm text-slate-500">{group.description}</p>}
-                </div>
-                <div className="flex flex-col gap-4">
-                  {group.choices.map(choice => {
-                    const isActive = selectedChoiceIds[group.id] === choice.id;
-                    const systeemIncVat = choice.items.reduce((sum, item) => {
-                      const line = Number(item.qty) * Number(item.unitPrice);
-                      return sum + line * (1 + Number(item.vatRate) / 100);
-                    }, 0);
-                    const systeemExVat = choice.items.reduce(
-                      (sum, item) => sum + Number(item.qty) * Number(item.unitPrice),
-                      0,
-                    );
-                    const total = showExVat
-                      ? systeemExVat + totals.baseExVat
-                      : systeemIncVat + baseIncVat;
-                    const isRecommended = group.recommendedChoiceId === choice.id || choice.label?.toLowerCase() === "aanbevolen";
-                    return (
-                      <div key={choice.id} className={`relative rounded-xl border p-5 md:p-6 ${isActive ? "border-blue-600 bg-blue-50/40" : "border-slate-200 bg-white"}`}>
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                          {(choice.imageUrl || choice.image) && (
-                            <div className="choice-photo aspect-[4/3] w-full shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white sm:w-52">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={choice.imageUrl || choice.image}
-                                alt={choice.title}
-                                className="h-full w-full object-contain"
-                              />
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-                              <h4 className="text-lg font-bold leading-tight text-slate-900">{choice.title}</h4>
-                              {(choice.label || isRecommended) && (
-                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${isRecommended ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}>
-                                  {choice.label || "Aanbevolen"}
-                                </span>
-                              )}
-                            </div>
-                            {choice.summary && <p className="text-sm leading-relaxed text-slate-600">{choice.summary}</p>}
-                          </div>
-                        </div>
-                        <ul className="choice-details mt-4">
-                          {choice.items.map((item, index) => (
-                              <li key={`${choice.id}-detail-${index}`}>
-                                <Check size={10} strokeWidth={3} />
-                                <span>{item.description}</span>
-                              </li>
-                            ))}
-                        </ul>
-                        <div className="mt-4 flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
-                          <span className="text-xs font-bold uppercase tracking-wide text-slate-500">{isActive ? "Geselecteerd" : "Keuze bij akkoord"}</span>
-                          <strong className="text-base text-slate-900">
-                            {formatCurrency(total)} {showExVat ? "excl. btw" : "incl. btw"}
-                          </strong>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+        {/* ── PAGINA 4: INVESTERING (of geen keuzes) ── */}
+        {choiceEntries.length === 0 && (
+          <section className="sheet">
+            <div className="bar"></div>
+            <div className="pad">
+              <div className="ph">
+                {renderHeaderLogo()}
+                <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
               </div>
-            ))}
 
-            {!splitItemsPage && itemsTableBlock}
+              {!splitItemsPage && itemsTableBlock}
 
-            {renderSectionSpace("items")}
-            {renderPageFooter(pageLabel(3 + approachPageOffset + attachmentPages))}
-          </div>
-        </section>
+              {renderSectionSpace("items")}
+              {renderPageFooter(pageLabel(3 + approachPageOffset + attachmentPages))}
+            </div>
+          </section>
+        )}
+
+        {/* ── PAGINA'S 4..: elke systeemoptie krijgt een eigen volle pagina ── */}
+        {choiceEntries.map(({ group, choice }, entryIndex) => {
+          const isActive = selectedChoiceIds[group.id] === choice.id;
+          const systeemIncVat = choice.items.reduce((sum, item) => {
+            const line = Number(item.qty) * Number(item.unitPrice);
+            return sum + line * (1 + Number(item.vatRate) / 100);
+          }, 0);
+          const systeemExVat = choice.items.reduce(
+            (sum, item) => sum + Number(item.qty) * Number(item.unitPrice),
+            0,
+          );
+          const total = showExVat ? systeemExVat + totals.baseExVat : systeemIncVat + baseIncVat;
+          const isRecommended = group.recommendedChoiceId === choice.id || choice.label?.toLowerCase() === "aanbevolen";
+          const isLast = entryIndex === choiceEntries.length - 1;
+          return (
+            <section className="sheet" key={choice.id}>
+              <div className="bar"></div>
+              <div className="pad">
+                <div className="ph">
+                  {renderHeaderLogo()}
+                  <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
+                </div>
+
+                <div className="mb-5 flex items-start justify-between gap-3">
+                  <div>
+                    <span className="eyebrow">Mogelijke systemen</span>
+                    <h3 className="mt-1 text-xl font-bold text-slate-900">{group.title}</h3>
+                    {group.description && <p className="mt-1 text-sm text-slate-500">{group.description}</p>}
+                  </div>
+                  <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+                    Optie {entryIndex + 1} / {choiceEntries.length}
+                  </span>
+                </div>
+
+                <div className={`relative flex flex-1 flex-col rounded-2xl border p-7 md:p-9 ${isActive ? "border-blue-600 bg-blue-50/40" : "border-slate-200 bg-white"}`}>
+                  {(choice.imageUrl || choice.image) && (
+                    <div className="choice-photo mb-5 h-56 w-full overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={choice.imageUrl || choice.image}
+                        alt={choice.title}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  )}
+                  <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                    <h4 className="text-2xl font-bold leading-tight text-slate-900">{choice.title}</h4>
+                    {(choice.label || isRecommended) && (
+                      <span className={`rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-wide ${isRecommended ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+                        {choice.label || "Aanbevolen"}
+                      </span>
+                    )}
+                  </div>
+                  {choice.summary && <p className="text-base leading-relaxed text-slate-600">{choice.summary}</p>}
+                  <ul className="choice-details mt-6">
+                    {choice.items.map((item, index) => (
+                        <li key={`${choice.id}-detail-${index}`}>
+                          <Check size={13} strokeWidth={3} />
+                          <span>{item.description}</span>
+                        </li>
+                      ))}
+                  </ul>
+                  <div className="mt-auto flex items-end justify-between gap-3 border-t border-slate-100 pt-4">
+                    <span className="text-sm font-bold uppercase tracking-wide text-slate-500">{isActive ? "Geselecteerd" : "Keuze bij akkoord"}</span>
+                    <strong className="text-xl text-slate-900">
+                      {formatCurrency(total)} {showExVat ? "excl. btw" : "incl. btw"}
+                    </strong>
+                  </div>
+                </div>
+
+                {isLast && !splitItemsPage && itemsTableBlock}
+
+                {isLast ? renderSectionSpace("items") : <div className="spacer"></div>}
+                {renderPageFooter(pageLabel(3 + approachPageOffset + attachmentPages + entryIndex))}
+              </div>
+            </section>
+          );
+        })}
 
         {splitItemsPage && (
           <section className="sheet">
@@ -1176,7 +1193,7 @@ export function QuoteSheetPreview({
               {itemsTableBlock}
 
               {renderSectionSpace("items")}
-              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages))}
+              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + choicePagesOffset))}
             </div>
           </section>
         )}
@@ -1193,7 +1210,7 @@ export function QuoteSheetPreview({
               {optionsBlock}
 
               {renderSectionSpace("opties")}
-              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + itemsPageOffset))}
+              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset))}
             </div>
           </section>
         )}
@@ -1224,7 +1241,7 @@ export function QuoteSheetPreview({
               )}
 
               {splitTermsPage ? <div className="spacer"></div> : renderSectionSpace("terms")}
-              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + itemsPageOffset + (hasOptionsPage ? 1 : 0)))}
+              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0)))}
             </div>
           </section>
         )}
@@ -1245,7 +1262,7 @@ export function QuoteSheetPreview({
               {exclusionsBlock}
 
               {renderSectionSpace("terms")}
-              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + itemsPageOffset + (hasOptionsPage ? 1 : 0) + 1))}
+              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0) + 1))}
             </div>
           </section>
         )}

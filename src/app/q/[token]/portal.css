@@ -851,20 +851,22 @@
   margin: 0 0 12px;
   padding: 0;
   display: grid;
-  gap: 5px;
+  gap: 9px;
 }
 .choice-details li {
   display: flex;
   align-items: flex-start;
-  gap: 7px;
+  gap: 10px;
   color: var(--on-m);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 15px;
+  line-height: 1.5;
 }
 .choice-details li svg {
   flex: none;
-  margin-top: 2px;
+  margin-top: 3px;
   color: var(--accent);
+  width: 13px;
+  height: 13px;
 }
 
 /* =============================================================

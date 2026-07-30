@@ -173,7 +173,7 @@ export function Sidebar({
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
           {navGroups.map((group) => {
             const visibleItems = group.items.filter(
               (item) => !item.koolhaasOnly || activeCompany?.slug === "koolhaas",
