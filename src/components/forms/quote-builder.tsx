@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -32,6 +34,8 @@ import {
   Upload,
   Copy,
   Check,
+  Calculator,
+  RefreshCw,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { calculateTotals } from "@/lib/calculation";
@@ -88,6 +92,7 @@ type Choice = {
   image?: string; // persisted ref (s3://... of externe URL)
   imageUrl?: string; // tijdelijke weergave-URL, niet opgeslagen
   items: ChoiceItem[];
+  calculationId?: string; // gekoppelde Calculatie — indien gezet, bron van items
 };
 
 type ChoiceGroup = {
@@ -98,6 +103,18 @@ type ChoiceGroup = {
   recommendedChoiceId?: string;
   choices: Choice[];
 };
+
+type CalculationSummary = {
+  id: string;
+  number: string;
+  title: string;
+  status: string;
+  totalCostPrice: number;
+  totalSalesPrice: number;
+  marginPercent: number;
+};
+
+type AvailableCalculation = { id: string; number: string; title: string; customerName?: string | null };
 
 type QuoteOption = {
   id: string;
@@ -433,7 +450,16 @@ export function QuoteBuilder({
   const [internalAdvice, setInternalAdvice] = useState(initialQuote?.internalAdvice || initialAdvice?.analysis || "");
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [uploadingChoiceImageId, setUploadingChoiceImageId] = useState<string | null>(null);
-  
+
+  // Calculatie-koppeling per systeemoptie
+  const [calculationSummaries, setCalculationSummaries] = useState<Record<string, CalculationSummary>>({});
+  const [linkingChoiceId, setLinkingChoiceId] = useState<string | null>(null);
+  const [calcPickerOpen, setCalcPickerOpen] = useState(false);
+  const [calcPickerQuery, setCalcPickerQuery] = useState("");
+  const [calcPickerLoading, setCalcPickerLoading] = useState(false);
+  const [calcPickerTarget, setCalcPickerTarget] = useState<{ groupId: string; choiceId: string } | null>(null);
+  const [availableCalculations, setAvailableCalculations] = useState<AvailableCalculation[]>([]);
+
   const [flow, setFlow] = useState(initialQuote?.flow || []);
   const [approach, setApproach] = useState(initialQuote?.approach || []);
   const [options, setOptions] = useState<QuoteOption[]>(
@@ -1054,6 +1080,164 @@ export function QuoteBuilder({
       };
     }));
   }
+
+  // ── Calculatie-koppeling per systeemoptie ──────────────────────────────
+  // Een gekoppelde optie haalt zijn regels (en dus prijzen) op uit een losse
+  // Calculatie in plaats van dat je ze hier handmatig invoert. De Calculatie
+  // is de bron; `choice.items` is een gesynchroniseerde momentopname die de
+  // PDF/het portaal standalone kunnen tonen zonder de Calculatie te raadplegen.
+
+  function calculationSummaryFromResponse(calc: {
+    id: string; number: string; title: string; status: string;
+    totalCostPrice: number | string; totalSalesPrice: number | string; marginPercent: number | string;
+  }): CalculationSummary {
+    return {
+      id: calc.id,
+      number: calc.number,
+      title: calc.title,
+      status: calc.status,
+      totalCostPrice: Number(calc.totalCostPrice) || 0,
+      totalSalesPrice: Number(calc.totalSalesPrice) || 0,
+      marginPercent: Number(calc.marginPercent) || 0,
+    };
+  }
+
+  function mapCalculationItemsToChoiceItems(calc: {
+    items?: Array<{
+      description: string; qty: number | string; unitPrice: number | string;
+      costPrice?: number | string | null; vatRate: number | string; optional?: boolean;
+    }>;
+  }): ChoiceItem[] {
+    return (calc.items ?? [])
+      .filter((item) => !item.optional)
+      .map((item) => ({
+        description: item.description,
+        qty: Number(item.qty) || 1,
+        unitPrice: Number(item.unitPrice) || 0,
+        costPrice: item.costPrice != null ? Number(item.costPrice) : null,
+        vatRate: Number(item.vatRate) || 21,
+        indent: 0,
+      }));
+  }
+
+  async function syncChoiceFromCalculation(
+    groupId: string,
+    choiceId: string,
+    calculationId: string,
+    opts: { silent?: boolean } = {},
+  ) {
+    if (!opts.silent) setLinkingChoiceId(choiceId);
+    try {
+      const res = await fetch(`/api/calculations/${calculationId}`);
+      if (!res.ok) throw new Error("Calculatie niet gevonden");
+      const calc = await res.json();
+      updateChoice(groupId, choiceId, { items: mapCalculationItemsToChoiceItems(calc) });
+      setCalculationSummaries((prev) => ({ ...prev, [calculationId]: calculationSummaryFromResponse(calc) }));
+      if (!opts.silent) toast.success("Prijzen vernieuwd vanuit de calculatie");
+    } catch (error) {
+      if (!opts.silent) toast.error(error instanceof Error ? error.message : "Vernieuwen mislukt");
+    } finally {
+      if (!opts.silent) setLinkingChoiceId(null);
+    }
+  }
+
+  async function createCalculationForChoice(groupId: string, choiceId: string) {
+    const choice = choiceGroups.find((g) => g.id === groupId)?.choices.find((c) => c.id === choiceId);
+    if (!choice) return;
+    setLinkingChoiceId(choiceId);
+    try {
+      const res = await fetch("/api/calculations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `${initialQuote?.number || "Offerte"} — ${choice.title}`,
+          customerId: customerId || undefined,
+          items: choice.items.map((item) => ({
+            description: item.description,
+            qty: Number(item.qty) || 1,
+            costPrice: item.costPrice != null ? Number(item.costPrice) : 0,
+            unitPrice: Number(item.unitPrice) || 0,
+            vatRate: Number(item.vatRate) || 21,
+          })),
+        }),
+      });
+      if (!res.ok) throw new Error("Aanmaken van de calculatie is mislukt");
+      const calc = await res.json();
+      updateChoice(groupId, choiceId, { calculationId: calc.id, items: mapCalculationItemsToChoiceItems(calc) });
+      setCalculationSummaries((prev) => ({ ...prev, [calc.id]: calculationSummaryFromResponse(calc) }));
+      toast.success("Calculatie aangemaakt");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Aanmaken mislukt");
+    } finally {
+      setLinkingChoiceId(null);
+    }
+  }
+
+  function unlinkCalculation(groupId: string, choiceId: string) {
+    updateChoice(groupId, choiceId, { calculationId: undefined });
+  }
+
+  async function openCalculationPicker(groupId: string, choiceId: string) {
+    setCalcPickerTarget({ groupId, choiceId });
+    setCalcPickerOpen(true);
+    if (availableCalculations.length === 0) {
+      setCalcPickerLoading(true);
+      try {
+        const res = await fetch("/api/calculations");
+        if (res.ok) {
+          const list = await res.json();
+          setAvailableCalculations(
+            (Array.isArray(list) ? list : []).map((calc: { id: string; number: string; title: string; customer?: { name?: string } | null }) => ({
+              id: calc.id,
+              number: calc.number,
+              title: calc.title,
+              customerName: calc.customer?.name ?? null,
+            })),
+          );
+        }
+      } finally {
+        setCalcPickerLoading(false);
+      }
+    }
+  }
+
+  function linkExistingCalculation(calculationId: string) {
+    if (!calcPickerTarget) return;
+    const { groupId, choiceId } = calcPickerTarget;
+    updateChoice(groupId, choiceId, { calculationId });
+    void syncChoiceFromCalculation(groupId, choiceId, calculationId, { silent: true });
+    setCalcPickerOpen(false);
+    setCalcPickerTarget(null);
+  }
+
+  // Bij terugkeer naar dit tabblad (bijv. na bewerken in de Calculatie in een
+  // nieuw tabblad) stil de prijzen van alle gekoppelde opties verversen.
+  useEffect(() => {
+    function handleFocus() {
+      for (const group of choiceGroups) {
+        for (const choice of group.choices) {
+          if (choice.calculationId) {
+            void syncChoiceFromCalculation(group.id, choice.id, choice.calculationId, { silent: true });
+          }
+        }
+      }
+    }
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [choiceGroups]);
+
+  // Eenmalig bij laden: marge/status ophalen voor al gekoppelde opties.
+  useEffect(() => {
+    choiceGroups.forEach((group) => {
+      group.choices.forEach((choice) => {
+        if (choice.calculationId && !calculationSummaries[choice.calculationId]) {
+          void syncChoiceFromCalculation(group.id, choice.id, choice.calculationId, { silent: true });
+        }
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function removeItem(id: string) {
     setItems((prev) => prev.filter((i) => i.id !== id));
@@ -1676,7 +1860,15 @@ export function QuoteBuilder({
 
         {/* ── Right Panel (Controls) ── */}
         <aside className="w-full space-y-6 pb-2 lg:w-[360px] lg:shrink-0 xl:sticky xl:top-[132px] xl:max-h-[calc(100vh-148px)] xl:w-[400px] xl:overflow-y-auto xl:overscroll-contain xl:pr-2 [scrollbar-gutter:stable] 2xl:w-[440px]">
-          <div className="space-y-6">
+          <Tabs defaultValue="regels">
+            <TabsList className="w-full bg-white shadow-sm">
+              <TabsTrigger value="regels" className="flex-1">Regels</TabsTrigger>
+              <TabsTrigger value="configuraties" className="flex-1">Configuraties</TabsTrigger>
+              <TabsTrigger value="media" className="flex-1">Media</TabsTrigger>
+              <TabsTrigger value="documenten" className="flex-1">Documenten</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="regels" className="space-y-6">
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-bold flex items-center justify-between">
@@ -1863,7 +2055,9 @@ export function QuoteBuilder({
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
 
+            <TabsContent value="configuraties" className="space-y-6">
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-bold flex items-center justify-between">
@@ -1976,6 +2170,85 @@ export function QuoteBuilder({
                                     />
                                   </label>
                                 </div>
+
+                                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                                  {choice.calculationId ? (
+                                    (() => {
+                                      const summary = calculationSummaries[choice.calculationId!];
+                                      const busy = linkingChoiceId === choice.id;
+                                      return (
+                                        <div className="space-y-2">
+                                          <div className="min-w-0">
+                                            <p className="truncate text-xs font-bold text-slate-900">
+                                              {summary ? `${summary.number} · ${summary.title}` : "Calculatie gekoppeld"}
+                                            </p>
+                                            {summary && (
+                                              <p className="text-[11px] text-slate-500">
+                                                Marge {summary.marginPercent.toFixed(1)}% · {formatCurrency(summary.totalSalesPrice)} verkoop excl. btw
+                                              </p>
+                                            )}
+                                          </div>
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <Link href={`/calculations/${choice.calculationId}`} target="_blank" rel="noopener noreferrer">
+                                              <Button type="button" size="sm" variant="outline" className="h-7 text-xs">
+                                                <Calculator className="h-3 w-3 mr-1" /> Open in Calculatie
+                                              </Button>
+                                            </Link>
+                                            <Button
+                                              type="button"
+                                              size="sm"
+                                              variant="outline"
+                                              className="h-7 text-xs"
+                                              disabled={busy}
+                                              onClick={() => void syncChoiceFromCalculation(group.id, choice.id, choice.calculationId!)}
+                                            >
+                                              {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                                              Vernieuw prijzen
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-7 text-xs text-red-500"
+                                              onClick={() => unlinkCalculation(group.id, choice.id)}
+                                            >
+                                              Ontkoppelen
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()
+                                  ) : (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 text-xs"
+                                        disabled={linkingChoiceId === choice.id}
+                                        onClick={() => void createCalculationForChoice(group.id, choice.id)}
+                                      >
+                                        {linkingChoiceId === choice.id ? (
+                                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                        ) : (
+                                          <Calculator className="h-3 w-3 mr-1" />
+                                        )}
+                                        Nieuwe calculatie
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 text-xs"
+                                        onClick={() => void openCalculationPicker(group.id, choice.id)}
+                                      >
+                                        Bestaande koppelen
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {!choice.calculationId && (
                                 <div className="space-y-2">
                                   {choice.items.map((item, itemIndex) => (
                                     <div key={itemIndex} className="grid grid-cols-[1fr_54px_78px_58px_32px] gap-2">
@@ -2021,10 +2294,13 @@ export function QuoteBuilder({
                                     </div>
                                   ))}
                                 </div>
+                                )}
                                 <div className="flex items-center justify-between gap-3">
-                                  <Button size="sm" variant="outline" onClick={() => addChoiceItem(group.id, choice.id)} className="h-7 text-xs">
-                                    <Plus className="h-3 w-3 mr-1" /> Regel
-                                  </Button>
+                                  {!choice.calculationId ? (
+                                    <Button size="sm" variant="outline" onClick={() => addChoiceItem(group.id, choice.id)} className="h-7 text-xs">
+                                      <Plus className="h-3 w-3 mr-1" /> Regel
+                                    </Button>
+                                  ) : <span />}
                                   <div className="text-right text-xs text-slate-500">
                                     <span className="font-bold text-slate-900">{formatCurrency(choiceExVat + choiceVat)}</span> incl. btw
                                   </div>
@@ -2042,7 +2318,9 @@ export function QuoteBuilder({
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
 
+            <TabsContent value="media" className="space-y-6">
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-bold flex items-center justify-between">
@@ -2144,7 +2422,9 @@ export function QuoteBuilder({
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
 
+            <TabsContent value="documenten" className="space-y-6">
               {initialQuote?.id && (
                 <Card>
                   <CardHeader className="pb-3">
@@ -2188,48 +2468,94 @@ export function QuoteBuilder({
                 </Card>
               )}
 
-              <Dialog open={docPickerOpen} onOpenChange={setDocPickerOpen}>
-                <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
-                  <DialogHeader>
-                    <DialogTitle>Document koppelen aan offerte</DialogTitle>
-                  </DialogHeader>
-                  <Input
-                    value={docPickerQuery}
-                    onChange={(e) => setDocPickerQuery(e.target.value)}
-                    placeholder="Zoek op artikel- of bestandsnaam..."
-                    autoFocus
-                  />
-                  <div className="flex-1 overflow-y-auto space-y-1">
-                    {docPickerLoading ? (
-                      <div className="py-8 text-center text-sm text-slate-400">Laden...</div>
-                    ) : (
-                      (() => {
-                        const q = docPickerQuery.trim().toLowerCase();
-                        const filtered = availableDocs.filter(
-                          (d) =>
-                            !documents.some((existing) => existing.productDocument.id === d.id) &&
-                            (!q || d.name.toLowerCase().includes(q) || d.productName.toLowerCase().includes(q)),
-                        );
-                        if (filtered.length === 0) {
-                          return <div className="py-8 text-center text-sm text-slate-400">Geen documenten gevonden.</div>;
-                        }
-                        return filtered.map((d) => (
-                          <button
-                            key={d.id}
-                            type="button"
-                            onClick={() => attachDocument(d.id)}
-                            className="w-full rounded-md p-2 text-left text-sm hover:bg-slate-100"
-                          >
-                            <span className="block font-medium">{d.name}</span>
-                            <span className="block text-xs text-slate-400">{d.productName} · {d.type === "BROCHURE" ? "Brochure" : "Datasheet"}</span>
-                          </button>
-                        ));
-                      })()
-                    )}
-                  </div>
-                </DialogContent>
-              </Dialog>
-          </div>
+            </TabsContent>
+          </Tabs>
+
+          <Dialog open={docPickerOpen} onOpenChange={setDocPickerOpen}>
+            <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+              <DialogHeader>
+                <DialogTitle>Document koppelen aan offerte</DialogTitle>
+              </DialogHeader>
+              <Input
+                value={docPickerQuery}
+                onChange={(e) => setDocPickerQuery(e.target.value)}
+                placeholder="Zoek op artikel- of bestandsnaam..."
+                autoFocus
+              />
+              <div className="flex-1 overflow-y-auto space-y-1">
+                {docPickerLoading ? (
+                  <div className="py-8 text-center text-sm text-slate-400">Laden...</div>
+                ) : (
+                  (() => {
+                    const q = docPickerQuery.trim().toLowerCase();
+                    const filtered = availableDocs.filter(
+                      (d) =>
+                        !documents.some((existing) => existing.productDocument.id === d.id) &&
+                        (!q || d.name.toLowerCase().includes(q) || d.productName.toLowerCase().includes(q)),
+                    );
+                    if (filtered.length === 0) {
+                      return <div className="py-8 text-center text-sm text-slate-400">Geen documenten gevonden.</div>;
+                    }
+                    return filtered.map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => attachDocument(d.id)}
+                        className="w-full rounded-md p-2 text-left text-sm hover:bg-slate-100"
+                      >
+                        <span className="block font-medium">{d.name}</span>
+                        <span className="block text-xs text-slate-400">{d.productName} · {d.type === "BROCHURE" ? "Brochure" : "Datasheet"}</span>
+                      </button>
+                    ));
+                  })()
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={calcPickerOpen} onOpenChange={setCalcPickerOpen}>
+            <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+              <DialogHeader>
+                <DialogTitle>Bestaande calculatie koppelen</DialogTitle>
+              </DialogHeader>
+              <Input
+                value={calcPickerQuery}
+                onChange={(e) => setCalcPickerQuery(e.target.value)}
+                placeholder="Zoek op nummer, titel of klant..."
+                autoFocus
+              />
+              <div className="flex-1 overflow-y-auto space-y-1">
+                {calcPickerLoading ? (
+                  <div className="py-8 text-center text-sm text-slate-400">Laden...</div>
+                ) : (
+                  (() => {
+                    const q = calcPickerQuery.trim().toLowerCase();
+                    const filtered = availableCalculations.filter(
+                      (c) =>
+                        !q ||
+                        c.number.toLowerCase().includes(q) ||
+                        c.title.toLowerCase().includes(q) ||
+                        (c.customerName ?? "").toLowerCase().includes(q),
+                    );
+                    if (filtered.length === 0) {
+                      return <div className="py-8 text-center text-sm text-slate-400">Geen calculaties gevonden.</div>;
+                    }
+                    return filtered.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => linkExistingCalculation(c.id)}
+                        className="w-full rounded-md p-2 text-left text-sm hover:bg-slate-100"
+                      >
+                        <span className="block font-medium">{c.number} · {c.title}</span>
+                        {c.customerName && <span className="block text-xs text-slate-400">{c.customerName}</span>}
+                      </button>
+                    ));
+                  })()
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
 
           <Card className={`relative overflow-hidden border-none text-white shadow-xl ${isKoolhaas ? "bg-[#08111f]" : "bg-[#06040c]"}`}>
             <div className="pointer-events-none absolute inset-0">

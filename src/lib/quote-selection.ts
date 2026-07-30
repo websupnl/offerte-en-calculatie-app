@@ -23,6 +23,10 @@ export const quoteChoiceSchema = z.object({
   image: z.string().trim().optional(),
   imageUrl: z.string().trim().optional(),
   items: z.array(selectableLineSchema).min(1),
+  // Koppeling naar een Calculation (los record, geen DB-relatie): als gezet,
+  // is de Calculatie de bron van de prijzen en worden `items` vanuit daar
+  // gesynchroniseerd i.p.v. handmatig bewerkt.
+  calculationId: z.string().trim().optional(),
 });
 
 export const quoteChoiceGroupSchema = z.object({
