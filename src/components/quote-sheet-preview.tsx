@@ -1269,7 +1269,7 @@ export function QuoteSheetPreview({
                 </>
               )}
 
-              {splitTermsPage ? <div className="spacer"></div> : renderSectionSpace("terms")}
+              {renderSectionSpace("terms")}
               {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0)))}
             </div>
           </section>
@@ -1290,7 +1290,7 @@ export function QuoteSheetPreview({
 
               {exclusionsBlock}
 
-              {renderSectionSpace("terms")}
+              <div className="spacer"></div>
               {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0) + 1))}
             </div>
           </section>
