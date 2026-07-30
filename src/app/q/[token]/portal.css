@@ -868,6 +868,16 @@
   width: 13px;
   height: 13px;
 }
+.choice-details-included {
+  margin-bottom: 0;
+}
+.choice-details-included li {
+  color: var(--on-m);
+  font-size: 13.5px;
+}
+.choice-details-included li svg {
+  color: #94a3b8;
+}
 
 /* =============================================================
    OPTION CHIPS

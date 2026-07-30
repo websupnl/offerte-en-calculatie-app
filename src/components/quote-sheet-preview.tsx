@@ -1120,6 +1120,12 @@ export function QuoteSheetPreview({
           const total = showExVat ? systeemExVat + totals.baseExVat : systeemIncVat + baseIncVat;
           const isRecommended = group.recommendedChoiceId === choice.id || choice.label?.toLowerCase() === "aanbevolen";
           const isLast = entryIndex === choiceEntries.length - 1;
+          // Materiaal/arbeid met een prijs los van de inbegrepen (€0) werkzaamheden,
+          // zodat de klant ziet wat er geleverd wordt vs. wat erbij inbegrepen is.
+          const materialItems = choice.items.filter((item) => Number(item.unitPrice) > 0);
+          const includedItems = choice.items.filter(
+            (item) => Number(item.unitPrice) === 0 && item.description.trim().toLowerCase() !== "inbegrepen werkzaamheden",
+          );
           return (
             <section className="sheet" key={choice.id}>
               <div className="bar"></div>
@@ -1160,14 +1166,29 @@ export function QuoteSheetPreview({
                     )}
                   </div>
                   {choice.summary && <p className="mb-2 text-base leading-relaxed text-slate-600">{choice.summary}</p>}
-                  <ul className="choice-details mt-7">
-                    {choice.items.map((item, index) => (
-                        <li key={`${choice.id}-detail-${index}`}>
-                          <Check size={13} strokeWidth={3} />
-                          <span>{item.description}</span>
-                        </li>
-                      ))}
-                  </ul>
+                  {materialItems.length > 0 && (
+                    <ul className="choice-details mt-7">
+                      {materialItems.map((item, index) => (
+                          <li key={`${choice.id}-material-${index}`}>
+                            <Check size={13} strokeWidth={3} />
+                            <span>{item.description}</span>
+                          </li>
+                        ))}
+                    </ul>
+                  )}
+                  {includedItems.length > 0 && (
+                    <div className="choice-included mt-5 rounded-lg bg-slate-50 p-4">
+                      <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">Inbegrepen werkzaamheden</p>
+                      <ul className="choice-details choice-details-included">
+                        {includedItems.map((item, index) => (
+                            <li key={`${choice.id}-included-${index}`}>
+                              <Check size={13} strokeWidth={3} />
+                              <span>{item.description}</span>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
                   <div className={`mt-auto flex items-end gap-3 border-t border-slate-100 pt-4 ${isActive || !isPrint ? "justify-between" : "justify-end"}`}>
                     {(isActive || !isPrint) && (
                       <span className="text-sm font-bold uppercase tracking-wide text-slate-500">
