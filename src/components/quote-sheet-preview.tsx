@@ -1159,8 +1159,8 @@ export function QuoteSheetPreview({
                       </span>
                     )}
                   </div>
-                  {choice.summary && <p className="text-base leading-relaxed text-slate-600">{choice.summary}</p>}
-                  <ul className="choice-details mt-6">
+                  {choice.summary && <p className="mb-2 text-base leading-relaxed text-slate-600">{choice.summary}</p>}
+                  <ul className="choice-details mt-7">
                     {choice.items.map((item, index) => (
                         <li key={`${choice.id}-detail-${index}`}>
                           <Check size={13} strokeWidth={3} />
