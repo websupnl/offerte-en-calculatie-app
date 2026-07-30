@@ -1398,8 +1398,9 @@
   border-radius: 4px;
 }
 .section-figure-item figcaption {
-  font-size: 14px;
-  color: var(--on-s);
+  font-size: 11px;
+  font-style: italic;
+  color: var(--on-m);
   text-align: center;
 }
 .sig { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
