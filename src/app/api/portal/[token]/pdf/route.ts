@@ -129,6 +129,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     customerPhone: quote.customer.phone ?? undefined,
     customerAddress: quote.customer.address ?? undefined,
     customerCity: quote.customer.city ?? undefined,
+    customerZip: quote.customer.zipCode ?? undefined,
     title: quote.title ?? undefined,
     category: quote.category ?? undefined,
     tagline: quote.tagline ?? undefined,

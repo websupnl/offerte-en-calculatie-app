@@ -105,7 +105,7 @@ type Quote = {
   totalVat: string | number;
   totalIncVat: string | number;
   createdAt: string;
-  customer: { id: string; name: string; email: string | null; address: string | null; city: string | null };
+  customer: { id: string; name: string; email: string | null; address: string | null; city: string | null; zipCode: string | null };
   items: QuoteItem[];
   attachments: QuoteAttachment[];
   adviceDocuments: AdviceDocument[];
@@ -139,7 +139,7 @@ export function QuoteDetailClient({
   quote: Quote;
   company: { name: string; branding: Record<string, string> } | null;
   companySlug: string;
-  customers: { id: string; name: string; email: string | null }[];
+  customers: { id: string; name: string; email: string | null; address?: string | null; city?: string | null; zipCode?: string | null }[];
   products: { id: string; category: string; name: string; basePrice: string | number; vatRate: string | number; unit: string }[];
   productSets: { id: string; name: string; items: { productId: string; qty: string | number; product: { id: string; name: string; basePrice: string | number; vatRate: string | number; category: string; unit: string } }[] }[];
 }) {

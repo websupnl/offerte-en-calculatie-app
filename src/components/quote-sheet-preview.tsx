@@ -129,7 +129,7 @@ export type QuotePreviewData = {
   totalVat: string | number;
   totalIncVat: string | number;
   items: QuoteItem[];
-  customer: { name: string; email: string | null; address: string | null; city: string | null };
+  customer: { name: string; email: string | null; address: string | null; city: string | null; zipCode?: string | null };
   flow?: FlowItem[];
   approach?: ApproachStep[];
   options?: QuoteOption[];
@@ -873,7 +873,9 @@ export function QuoteSheetPreview({
                       <b>{quote.customer.name || "Klantnaam"}</b>
                       {(quote.customer.address || quote.customer.city) && (
                         <small className="cov-for-address">
-                          {[quote.customer.address, quote.customer.city].filter(Boolean).join(", ")}
+                          {[quote.customer.address, [quote.customer.zipCode, quote.customer.city].filter(Boolean).join(" ")]
+                            .filter(Boolean)
+                            .join(", ")}
                         </small>
                       )}
                     </div>
@@ -1094,7 +1096,7 @@ export function QuoteSheetPreview({
                   <h3 className="mt-1 text-lg font-bold text-slate-900">{group.title}</h3>
                   {group.description && <p className="mt-1 text-sm text-slate-500">{group.description}</p>}
                 </div>
-                <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
+                <div className="flex flex-col gap-4">
                   {group.choices.map(choice => {
                     const isActive = selectedChoiceIds[group.id] === choice.id;
                     const systeemIncVat = choice.items.reduce((sum, item) => {
@@ -1110,27 +1112,31 @@ export function QuoteSheetPreview({
                       : systeemIncVat + baseIncVat;
                     const isRecommended = group.recommendedChoiceId === choice.id || choice.label?.toLowerCase() === "aanbevolen";
                     return (
-                      <div key={choice.id} className={`relative flex flex-col rounded-xl border p-5 ${isActive ? "border-blue-600 bg-blue-50/40" : "border-slate-200 bg-white"}`}>
-                        {(choice.imageUrl || choice.image) && (
-                          <div className="choice-photo mb-3 aspect-[4/3] overflow-hidden rounded-lg border border-slate-200 bg-white">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={choice.imageUrl || choice.image}
-                              alt={choice.title}
-                              className="h-full w-full object-contain"
-                            />
-                          </div>
-                        )}
-                        <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-                          <h4 className="text-base font-bold leading-tight text-slate-900">{choice.title}</h4>
-                          {(choice.label || isRecommended) && (
-                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${isRecommended ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}>
-                              {choice.label || "Aanbevolen"}
-                            </span>
+                      <div key={choice.id} className={`relative rounded-xl border p-5 md:p-6 ${isActive ? "border-blue-600 bg-blue-50/40" : "border-slate-200 bg-white"}`}>
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                          {(choice.imageUrl || choice.image) && (
+                            <div className="choice-photo aspect-[4/3] w-full shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white sm:w-52">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={choice.imageUrl || choice.image}
+                                alt={choice.title}
+                                className="h-full w-full object-contain"
+                              />
+                            </div>
                           )}
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                              <h4 className="text-lg font-bold leading-tight text-slate-900">{choice.title}</h4>
+                              {(choice.label || isRecommended) && (
+                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${isRecommended ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+                                  {choice.label || "Aanbevolen"}
+                                </span>
+                              )}
+                            </div>
+                            {choice.summary && <p className="text-sm leading-relaxed text-slate-600">{choice.summary}</p>}
+                          </div>
                         </div>
-                        {choice.summary && <p className="mb-3 text-sm leading-relaxed text-slate-600">{choice.summary}</p>}
-                        <ul className="choice-details">
+                        <ul className="choice-details mt-4">
                           {choice.items.map((item, index) => (
                               <li key={`${choice.id}-detail-${index}`}>
                                 <Check size={10} strokeWidth={3} />
@@ -1138,7 +1144,7 @@ export function QuoteSheetPreview({
                               </li>
                             ))}
                         </ul>
-                        <div className="mt-auto flex items-end justify-between gap-3 pt-2">
+                        <div className="mt-4 flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
                           <span className="text-xs font-bold uppercase tracking-wide text-slate-500">{isActive ? "Geselecteerd" : "Keuze bij akkoord"}</span>
                           <strong className="text-base text-slate-900">
                             {formatCurrency(total)} {showExVat ? "excl. btw" : "incl. btw"}

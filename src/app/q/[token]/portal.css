@@ -1590,9 +1590,9 @@
   line-height: 1.2;
 }
 .cov-for-address {
-  color: rgba(255,255,255,.60);
-  font-size: 13px;
-  font-weight: 500;
+  color: rgba(255,255,255,.72);
+  font-size: 15px;
+  font-weight: 600;
   letter-spacing: -.01em;
   text-transform: none;
   line-height: 1.3;

@@ -44,7 +44,7 @@ import { SheetScaler } from "@/components/sheet-scaler";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
-type Customer = { id: string; name: string; email: string | null };
+type Customer = { id: string; name: string; email: string | null; address?: string | null; city?: string | null; zipCode?: string | null };
 type Product = {
   id: string;
   category: string;
@@ -556,8 +556,9 @@ export function QuoteBuilder({
     customer: {
       name: customer?.name || "Selecteer een klant",
       email: customer?.email || null,
-      address: null,
-      city: null
+      address: customer?.address || null,
+      city: customer?.city || null,
+      zipCode: customer?.zipCode || null,
     },
     company: { slug: companySlug }
   };

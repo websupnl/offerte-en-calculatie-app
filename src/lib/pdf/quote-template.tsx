@@ -65,6 +65,7 @@ type QuotePDFProps = {
   customerPhone?: string;
   customerAddress?: string;
   customerCity?: string;
+  customerZip?: string;
   title?: string;
   category?: string;
   tagline?: string;
@@ -399,6 +400,9 @@ export function QuotePDF({
   quoteDate,
   validUntil,
   customerName,
+  customerAddress,
+  customerCity,
+  customerZip,
   title: titleProp,
   category: categoryProp,
   tagline: taglineProp,
@@ -510,6 +514,11 @@ export function QuotePDF({
               <View style={{ borderLeftWidth: 2, borderLeftColor: brand.colors.accent, paddingLeft: 10, marginBottom: 28 }}>
                 <Text style={{ fontSize: 8, color: coverMuted, marginBottom: 3 }}>Opgesteld voor</Text>
                 <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: coverText }}>{customerName}</Text>
+                {(customerAddress || customerCity) && (
+                  <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", color: coverMuted, marginTop: 3 }}>
+                    {[customerAddress, [customerZip, customerCity].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
+                  </Text>
+                )}
               </View>
 
               {/* Meta */}
@@ -846,40 +855,40 @@ export function QuotePDF({
               {group.choices.map((choice, ci) => {
                 const isRec = choice.label === "Aanbevolen";
                 const mainItems = choice.items.filter((i) => !i.indent || i.indent === 0);
-                const subItems = choice.items.filter((i) => i.indent && i.indent > 0);
                 const choiceTotal = mainItems.reduce((sum, i) => sum + i.unitPrice * i.qty, 0);
                 return (
                   <View key={ci} style={{ borderWidth: 1.5, borderColor: isRec ? brand.colors.accent : brand.colors.border, borderRadius: 8, overflow: "hidden" }}>
-                    {/* Foto per keuze */}
-                    {choice.image && (
-                      <Image
-                        src={publicImageDataUri(choice.image)}
-                        style={{ width: "100%", height: 150, objectFit: "cover" }}
-                      />
-                    )}
-                    {/* Header: titel + samenvatting */}
-                    <View style={{ padding: 10, backgroundColor: isRec ? brand.colors.surface : "#FFFFFF" }}>
-                      {isRec && (
-                        <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 0.8, color: brand.colors.accent, marginBottom: 3 }}>
-                          ★ Aanbevolen
-                        </Text>
+                    {/* Header: foto naast titel + samenvatting */}
+                    <View style={{ flexDirection: "row", padding: 10, gap: 10, backgroundColor: isRec ? brand.colors.surface : "#FFFFFF" }}>
+                      {choice.image && (
+                        <Image
+                          src={publicImageDataUri(choice.image)}
+                          style={{ width: 90, height: 68, borderRadius: 6, objectFit: "cover" }}
+                        />
                       )}
-                      <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: brand.colors.text, marginBottom: choice.summary ? 4 : 0 }}>
-                        {choice.title}
-                      </Text>
-                      {choice.summary && (
-                        <Text style={{ fontSize: 8.5, color: brand.colors.muted, lineHeight: 1.45 }}>
-                          {choice.summary}
+                      <View style={{ flex: 1 }}>
+                        {isRec && (
+                          <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 0.8, color: brand.colors.accent, marginBottom: 3 }}>
+                            ★ Aanbevolen
+                          </Text>
+                        )}
+                        <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: brand.colors.text, marginBottom: choice.summary ? 4 : 0 }}>
+                          {choice.title}
                         </Text>
-                      )}
+                        {choice.summary && (
+                          <Text style={{ fontSize: 8.5, color: brand.colors.muted, lineHeight: 1.45 }}>
+                            {choice.summary}
+                          </Text>
+                        )}
+                      </View>
                     </View>
 
-                    {/* Inbegrepen: leveringsomvang (hardware + vaste basis) */}
+                    {/* Inbegrepen: alle onderdelen en werkzaamheden van deze optie */}
                     <View style={{ borderTopWidth: 1, borderTopColor: brand.colors.border, backgroundColor: "#FFFFFF", paddingTop: 6, paddingBottom: 4 }}>
                       <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 0.8, color: brand.colors.muted, paddingHorizontal: 10, paddingBottom: 3 }}>
                         Inbegrepen
                       </Text>
-                      {[...subItems.map((i) => i.description), ...items.map((i) => i.description)].map((desc, ii) => (
+                      {choice.items.map((i) => i.description).map((desc, ii) => (
                         <View key={ii} style={{ flexDirection: "row", alignItems: "flex-start", gap: 7, paddingHorizontal: 10, paddingVertical: 2.5 }}>
                           <View style={{ width: 12, height: 12, borderRadius: 6, marginTop: 1, backgroundColor: brand.colors.accent, justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
                             <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>v</Text>

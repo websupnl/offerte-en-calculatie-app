@@ -59,7 +59,7 @@ type Quote = {
   totalVat: string | number;
   totalIncVat: string | number;
   items: QuoteItem[];
-  customer: { name: string; email: string | null; address: string | null; city: string | null };
+  customer: { name: string; email: string | null; address: string | null; city: string | null; zipCode: string | null };
   company: { name: string; slug: string };
   flow?: FlowItem[];
   approach?: ApproachStep[];
