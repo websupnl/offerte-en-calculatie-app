@@ -6,6 +6,8 @@ const { auth } = NextAuth(authConfig);
 
 const PUBLIC_PATHS = [
   "/login",
+  "/opengraph-image", // linkpreview-bots (WhatsApp, Slack, etc.) hebben geen sessie
+  "/twitter-image",
   "/q/",
   "/print/portal/",
   "/api/auth",

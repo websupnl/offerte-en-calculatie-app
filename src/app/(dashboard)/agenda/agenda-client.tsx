@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PageHeader } from "@/components/layout/page-header";
 import { cn } from "@/lib/utils";
 import type { Scope } from "@/lib/tasks";
+import type { ForeignGoogleEvent } from "@/lib/calendar/google";
 
 type AgendaTask = {
   id: string; title: string; status: string; priority: number;
@@ -77,15 +78,11 @@ function eventTimeLabel(task: AgendaTask): string {
   return `${startLabel}–${endLabel}`;
 }
 
-type PositionedTask = {
-  task: AgendaTask;
-  top: number;
-  height: number;
-  col: number;
-  cols: number;
-};
-
-function layoutTimedTasks(tasks: AgendaTask[], gridStartMinutes: number, pxPerMinute: number): PositionedTask[] {
+function layoutTimedTasks<T extends { startAt: string | null; endAt: string | null; dueAt: string }>(
+  tasks: T[],
+  gridStartMinutes: number,
+  pxPerMinute: number,
+): Array<{ task: T; top: number; height: number; col: number; cols: number }> {
   const items = tasks
     .map((task) => {
       const start = new Date(task.startAt ?? task.dueAt);
@@ -139,23 +136,25 @@ export function AgendaClient({
   google,
   projects,
   hasCompany,
+  googleEvents,
 }: {
   tasks: AgendaTask[];
   feedUrl: string | null;
   google: { configured: boolean; connected: boolean; since?: string | null };
   projects: Project[];
   hasCompany: boolean;
+  googleEvents: ForeignGoogleEvent[];
 }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [weekOffset, setWeekOffset] = useState(0);
   const [feed, setFeed] = useState(feedUrl);
   const [busy, setBusy] = useState(false);
   const [googleSyncing, setGoogleSyncing] = useState(false);
-  const [createDefaults, setCreateDefaults] = useState<{ date: Date; minutes: number } | null>(null);
+  const [createDefaults, setCreateDefaults] = useState<{ date: Date; minutes: number; title?: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  function openCreateDialog(date: Date, minutes: number) {
-    setCreateDefaults({ date, minutes });
+  function openCreateDialog(date: Date, minutes: number, title?: string) {
+    setCreateDefaults({ date, minutes, title });
   }
 
   const weekStart = useMemo(() => {
@@ -170,13 +169,16 @@ export function AgendaClient({
         const day = new Date(weekStart);
         day.setDate(day.getDate() + index);
         const dayTasks = tasks.filter((task) => sameDay(new Date(task.dueAt), day));
+        const dayForeign = googleEvents.filter((event) => sameDay(new Date(event.start), day));
         return {
           date: day,
           allDayTasks: dayTasks.filter((task) => task.allDay),
           timedTasks: dayTasks.filter((task) => !task.allDay),
+          allDayForeign: dayForeign.filter((event) => event.allDay),
+          timedForeign: dayForeign.filter((event) => !event.allDay),
         };
       }),
-    [weekStart, tasks],
+    [weekStart, tasks, googleEvents],
   );
 
   const { minHour, maxHour } = useMemo(() => {
@@ -186,6 +188,12 @@ export function AgendaClient({
       for (const task of day.timedTasks) {
         const start = new Date(task.startAt ?? task.dueAt);
         const end = task.endAt ? new Date(task.endAt) : start;
+        min = Math.min(min, Math.floor(minutesOfDay(start) / 60));
+        max = Math.max(max, Math.ceil(minutesOfDay(end) / 60) || max);
+      }
+      for (const event of day.timedForeign) {
+        const start = new Date(event.start);
+        const end = new Date(event.end);
         min = Math.min(min, Math.floor(minutesOfDay(start) / 60));
         max = Math.max(max, Math.ceil(minutesOfDay(end) / 60) || max);
       }
@@ -350,12 +358,12 @@ export function AgendaClient({
           </div>
 
           {/* Hele dag */}
-          {days.some((day) => day.allDayTasks.length > 0) && (
+          {days.some((day) => day.allDayTasks.length > 0 || day.allDayForeign.length > 0) && (
             <div className="flex border-b border-slate-100">
               <div className="flex w-12 shrink-0 items-center justify-end pr-1.5 sm:w-16 sm:pr-2">
                 <span className="text-[9px] font-bold uppercase tracking-wide text-slate-300">Dag</span>
               </div>
-              {days.map(({ date, allDayTasks }) => {
+              {days.map(({ date, allDayTasks, allDayForeign }) => {
                 const isToday = sameDay(date, today);
                 return (
                   <div
@@ -379,6 +387,15 @@ export function AgendaClient({
                       >
                         {task.title}
                       </Link>
+                    ))}
+                    {allDayForeign.map((event) => (
+                      <div
+                        key={event.id}
+                        title="Uit Google Agenda, alleen-lezen"
+                        className="block truncate rounded-md border border-dashed border-slate-300 bg-slate-50 px-1.5 py-1 text-[11px] font-semibold text-slate-500"
+                      >
+                        {event.title}
+                      </div>
                     ))}
                   </div>
                 );
@@ -413,10 +430,15 @@ export function AgendaClient({
                   ))}
                 </div>
 
-                {days.map(({ date, timedTasks }) => {
+                {days.map(({ date, timedTasks, timedForeign }) => {
                   const isToday = sameDay(date, today);
                   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                   const positioned = layoutTimedTasks(timedTasks, gridStartMinutes, pxPerMinute);
+                  const positionedForeign = layoutTimedTasks(
+                    timedForeign.map((event) => ({ ...event, startAt: event.start, endAt: event.end, dueAt: event.start })),
+                    gridStartMinutes,
+                    pxPerMinute,
+                  );
                   return (
                     <div
                       key={date.toISOString()}
@@ -477,6 +499,42 @@ export function AgendaClient({
                             </span>
                           )}
                         </Link>
+                      ))}
+                      {positionedForeign.map(({ task: event, top, height, col, cols }) => (
+                        <div
+                          key={event.id}
+                          onClick={(e) => e.stopPropagation()}
+                          title="Uit Google Agenda, alleen-lezen"
+                          className="group/foreign absolute overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50/90 px-1.5 py-1 text-[11px] leading-tight text-slate-500"
+                          style={{
+                            top,
+                            height,
+                            left: `calc(${(col / cols) * 100}% + 2px)`,
+                            width: `calc(${100 / cols}% - 4px)`,
+                          }}
+                        >
+                          <span className="flex items-center justify-between gap-1">
+                            <span className="truncate font-semibold">{event.title}</span>
+                            <button
+                              type="button"
+                              aria-label="Maak er een taak van"
+                              className="hidden shrink-0 rounded-full bg-white p-0.5 text-slate-500 shadow-sm ring-1 ring-slate-200 hover:text-[var(--ws-accent)] group-hover/foreign:block"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openCreateDialog(new Date(event.start), minutesOfDay(new Date(event.start)), event.title);
+                              }}
+                            >
+                              <Plus className="h-2.5 w-2.5" />
+                            </button>
+                          </span>
+                          {height >= 36 && (
+                            <span className="block truncate opacity-70">
+                              {new Date(event.start).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}
+                              {"–"}
+                              {new Date(event.end).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          )}
+                        </div>
                       ))}
                     </div>
                   );
@@ -593,7 +651,7 @@ function NewEventDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  defaults: { date: Date; minutes: number } | null;
+  defaults: { date: Date; minutes: number; title?: string } | null;
   hasCompany: boolean;
   projects: Project[];
   onCreated: (task: AgendaTask) => void;
@@ -609,7 +667,7 @@ function NewEventDialog({
 
   useEffect(() => {
     if (!open || !defaults) return;
-    setTitle("");
+    setTitle(defaults.title ?? "");
     setScope(hasCompany ? "business" : "private");
     setAllDay(false);
     setDate(toDateValue(defaults.date));
@@ -617,7 +675,7 @@ function NewEventDialog({
     setEndTime(toTimeValue(defaults.minutes + 60));
     setProjectId("none");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, defaults?.date, defaults?.minutes]);
+  }, [open, defaults?.date, defaults?.minutes, defaults?.title]);
 
   async function submit() {
     if (!title.trim() || !date) return;
