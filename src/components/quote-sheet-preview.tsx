@@ -871,6 +871,11 @@ export function QuoteSheetPreview({
                     <div className="cov-for">
                       <span>Voor</span>
                       <b>{quote.customer.name || "Klantnaam"}</b>
+                      {(quote.customer.address || quote.customer.city) && (
+                        <small className="cov-for-address">
+                          {[quote.customer.address, quote.customer.city].filter(Boolean).join(", ")}
+                        </small>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1126,9 +1131,7 @@ export function QuoteSheetPreview({
                         </div>
                         {choice.summary && <p className="mb-3 text-sm leading-relaxed text-slate-600">{choice.summary}</p>}
                         <ul className="choice-details">
-                          {choice.items
-                            .filter((item) => (item.indent ?? 0) > 0)
-                            .map((item, index) => (
+                          {choice.items.map((item, index) => (
                               <li key={`${choice.id}-detail-${index}`}>
                                 <Check size={10} strokeWidth={3} />
                                 <span>{item.description}</span>
