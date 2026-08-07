@@ -36,9 +36,11 @@ import {
   Check,
   Calculator,
   RefreshCw,
+  MapPin,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { calculateTotals } from "@/lib/calculation";
+import { estimateTravelDistanceKm, getTravelPrice, type TravelPricingTier } from "@/lib/travel";
 import { QuoteSheetPreview, type QuotePreviewData } from "@/components/quote-sheet-preview";
 import { SheetScaler } from "@/components/sheet-scaler";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
@@ -366,6 +368,8 @@ export function QuoteBuilder({
   initialQuote,
   initialAdvice,
   companySlug,
+  homeBaseZipCode,
+  travelPricingTiers,
 }: {
   customers: Customer[];
   products: Product[];
@@ -374,6 +378,8 @@ export function QuoteBuilder({
   companyName: string;
   initialQuote?: InitialQuote;
   initialAdvice?: InitialAdvice;
+  homeBaseZipCode?: string;
+  travelPricingTiers?: TravelPricingTier[];
 }) {
   const router = useRouter();
   const isKoolhaas = companySlug === "koolhaas";
@@ -853,6 +859,40 @@ export function QuoteBuilder({
       ...prev,
       { id: genId(), description: "Nieuw onderdeel", qty: 1, unitPrice: 0, vatRate: 21, total: 0, indent: 0 },
     ]);
+  }
+
+  function addTravelItem() {
+    if (!customer?.zipCode) {
+      toast.error("Deze klant heeft geen postcode, vul die eerst aan bij de klantgegevens");
+      return;
+    }
+    if (!homeBaseZipCode) {
+      toast.error("Stel eerst je vertrekpostcode in bij Instellingen > Voorrijkosten");
+      return;
+    }
+    const distanceKm = estimateTravelDistanceKm(homeBaseZipCode, customer.zipCode);
+    if (distanceKm === null) {
+      toast.error("Kon de afstand niet bepalen op basis van deze postcodes");
+      return;
+    }
+    const price = getTravelPrice(distanceKm, travelPricingTiers);
+    if (price === null) {
+      toast.error("Geen voorrijkosten-schijven ingesteld bij Instellingen > Voorrijkosten");
+      return;
+    }
+    setItems((prev) => [
+      ...prev,
+      {
+        id: genId(),
+        description: `Voorrijkosten (± ${Math.round(distanceKm)} km enkele reis)`,
+        qty: 1,
+        unitPrice: price,
+        vatRate: 21,
+        total: price,
+        indent: 0,
+      },
+    ]);
+    toast.success(`Reiskosten toegevoegd: ± ${Math.round(distanceKm)} km, € ${price}`);
   }
 
   function addProduct(product: Product) {
@@ -1874,9 +1914,14 @@ export function QuoteBuilder({
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-bold flex items-center justify-between">
                     Offerteregels
-                    <Button size="sm" variant="outline" onClick={addItem} className="h-8">
-                      <Plus className="h-3 w-3 mr-1" /> Regel
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={addTravelItem} className="h-8">
+                        <MapPin className="h-3 w-3 mr-1" /> Reiskosten
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={addItem} className="h-8">
+                        <Plus className="h-3 w-3 mr-1" /> Regel
+                      </Button>
+                    </div>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">

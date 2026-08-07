@@ -11,6 +11,11 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Loader2, Save, Settings, Palette, Bot, Key, FileText, ExternalLink, Upload, Trash2 } from "lucide-react";
 
+type TravelPricingTier = {
+  maxKm: number | null;
+  price: number;
+};
+
 type CompanySettings = {
   defaultVatRate: number;
   quoteValidDays: number;
@@ -21,6 +26,8 @@ type CompanySettings = {
   emailFrom: string;
   notifyEmail: string;
   aiSystemPrompts: Record<string, string>;
+  homeBaseZipCode: string;
+  travelPricingTiers: TravelPricingTier[];
 };
 
 type CompanyBranding = {
@@ -244,6 +251,98 @@ export function SettingsClient({
                   value={settings.paymentTerms}
                   onChange={(e) => setSettings((s) => ({ ...s, paymentTerms: e.target.value }))}
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Voorrijkosten</CardTitle>
+              <CardDescription>
+                Vertrekpostcode en prijsschijven voor de knop &quot;Reiskosten berekenen&quot; in de offerte-editor.
+                De afstand is een schatting op basis van postcodes, niet een exacte routeplanner.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Vertrekpostcode (jouw vestigingsadres)</Label>
+                <Input
+                  placeholder="Bijv. 9145 RW"
+                  value={settings.homeBaseZipCode}
+                  onChange={(e) => setSettings((s) => ({ ...s, homeBaseZipCode: e.target.value }))}
+                  className="max-w-[200px]"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Prijsschijven (excl. btw)</Label>
+                <div className="space-y-2">
+                  {settings.travelPricingTiers.map((tier, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-sm text-slate-500 w-16 shrink-0">t/m</span>
+                      <Input
+                        type="number"
+                        placeholder="km"
+                        value={tier.maxKm ?? ""}
+                        disabled={i === settings.travelPricingTiers.length - 1}
+                        onChange={(e) =>
+                          setSettings((s) => ({
+                            ...s,
+                            travelPricingTiers: s.travelPricingTiers.map((t, j) =>
+                              j === i ? { ...t, maxKm: e.target.value === "" ? null : Number(e.target.value) } : t,
+                            ),
+                          }))
+                        }
+                        className="w-24"
+                      />
+                      <span className="text-sm text-slate-500 shrink-0">km =</span>
+                      <Input
+                        type="number"
+                        placeholder="euro"
+                        value={tier.price}
+                        onChange={(e) =>
+                          setSettings((s) => ({
+                            ...s,
+                            travelPricingTiers: s.travelPricingTiers.map((t, j) =>
+                              j === i ? { ...t, price: Number(e.target.value) } : t,
+                            ),
+                          }))
+                        }
+                        className="w-24"
+                      />
+                      <span className="text-sm text-slate-500 shrink-0">euro</span>
+                      {settings.travelPricingTiers.length > 1 && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-slate-400 hover:text-red-600"
+                          onClick={() =>
+                            setSettings((s) => ({
+                              ...s,
+                              travelPricingTiers: s.travelPricingTiers.filter((_, j) => j !== i),
+                            }))
+                          }
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setSettings((s) => {
+                      const tiers = [...s.travelPricingTiers];
+                      const last = tiers[tiers.length - 1];
+                      const previousMax = tiers.length > 1 ? tiers[tiers.length - 2]?.maxKm ?? 0 : (last?.maxKm ?? 0);
+                      tiers.splice(tiers.length - 1, 0, { maxKm: (previousMax ?? 0) + 10, price: last?.price ?? 0 });
+                      return { ...s, travelPricingTiers: tiers };
+                    })
+                  }
+                >
+                  Schijf toevoegen
+                </Button>
               </div>
             </CardContent>
           </Card>

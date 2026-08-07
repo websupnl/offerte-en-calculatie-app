@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { QuoteDetailClient } from "./quote-detail-client";
 import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
 import { isStorageConfigured, presignDownload } from "@/lib/storage";
+import { DEFAULT_SETTINGS, type TravelPricingTier } from "@/lib/branding";
 
 export default async function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -34,6 +35,9 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
   if (!quote) notFound();
 
   const companySlug = session?.user?.companies?.find((c) => c.id === companyId)?.slug ?? "websup";
+  const companySettings = (company?.settings ?? {}) as Record<string, unknown>;
+  const homeBaseZipCode = (companySettings.homeBaseZipCode as string) ?? DEFAULT_SETTINGS.homeBaseZipCode;
+  const travelPricingTiers = (companySettings.travelPricingTiers as TravelPricingTier[]) ?? DEFAULT_SETTINGS.travelPricingTiers;
   const customers = await prisma.customer.findMany({ where: { companyId }, orderBy: { name: "asc" }, take: 500 });
   const attachments = await resolveQuoteAttachmentImages(quote.attachments, {
     expiresIn: 21600,
@@ -68,6 +72,8 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
       quote={serialized.quote}
       company={serialized.company}
       companySlug={companySlug}
+      homeBaseZipCode={homeBaseZipCode}
+      travelPricingTiers={travelPricingTiers}
       customers={serialized.customers}
       products={serialized.products}
       productSets={serialized.productSets}

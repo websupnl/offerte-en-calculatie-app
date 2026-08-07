@@ -132,6 +132,8 @@ export function QuoteDetailClient({
   quote,
   company,
   companySlug,
+  homeBaseZipCode,
+  travelPricingTiers,
   customers,
   products,
   productSets,
@@ -139,6 +141,8 @@ export function QuoteDetailClient({
   quote: Quote;
   company: { name: string; branding: Record<string, string> } | null;
   companySlug: string;
+  homeBaseZipCode?: string;
+  travelPricingTiers?: { maxKm: number | null; price: number }[];
   customers: { id: string; name: string; email: string | null; address?: string | null; city?: string | null; zipCode?: string | null }[];
   products: { id: string; category: string; name: string; basePrice: string | number; vatRate: string | number; unit: string }[];
   productSets: { id: string; name: string; items: { productId: string; qty: string | number; product: { id: string; name: string; basePrice: string | number; vatRate: string | number; category: string; unit: string } }[] }[];
@@ -541,6 +545,8 @@ export function QuoteDetailClient({
             productSets={productSets}
             companySlug={companySlug}
             companyName={company?.name ?? ""}
+            homeBaseZipCode={homeBaseZipCode}
+            travelPricingTiers={travelPricingTiers}
             initialQuote={quote}
           />
         )}

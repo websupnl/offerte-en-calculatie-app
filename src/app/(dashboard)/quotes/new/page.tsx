@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { QuoteBuilder } from "@/components/forms/quote-builder";
 import { redirect } from "next/navigation";
+import { DEFAULT_SETTINGS, type TravelPricingTier } from "@/lib/branding";
 
 export default async function NewQuotePage({
   searchParams,
@@ -43,10 +44,11 @@ export default async function NewQuotePage({
   ]);
 
   const company = await prisma.company.findUnique({ where: { id: companyId } });
+  const companySettings = (company?.settings ?? {}) as Record<string, unknown>;
 
-  const serialized = JSON.parse(JSON.stringify({ 
-    customers, 
-    products, 
+  const serialized = JSON.parse(JSON.stringify({
+    customers,
+    products,
     productSets,
     initialAdvice: adviceReport
   }));
@@ -58,6 +60,8 @@ export default async function NewQuotePage({
       productSets={serialized.productSets}
       companySlug={companySlug}
       companyName={company?.name ?? ""}
+      homeBaseZipCode={(companySettings.homeBaseZipCode as string) ?? DEFAULT_SETTINGS.homeBaseZipCode}
+      travelPricingTiers={(companySettings.travelPricingTiers as TravelPricingTier[]) ?? DEFAULT_SETTINGS.travelPricingTiers}
       initialAdvice={serialized.initialAdvice}
       initialQuote={customerId ? { customerId } : undefined}
     />

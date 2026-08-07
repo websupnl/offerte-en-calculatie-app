@@ -8,6 +8,11 @@ export type CompanyBranding = {
   tagline?: string;
 };
 
+export type TravelPricingTier = {
+  maxKm: number | null;
+  price: number;
+};
+
 export type CompanySettings = {
   defaultVatRate: number;
   quoteValidDays: number;
@@ -17,6 +22,8 @@ export type CompanySettings = {
   emailFrom?: string;
   openaiApiKey?: string;
   aiSystemPrompts: Record<string, string>;
+  homeBaseZipCode: string;
+  travelPricingTiers: TravelPricingTier[];
 };
 
 export const DEFAULT_BRANDING: Record<string, CompanyBranding> = {
@@ -45,6 +52,11 @@ export const DEFAULT_SETTINGS: CompanySettings = {
   quoteIntroDefault: "",
   quoteOutroDefault: "",
   paymentTerms: "30% bij akkoord voor materiaalreservering, restant na installatie en oplevering.",
+  homeBaseZipCode: "",
+  travelPricingTiers: [
+    { maxKm: 20, price: 35 },
+    { maxKm: null, price: 65 },
+  ],
   aiSystemPrompts: {
     BATTERY: `Je bent een technisch adviseur voor Koolhaas Installaties (Friesland). Schrijf een eerlijk, direct adviesdocument voor een thuisbatterij — geen verkoopverhaal. Analyseer de situatie van de klant, geef een onderbouwde productaanbeveling, bereken de terugverdientijd, en noem relevante subsidies (ISDE). Schrijf alsof Daan Koolhaas het zelf schrijft: technisch sterk, persoonlijk, en to the point. Schrijf in het Nederlands.`,
     EMS: `Je bent een technisch adviseur voor Koolhaas Installaties. Schrijf een eerlijk adviesdocument over Energie Management Systemen (EMS). Leg uit hoe het EMS de thuisbatterij, zonnepanelen en laadpaal slim coördineert. Geef een concrete aanbeveling op basis van de klantgegevens. Schrijf technisch maar begrijpelijk. Schrijf in het Nederlands.`,
