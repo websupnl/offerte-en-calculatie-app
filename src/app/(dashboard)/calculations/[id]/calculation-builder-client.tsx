@@ -29,12 +29,14 @@ import {
   Loader2,
   Percent,
   CheckCircle2,
+  MapPin,
 } from "lucide-react";
 import {
   formatCurrency,
   CALCULATION_STATUS_LABELS,
   CALCULATION_STATUS_COLORS,
 } from "@/lib/format";
+import { estimateTravelDistanceKm, getTravelPrice, type TravelPricingTier } from "@/lib/travel";
 
 type ProductOption = {
   id: string;
@@ -110,12 +112,16 @@ export function CalculationBuilderClient({
   customers,
   projects,
   sets,
+  homeBaseZipCode,
+  travelPricingTiers,
 }: {
   initialCalculation: CalculationDetail;
   products: ProductOption[];
-  customers: { id: string; name: string }[];
+  customers: { id: string; name: string; zipCode?: string | null }[];
   projects: { id: string; number: string; title: string }[];
   sets: ProductSetOption[];
+  homeBaseZipCode?: string;
+  travelPricingTiers?: TravelPricingTier[];
 }) {
   const router = useRouter();
   const [calculation, setCalculation] = useState<CalculationDetail>(initialCalculation);
@@ -330,6 +336,43 @@ export function CalculationBuilderClient({
     };
 
     setItems((prev) => [...prev, newItem]);
+  }
+
+  function addTravelLine() {
+    const customer = customers.find((c) => c.id === customerId);
+    if (!customer?.zipCode) {
+      toast.error("Deze klant heeft geen postcode, vul die eerst aan bij de klantgegevens");
+      return;
+    }
+    if (!homeBaseZipCode) {
+      toast.error("Stel eerst je vertrekpostcode in bij Instellingen > Voorrijkosten");
+      return;
+    }
+    const distanceKm = estimateTravelDistanceKm(homeBaseZipCode, customer.zipCode);
+    if (distanceKm === null) {
+      toast.error("Kon de afstand niet bepalen op basis van deze postcodes");
+      return;
+    }
+    const price = getTravelPrice(distanceKm, travelPricingTiers);
+    if (price === null) {
+      toast.error("Geen voorrijkosten-schijven ingesteld bij Instellingen > Voorrijkosten");
+      return;
+    }
+    const newItem: CalculationItemState = {
+      type: "CUSTOM",
+      description: `Voorrijkosten (± ${Math.round(distanceKm)} km enkele reis)`,
+      qty: 1,
+      unit: "post",
+      costPrice: price,
+      markupPercent: 0,
+      unitPrice: price,
+      totalCostPrice: price,
+      totalSalesPrice: price,
+      vatRate: 21,
+      optional: false,
+    };
+    setItems((prev) => [...prev, newItem]);
+    toast.success(`Reiskosten toegevoegd: ± ${Math.round(distanceKm)} km, € ${price}`);
   }
 
   function addProductSet(setOption: ProductSetOption) {
@@ -679,6 +722,11 @@ export function CalculationBuilderClient({
               <Button variant="outline" size="sm" onClick={addCustomLine}>
                 <Plus className="mr-1.5 h-4 w-4" />
                 Vrije regel
+              </Button>
+
+              <Button variant="outline" size="sm" onClick={addTravelLine}>
+                <MapPin className="mr-1.5 h-4 w-4 text-rose-600" />
+                Reiskosten
               </Button>
 
               <Button variant="ghost" size="sm" onClick={() => setBulkMarkupOpen(true)}>

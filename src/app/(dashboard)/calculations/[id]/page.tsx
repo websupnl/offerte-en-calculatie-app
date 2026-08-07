@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { CalculationBuilderClient } from "./calculation-builder-client";
+import { DEFAULT_SETTINGS, type TravelPricingTier } from "@/lib/branding";
 
 export default async function CalculationDetailPage({
   params,
@@ -33,7 +34,7 @@ export default async function CalculationDetailPage({
     }),
     prisma.customer.findMany({
       where: { companyId },
-      select: { id: true, name: true, email: true },
+      select: { id: true, name: true, email: true, zipCode: true },
       orderBy: { name: "asc" },
     }),
     prisma.project.findMany({
@@ -54,6 +55,11 @@ export default async function CalculationDetailPage({
   if (!calculation) {
     notFound();
   }
+
+  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { settings: true } });
+  const companySettings = (company?.settings ?? {}) as Record<string, unknown>;
+  const homeBaseZipCode = (companySettings.homeBaseZipCode as string) ?? DEFAULT_SETTINGS.homeBaseZipCode;
+  const travelPricingTiers = (companySettings.travelPricingTiers as TravelPricingTier[]) ?? DEFAULT_SETTINGS.travelPricingTiers;
 
   const serializedCalculation = {
     ...calculation,
@@ -120,6 +126,8 @@ export default async function CalculationDetailPage({
       customers={customers}
       projects={projects}
       sets={serializedSets}
+      homeBaseZipCode={homeBaseZipCode}
+      travelPricingTiers={travelPricingTiers}
     />
   );
 }
