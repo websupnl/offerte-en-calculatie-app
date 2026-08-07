@@ -755,7 +755,7 @@ export function CalculationBuilderClient({
                     <th className="py-2.5 px-3 w-20">Aantal</th>
                     <th className="py-2.5 px-3 w-20">Eenheid</th>
                     <th className="py-2.5 px-3 w-28 text-right">Netto Inkoop (€)</th>
-                    <th className="py-2.5 px-3 w-24 text-right">Opslag %</th>
+                    <th className="py-2.5 px-3 w-[104px] text-right">Opslag %</th>
                     <th className="py-2.5 px-3 w-28 text-right">Verkoop (€)</th>
                     <th className="py-2.5 px-3 w-28 text-right">Totaal Netto</th>
                     <th className="py-2.5 px-3 w-28 text-right">Totaal Verkoop</th>
@@ -836,7 +836,7 @@ export function CalculationBuilderClient({
                             step="0.1"
                             value={item.markupPercent}
                             onChange={(e) => updateItem(idx, "markupPercent", e.target.value)}
-                            className="h-8 text-xs bg-white text-right pr-5 tabular-nums text-emerald-700 font-semibold"
+                            className="h-8 min-w-[76px] text-xs bg-white text-right pr-5 tabular-nums text-emerald-700 font-semibold"
                           />
                           <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">%</span>
                         </div>
