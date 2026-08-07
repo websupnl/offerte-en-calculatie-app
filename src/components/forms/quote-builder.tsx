@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { calculateTotals } from "@/lib/calculation";
+import { calculateQuotePriceSummary, type QuoteChoiceGroup } from "@/lib/quote-selection";
 import { estimateTravelDistanceKm, getTravelPrice, type TravelPricingTier } from "@/lib/travel";
 import { QuoteSheetPreview, type QuotePreviewData } from "@/components/quote-sheet-preview";
 import { SheetScaler } from "@/components/sheet-scaler";
@@ -517,10 +518,13 @@ export function QuoteBuilder({
     c.name.toLowerCase().includes(customerSearch.toLowerCase())
   );
 
-  const totals = calculateTotals(items);
-  const totalExVat = totals.revenueExVat;
-  const totalVat = totals.vat;
-  const totalIncVat = totals.revenueIncVat;
+  const baseTotals = calculateTotals(items);
+  const priceSummary = choiceGroups.length > 0
+    ? calculateQuotePriceSummary(items, choiceGroups as unknown as QuoteChoiceGroup[]).recommended
+    : null;
+  const totalExVat = priceSummary ? priceSummary.totalExVat : baseTotals.revenueExVat;
+  const totalVat = priceSummary ? priceSummary.totalVat : baseTotals.vat;
+  const totalIncVat = priceSummary ? priceSummary.totalIncVat : baseTotals.revenueIncVat;
   const displayedTotal = priceDisplayMode === "incl" ? totalIncVat : totalExVat;
   const catalogQuery = catalogSearch.trim().toLowerCase();
   const filteredProducts = catalogProducts
@@ -1615,7 +1619,7 @@ export function QuoteBuilder({
                 </div>
                 <div className="text-right text-sm">
                   <p className="font-bold text-slate-900">{formatCurrency(importPreview.totals.totalIncVat)}</p>
-                  <p className="text-xs text-slate-500">vaste basis incl. btw</p>
+                  <p className="text-xs text-slate-500">totaal incl. btw</p>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -2637,7 +2641,7 @@ export function QuoteBuilder({
               <div className="flex flex-wrap items-baseline gap-2">
                 <span className="text-3xl font-black tracking-tight text-white">{formatCurrency(displayedTotal)}</span>
                 <span className="text-xs font-bold text-white/65">
-                  {choiceGroups.length > 0 ? "vaste basis · " : ""}{priceDisplayMode === "incl" ? "incl. btw" : "excl. btw"}
+                  {choiceGroups.length > 0 ? "bij aanbevolen/goedkoopste keuze · " : ""}{priceDisplayMode === "incl" ? "incl. btw" : "excl. btw"}
                 </span>
               </div>
             </CardContent>
