@@ -704,7 +704,7 @@ export function QuoteBuilder({
   // includeAttachments = false bij autosave: dan blijven afbeeldingen ongemoeid,
   // zodat autosave nooit per ongeluk een foto kan wissen. Afbeeldingen worden
   // bewaard via de handmatige opslag (die stuurt de volledige lijst mee).
-  function buildPayload(includeAttachments: boolean = true) {
+  function buildPayload(includeAttachments: boolean = true, overrideChoiceGroups?: ChoiceGroup[]) {
     const attachmentsPayload = attachments
       .filter((attachment) => attachment.imageUrl.trim() || attachment.liveUrl.trim())
       .map(({ id, title, imageUrl, storageRef, liveUrl, caption, section }) => {
@@ -737,7 +737,7 @@ export function QuoteBuilder({
       commercial: { ...commercial, priceDisplayMode },
       batteryAdvice,
       internalAdvice,
-      choiceGroups: choiceGroups.map((group) => ({
+      choiceGroups: (overrideChoiceGroups ?? choiceGroups).map((group) => ({
         ...group,
         choices: group.choices.map((choice) => {
           // imageUrl is een tijdelijke presigned URL; alleen `image` (ref) opslaan
@@ -835,13 +835,16 @@ export function QuoteBuilder({
 
     setSaving(true);
     try {
+      const hasLinkedCalculations = choiceGroups.some((group) => group.choices.some((choice) => choice.calculationId));
+      const freshChoiceGroups = hasLinkedCalculations ? await getFreshChoiceGroups() : choiceGroups;
+
       const method = initialQuote?.id ? "PUT" : "POST";
       const url = initialQuote?.id ? `/api/quotes/${initialQuote.id}` : "/api/quotes";
 
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildPayload()),
+        body: JSON.stringify(buildPayload(true, freshChoiceGroups)),
       });
 
       if (!res.ok) throw new Error();
@@ -1184,6 +1187,34 @@ export function QuoteBuilder({
     } finally {
       if (!opts.silent) setLinkingChoiceId(null);
     }
+  }
+
+  // Haalt vlak vóór het opslaan de actuele prijzen op van alle configuratiekeuzes die
+  // aan een calculatie gekoppeld zijn. Zo kan een opgeslagen offerte nooit verouderde
+  // cijfers bevatten, ook niet als het browsertabblad nooit opnieuw gefocust is nadat
+  // de gekoppelde calculatie elders is aangepast.
+  async function getFreshChoiceGroups(): Promise<ChoiceGroup[]> {
+    const fresh = await Promise.all(
+      choiceGroups.map(async (group) => {
+        const choices = await Promise.all(
+          group.choices.map(async (choice) => {
+            if (!choice.calculationId) return choice;
+            try {
+              const res = await fetch(`/api/calculations/${choice.calculationId}`);
+              if (!res.ok) return choice;
+              const calc = await res.json();
+              setCalculationSummaries((prev) => ({ ...prev, [choice.calculationId!]: calculationSummaryFromResponse(calc) }));
+              return { ...choice, items: mapCalculationItemsToChoiceItems(calc) };
+            } catch {
+              return choice;
+            }
+          }),
+        );
+        return { ...group, choices };
+      }),
+    );
+    setChoiceGroups(fresh);
+    return fresh;
   }
 
   async function createCalculationForChoice(groupId: string, choiceId: string) {
