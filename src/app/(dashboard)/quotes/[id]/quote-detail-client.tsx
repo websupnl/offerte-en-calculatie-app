@@ -213,52 +213,6 @@ export function QuoteDetailClient({
     }
   }
 
-  function buildQuoteEmail(portalUrl: string) {
-    const quoteTitle = quote.title || quote.number;
-    const validUntil = quote.validUntil ? formatDate(quote.validUntil) : null;
-    const totalExVat = formatCurrency(Number(quote.totalExVat));
-    const totalIncVat = formatCurrency(Number(quote.totalIncVat));
-
-    if (companySlug === "koolhaas") {
-      return {
-        subject: `Offerte van Koolhaas Installaties - ${quoteTitle}`,
-        body: [
-          `Beste ${quote.customer.name},`,
-          "",
-          "Hierbij stuur ik je de offerte toe.",
-          "",
-          "Via onderstaande link kun je de offerte rustig bekijken:",
-          portalUrl,
-          "",
-          `Offertenummer: ${quote.number}`,
-          `Totaalbedrag excl. btw: ${totalExVat}`,
-          `Totaalbedrag incl. btw: ${totalIncVat}`,
-          ...(validUntil ? [`Geldig t/m: ${validUntil}`] : []),
-          "",
-          "In de offerte vind je de werkzaamheden, materialen en voorwaarden. Bij vragen hoor ik het graag.",
-        ].join("\n"),
-      };
-    }
-
-    return {
-      subject: `Offerte van WebsUp.nl - ${quoteTitle}`,
-      body: [
-        `Beste ${quote.customer.name},`,
-        "",
-        "Zoals besproken heb ik de offerte voor je klaargezet.",
-        "",
-        "Via onderstaande link kun je de offerte rustig bekijken:",
-        portalUrl,
-        "",
-        `Offertenummer: ${quote.number}`,
-        `Totaalbedrag excl. btw: ${totalExVat}`,
-        `Totaalbedrag incl. btw: ${totalIncVat}`,
-        ...(validUntil ? [`Geldig t/m: ${validUntil}`] : []),
-        "",
-        "In de offerte vind je de werkzaamheden, planning en investering. Heb je vragen of wil je iets aanpassen? Laat het gerust weten.",
-      ].join("\n"),
-    };
-  }
 
   async function handleSendQuoteEmail() {
     if (!quote.customer.email) {
@@ -266,22 +220,22 @@ export function QuoteDetailClient({
       return;
     }
 
+    const confirmed = window.confirm(
+      `Offerte ${quote.number} direct versturen naar ${quote.customer.email}? Dit gaat écht de deur uit.`,
+    );
+    if (!confirmed) return;
+
     setOpeningMail(true);
     try {
-      const res = await fetch(`/api/quotes/${quote.id}/share`, { method: "POST" });
-      if (!res.ok) throw new Error("Share link maken mislukt");
-
+      const res = await fetch(`/api/quotes/${quote.id}/send-email`, { method: "POST" });
       const data = await res.json();
-      const url = `${window.location.origin}/q/${data.token}`;
-      setShareUrl(url);
+      if (!res.ok) throw new Error(data.error || "Versturen mislukt");
 
-      const email = buildQuoteEmail(url);
-      const mailto = `mailto:${quote.customer.email}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}`;
-      window.location.href = mailto;
-      toast.success("Mail geopend met offerte tekst");
+      setShareUrl(data.url);
+      toast.success(`Offerte verstuurd naar ${quote.customer.email}`);
       router.refresh();
-    } catch {
-      toast.error("Mail openen mislukt");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Versturen mislukt");
     } finally {
       setOpeningMail(false);
     }

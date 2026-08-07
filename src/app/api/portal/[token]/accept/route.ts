@@ -127,7 +127,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   if (notifyEmail) {
     await sendAcceptedNotification({
       to: notifyEmail,
-      companyName: share.quote.company.name,
+      companySlug: share.quote.company.slug,
       customerName: share.quote.customer.name,
       quoteNumber: share.quote.number,
       message: [
