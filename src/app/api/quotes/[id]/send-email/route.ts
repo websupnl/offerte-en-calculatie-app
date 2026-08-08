@@ -1,9 +1,14 @@
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendQuoteEmail } from "@/lib/email";
-import { formatCurrency, formatDate } from "@/lib/format";
-import { generateAndStorePortalPdf } from "@/lib/pdf/generate-and-store";
+import { formatCurrency, formatDateLong } from "@/lib/format";
+import { generatePortalPdfWithBuffer } from "@/lib/pdf/generate-and-store";
+import { pdfFilename } from "@/lib/pdf/filename";
+import { downloadObject, isStorageConfigured } from "@/lib/storage";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function introLineFor(companySlug: string) {
   return companySlug === "koolhaas"
@@ -19,7 +24,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const quote = await prisma.quote.findFirst({
     where: { id, companyId: session.user.activeCompanyId },
-    include: { customer: true, company: true },
+    include: {
+      customer: true,
+      company: true,
+      documents: { include: { productDocument: true }, orderBy: { sortOrder: "asc" } },
+    },
   });
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!quote.customer.email) {
@@ -39,6 +48,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
   const quoteUrl = `${appUrl}/q/${share.token}`;
 
+  // PDF vooraf renderen zodat 'm als echte bijlage kan meesturen (kost een paar
+  // seconden Puppeteer-tijd, vandaar maxDuration=60 hierboven).
+  const host = req.headers.get("host") ?? "localhost:3001";
+  const portalPdf = await generatePortalPdfWithBuffer(share.token, host);
+
+  const filename = pdfFilename("Offerte", quote.number, quote.customer.name);
+
+  const attachments: { filename: string; content: Buffer; contentType?: string }[] = [];
+  if (portalPdf) attachments.push({ filename, content: portalPdf.buffer });
+
+  if (isStorageConfigured()) {
+    for (const doc of quote.documents) {
+      try {
+        const content = await downloadObject(doc.productDocument.objectKey);
+        attachments.push({
+          filename: doc.productDocument.name,
+          content,
+          contentType: doc.productDocument.mimeType ?? undefined,
+        });
+      } catch (err) {
+        console.error(`[send-email] Kon datasheet niet ophalen: ${doc.productDocument.name}`, err);
+      }
+    }
+  }
+
   const result = await sendQuoteEmail({
     to: quote.customer.email,
     customerName: quote.customer.name,
@@ -47,19 +81,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     quoteTitle: quote.title ?? undefined,
     quoteUrl,
     totalIncVat: formatCurrency(Number(quote.totalIncVat)),
-    validUntil: quote.validUntil ? formatDate(quote.validUntil) : undefined,
+    validUntil: quote.validUntil ? formatDateLong(quote.validUntil) : undefined,
     introLine: introLineFor(quote.company.slug),
+    attachments,
   });
 
   if (!result.sent) {
     return NextResponse.json({ error: result.reason ?? "Versturen mislukt" }, { status: 500 });
   }
-
-  // Portal-PDF alvast klaarzetten zodat die direct beschikbaar is als de klant de link opent
-  const host = req.headers.get("host") ?? "localhost:3001";
-  after(async () => {
-    await generateAndStorePortalPdf(share.token, host);
-  });
 
   return NextResponse.json({ ok: true, url: quoteUrl });
 }

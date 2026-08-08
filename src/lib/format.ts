@@ -13,6 +13,14 @@ export function formatDate(date: Date | string): string {
   }).format(new Date(date));
 }
 
+export function formatDateLong(date: Date | string): string {
+  return new Intl.DateTimeFormat("nl-NL", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(date));
+}
+
 export function formatRelativeDate(date: Date | string | null | undefined): string {
   if (!date) return "onbekend";
   const d = new Date(date);

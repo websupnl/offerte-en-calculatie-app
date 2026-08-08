@@ -42,6 +42,16 @@ export async function generateAndStorePortalPdf(
   shareToken: string,
   host: string
 ): Promise<string | null> {
+  const result = await generatePortalPdfWithBuffer(shareToken, host);
+  return result?.url ?? null;
+}
+
+// Zelfde als generateAndStorePortalPdf, maar geeft ook de ruwe buffer terug
+// zodat de PDF direct als e-mailbijlage meegestuurd kan worden.
+export async function generatePortalPdfWithBuffer(
+  shareToken: string,
+  host: string
+): Promise<{ url: string; buffer: Buffer } | null> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     console.warn("[PDF] BLOB_READ_WRITE_TOKEN not set — skipping portal PDF pre-generation");
     return null;
@@ -66,7 +76,7 @@ export async function generateAndStorePortalPdf(
     });
 
     console.log(`[PDF] Portal PDF generated and stored: ${blob.url}`);
-    return blob.url;
+    return { url: blob.url, buffer: pdfBuffer };
   } catch (err) {
     console.error("[PDF] Portal background generation failed:", err);
     return null;

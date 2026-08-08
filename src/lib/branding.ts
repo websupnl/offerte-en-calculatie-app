@@ -28,18 +28,18 @@ export type CompanySettings = {
 
 export const DEFAULT_BRANDING: Record<string, CompanyBranding> = {
   websup: {
-    primaryColor: "#0F172A",
-    accentColor: "#6366F1",
+    primaryColor: "#06040c",
+    accentColor: "#ec4899",
     backgroundColor: "#F8FAFC",
-    textColor: "#0F172A",
+    textColor: "#06040c",
     font: "Inter",
     tagline: "Websites, apps & systemen die groeien",
   },
   koolhaas: {
-    primaryColor: "#0E2344",
-    accentColor: "#1F9BA3",
+    primaryColor: "#102D59",
+    accentColor: "#247EB2",
     backgroundColor: "#F4F8F8",
-    textColor: "#0E2344",
+    textColor: "#102D59",
     logoUrl: "/logos/koolhaas-logo.png",
     font: "Sora",
     tagline: "Techniek die eerst goed doordacht wordt en daarna netjes wordt uitgevoerd.",
