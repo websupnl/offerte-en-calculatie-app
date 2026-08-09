@@ -12,7 +12,11 @@ async function launchBrowser() {
     // De pack-URL moet exact overeenkomen met de geïnstalleerde @sparticuz/chromium-min
     // versie (zie package.json) — sinds v137 heet het asset "…-pack.x64.tar" i.p.v.
     // "…-pack.tar", en een oudere/verkeerde pack laat chromium.executablePath() stil falen.
-    const chromiumVersion = (require("@sparticuz/chromium-min/package.json") as { version: string }).version;
+    // require.resolve i.p.v. een subpath-require: het package's "exports" map staat
+    // alleen "." toe, dus "@sparticuz/chromium-min/package.json" faalt bij Turbopack.
+    const chromiumEntry = require.resolve("@sparticuz/chromium-min");
+    const chromiumPkgPath = path.join(chromiumEntry.slice(0, chromiumEntry.indexOf("build")), "package.json");
+    const chromiumVersion = (JSON.parse(fs.readFileSync(chromiumPkgPath, "utf8")) as { version: string }).version;
     const arch = process.arch === "arm64" ? "arm64" : "x64";
     const executablePath = await chromium.executablePath(
       process.env.CHROMIUM_PACK_URL ??
