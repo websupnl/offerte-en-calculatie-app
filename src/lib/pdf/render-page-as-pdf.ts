@@ -1,9 +1,6 @@
 import path from "path";
 import os from "os";
 import fs from "fs";
-import { createRequire } from "module";
-
-const require = createRequire(import.meta.url);
 
 async function launchBrowser() {
   if (process.env.NODE_ENV === "production") {
@@ -12,11 +9,12 @@ async function launchBrowser() {
     // De pack-URL moet exact overeenkomen met de geïnstalleerde @sparticuz/chromium-min
     // versie (zie package.json) — sinds v137 heet het asset "…-pack.x64.tar" i.p.v.
     // "…-pack.tar", en een oudere/verkeerde pack laat chromium.executablePath() stil falen.
-    // require.resolve i.p.v. een subpath-require: het package's "exports" map staat
-    // alleen "." toe, dus "@sparticuz/chromium-min/package.json" faalt bij Turbopack.
-    const chromiumEntry = require.resolve("@sparticuz/chromium-min");
-    const chromiumPkgPath = path.join(chromiumEntry.slice(0, chromiumEntry.indexOf("build")), "package.json");
-    const chromiumVersion = (JSON.parse(fs.readFileSync(chromiumPkgPath, "utf8")) as { version: string }).version;
+    // Hardcoded i.p.v. dynamisch opgezocht: het package's "exports" map staat geen
+    // "package.json"-subpath toe (Turbopack build-fout), en require.resolve() levert
+    // in een gebundelde build geen bestandspad maar een numerieke module-id terug
+    // (runtime TypeError "<nummer>.indexOf is not a function"). Bij het upgraden van
+    // @sparticuz/chromium-min in package.json moet deze versie mee-updaten.
+    const chromiumVersion = "149.0.0";
     const arch = process.arch === "arm64" ? "arm64" : "x64";
     const executablePath = await chromium.executablePath(
       process.env.CHROMIUM_PACK_URL ??
