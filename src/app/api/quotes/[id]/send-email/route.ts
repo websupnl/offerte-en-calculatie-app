@@ -56,7 +56,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const filename = pdfFilename("Offerte", quote.number, quote.customer.name);
 
   const attachments: { filename: string; content: Buffer; contentType?: string }[] = [];
-  if (portalPdf) attachments.push({ filename, content: portalPdf.buffer });
+  if (portalPdf) {
+    attachments.push({ filename, content: portalPdf.buffer });
+  } else {
+    console.error(`[send-email] Offerte-PDF kon niet gegenereerd worden voor quote ${id} — mail gaat zonder PDF-bijlage`);
+  }
 
   if (isStorageConfigured()) {
     for (const doc of quote.documents) {
@@ -90,5 +94,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: result.reason ?? "Versturen mislukt" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, url: quoteUrl });
+  return NextResponse.json({
+    ok: true,
+    url: quoteUrl,
+    warning: portalPdf ? undefined : "Offerte-PDF kon niet gegenereerd worden — mail is verstuurd zonder PDF-bijlage.",
+  });
 }

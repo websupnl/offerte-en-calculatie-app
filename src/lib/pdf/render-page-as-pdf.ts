@@ -1,14 +1,22 @@
 import path from "path";
 import os from "os";
 import fs from "fs";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
 
 async function launchBrowser() {
   if (process.env.NODE_ENV === "production") {
     const chromium = (await import("@sparticuz/chromium-min")).default;
     const puppeteer = (await import("puppeteer-core")).default;
+    // De pack-URL moet exact overeenkomen met de geïnstalleerde @sparticuz/chromium-min
+    // versie (zie package.json) — sinds v137 heet het asset "…-pack.x64.tar" i.p.v.
+    // "…-pack.tar", en een oudere/verkeerde pack laat chromium.executablePath() stil falen.
+    const chromiumVersion = (require("@sparticuz/chromium-min/package.json") as { version: string }).version;
+    const arch = process.arch === "arm64" ? "arm64" : "x64";
     const executablePath = await chromium.executablePath(
       process.env.CHROMIUM_PACK_URL ??
-        "https://github.com/Sparticuz/chromium/releases/download/v133.0.0/chromium-v133.0.0-pack.tar"
+        `https://github.com/Sparticuz/chromium/releases/download/v${chromiumVersion}/chromium-v${chromiumVersion}-pack.${arch}.tar`
     );
     return puppeteer.launch({
       args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],

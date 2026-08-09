@@ -232,7 +232,11 @@ export function QuoteDetailClient({
       if (!res.ok) throw new Error(data.error || "Versturen mislukt");
 
       setShareUrl(data.url);
-      toast.success(`Offerte verstuurd naar ${quote.customer.email}`);
+      if (data.warning) {
+        toast.warning(data.warning);
+      } else {
+        toast.success(`Offerte verstuurd naar ${quote.customer.email}`);
+      }
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Versturen mislukt");
