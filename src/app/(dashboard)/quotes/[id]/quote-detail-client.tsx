@@ -48,6 +48,7 @@ type QuoteItem = {
   total: string | number;
   indent: number;
   productId: string | null;
+  hiddenOnQuote?: boolean;
 };
 
 type ChoiceLineItem = {
@@ -57,6 +58,7 @@ type ChoiceLineItem = {
   costPrice?: number | null;
   vatRate: number;
   indent: number;
+  hiddenOnQuote?: boolean;
 };
 
 type ChoiceGroup = {

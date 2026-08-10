@@ -145,7 +145,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     })),
     itemsHeader: quote.itemsHeader || "Onderdelen",
     status: quote.status,
-    items: quote.items.map((i) => ({
+    items: quote.items.filter((i) => !i.hiddenOnQuote).map((i) => ({
       description: i.description,
       qty: Number(i.qty),
       unitPrice: Number(i.unitPrice),

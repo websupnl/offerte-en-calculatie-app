@@ -8,6 +8,7 @@ export const selectableLineSchema = z.object({
   costPrice: z.coerce.number().min(0).nullable().optional(),
   vatRate: z.coerce.number().min(0).max(100).default(21),
   indent: z.coerce.number().int().min(0).max(1).default(0),
+  hiddenOnQuote: z.boolean().optional(),
 });
 
 export const quoteChoiceSchema = z.object({
@@ -63,6 +64,7 @@ export type BaseQuoteLine = {
   unitPrice: string | number;
   vatRate: string | number;
   total?: string | number;
+  hiddenOnQuote?: boolean;
 };
 
 export type QuoteSelection = {

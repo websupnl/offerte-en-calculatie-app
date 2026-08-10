@@ -30,6 +30,8 @@ import {
   Percent,
   CheckCircle2,
   MapPin,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import {
   formatCurrency,
@@ -83,6 +85,7 @@ type CalculationItemState = {
   totalSalesPrice: number;
   vatRate: number;
   optional: boolean;
+  hiddenOnQuote: boolean;
 };
 
 type CalculationDetail = {
@@ -296,6 +299,7 @@ export function CalculationBuilderClient({
       totalSalesPrice: unitPrice,
       vatRate: p.vatRate || 21,
       optional: false,
+      hiddenOnQuote: false,
     };
 
     setItems((prev) => [...prev, newItem]);
@@ -315,6 +319,7 @@ export function CalculationBuilderClient({
       totalSalesPrice: 260,
       vatRate: 21,
       optional: false,
+      hiddenOnQuote: false,
     };
 
     setItems((prev) => [...prev, newItem]);
@@ -333,6 +338,7 @@ export function CalculationBuilderClient({
       totalSalesPrice: 125,
       vatRate: 21,
       optional: false,
+      hiddenOnQuote: false,
     };
 
     setItems((prev) => [...prev, newItem]);
@@ -370,6 +376,7 @@ export function CalculationBuilderClient({
       totalSalesPrice: price,
       vatRate: 21,
       optional: false,
+      hiddenOnQuote: false,
     };
     setItems((prev) => [...prev, newItem]);
     toast.success(`Reiskosten toegevoegd: ± ${Math.round(distanceKm)} km, € ${price}`);
@@ -400,6 +407,7 @@ export function CalculationBuilderClient({
         totalSalesPrice: item.qty * unitPrice,
         vatRate: p.vatRate || 21,
         optional: false,
+        hiddenOnQuote: false,
       });
     });
 
@@ -421,6 +429,7 @@ export function CalculationBuilderClient({
         totalSalesPrice: setOption.laborHours * laborSales,
         vatRate: 21,
         optional: false,
+        hiddenOnQuote: false,
       });
     }
 
@@ -751,6 +760,7 @@ export function CalculationBuilderClient({
                   <tr className="bg-slate-50 text-slate-600 font-semibold border-b">
                     <th className="py-2.5 px-3 w-8">#</th>
                     <th className="py-2.5 px-3 w-16 text-center" title="Optionele regels tellen niet mee in het hoofdtotaal">Optie</th>
+                    <th className="py-2.5 px-3 w-16 text-center" title="Regel wel laten meetellen, maar niet aan de klant tonen">Offerte</th>
                     <th className="py-2.5 px-3 min-w-[220px]">Omschrijving</th>
                     <th className="py-2.5 px-3 w-20">Aantal</th>
                     <th className="py-2.5 px-3 w-20">Eenheid</th>
@@ -776,6 +786,21 @@ export function CalculationBuilderClient({
                           className="h-4 w-4 accent-amber-600"
                           title="Optioneel: telt niet mee in het hoofdtotaal"
                         />
+                      </td>
+
+                      {/* Quote visibility toggle */}
+                      <td className="py-2 px-3 text-center">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={`h-7 w-7 ${item.hiddenOnQuote ? "text-slate-400" : "text-emerald-600"}`}
+                          onClick={() => updateItem(idx, "hiddenOnQuote", !item.hiddenOnQuote)}
+                          title={item.hiddenOnQuote ? "Verborgen op offerte — klik om te tonen" : "Zichtbaar op offerte — klik om te verbergen"}
+                          aria-label={item.hiddenOnQuote ? "Regel tonen op offerte" : "Regel verbergen op offerte"}
+                        >
+                          {item.hiddenOnQuote ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
                       </td>
 
                       {/* Description */}
@@ -883,17 +908,17 @@ export function CalculationBuilderClient({
                 <tfoot>
                   {totals.optionalSales > 0 && (
                     <tr className="bg-amber-50 text-amber-700 text-[11px]">
-                      <td colSpan={8} className="py-1.5 px-4 text-right">
+                      <td colSpan={9} className="py-1.5 px-4 text-right">
                         Optionele extra&apos;s (niet in hoofdtotaal, excl. BTW):
                       </td>
                       <td className="py-1.5 px-3 text-right tabular-nums font-semibold">
                         {formatCurrency(totals.optionalSales)}
                       </td>
-                      <td></td>
+                      <td colSpan={2}></td>
                     </tr>
                   )}
                   <tr className="bg-slate-900 text-white font-semibold">
-                    <td colSpan={8} className="py-3 px-4 text-right">
+                    <td colSpan={9} className="py-3 px-4 text-right">
                       Totaal Generaal (Excl. BTW):
                     </td>
                     <td className="py-3 px-3 text-right tabular-nums text-slate-300">

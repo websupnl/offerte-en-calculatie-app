@@ -22,6 +22,7 @@ const itemSchema = z.object({
   vatRate: z.coerce.number().default(21),
   indent: z.coerce.number().int().min(0).max(1).default(0),
   type: z.string().optional().default("main"),
+  hiddenOnQuote: z.boolean().default(false),
 });
 
 const attachmentSchema = z.object({

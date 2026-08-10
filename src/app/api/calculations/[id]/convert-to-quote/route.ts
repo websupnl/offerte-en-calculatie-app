@@ -40,7 +40,7 @@ export async function POST(
   // Verplichte regels worden gewone QuoteItems; optionele regels worden offerte-opties
   // (Quote.options), zodat ze als losse meerprijs zichtbaar zijn en niet meetellen in het totaal.
   const mainItems = calculation.items.filter((item) => !item.optional);
-  const optionalItems = calculation.items.filter((item) => item.optional);
+  const optionalItems = calculation.items.filter((item) => item.optional && !item.hiddenOnQuote);
 
   const quoteItemsData = mainItems.map((item, index) => {
     const total = Number(item.totalSalesPrice);
@@ -55,6 +55,7 @@ export async function POST(
       sortOrder: index,
       indent: 0,
       type: "main",
+      hiddenOnQuote: item.hiddenOnQuote,
     };
   });
 

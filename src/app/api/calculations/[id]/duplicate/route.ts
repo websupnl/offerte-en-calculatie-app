@@ -54,6 +54,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
               totalSalesPrice: item.totalSalesPrice,
               vatRate: item.vatRate,
               optional: item.optional,
+              hiddenOnQuote: item.hiddenOnQuote,
               sortOrder: item.sortOrder,
             })),
           }

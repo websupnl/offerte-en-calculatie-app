@@ -62,8 +62,8 @@ model User {
   quotes       Quote[]
 
   taskLists     TaskList[]
-  ownedTasks    Task[]     @relation("TaskOwner")
-  assignedTasks Task[]     @relation("TaskAssignee")
+  ownedTasks    Task[]             @relation("TaskOwner")
+  assignedTasks Task[]             @relation("TaskAssignee")
   notes         Note[]
   comments      Comment[]
   tags          Tag[]
@@ -526,6 +526,7 @@ model QuoteItem {
   indent        Int      @default(0)
   type          String?  @default("main")
   choiceGroupId String?
+  hiddenOnQuote Boolean  @default(false)
 
   quote   Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
@@ -718,6 +719,7 @@ model CalculationItem {
   totalSalesPrice Decimal             @default(0) @db.Decimal(10, 2)
   vatRate         Decimal             @default(21) @db.Decimal(5, 2)
   optional        Boolean             @default(false)
+  hiddenOnQuote   Boolean             @default(false)
   sortOrder       Int                 @default(0)
 
   calculation Calculation @relation(fields: [calculationId], references: [id], onDelete: Cascade)
@@ -973,10 +975,10 @@ model Contract {
   recurringPeriod String? // MONTH | QUARTER | YEAR
 
   // Ondertekening — hergebruikt de werkbon-handtekeningflow
-  signatureKey String? @db.Text
+  signatureKey String?   @db.Text
   signedAt     DateTime?
   signedBy     String?
-  shareToken   String? @unique @default(uuid())
+  shareToken   String?   @unique @default(uuid())
   viewedAt     DateTime?
 
   pdfKey    String?   @db.Text
@@ -1071,14 +1073,14 @@ model UserIntegration {
   userId   String
   provider String // GOOGLE_CALENDAR
 
-  accessToken  String    @db.Text
-  refreshToken String    @db.Text
-  expiresAt    DateTime?
-  calendarId   String?
+  accessToken       String    @db.Text
+  refreshToken      String    @db.Text
+  expiresAt         DateTime?
+  calendarId        String?
   privateCalendarId String?
-  syncToken    String?   @db.Text
-  lastSyncAt   DateTime?
-  createdAt    DateTime  @default(now())
+  syncToken         String?   @db.Text
+  lastSyncAt        DateTime?
+  createdAt         DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1102,22 +1104,22 @@ model PushSubscription {
 // ─── Tijdregistratie (fase 8, model nu al zodat het later geen migratie is) ─
 
 model TimeEntry {
-  id        String    @id @default(cuid())
-  companyId String
-  userId    String
-  taskId    String?
-  projectId String?
-  startedAt DateTime
-  endedAt   DateTime?
-  minutes   Int?
-  note      String?   @db.Text
-  billable  Boolean   @default(true)
+  id           String    @id @default(cuid())
+  companyId    String
+  userId       String
+  taskId       String?
+  projectId    String?
+  startedAt    DateTime
+  endedAt      DateTime?
+  minutes      Int?
+  note         String?   @db.Text
+  billable     Boolean   @default(true)
   invoicedOnId String? // SalesInvoice waarin dit is meegenomen
-  createdAt DateTime  @default(now())
+  createdAt    DateTime  @default(now())
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task    Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task    Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   @@index([companyId, startedAt])

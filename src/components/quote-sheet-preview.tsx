@@ -107,6 +107,7 @@ type QuoteItem = {
   vatRate: string | number;
   total: string | number;
   indent?: number;
+  hiddenOnQuote?: boolean;
 };
 
 type FlowItem = { n: number | string; t: string; d: string };
@@ -286,7 +287,7 @@ export function QuoteSheetPreview({
   
   // Choice Logic
   const choiceGroups = quote.choiceGroups || [];
-  const visibleItems = quote.items;
+  const visibleItems = quote.items.filter((item) => !item.hiddenOnQuote);
   const showExVat = quote.commercial?.priceDisplayMode === "excl";
 
   const flow = quote.flow ?? [];
@@ -1122,9 +1123,9 @@ export function QuoteSheetPreview({
           const isLast = entryIndex === choiceEntries.length - 1;
           // Materiaal/arbeid met een prijs los van de inbegrepen (€0) werkzaamheden,
           // zodat de klant ziet wat er geleverd wordt vs. wat erbij inbegrepen is.
-          const materialItems = choice.items.filter((item) => Number(item.unitPrice) > 0);
+          const materialItems = choice.items.filter((item) => !item.hiddenOnQuote && Number(item.unitPrice) > 0);
           const includedItems = choice.items.filter(
-            (item) => Number(item.unitPrice) === 0 && item.description.trim().toLowerCase() !== "inbegrepen werkzaamheden",
+            (item) => !item.hiddenOnQuote && Number(item.unitPrice) === 0 && item.description.trim().toLowerCase() !== "inbegrepen werkzaamheden",
           );
           return (
             <section className="sheet" key={choice.id}>

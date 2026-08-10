@@ -38,6 +38,7 @@ type QuoteItem = {
   vatRate: string | number;
   total: string | number;
   indent?: number;
+  hiddenOnQuote?: boolean;
 };
 
 type FlowItem = { n: number; t: string; d: string };
@@ -334,7 +335,7 @@ export function QuotePortalClient({
             selectedOptions={optionalWork
               .filter((o) => selectedOptionIds.includes(o.id))
               .map((o) => ({ title: o.t }))}
-            baseItems={quote.items.map((i) => ({
+            baseItems={quote.items.filter((i) => !i.hiddenOnQuote).map((i) => ({
               description: i.description,
               unitPrice: Number(i.unitPrice),
               qty: Number(i.qty),

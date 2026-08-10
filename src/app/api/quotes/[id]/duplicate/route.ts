@@ -71,6 +71,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               indent: item.indent,
               type: item.type,
               choiceGroupId: item.choiceGroupId,
+              hiddenOnQuote: item.hiddenOnQuote,
             })),
           }
         : undefined,

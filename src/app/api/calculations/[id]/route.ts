@@ -17,6 +17,7 @@ const calculationItemSchema = z.object({
   unitPrice: z.coerce.number().min(0),
   vatRate: z.coerce.number().default(21),
   optional: z.boolean().default(false),
+  hiddenOnQuote: z.boolean().default(false),
 });
 
 const schema = z.object({
@@ -112,6 +113,7 @@ export async function PUT(
       totalSalesPrice: itemSales,
       vatRate: item.vatRate,
       optional: item.optional,
+      hiddenOnQuote: item.hiddenOnQuote,
       sortOrder: index,
     };
   });

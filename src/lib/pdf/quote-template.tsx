@@ -37,6 +37,7 @@ type PdfChoiceItem = {
   qty: number;
   unitPrice: number;
   indent?: number;
+  hiddenOnQuote?: boolean;
 };
 
 type PdfChoice = {
@@ -855,6 +856,7 @@ export function QuotePDF({
               {group.choices.map((choice, ci) => {
                 const isRec = choice.label === "Aanbevolen";
                 const mainItems = choice.items.filter((i) => !i.indent || i.indent === 0);
+                const visibleChoiceItems = choice.items.filter((i) => !i.hiddenOnQuote);
                 const choiceTotal = mainItems.reduce((sum, i) => sum + i.unitPrice * i.qty, 0);
                 return (
                   <View key={ci} style={{ borderWidth: 1.5, borderColor: isRec ? brand.colors.accent : brand.colors.border, borderRadius: 8, overflow: "hidden" }}>
@@ -888,7 +890,7 @@ export function QuotePDF({
                       <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 0.8, color: brand.colors.muted, paddingHorizontal: 10, paddingBottom: 3 }}>
                         Inbegrepen
                       </Text>
-                      {choice.items.map((i) => i.description).map((desc, ii) => (
+                      {visibleChoiceItems.map((i) => i.description).map((desc, ii) => (
                         <View key={ii} style={{ flexDirection: "row", alignItems: "flex-start", gap: 7, paddingHorizontal: 10, paddingVertical: 2.5 }}>
                           <View style={{ width: 12, height: 12, borderRadius: 6, marginTop: 1, backgroundColor: brand.colors.accent, justifyContent: "center", alignItems: "center", flexShrink: 0 }}>
                             <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: "#FFFFFF" }}>v</Text>

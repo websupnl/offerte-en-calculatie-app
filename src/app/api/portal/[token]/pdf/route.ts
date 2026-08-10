@@ -83,7 +83,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
         summary?: string;
         image?: string | null;
         imageUrl?: string | null;
-        items: Array<{ description: string; qty: number; unitPrice: number; indent?: number }>;
+        items: Array<{ description: string; qty: number; unitPrice: number; indent?: number; hiddenOnQuote?: boolean }>;
       }>;
     }>,
     { expiresIn: 21600 },
@@ -91,8 +91,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   const companySlug = quote.company.slug;
   const branding = DEFAULT_BRANDING[companySlug] ?? DEFAULT_BRANDING.websup;
   const snapshot = share.acceptanceSnapshot as {
-    baseItems?: Array<{ description: string; qty: number; unitPrice: number; total: number }>;
-    selectedChoices?: Array<{ choice: { title: string; items: Array<{ description: string; qty: number; unitPrice: number }> } }>;
+    baseItems?: Array<{ description: string; qty: number; unitPrice: number; total: number; hiddenOnQuote?: boolean }>;
+    selectedChoices?: Array<{ choice: { title: string; items: Array<{ description: string; qty: number; unitPrice: number; hiddenOnQuote?: boolean }> } }>;
     selectedOptions?: Array<{ t: string; price: number }>;
     totals?: { totalExVat: number; totalVat: number; totalIncVat: number };
   } | null;
@@ -113,6 +113,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
           qty: 1,
           unitPrice: option.price ?? 0,
           total: option.price ?? 0,
+          hiddenOnQuote: false,
         })),
       ]
     : null;
@@ -166,7 +167,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     itemsHeader: quote.itemsHeader || "Onderdelen",
     status: quote.status,
     acceptedAt: share.acceptedAt ? formatDate(share.acceptedAt) : undefined,
-    items: (snapshotItems ?? quote.items).map((i) => ({
+    items: (snapshotItems ?? quote.items).filter((i) => !i.hiddenOnQuote).map((i) => ({
       description: i.description,
       qty: Number(i.qty),
       unitPrice: Number(i.unitPrice),

@@ -71,6 +71,7 @@ type QuoteItem = {
   vatRate: number;
   total: number;
   indent: number;
+  hiddenOnQuote?: boolean;
 };
 
 type InitialQuoteItem = Omit<QuoteItem, "qty" | "unitPrice" | "costPrice" | "vatRate" | "total"> & {
@@ -1153,7 +1154,7 @@ export function QuoteBuilder({
   function mapCalculationItemsToChoiceItems(calc: {
     items?: Array<{
       description: string; qty: number | string; unitPrice: number | string;
-      costPrice?: number | string | null; vatRate: number | string; optional?: boolean;
+      costPrice?: number | string | null; vatRate: number | string; optional?: boolean; hiddenOnQuote?: boolean;
     }>;
   }): ChoiceItem[] {
     return (calc.items ?? [])
@@ -1165,6 +1166,7 @@ export function QuoteBuilder({
         costPrice: item.costPrice != null ? Number(item.costPrice) : null,
         vatRate: Number(item.vatRate) || 21,
         indent: 0,
+        hiddenOnQuote: item.hiddenOnQuote ?? false,
       }));
   }
 
