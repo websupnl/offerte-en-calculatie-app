@@ -1179,7 +1179,7 @@ export function QuoteSheetPreview({
                   )}
                   {includedItems.length > 0 && (
                     <div className="choice-included mt-5 rounded-lg bg-slate-50 p-4">
-                      <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">Inbegrepen werkzaamheden</p>
+                      <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">Inbegrepen bij deze keuze</p>
                       <ul className="choice-details choice-details-included">
                         {includedItems.map((item, index) => (
                             <li key={`${choice.id}-included-${index}`}>
