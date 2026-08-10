@@ -78,6 +78,10 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function textToEmailHtml(value: string): string {
+  return escapeHtml(value).replace(/\r?\n/g, "<br />");
+}
+
 let transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
 
 function getTransporter() {
@@ -161,8 +165,12 @@ function buildQuoteEmailHtml(identity: CompanyEmailIdentity, data: QuoteEmailDat
   const customerName = escapeHtml(data.customerName);
   const quoteTitle = data.quoteTitle ? escapeHtml(data.quoteTitle) : undefined;
   const quoteNumber = escapeHtml(data.quoteNumber);
+  const introLine = textToEmailHtml(data.introLine);
+  const isFormal = data.companySlug === "koolhaas";
 
-  const heading = quoteTitle ? `Offerte voor ${quoteTitle}` : "Uw offerte staat klaar";
+  const heading = quoteTitle
+    ? `Offerte voor ${quoteTitle}`
+    : isFormal ? "Uw offerte staat klaar" : "Je offerte staat klaar";
 
   const infoRows = [
     { label: "Offertenummer", value: quoteNumber },
@@ -254,7 +262,7 @@ function buildQuoteEmailHtml(identity: CompanyEmailIdentity, data: QuoteEmailDat
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 </head>
 <body style="margin:0; padding:0; background:#f1f5f9; font-family:${font};">
-  <div style="display:none; max-height:0; overflow:hidden;">Je offerte ${quoteNumber} staat klaar</div>
+  <div style="display:none; max-height:0; overflow:hidden;">${isFormal ? "Uw" : "Je"} offerte ${quoteNumber} staat klaar</div>
   <div style="max-width:600px; margin:0 auto; padding:24px 16px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
 
@@ -280,7 +288,7 @@ function buildQuoteEmailHtml(identity: CompanyEmailIdentity, data: QuoteEmailDat
 
       <tr>
         <td style="padding:32px 32px 0 32px;">
-          <p style="margin:0 0 8px 0; font-size:12px; font-weight:700; letter-spacing:1px; color:${identity.accentColor}; text-transform:uppercase;">Uw offerte staat klaar</p>
+          <p style="margin:0 0 8px 0; font-size:12px; font-weight:700; letter-spacing:1px; color:${identity.accentColor}; text-transform:uppercase;">${isFormal ? "Uw" : "Je"} offerte staat klaar</p>
           <h1 style="margin:0 0 6px 0; font-size:26px; line-height:1.25; font-weight:800; color:${identity.primaryColor};">${heading}</h1>
           <p style="margin:0 0 28px 0; font-size:14px; color:#94a3b8;">Offerte ${quoteNumber}</p>
 
@@ -288,12 +296,12 @@ function buildQuoteEmailHtml(identity: CompanyEmailIdentity, data: QuoteEmailDat
             <tr>
               <td style="width:58%; vertical-align:top; padding-right:20px;">
                 <p style="margin:0 0 14px 0; font-size:16px; line-height:1.6; color:#1e293b;">Beste ${customerName},</p>
-                <p style="margin:0 0 20px 0; font-size:16px; line-height:1.6; color:#1e293b;">${data.introLine}</p>
+                <p style="margin:0 0 20px 0; font-size:16px; line-height:1.6; color:#1e293b;">${introLine}</p>
                 <a href="${data.quoteUrl}" style="display:inline-block; background:${identity.accentColor};${identity.accentGradient ? ` background-image:${identity.accentGradient};` : ""} color:#ffffff; text-decoration:none; padding:13px 26px; border-radius:10px; font-weight:700; font-size:15px;">
                   Offerte bekijken &amp; accorderen
                 </a>
-                <p style="margin:24px 0 0 0; font-size:14px; line-height:1.6; color:#64748b;">Liever niet klikken? Reageer gewoon op deze e-mail met je akkoord, dan verwerk ik het voor je.</p>
-                <p style="margin:10px 0 0 0; font-size:14px; line-height:1.6; color:#64748b;">Heb je nog vragen of wil je iets aanpassen? Laat het gerust weten.</p>
+                <p style="margin:24px 0 0 0; font-size:14px; line-height:1.6; color:#64748b;">${isFormal ? "Liever niet klikken? U kunt ook op deze e-mail reageren met uw akkoord, dan verwerk ik het voor u." : "Liever niet klikken? Reageer gewoon op deze e-mail met je akkoord, dan verwerk ik het voor je."}</p>
+                <p style="margin:10px 0 0 0; font-size:14px; line-height:1.6; color:#64748b;">${isFormal ? "Heeft u nog vragen of wilt u iets aanpassen? Laat het gerust weten." : "Heb je nog vragen of wil je iets aanpassen? Laat het gerust weten."}</p>
                 <p style="margin:20px 0 4px 0; font-size:14px; color:#64748b;">Met vriendelijke groet,</p>
                 ${signatureImg ? `<img src="${signatureImg}" alt="Handtekening ${identity.signerName}" height="80" style="height:80px; width:auto; display:block; margin-left:-6px;" />` : `<p style="margin:0; font-size:14px; font-weight:700; color:#1e293b;">${identity.signerName}</p>`}
               </td>
@@ -308,7 +316,7 @@ function buildQuoteEmailHtml(identity: CompanyEmailIdentity, data: QuoteEmailDat
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px; background:${identity.backgroundColor}; border-radius:14px;">
                   <tr><td style="padding:16px 18px;">
                     <p style="margin:0 0 2px 0; font-size:13px; font-weight:700; color:${identity.primaryColor};">Veilig &amp; betrouwbaar</p>
-                    <p style="margin:0; font-size:12px; line-height:1.5; color:#64748b;">Je gegevens zijn veilig en de offerte is 100% vrijblijvend.</p>
+                    <p style="margin:0; font-size:12px; line-height:1.5; color:#64748b;">${isFormal ? "Uw" : "Je"} gegevens zijn veilig en de offerte is 100% vrijblijvend.</p>
                   </td></tr>
                 </table>
               </td>

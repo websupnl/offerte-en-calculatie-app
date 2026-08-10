@@ -26,6 +26,17 @@ import { AdviceDocumentForm } from "@/components/forms/advice-document-form";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
 import { SheetScaler } from "@/components/sheet-scaler";
 import { filenameFromResponse } from "@/lib/download-filename";
+import { defaultQuoteEmailMessage } from "@/lib/quote-email-copy";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type QuoteItem = {
   id: string;
@@ -151,6 +162,8 @@ export function QuoteDetailClient({
   const [activeTab, setActiveTab] = useState("view");
   const [sharing, setSharing] = useState(false);
   const [openingMail, setOpeningMail] = useState(false);
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [emailMessage, setEmailMessage] = useState(() => defaultQuoteEmailMessage(companySlug));
   const [shareUrl, setShareUrl] = useState("");
   const [pdfReady, setPdfReady] = useState(!!quote.pdfUrl);
   const [pdfDownloading, setPdfDownloading] = useState(false);
@@ -214,24 +227,33 @@ export function QuoteDetailClient({
   }
 
 
-  async function handleSendQuoteEmail() {
+  function openSendQuoteDialog() {
     if (!quote.customer.email) {
       toast.error("Deze klant heeft geen e-mailadres");
       return;
     }
+    setEmailMessage(defaultQuoteEmailMessage(companySlug));
+    setSendDialogOpen(true);
+  }
 
-    const confirmed = window.confirm(
-      `Offerte ${quote.number} direct versturen naar ${quote.customer.email}? Dit gaat écht de deur uit.`,
-    );
-    if (!confirmed) return;
+  async function handleSendQuoteEmail() {
+    if (!emailMessage.trim()) {
+      toast.error("Vul een e-mailtekst in");
+      return;
+    }
 
     setOpeningMail(true);
     try {
-      const res = await fetch(`/api/quotes/${quote.id}/send-email`, { method: "POST" });
+      const res = await fetch(`/api/quotes/${quote.id}/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: emailMessage }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Versturen mislukt");
 
       setShareUrl(data.url);
+      setSendDialogOpen(false);
       if (data.warning) {
         toast.warning(data.warning);
       } else {
@@ -332,7 +354,7 @@ export function QuoteDetailClient({
               : <><Printer className="mr-2 h-4 w-4" />Print / PDF{pdfReady ? "" : " maken"}</>
             }
           </Button>
-          <Button size="sm" onClick={handleSendQuoteEmail} disabled={openingMail}>
+          <Button size="sm" onClick={openSendQuoteDialog} disabled={openingMail}>
             {openingMail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
             Verstuur offerte
           </Button>
@@ -355,6 +377,41 @@ export function QuoteDetailClient({
           </Button>
         </div>
       </div>
+
+      <Dialog open={sendDialogOpen} onOpenChange={(open) => !openingMail && setSendDialogOpen(open)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Offerte per e-mail versturen</DialogTitle>
+            <DialogDescription>
+              Naar {quote.customer.name} via {quote.customer.email}. Pas de standaardtekst eventueel aan voordat u verstuurt.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="quote-email-message">E-mailtekst</Label>
+            <Textarea
+              id="quote-email-message"
+              value={emailMessage}
+              onChange={(event) => setEmailMessage(event.target.value)}
+              maxLength={2000}
+              rows={6}
+              disabled={openingMail}
+              className="min-h-32 resize-y"
+            />
+            <p className="text-xs text-muted-foreground">
+              De aanhef, offerteknop, bijlagen en ondertekening worden automatisch toegevoegd.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSendDialogOpen(false)} disabled={openingMail}>
+              Annuleren
+            </Button>
+            <Button onClick={handleSendQuoteEmail} disabled={openingMail || !emailMessage.trim()}>
+              {openingMail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+              {openingMail ? "Bezig met versturen..." : "Nu versturen"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Share URL display */}
       {shareUrl && (
@@ -521,4 +578,3 @@ export function QuoteDetailClient({
     </div>
   );
 }
-

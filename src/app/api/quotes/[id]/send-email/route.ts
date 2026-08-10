@@ -6,21 +6,33 @@ import { formatCurrency, formatDateLong } from "@/lib/format";
 import { generatePortalPdfWithBuffer } from "@/lib/pdf/generate-and-store";
 import { pdfFilename } from "@/lib/pdf/filename";
 import { downloadObject, isStorageConfigured } from "@/lib/storage";
+import { defaultQuoteEmailMessage } from "@/lib/quote-email-copy";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-function introLineFor(companySlug: string) {
-  return companySlug === "koolhaas"
-    ? "Hierbij stuur ik je de offerte toe. Via onderstaande knop kun je 'm rustig bekijken en accorderen."
-    : "Zoals besproken heb ik de offerte voor je klaargezet. Via onderstaande knop kun je 'm rustig bekijken en accorderen.";
-}
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+
+  let customMessage: string | undefined;
+  const requestBody = await req.text();
+  if (requestBody) {
+    try {
+      const parsed = JSON.parse(requestBody) as { message?: unknown };
+      if (typeof parsed.message !== "undefined" && typeof parsed.message !== "string") {
+        return NextResponse.json({ error: "Ongeldige e-mailtekst" }, { status: 400 });
+      }
+      customMessage = parsed.message?.trim();
+      if (customMessage && customMessage.length > 2000) {
+        return NextResponse.json({ error: "De e-mailtekst mag maximaal 2.000 tekens bevatten" }, { status: 400 });
+      }
+    } catch {
+      return NextResponse.json({ error: "Ongeldige aanvraag" }, { status: 400 });
+    }
+  }
 
   const quote = await prisma.quote.findFirst({
     where: { id, companyId: session.user.activeCompanyId },
@@ -86,7 +98,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     quoteUrl,
     totalIncVat: formatCurrency(Number(quote.totalIncVat)),
     validUntil: quote.validUntil ? formatDateLong(quote.validUntil) : undefined,
-    introLine: introLineFor(quote.company.slug),
+    introLine: customMessage || defaultQuoteEmailMessage(quote.company.slug),
     attachments,
   });
 
