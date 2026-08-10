@@ -51,19 +51,22 @@ export async function generateAndStorePortalPdf(
 export async function generatePortalPdfWithBuffer(
   shareToken: string,
   host: string
-): Promise<{ url: string; buffer: Buffer } | null> {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    console.warn("[PDF] BLOB_READ_WRITE_TOKEN not set — skipping portal PDF pre-generation");
-    return null;
-  }
+): Promise<{ url?: string; buffer: Buffer } | null> {
 
   const proto = host.startsWith("localhost") ? "http" : "https";
   const printUrl = `${proto}://${host}/print/portal/${shareToken}`;
 
-  try {
-    const pdfBuffer = await renderPageAsPdf(printUrl);
-    if (!pdfBuffer) return null;
+  const pdfBuffer = await renderPageAsPdf(printUrl);
+  if (!pdfBuffer) return null;
 
+  // De bijlage moet niet afhankelijk zijn van de optionele Blob-cache. Als het
+  // opslaan faalt, kan de zojuist gerenderde PDF nog altijd worden gemaild.
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    console.warn("[PDF] BLOB_READ_WRITE_TOKEN not set — PDF is not cached");
+    return { buffer: pdfBuffer };
+  }
+
+  try {
     const blob = await put(`pdfs/portal-${shareToken}.pdf`, pdfBuffer, {
       access: "public",
       contentType: "application/pdf",
@@ -78,7 +81,7 @@ export async function generatePortalPdfWithBuffer(
     console.log(`[PDF] Portal PDF generated and stored: ${blob.url}`);
     return { url: blob.url, buffer: pdfBuffer };
   } catch (err) {
-    console.error("[PDF] Portal background generation failed:", err);
-    return null;
+    console.error("[PDF] Portal PDF could not be cached; continuing with the generated PDF:", err);
+    return { buffer: pdfBuffer };
   }
 }
