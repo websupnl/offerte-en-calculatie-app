@@ -14,6 +14,8 @@ const PUBLIC_PATHS = [
   "/api/legal/",
   "/api/integrations/quote-contract",
   "/api/cli/",
+  // Server-to-server gateway; it has its own Bearer-token authentication.
+  "/api/donna/",
   // Werkplek: klant heeft geen account, alleen een geheim token.
   "/portal/", // klantomgeving
   "/c/", // contract ondertekenen

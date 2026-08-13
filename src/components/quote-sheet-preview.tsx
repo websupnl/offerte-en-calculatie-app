@@ -1154,7 +1154,7 @@ export function QuoteSheetPreview({
                       <img
                         src={choice.imageUrl || choice.image}
                         alt={choice.title}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain"
                       />
                     </div>
                   )}
