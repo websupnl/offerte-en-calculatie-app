@@ -30,6 +30,7 @@ type QuoteAttachment = {
   imageUrl: string;
   liveUrl?: string | null;
   caption?: string;
+  section?: string | null;
 };
 
 type PdfChoiceItem = {
@@ -453,7 +454,9 @@ export function QuotePDF({
 
   const PAD = 38;
   const innerPage = { padding: PAD, paddingTop: 30, paddingBottom: 50 };
-  const introVisual = isKoolhaas ? attachments.find((attachment) => attachment.imageUrl) : undefined;
+  const introVisual = isKoolhaas
+    ? attachments.find((attachment) => attachment.imageUrl && (attachment.section ?? "intro") === "intro")
+    : undefined;
   const standaloneAttachments = introVisual
     ? attachments.filter((attachment) => attachment !== introVisual)
     : attachments;

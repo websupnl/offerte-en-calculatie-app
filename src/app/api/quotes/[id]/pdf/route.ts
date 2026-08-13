@@ -142,6 +142,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       imageUrl: a.imageUrl,
       liveUrl: a.liveUrl ?? undefined,
       caption: a.caption ?? undefined,
+      section: a.section ?? undefined,
     })),
     itemsHeader: quote.itemsHeader || "Onderdelen",
     status: quote.status,
