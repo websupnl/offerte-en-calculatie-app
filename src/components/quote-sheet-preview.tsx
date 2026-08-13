@@ -1083,7 +1083,6 @@ export function QuoteSheetPreview({
                 </figcaption>
               </figure>
 
-              <div className="spacer"></div>
               {renderPageFooter(pageLabel(3 + approachPageOffset + index))}
             </div>
           </section>
