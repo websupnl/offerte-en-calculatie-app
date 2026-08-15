@@ -174,7 +174,12 @@ function buildQuoteEmailHtml(identity: CompanyEmailIdentity, data: QuoteEmailDat
 
   const infoRows = [
     { label: "Offertenummer", value: quoteNumber },
-    data.totalIncVat ? { label: "Totaal incl. btw", value: escapeHtml(data.totalIncVat) } : null,
+    data.totalIncVat
+      ? {
+          label: data.totalIncVat.startsWith("Vanaf") ? "Vanaf" : "Totaal incl. btw",
+          value: escapeHtml(data.totalIncVat.replace(/^Vanaf\s*/, "")),
+        }
+      : null,
     data.validUntil ? { label: "Geldig t/m", value: escapeHtml(data.validUntil) } : null,
   ].filter((row): row is { label: string; value: string } => row !== null);
 

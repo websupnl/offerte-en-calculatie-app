@@ -7,6 +7,8 @@ import { generatePortalPdfWithBuffer } from "@/lib/pdf/generate-and-store";
 import { pdfFilename } from "@/lib/pdf/filename";
 import { downloadObject, isStorageConfigured } from "@/lib/storage";
 import { defaultQuoteEmailMessage } from "@/lib/quote-email-copy";
+import { calculateQuotePriceSummary, quoteChoiceGroupSchema } from "@/lib/quote-selection";
+import { z } from "zod";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -40,6 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       customer: true,
       company: true,
       documents: { include: { productDocument: true }, orderBy: { sortOrder: "asc" } },
+      items: { orderBy: { sortOrder: "asc" } },
     },
   });
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -67,10 +70,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const filename = pdfFilename("Offerte", quote.number, quote.customer.name);
 
-  // Bij meerdere opties klopt "totaal incl. btw" niet — de klant kiest pas
-  // in het portaal welke optie het wordt. Alleen tonen bij 0 of 1 optie.
-  const optionCount = Array.isArray(quote.options) ? quote.options.length : 0;
-  const showTotal = optionCount <= 1;
+  // Bij keuzegroepen ("kies uw optie") klopt een vast totaal niet — de klant
+  // kiest pas in het portaal. Toon dan het laagste bedrag als "Vanaf".
+  const parsedGroups = z.array(quoteChoiceGroupSchema).safeParse(quote.choiceGroups ?? []);
+  const choiceGroups = parsedGroups.success ? parsedGroups.data : [];
+  const priceItems = quote.items.map((item) => ({
+    ...item,
+    qty: Number(item.qty),
+    unitPrice: Number(item.unitPrice),
+    vatRate: Number(item.vatRate),
+    total: Number(item.total),
+  }));
+  const pricing = calculateQuotePriceSummary(priceItems, choiceGroups);
+  const totalLabel = pricing.hasChoices
+    ? `Vanaf ${formatCurrency(pricing.minimum.totalIncVat)}`
+    : formatCurrency(Number(quote.totalIncVat));
 
   const attachments: { filename: string; content: Buffer; contentType?: string }[] = [];
   if (portalPdf) {
@@ -101,7 +115,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     quoteNumber: quote.number,
     quoteTitle: quote.title ?? undefined,
     quoteUrl,
-    totalIncVat: showTotal ? formatCurrency(Number(quote.totalIncVat)) : undefined,
+    totalIncVat: totalLabel,
     validUntil: quote.validUntil ? formatDateLong(quote.validUntil) : undefined,
     introLine: customMessage || defaultQuoteEmailMessage(quote.company.slug),
     attachments,
