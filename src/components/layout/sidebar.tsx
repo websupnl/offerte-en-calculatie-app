@@ -17,6 +17,7 @@ import {
   ChevronsRight,
   ClipboardList,
   Database,
+  Eye,
   FileSignature,
   FileText,
   FolderKanban,
@@ -65,6 +66,7 @@ const navGroups: NavGroup[] = [
       { href: "/customers", label: "Klanten", icon: Users },
       { href: "/calculations", label: "Calculaties", icon: Calculator },
       { href: "/quotes", label: "Offertes", icon: FileText },
+      { href: "/quotes/tracker", label: "Verzendtracker", icon: Eye },
       { href: "/contracts", label: "Contracten", icon: FileSignature },
       { href: "/advice", label: "Adviesdocumenten", icon: ShieldCheck },
     ],
@@ -196,7 +198,9 @@ export function Sidebar({
                   {visibleItems.map((item) => {
                     const isActive =
                       pathname === item.href ||
-                      (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
+                      (item.href !== "/dashboard" &&
+                        pathname.startsWith(`${item.href}/`) &&
+                        !navGroups.some((g) => g.items.some((other) => other.href !== item.href && other.href.startsWith(`${item.href}/`) && pathname.startsWith(other.href))));
                     return (
                       <Link
                         key={item.href}

@@ -56,10 +56,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     update: {},
   });
 
-  if (quote.status === "DRAFT") {
-    await prisma.quote.update({ where: { id }, data: { status: "SENT" } });
-  }
-
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
   const quoteUrl = `${appUrl}/q/${share.token}`;
 
@@ -124,6 +120,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!result.sent) {
     return NextResponse.json({ error: result.reason ?? "Versturen mislukt" }, { status: 500 });
   }
+
+  const now = new Date();
+  await prisma.$transaction([
+    prisma.quote.update({
+      where: { id },
+      data: {
+        status: quote.status === "DRAFT" ? "SENT" : quote.status,
+        sentAt: quote.sentAt ?? now,
+        lastSentAt: now,
+        sendCount: { increment: 1 },
+      },
+    }),
+    prisma.quoteEvent.create({
+      data: {
+        quoteId: id,
+        type: "SENT",
+        actor: session.user.name ?? session.user.email ?? undefined,
+        detail: `Verstuurd naar ${quote.customer.email}${customMessage ? " met eigen bericht" : ""}`,
+      },
+    }),
+  ]);
 
   return NextResponse.json({
     ok: true,

@@ -22,6 +22,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
         adviceDocuments: { orderBy: { createdAt: "desc" } },
         documents: { include: { productDocument: true }, orderBy: { sortOrder: "asc" } },
         share: true,
+        events: { orderBy: { createdAt: "desc" }, take: 30 },
       },
     }),
     prisma.company.findUnique({ where: { id: companyId } }),

@@ -122,6 +122,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
         pdfUrl: null,
       },
     }),
+    prisma.quoteEvent.create({
+      data: {
+        quoteId: share.quoteId,
+        type: "ACCEPTED",
+        actor: parsedBody.data.signerName,
+        detail: `Totaal € ${totals.totalIncVat.toFixed(2)} incl. btw`,
+      },
+    }),
   ]);
 
   const settings = (share.quote.company.settings ?? {}) as Record<string, unknown>;

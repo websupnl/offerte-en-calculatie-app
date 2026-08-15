@@ -20,7 +20,7 @@ import {
   Mail,
   Calculator,
 } from "lucide-react";
-import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
+import { formatCurrency, formatDate, formatDateTime, QUOTE_STATUS_LABELS } from "@/lib/format";
 import { QuoteBuilder } from "@/components/forms/quote-builder";
 import { AdviceDocumentForm } from "@/components/forms/advice-document-form";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
@@ -118,14 +118,21 @@ type Quote = {
   totalVat: string | number;
   totalIncVat: string | number;
   createdAt: string;
+  sentAt: string | null;
+  lastSentAt: string | null;
+  sendCount: number;
   customer: { id: string; name: string; email: string | null; address: string | null; city: string | null; zipCode: string | null };
   items: QuoteItem[];
   attachments: QuoteAttachment[];
   adviceDocuments: AdviceDocument[];
+  events: { id: string; type: string; detail: string | null; actor: string | null; createdAt: string }[];
   share: {
     token: string;
     viewedAt: string | null;
+    lastViewedAt?: string | null;
+    viewCount?: number;
     acceptedAt: string | null;
+    declinedAt?: string | null;
     signerName?: string | null;
     acceptedTotalIncVat?: string | number | null;
     selectedOptionIds?: string[] | null;
@@ -134,6 +141,14 @@ type Quote = {
       selectedOptions?: Array<{ t: string }>;
     } | null;
   } | null;
+};
+
+const EVENT_LABELS: Record<string, string> = {
+  SENT: "Verstuurd per e-mail",
+  VIEWED: "Bekeken door klant",
+  ACCEPTED: "Geaccepteerd",
+  DECLINED: "Afgewezen",
+  EXPIRED: "Verlopen",
 };
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -430,12 +445,43 @@ export function QuoteDetailClient({
           {quote.share?.viewedAt && (
             <Badge variant="outline" className="text-xs shrink-0">
               Bekeken {formatDate(quote.share.viewedAt)}
+              {(quote.share.viewCount ?? 0) > 1 ? ` · ${quote.share.viewCount}x` : ""}
             </Badge>
           )}
           {quote.share?.acceptedAt && (
             <Badge className="text-xs shrink-0">Geaccepteerd</Badge>
           )}
         </div>
+      )}
+
+      {quote.sentAt && (
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-slate-700">Tijdlijn</p>
+              <p className="text-xs text-slate-400">
+                Verstuurd op {formatDateTime(quote.sentAt)}
+                {quote.sendCount > 1 ? ` · ${quote.sendCount}x verstuurd` : ""}
+                {quote.share?.viewCount ? ` · ${quote.share.viewCount}x bekeken` : " · nog niet geopend"}
+              </p>
+            </div>
+            {quote.events.length > 0 ? (
+              <ol className="mt-3 space-y-2 text-sm">
+                {quote.events.map((event) => (
+                  <li key={event.id} className="flex items-start justify-between gap-3 border-t border-slate-100 pt-2 first:border-0 first:pt-0">
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-800">{EVENT_LABELS[event.type] ?? event.type}</p>
+                      {event.detail && <p className="truncate text-xs text-slate-400">{event.detail}</p>}
+                    </div>
+                    <span className="shrink-0 text-xs text-slate-400">{formatDateTime(event.createdAt)}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="mt-2 text-xs text-slate-400">Nog geen activiteit geregistreerd.</p>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       <div className="grid gap-5 lg:grid-cols-[230px_minmax(0,1fr)]">

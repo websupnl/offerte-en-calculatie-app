@@ -312,6 +312,9 @@ model Quote {
   version                  Int         @default(1)
   pdfUrl                   String?
   projectId                String?
+  sentAt                   DateTime?
+  lastSentAt               DateTime?
+  sendCount                Int         @default(0)
   createdAt                DateTime    @default(now())
   updatedAt                DateTime    @updatedAt
 
@@ -329,6 +332,7 @@ model Quote {
   documents       QuoteDocument[]
   tasks           Task[]
   contracts       Contract[]
+  events          QuoteEvent[]
 
   @@index([companyId, updatedAt(sort: Desc)])
   @@index([companyId, status])
@@ -647,6 +651,8 @@ model QuoteShare {
   quoteId             String    @unique
   token               String    @unique @default(uuid())
   viewedAt            DateTime?
+  lastViewedAt        DateTime?
+  viewCount           Int       @default(0)
   acceptedAt          DateTime?
   declinedAt          DateTime?
   signerName          String?
@@ -661,6 +667,21 @@ model QuoteShare {
   createdAt           DateTime  @default(now())
 
   quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+}
+
+model QuoteEvent {
+  id        String   @id @default(cuid())
+  quoteId   String
+  type      String // SENT | VIEWED | ACCEPTED | DECLINED | EXPIRED
+  detail    String?  @db.Text
+  actor     String?
+  userAgent String?  @db.Text
+  ip        String?
+  createdAt DateTime @default(now())
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId, createdAt])
 }
 
 // ─── Calculations ───────────────────────────────────────────────────────────

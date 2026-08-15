@@ -52,13 +52,30 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
   // We'll await it to be sure, or use after if available in this context.
   sendTelegramMessage(telegramMsg).catch(console.error);
 
-  // Mark as viewed if not yet
-  if (!share.viewedAt && !share.acceptedAt && !share.declinedAt) {
-    await prisma.quoteShare.update({
+  // Elke view loggen (niet alleen de eerste) zodat de tracker het volledige
+  // bezoekpatroon laat zien.
+  const now = new Date();
+  const ip = headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+  await prisma.$transaction([
+    prisma.quoteShare.update({
       where: { id: share.id },
-      data: { viewedAt: new Date() },
-    });
-    // Update quote status to VIEWED
+      data: {
+        viewedAt: share.viewedAt ?? now,
+        lastViewedAt: now,
+        viewCount: { increment: 1 },
+      },
+    }),
+    prisma.quoteEvent.create({
+      data: {
+        quoteId: share.quoteId,
+        type: "VIEWED",
+        detail: `${city} · ${isMobile}`,
+        userAgent,
+        ip: ip ?? undefined,
+      },
+    }),
+  ]);
+  if (share.quote.status === "SENT") {
     await prisma.quote.update({
       where: { id: share.quoteId },
       data: { status: "VIEWED" },

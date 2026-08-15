@@ -19,15 +19,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   });
   if (!share) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await prisma.quoteShare.update({
-    where: { token },
-    data: { declinedAt: new Date(), message },
-  });
-
-  await prisma.quote.update({
-    where: { id: share.quoteId },
-    data: { status: "DECLINED" },
-  });
+  await prisma.$transaction([
+    prisma.quoteShare.update({
+      where: { token },
+      data: { declinedAt: new Date(), message },
+    }),
+    prisma.quote.update({
+      where: { id: share.quoteId },
+      data: { status: "DECLINED" },
+    }),
+    prisma.quoteEvent.create({
+      data: {
+        quoteId: share.quoteId,
+        type: "DECLINED",
+        detail: message || undefined,
+      },
+    }),
+  ]);
 
   // Notify company owner via Email
   const settings = (share.quote.company.settings ?? {}) as Record<string, unknown>;
