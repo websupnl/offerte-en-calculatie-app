@@ -887,6 +887,9 @@ export function CalculationBuilderClient({
                       {/* Total Sales */}
                       <td className="py-2 px-3 text-right tabular-nums font-bold text-emerald-700">
                         {formatCurrency(item.qty * item.unitPrice)}
+                        <div className="text-[10px] font-normal text-slate-400">
+                          {formatCurrency(item.qty * item.unitPrice * (1 + item.vatRate / 100))} incl.
+                        </div>
                       </td>
 
                       {/* Actions */}
