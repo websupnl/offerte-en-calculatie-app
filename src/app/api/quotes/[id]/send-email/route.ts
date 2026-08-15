@@ -67,6 +67,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const filename = pdfFilename("Offerte", quote.number, quote.customer.name);
 
+  // Bij meerdere opties klopt "totaal incl. btw" niet — de klant kiest pas
+  // in het portaal welke optie het wordt. Alleen tonen bij 0 of 1 optie.
+  const optionCount = Array.isArray(quote.options) ? quote.options.length : 0;
+  const showTotal = optionCount <= 1;
+
   const attachments: { filename: string; content: Buffer; contentType?: string }[] = [];
   if (portalPdf) {
     attachments.push({ filename, content: portalPdf.buffer });
@@ -96,7 +101,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     quoteNumber: quote.number,
     quoteTitle: quote.title ?? undefined,
     quoteUrl,
-    totalIncVat: formatCurrency(Number(quote.totalIncVat)),
+    totalIncVat: showTotal ? formatCurrency(Number(quote.totalIncVat)) : undefined,
     validUntil: quote.validUntil ? formatDateLong(quote.validUntil) : undefined,
     introLine: customMessage || defaultQuoteEmailMessage(quote.company.slug),
     attachments,

@@ -316,7 +316,7 @@ function buildQuoteEmailHtml(identity: CompanyEmailIdentity, data: QuoteEmailDat
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px; background:${identity.backgroundColor}; border-radius:14px;">
                   <tr><td style="padding:16px 18px;">
                     <p style="margin:0 0 2px 0; font-size:13px; font-weight:700; color:${identity.primaryColor};">Veilig &amp; betrouwbaar</p>
-                    <p style="margin:0; font-size:12px; line-height:1.5; color:#64748b;">${isFormal ? "Uw" : "Je"} gegevens zijn veilig en de offerte is 100% vrijblijvend.</p>
+                    <p style="margin:0; font-size:12px; line-height:1.5; color:#64748b;">${isFormal ? "Uw" : "Je"} gegevens zijn veilig en ${isFormal ? "u zit" : "je zit"} nergens aan vast totdat ${isFormal ? "u akkoord geeft" : "je akkoord geeft"}.</p>
                   </td></tr>
                 </table>
               </td>
