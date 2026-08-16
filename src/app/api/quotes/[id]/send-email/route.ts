@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendQuoteEmail } from "@/lib/email";
+import { escapeTelegramHtml, sendTelegramMessage } from "@/lib/notifications";
 import { formatCurrency, formatDateLong } from "@/lib/format";
 import { generatePortalPdfWithBuffer } from "@/lib/pdf/generate-and-store";
 import { pdfFilename } from "@/lib/pdf/filename";
@@ -141,6 +142,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
     }),
   ]);
+
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001").replace(/\/$/, "");
+  const quoteLabel = quote.title || quote.number;
+  sendTelegramMessage(
+    [
+      "📤 <b>OFFERTE VERSTUURD</b>",
+      `👤 <b>Klant:</b> ${escapeTelegramHtml(quote.customer.name)}`,
+      `📄 <b>Offerte:</b> ${escapeTelegramHtml(quoteLabel)}`,
+      `✉️ <b>Naar:</b> ${escapeTelegramHtml(quote.customer.email)}`,
+      `🔗 <a href=\"${appUrl}/quotes/${quote.id}\">Open offerte in dashboard</a>`,
+    ].join("\n"),
+  ).catch(console.error);
 
   return NextResponse.json({
     ok: true,

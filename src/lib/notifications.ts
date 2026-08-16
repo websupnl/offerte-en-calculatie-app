@@ -1,4 +1,16 @@
-export async function sendTelegramMessage(message: string) {
+type TelegramMessageOptions = {
+  disableWebPagePreview?: boolean;
+};
+
+/** Escapes dynamic values before they are placed in Telegram's HTML message mode. */
+export function escapeTelegramHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+export async function sendTelegramMessage(message: string, options: TelegramMessageOptions = {}) {
   const token = process.env.TELEGRAM_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
 
@@ -15,6 +27,7 @@ export async function sendTelegramMessage(message: string) {
         chat_id: chatId,
         text: message,
         parse_mode: "HTML",
+        link_preview_options: { is_disabled: options.disableWebPagePreview ?? true },
       }),
     });
 
