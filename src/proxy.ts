@@ -16,6 +16,8 @@ const PUBLIC_PATHS = [
   "/api/cli/",
   // Server-to-server gateway; it has its own Bearer-token authentication.
   "/api/donna/",
+  // Server-to-server webhook vanaf de publieke websites; eigen secret per site.
+  "/api/webhooks/website-lead",
   // Werkplek: klant heeft geen account, alleen een geheim token.
   "/portal/", // klantomgeving
   "/c/", // contract ondertekenen
