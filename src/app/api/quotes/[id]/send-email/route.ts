@@ -143,7 +143,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }),
   ]);
 
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001").replace(/\/$/, "");
   const quoteLabel = quote.title || quote.number;
   sendTelegramMessage(
     [
