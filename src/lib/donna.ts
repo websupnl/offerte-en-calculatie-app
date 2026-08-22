@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { calculateLine, calculateTotals } from "@/lib/calculation";
 import { generateQuoteNumber } from "@/lib/format";
+import { computeSalesPrice } from "@/lib/pricing";
 
 export const DONNA_SCHEMA_VERSION = "1.0.0";
 
@@ -39,6 +40,10 @@ export async function donnaCompany(slug: "koolhaas" | "websup") {
   const company = await prisma.company.findUnique({ where: { slug } });
   if (!company) throw new DonnaError("COMPANY_NOT_FOUND", 404, "Company is not configured");
   return company;
+}
+
+export function donnaCompanySlug(company: "koolhaas-installaties" | "websup") {
+  return company === "websup" ? "websup" : "koolhaas";
 }
 
 function customerAddress(customer: { address: string | null; zipCode: string | null; city: string | null }) {
@@ -114,4 +119,60 @@ export async function calculateDonnaQuote(ref: string, instruction?: string, ide
     await tx.quote.update({ where: { id: ref }, data: { totalExVat: totals.revenueExVat, totalVat: totals.vat, totalIncVat: totals.revenueIncVat, notes, pdfUrl: null } });
   });
   return loadDonnaQuote(ref);
+}
+
+export function articleDto(product: { id: string; category: string; name: string; description: string | null; unit: string; basePrice: unknown; costPrice: unknown; vatRate: unknown; supplier: string | null; sku: string | null; ean: string | null; active: boolean; updatedAt: Date }) {
+  return { ref: product.id, category: product.category, name: product.name, description: product.description ?? "", unit: product.unit, price: Number(product.basePrice), costPrice: product.costPrice == null ? null : Number(product.costPrice), vatRate: Number(product.vatRate), supplier: product.supplier ?? "", sku: product.sku ?? "", ean: product.ean ?? "", active: product.active, updatedAt: product.updatedAt.toISOString() };
+}
+
+export async function searchDonnaArticles(input: { company: "koolhaas-installaties" | "websup"; query?: string; category?: string; limit: number }) {
+  const company = await donnaCompany(donnaCompanySlug(input.company));
+  const products = await prisma.product.findMany({
+    where: {
+      companyId: company.id,
+      active: true,
+      ...(input.category ? { category: input.category } : {}),
+      ...(input.query ? { OR: [{ name: { contains: input.query, mode: "insensitive" } }, { sku: { contains: input.query, mode: "insensitive" } }, { ean: { contains: input.query, mode: "insensitive" } }, { description: { contains: input.query, mode: "insensitive" } }] } : {}),
+    },
+    orderBy: [{ category: "asc" }, { name: "asc" }],
+    take: input.limit,
+  });
+  return products.map(articleDto);
+}
+
+export async function createDonnaArticle(input: { company: "koolhaas-installaties" | "websup"; category: string; name: string; description?: string; unit?: string; price?: number; costPrice?: number; markupPercent?: number; vatRate?: number; supplier?: string; sku?: string; ean?: string }, idempotencyKey?: string) {
+  const company = await donnaCompany(donnaCompanySlug(input.company));
+  const marker = idempotencyKey ? idempotencyMarker(`${company.id}:article:${idempotencyKey}`) : undefined;
+  if (marker) {
+    const existing = await prisma.product.findFirst({ where: { companyId: company.id, description: { contains: marker } } });
+    if (existing) return existing;
+  }
+  const duplicate = await prisma.product.findFirst({
+    where: { companyId: company.id, OR: [{ name: { equals: input.name, mode: "insensitive" } }, ...(input.sku ? [{ sku: { equals: input.sku, mode: "insensitive" as const } }] : [])] },
+  });
+  if (duplicate) throw new DonnaError("ARTICLE_ALREADY_EXISTS", 409, "An article with this name or SKU already exists");
+
+  const basePriceAuto = input.price == null;
+  const basePrice = basePriceAuto ? computeSalesPrice(input.costPrice, input.markupPercent ?? 25) : input.price!;
+  const description = [input.description, marker].filter(Boolean).join("\n\n") || null;
+
+  const product = await prisma.product.create({
+    data: {
+      companyId: company.id,
+      category: input.category,
+      name: input.name,
+      description,
+      unit: input.unit ?? "stuk",
+      basePrice,
+      basePriceAuto,
+      costPrice: input.costPrice ?? null,
+      priceUpdatedAt: input.costPrice != null ? new Date() : null,
+      defaultMarkupPercent: input.markupPercent ?? 25,
+      vatRate: input.vatRate ?? 21,
+      supplier: input.supplier ?? null,
+      sku: input.sku ?? null,
+      ean: input.ean ?? null,
+    },
+  });
+  return product;
 }

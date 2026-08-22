@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DonnaError, parseLimit, quoteDto } from "../src/lib/donna";
+import { DonnaError, articleDto, parseLimit, quoteDto } from "../src/lib/donna";
 
 test("Donna limits accept the documented range", () => {
   assert.equal(parseLimit(null, 10, 25), 10);
@@ -10,4 +10,11 @@ test("Donna limits accept the documented range", () => {
 
 test("Donna quote output uses opaque refs and normalized status", () => {
   assert.deepEqual(quoteDto({ id: "cuid", customerId: "customer-cuid", title: "Laadpaal", status: "DRAFT", totalIncVat: 121, updatedAt: new Date("2026-01-01T00:00:00.000Z") }), { ref: "cuid", customerRef: "customer-cuid", title: "Laadpaal", status: "draft", total: 121, currency: "EUR", updatedAt: "2026-01-01T00:00:00.000Z" });
+});
+
+test("Donna article output uses opaque refs and numeric prices", () => {
+  assert.deepEqual(
+    articleDto({ id: "prod-cuid", category: "Batterij", name: "Sigenergy BAT 6.0", description: null, unit: "stuk", basePrice: 3200, costPrice: 2560, vatRate: 21, supplier: "Oosterberg", sku: "SIG-BAT6", ean: null, active: true, updatedAt: new Date("2026-01-01T00:00:00.000Z") }),
+    { ref: "prod-cuid", category: "Batterij", name: "Sigenergy BAT 6.0", description: "", unit: "stuk", price: 3200, costPrice: 2560, vatRate: 21, supplier: "Oosterberg", sku: "SIG-BAT6", ean: "", active: true, updatedAt: "2026-01-01T00:00:00.000Z" },
+  );
 });
