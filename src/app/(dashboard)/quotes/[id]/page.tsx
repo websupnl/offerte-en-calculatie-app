@@ -12,7 +12,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
   const companyId = session?.user?.activeCompanyId;
   if (!companyId) notFound();
 
-  const [quote, company, products, productSets] = await Promise.all([
+  const [quote, company, products, productSets, calculations, quoteTemplates] = await Promise.all([
     prisma.quote.findFirst({
       where: { id, companyId },
       include: {
@@ -30,6 +30,17 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
     prisma.productSet.findMany({
       where: { companyId, active: true },
       include: { items: { include: { product: true }, orderBy: { sortOrder: "asc" } } },
+    }),
+    prisma.calculation.findMany({
+      where: { companyId },
+      include: { items: { orderBy: { sortOrder: "asc" } } },
+      orderBy: { updatedAt: "desc" },
+      take: 100,
+    }),
+    prisma.quoteTemplate.findMany({
+      where: { companyId },
+      orderBy: { updatedAt: "desc" },
+      take: 100,
     }),
   ]);
 
@@ -66,6 +77,22 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
     customers,
     products,
     productSets,
+    calculations: calculations.map((calculation) => ({
+      ...calculation,
+      vatRate: Number(calculation.vatRate),
+      totalCostPrice: Number(calculation.totalCostPrice),
+      totalSalesPrice: Number(calculation.totalSalesPrice),
+      marginAmount: Number(calculation.marginAmount),
+      marginPercent: Number(calculation.marginPercent),
+      items: calculation.items.map((item) => ({
+        ...item,
+        qty: Number(item.qty),
+        costPrice: Number(item.costPrice),
+        unitPrice: Number(item.unitPrice),
+        vatRate: Number(item.vatRate),
+      })),
+    })),
+    quoteTemplates,
   }));
 
   return (
@@ -78,6 +105,8 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
       customers={serialized.customers}
       products={serialized.products}
       productSets={serialized.productSets}
+      calculations={serialized.calculations}
+      quoteTemplates={serialized.quoteTemplates}
     />
   );
 }

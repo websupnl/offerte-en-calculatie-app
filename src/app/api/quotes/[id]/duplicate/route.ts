@@ -54,6 +54,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       batteryAdvice: source.batteryAdvice ?? undefined,
       choiceGroups: source.choiceGroups ?? undefined,
       internalAdvice: source.internalAdvice,
+      document: source.document ?? undefined,
+      documentRevision: 0,
       totalExVat: source.totalExVat,
       totalVat: source.totalVat,
       totalIncVat: source.totalIncVat,
