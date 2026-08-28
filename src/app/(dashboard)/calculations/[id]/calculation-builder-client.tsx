@@ -595,9 +595,9 @@ export function CalculationBuilderClient({
                 Totale Netto Inkoop
               </span>
               <p className="mt-2 text-2xl font-bold tabular-nums text-slate-200">
-                {formatCurrency(totals.totalCost)}
+                {formatCurrency(totals.materialCost)}
               </p>
-              <span className="text-[11px] text-slate-400">Excl. BTW (materiaal + arbeid)</span>
+              <span className="text-[11px] text-slate-400">Excl. BTW · alleen materiaal</span>
             </CardContent>
           </Card>
 
