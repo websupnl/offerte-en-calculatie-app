@@ -222,6 +222,8 @@ export function CalculationBuilderClient({
     let totalSales = 0;
     let totalVat = 0;
     let optionalSales = 0;
+    let materialCost = 0;
+    let laborSales = 0;
 
     items.forEach((item) => {
       if (item.optional) {
@@ -231,10 +233,19 @@ export function CalculationBuilderClient({
       totalCost += item.qty * item.costPrice;
       totalSales += item.qty * item.unitPrice;
       totalVat += item.qty * item.unitPrice * (item.vatRate / 100);
+      // Uren zijn eigen arbeid: kostprijs telt niet mee als uitgave
+      if (item.type === "LABOR") {
+        laborSales += item.qty * item.unitPrice;
+      } else {
+        materialCost += item.qty * item.costPrice;
+      }
     });
 
     const margin = totalSales - totalCost;
     const marginPct = totalSales > 0 ? (margin / totalSales) * 100 : 0;
+    // Wat je overhoudt: materiaalmarge + volledige uuromzet
+    const takeHome = totalSales - materialCost;
+    const takeHomePct = totalSales > 0 ? (takeHome / totalSales) * 100 : 0;
 
     return {
       totalCost,
@@ -244,6 +255,10 @@ export function CalculationBuilderClient({
       totalSalesIncVat: totalSales + totalVat,
       margin,
       marginPct,
+      materialCost,
+      laborSales,
+      takeHome,
+      takeHomePct,
     };
   }, [items]);
 
@@ -605,26 +620,29 @@ export function CalculationBuilderClient({
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Brutowinst (€)
+                  Wat je overhoudt (€)
                 </span>
                 <TrendingUp className="h-4 w-4 text-emerald-400" />
               </div>
               <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-400">
-                {formatCurrency(totals.margin)}
+                {formatCurrency(totals.takeHome)}
               </p>
-              <span className="text-[11px] text-emerald-300 font-medium">Verkoop min netto inkoop</span>
+              <span className="text-[11px] text-emerald-300 font-medium">Materiaalmarge + volledige uuromzet</span>
+              <p className="mt-1 text-sm font-semibold tabular-nums text-slate-300">
+                {formatCurrency(totals.margin)} <span className="text-[11px] font-normal text-slate-500">zuivere brutowinst</span>
+              </p>
             </CardContent>
           </Card>
 
           <Card className="bg-emerald-950 text-white border-emerald-800 shadow-md">
             <CardContent className="p-5">
               <span className="text-xs font-semibold uppercase tracking-wider text-emerald-300">
-                Brutomarge (%)
+                Marge (%)
               </span>
               <p className="mt-2 text-3xl font-extrabold tabular-nums text-emerald-300">
-                {totals.marginPct.toFixed(1)}%
+                {totals.takeHomePct.toFixed(1)}%
               </p>
-              <span className="text-[11px] text-emerald-400">Winstmarge percentage</span>
+              <span className="text-[11px] text-emerald-400">Van omzet · zuiver {totals.marginPct.toFixed(1)}%</span>
             </CardContent>
           </Card>
         </div>
