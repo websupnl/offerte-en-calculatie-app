@@ -182,14 +182,10 @@ export function QuoteDetailClient({
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [emailMessage, setEmailMessage] = useState(() => defaultQuoteEmailMessage(companySlug));
   const [shareUrl, setShareUrl] = useState("");
-  const [pdfReady, setPdfReady] = useState(!!quote.pdfUrl);
+  const [pdfGenerated, setPdfGenerated] = useState(false);
+  const pdfReady = Boolean(quote.pdfUrl) || pdfGenerated;
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
-
-  // Sync pdfReady when quote props change (after router.refresh)
-  useEffect(() => {
-    setPdfReady(!!quote.pdfUrl);
-  }, [quote.pdfUrl]);
 
   // Poll for PDF readiness while generating
   useEffect(() => {
@@ -202,7 +198,7 @@ export function QuoteDetailClient({
         const res = await fetch(`/api/quotes/${quote.id}/pdf/status`);
         if (res.ok) {
           const { pdfReady: ready } = await res.json();
-          if (ready) { setPdfReady(true); clearInterval(interval); }
+          if (ready) { setPdfGenerated(true); clearInterval(interval); }
         }
       } catch { /* ignore */ }
     }, 2000);
@@ -334,7 +330,7 @@ export function QuoteDetailClient({
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      setPdfReady(true);
+      setPdfGenerated(true);
     } catch {
       toast.error("PDF downloaden mislukt");
     } finally {

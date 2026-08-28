@@ -2,6 +2,7 @@
 
 import {
   Check,
+  ExternalLink,
   Layers,
   PlusCircle,
   Sparkles,
@@ -113,6 +114,7 @@ type QuoteItem = {
 type FlowItem = { n: number | string; t: string; d: string };
 type ApproachStep = { n: number | string; t: string; d: string };
 type QuoteAttachment = { id?: string; title?: string | null; imageUrl: string; liveUrl?: string | null; caption?: string | null; section?: string | null };
+type QuoteSource = { id?: string; label: string; description?: string; url: string };
 
 export type QuotePreviewData = {
   number: string;
@@ -143,6 +145,7 @@ export type QuotePreviewData = {
   company?: { name?: string | null; slug?: string | null };
   choiceGroups?: QuoteChoiceGroup[];
   commercial?: { priceDisplayMode?: "incl" | "excl"; [key: string]: unknown };
+  batteryAdvice?: { sources?: QuoteSource[]; [key: string]: unknown };
 };
 
 const isMisplacedIntroLine = (value: string | null | undefined, customerName: string) => {
@@ -314,6 +317,9 @@ export function QuoteSheetPreview({
   const technicalNotes = [...assumptionsOwn, ...technicalNotesOwn];
   const customerResponsibilities = isKoolhaas ? (quote.customerResponsibilities ?? []).filter(Boolean) : [];
   const attachments = quote.attachments ?? [];
+  const sources = Array.isArray(quote.batteryAdvice?.sources)
+    ? quote.batteryAdvice.sources.filter((source) => source.label && source.url)
+    : [];
   // Een afbeelding hoort bij een sectie (staat onderaan die pagina) of krijgt een eigen pagina.
   const SECTION_KEYS = ["intro", "werking", "items", "terms", "sign", "opties"];
   const isSectionImage = (a: QuoteAttachment) =>
@@ -342,6 +348,7 @@ export function QuoteSheetPreview({
   const validUntilLabel = quote.validUntil ? formatDate(quote.validUntil) : null;
   const hasOptionsPage = options.length > 0;
   const hasTermsPage = Boolean(exclusions.length || technicalNotes.length || customerResponsibilities.length || quote.outro);
+  const hasSourcesPage = sources.length > 0;
   // Werking van de installatie (approach-stappen) krijgt een eigen pagina na de intro.
   const hasApproachPage = approach.length > 0;
   const approachPageOffset = hasApproachPage ? 1 : 0;
@@ -374,7 +381,7 @@ export function QuoteSheetPreview({
   const termsPageOffset = splitTermsPage ? 1 : 0;
 
   const totalPages =
-    4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0) + (hasTermsPage ? 1 : 0) + termsPageOffset;
+    4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0) + (hasTermsPage ? 1 : 0) + termsPageOffset + (hasSourcesPage ? 1 : 0);
   const pageLabel = (page: number) =>
     `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
   const coverHeading = isKoolhaas ? (quote.title || brand.defaultTitle) : "Offerte";
@@ -1302,6 +1309,49 @@ export function QuoteSheetPreview({
 
               <div className="spacer"></div>
               {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0) + 1))}
+            </div>
+          </section>
+        )}
+
+        {hasSourcesPage && (
+          <section className="sheet">
+            <div className="bar"></div>
+            <div className="pad">
+              <div className="ph">
+                {renderHeaderLogo()}
+                <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
+              </div>
+
+              <div className="row-badge">
+                <div>
+                  <span className="eyebrow">Technische onderbouwing</span>
+                  <h2 className="h2">Bronnen bij dit advies.</h2>
+                </div>
+              </div>
+              <p className="source-intro">
+                De belangrijkste technische uitgangspunten in deze offerte zijn gecontroleerd aan de hand van onderstaande informatie van fabrikanten en aanbieders.
+              </p>
+              <div className="source-grid">
+                {sources.map((source, index) => (
+                  <a
+                    key={source.id ?? source.url}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="source-card"
+                  >
+                    <span className="source-number">{index + 1}</span>
+                    <span className="source-copy">
+                      <strong>{source.label}</strong>
+                      {source.description && <small>{source.description}</small>}
+                      <span className="source-link">Open officiële bron <ExternalLink size={12} /></span>
+                    </span>
+                  </a>
+                ))}
+              </div>
+
+              <div className="spacer"></div>
+              {renderPageFooter(pageLabel(totalPages - 1))}
             </div>
           </section>
         )}

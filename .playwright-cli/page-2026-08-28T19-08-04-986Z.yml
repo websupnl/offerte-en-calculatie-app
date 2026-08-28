@@ -1,0 +1,20 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - heading "Offerte App" [level=1] [ref=e5]
+      - paragraph [ref=e6]: WebsUp & Koolhaas Installaties
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]: Inloggen
+        - generic [ref=e10]: Voer je gegevens in om door te gaan
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - generic [ref=e14]: E-mailadres
+          - textbox "E-mailadres" [ref=e15]:
+            - /placeholder: je@email.nl
+        - generic [ref=e16]:
+          - generic [ref=e17]: Wachtwoord
+          - textbox "Wachtwoord" [ref=e18]:
+            - /placeholder: ••••••••
+        - button "Inloggen" [ref=e19]
+  - region "Notifications alt+T"
