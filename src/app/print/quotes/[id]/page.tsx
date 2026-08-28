@@ -3,8 +3,6 @@ import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
-import { QuoteDocumentRenderer } from "@/components/quotes/quote-document-renderer";
-import { parseQuoteDocument } from "@/lib/quote-document";
 import { PrintOnLoad } from "@/components/print-on-load";
 import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
 
@@ -44,24 +42,19 @@ export default async function QuotePrintPage({
     { expiresIn: 21600 },
   );
   const serialized = JSON.parse(JSON.stringify({ ...quote, attachments, choiceGroups }));
-  const document = parseQuoteDocument(serialized.document);
 
   return (
     <main className="print-document-page">
       <PrintOnLoad enabled={auto === "1"} />
-      {document ? (
-        <QuoteDocumentRenderer document={document} quote={serialized} />
-      ) : (
-        <QuoteSheetPreview
-          quote={{
-            ...serialized,
-            acceptedAt: serialized.share?.acceptedAt ?? null,
-          }}
-          companySlug={serialized.company.slug}
-          selectedOptionIds={(serialized.share?.selectedOptionIds as string[] | undefined) ?? []}
-          isPrint
-        />
-      )}
+      <QuoteSheetPreview
+        quote={{
+          ...serialized,
+          acceptedAt: serialized.share?.acceptedAt ?? null,
+        }}
+        companySlug={serialized.company.slug}
+        selectedOptionIds={(serialized.share?.selectedOptionIds as string[] | undefined) ?? []}
+        isPrint
+      />
     </main>
   );
 }

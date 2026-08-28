@@ -113,7 +113,6 @@ model Company {
   purchaseInvoices PurchaseInvoice[]
   calculations     Calculation[]
   productDocuments ProductDocument[]
-  quoteTemplates   QuoteTemplate[]
 
   taskLists    TaskList[]
   tasks        Task[]
@@ -310,8 +309,6 @@ model Quote {
   batteryAdvice            Json?       @default("{}")
   choiceGroups             Json?       @default("[]") // [{ id: "g1", title: "Kies uw optie", type: "SINGLE_SELECT" }]
   internalAdvice           String?     @db.Text
-  document                 Json?
-  documentRevision         Int         @default(0)
   version                  Int         @default(1)
   pdfUrl                   String?
   projectId                String?
@@ -339,23 +336,6 @@ model Quote {
 
   @@index([companyId, updatedAt(sort: Desc)])
   @@index([companyId, status])
-}
-
-model QuoteTemplate {
-  id          String   @id @default(cuid())
-  companyId   String
-  name        String
-  description String?  @db.Text
-  category    String?
-  document    Json
-  createdById String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  @@unique([companyId, name])
-  @@index([companyId, updatedAt(sort: Desc)])
 }
 
 enum QuoteStatus {

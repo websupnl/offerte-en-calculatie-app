@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,6 @@ import {
   Printer,
   Mail,
   Calculator,
-  MoreHorizontal,
-  LayoutTemplate,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatDateTime, QUOTE_STATUS_LABELS } from "@/lib/format";
 import { QuoteBuilder } from "@/components/forms/quote-builder";
@@ -31,16 +29,6 @@ import { filenameFromResponse } from "@/lib/download-filename";
 import { defaultQuoteEmailMessage } from "@/lib/quote-email-copy";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { QuoteDocumentBuilder } from "@/components/quotes/quote-document-builder";
-import { QuoteDocumentRenderer } from "@/components/quotes/quote-document-renderer";
-import { parseQuoteDocument } from "@/lib/quote-document";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -123,9 +111,6 @@ type Quote = {
   intro: string | null;
   outro: string | null;
   notes: string | null;
-  category?: string | null;
-  document?: unknown;
-  documentRevision?: number;
   internalAdvice: string | null;
   choiceGroups: ChoiceGroup[] | null;
   options: OptionItem[] | null;
@@ -158,37 +143,6 @@ type Quote = {
   } | null;
 };
 
-type CalculationForBuilder = {
-  id: string;
-  number: string;
-  title: string;
-  updatedAt: string;
-  totalCostPrice: number;
-  totalSalesPrice: number;
-  marginAmount: number;
-  marginPercent: number;
-  vatRate: number;
-  items: Array<{
-    id: string;
-    description: string;
-    qty: number;
-    unit: string;
-    costPrice: number;
-    unitPrice: number;
-    vatRate: number;
-    optional: boolean;
-    hiddenOnQuote: boolean;
-  }>;
-};
-
-type QuoteTemplateSummary = {
-  id: string;
-  name: string;
-  description: string | null;
-  category: string | null;
-  document: unknown;
-};
-
 const EVENT_LABELS: Record<string, string> = {
   SENT: "Verstuurd per e-mail",
   VIEWED: "Bekeken door klant",
@@ -211,8 +165,6 @@ export function QuoteDetailClient({
   customers,
   products,
   productSets,
-  calculations,
-  quoteTemplates,
 }: {
   quote: Quote;
   company: { name: string; branding: Record<string, string> } | null;
@@ -222,11 +174,9 @@ export function QuoteDetailClient({
   customers: { id: string; name: string; email: string | null; address?: string | null; city?: string | null; zipCode?: string | null }[];
   products: { id: string; category: string; name: string; basePrice: string | number; vatRate: string | number; unit: string }[];
   productSets: { id: string; name: string; items: { productId: string; qty: string | number; product: { id: string; name: string; basePrice: string | number; vatRate: string | number; category: string; unit: string } }[] }[];
-  calculations: CalculationForBuilder[];
-  quoteTemplates: QuoteTemplateSummary[];
 }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState(quote.document ? "compose" : "view");
+  const [activeTab, setActiveTab] = useState("view");
   const [sharing, setSharing] = useState(false);
   const [openingMail, setOpeningMail] = useState(false);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
@@ -235,12 +185,10 @@ export function QuoteDetailClient({
   const [pdfReady, setPdfReady] = useState(!!quote.pdfUrl);
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
-  const persistedDocument = parseQuoteDocument(quote.document);
 
   // Sync pdfReady when quote props change (after router.refresh)
   useEffect(() => {
-    const timeout = window.setTimeout(() => setPdfReady(!!quote.pdfUrl), 0);
-    return () => window.clearTimeout(timeout);
+    setPdfReady(!!quote.pdfUrl);
   }, [quote.pdfUrl]);
 
   // Poll for PDF readiness while generating
@@ -431,23 +379,19 @@ export function QuoteDetailClient({
             {sharing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
             Delen
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-2.5 text-sm font-medium shadow-xs hover:bg-accent hover:text-accent-foreground">
-              <MoreHorizontal className="h-4 w-4" /><span className="sr-only">Meer acties</span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem onClick={handleDuplicate} disabled={duplicating}>
-                {duplicating ? <Loader2 className="animate-spin" /> : <Copy />} Offerte dupliceren
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push(`/quotes/${quote.id}/calculatie`)}>
-                <Calculator /> Calculatieoverzicht
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={handleDelete}>
-                <Trash2 /> Offerte verwijderen
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button variant="outline" size="sm" onClick={handleDuplicate} disabled={duplicating}>
+            {duplicating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
+            Dupliceren
+          </Button>
+          <Link href={`/quotes/${quote.id}/calculatie`}>
+            <Button variant="outline" size="sm">
+              <Calculator className="mr-2 h-4 w-4" />
+              Calculatie
+            </Button>
+          </Link>
+          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={handleDelete}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
@@ -540,13 +484,65 @@ export function QuoteDetailClient({
         </Card>
       )}
 
-      <div className="space-y-5">
-        <nav className="sticky top-3 z-30 mx-auto flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white/95 p-1.5 shadow-lg shadow-slate-900/5 backdrop-blur [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Offertemodus">
-          <ModeButton active={activeTab === "view"} onClick={() => setActiveTab("view")} icon={FileText}>Klantweergave</ModeButton>
-          {quote.status !== "ACCEPTED" && <ModeButton active={activeTab === "compose"} onClick={() => setActiveTab("compose")} icon={LayoutTemplate}>Bouwen</ModeButton>}
-          {quote.status !== "ACCEPTED" && <ModeButton active={activeTab === "edit"} onClick={() => setActiveTab("edit")} icon={Pencil}>Klassieke editor</ModeButton>}
-          {companySlug === "koolhaas" && <ModeButton active={activeTab === "advice"} onClick={() => setActiveTab("advice")} icon={Zap}>AI-advies</ModeButton>}
-        </nav>
+      <div className="grid gap-5 lg:grid-cols-[230px_minmax(0,1fr)]">
+        <aside className="lg:sticky lg:top-6 lg:self-start">
+          <div className="rounded-lg border bg-card p-2 shadow-sm">
+            <p className="px-2 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Offerte editor
+            </p>
+            <div className="grid gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab("view")}
+                className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
+                  activeTab === "view" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <FileText className="h-4 w-4 shrink-0" />
+                <span className="min-w-0">
+                  <span className="block font-medium">Preview</span>
+                  <span className={`block text-xs ${activeTab === "view" ? "text-primary-foreground/75" : "text-muted-foreground"}`}>
+                    Bekijk klantversie
+                  </span>
+                </span>
+              </button>
+              {quote.status !== "ACCEPTED" && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("edit")}
+                  className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
+                    activeTab === "edit" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <Pencil className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block font-medium">Bewerken</span>
+                    <span className={`block text-xs ${activeTab === "edit" ? "text-primary-foreground/75" : "text-muted-foreground"}`}>
+                      Inhoud, prijzen, opties
+                    </span>
+                  </span>
+                </button>
+              )}
+              {companySlug === "koolhaas" && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("advice")}
+                  className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
+                    activeTab === "advice" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <Zap className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block font-medium">AI advies</span>
+                    <span className={`block text-xs ${activeTab === "advice" ? "text-primary-foreground/75" : "text-muted-foreground"}`}>
+                      {quote.adviceDocuments.length} document(en)
+                    </span>
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
+        </aside>
 
         <section className="min-w-0">
         {activeTab === "view" && (
@@ -595,30 +591,14 @@ export function QuoteDetailClient({
             </Card>
           )}
 
-          {persistedDocument ? (
-            <QuoteDocumentRenderer
-              document={persistedDocument}
-              quote={{ ...quote, company: { name: company?.name, slug: companySlug } } as never}
+          <SheetScaler>
+            <QuoteSheetPreview
+              quote={quote as never}
+              companySlug={companySlug}
+              selectedOptionIds={(quote.share?.selectedOptionIds as string[] | undefined) ?? []}
             />
-          ) : (
-            <SheetScaler>
-              <QuoteSheetPreview
-                quote={quote as never}
-                companySlug={companySlug}
-                selectedOptionIds={(quote.share?.selectedOptionIds as string[] | undefined) ?? []}
-              />
-            </SheetScaler>
-          )}
+          </SheetScaler>
           </div>
-        )}
-
-        {activeTab === "compose" && quote.status !== "ACCEPTED" && (
-          <QuoteDocumentBuilder
-            quote={{ ...quote, company: { name: company?.name, slug: companySlug } } as never}
-            calculations={calculations}
-            initialTemplates={quoteTemplates}
-            companySlug={companySlug}
-          />
         )}
 
         {activeTab === "edit" && (
@@ -644,30 +624,5 @@ export function QuoteDetailClient({
         </section>
       </div>
     </div>
-  );
-}
-
-function ModeButton({
-  active,
-  onClick,
-  icon: Icon,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: typeof FileText;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${
-        active ? "bg-slate-950 text-white shadow-sm" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-      }`}
-    >
-      <Icon className="h-4 w-4" />
-      {children}
-    </button>
   );
 }

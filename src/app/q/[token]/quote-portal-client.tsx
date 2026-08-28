@@ -20,8 +20,6 @@ import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
 import { filenameFromResponse } from "@/lib/download-filename";
 import "./portal.css";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
-import { QuoteDocumentRenderer } from "@/components/quotes/quote-document-renderer";
-import { parseQuoteDocument } from "@/lib/quote-document";
 import { AcceptanceSuccess } from "./acceptance-success";
 import {
   calculateQuoteSelectionTotals,
@@ -73,7 +71,6 @@ type Quote = {
   adviceDocuments: { id: string; type: string }[];
   choiceGroups?: QuoteChoiceGroup[];
   commercial?: { priceDisplayMode?: "incl" | "excl"; [key: string]: unknown };
-  document?: unknown;
 };
 
 type Share = {
@@ -109,7 +106,6 @@ export function QuotePortalClient({
   branding: Record<string, string>;
 }) {
   const choiceGroups = quote.choiceGroups ?? [];
-  const quoteDocument = parseQuoteDocument(quote.document);
   const optionalWork = quote.options ?? [];
   const documents = quote.documents ?? [];
   const requiredOptionIds = optionalWork.filter((option) => option.required).map((option) => option.id);
@@ -355,16 +351,12 @@ export function QuotePortalClient({
 
         <div className={`portal-layout${submitted === "accepted" ? " portal-layout--full" : ""}`}>
           <div className="doc-viewer" id="offerte" ref={documentRef}>
-            {quoteDocument ? (
-              <QuoteDocumentRenderer document={quoteDocument} quote={quote as never} />
-            ) : (
               <QuoteSheetPreview
-                quote={quote}
-                companySlug={quote.company.slug}
-                selectedChoiceIds={selectedChoiceIds}
-                selectedOptionIds={selectedOptionIds}
-              />
-            )}
+              quote={quote} 
+              companySlug={quote.company.slug} 
+              selectedChoiceIds={selectedChoiceIds}
+              selectedOptionIds={selectedOptionIds}
+            />
           </div>
 
           <aside className={`sidebar no-print${submitted === "accepted" ? " hidden" : ""}`}>
