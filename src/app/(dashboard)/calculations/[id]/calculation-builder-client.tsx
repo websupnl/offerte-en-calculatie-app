@@ -627,9 +627,9 @@ export function CalculationBuilderClient({
               <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-400">
                 {formatCurrency(totals.takeHome)}
               </p>
-              <span className="text-[11px] text-emerald-300 font-medium">Materiaalmarge + volledige uuromzet</span>
+              <span className="text-[11px] text-emerald-300 font-medium">Verkoop min materiaal (uren zijn voor jou)</span>
               <p className="mt-1 text-sm font-semibold tabular-nums text-slate-300">
-                {formatCurrency(totals.margin)} <span className="text-[11px] font-normal text-slate-500">zuivere brutowinst</span>
+                {formatCurrency(totals.laborSales)} <span className="text-[11px] font-normal text-slate-500">waarvan uuromzet</span>
               </p>
             </CardContent>
           </Card>
@@ -642,7 +642,7 @@ export function CalculationBuilderClient({
               <p className="mt-2 text-3xl font-extrabold tabular-nums text-emerald-300">
                 {totals.takeHomePct.toFixed(1)}%
               </p>
-              <span className="text-[11px] text-emerald-400">Van omzet · zuiver {totals.marginPct.toFixed(1)}%</span>
+              <span className="text-[11px] text-emerald-400">Wat je overhoudt / omzet</span>
             </CardContent>
           </Card>
         </div>

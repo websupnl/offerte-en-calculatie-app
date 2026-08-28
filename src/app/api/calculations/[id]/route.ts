@@ -94,7 +94,8 @@ export async function PUT(
     const itemSales = item.qty * calculatedUnitPrice;
 
     if (!item.optional) {
-      totalCostPrice += itemCost;
+      // Uren zijn eigen arbeid, geen inkoopkost — telt niet mee als kostprijs
+      if (item.type !== "LABOR") totalCostPrice += itemCost;
       totalSalesPrice += itemSales;
     }
 

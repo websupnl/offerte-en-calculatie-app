@@ -89,7 +89,8 @@ export async function POST(req: NextRequest) {
       : Math.round(item.costPrice * (1 + item.markupPercent / 100) * 100) / 100;
     const itemSales = item.qty * calculatedUnitPrice;
 
-    totalCostPrice += itemCost;
+    // Uren zijn eigen arbeid, geen inkoopkost — telt niet mee als kostprijs
+    if (item.type !== "LABOR") totalCostPrice += itemCost;
     totalSalesPrice += itemSales;
 
     return {
