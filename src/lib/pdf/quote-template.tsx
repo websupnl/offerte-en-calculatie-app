@@ -1,12 +1,11 @@
+/* eslint-disable jsx-a11y/alt-text -- @react-pdf/renderer Image is geen DOM-afbeelding en ondersteunt geen alt-attribuut */
 import {
   Document,
   Image,
   Link,
   Page,
-  StyleSheet,
   Text,
   View,
-  Font,
 } from "@react-pdf/renderer";
 import { readFileSync } from "node:fs";
 import {
@@ -353,7 +352,7 @@ function PageHeader({ brand, quoteNumber, customerName }: { brand: BrandConfig; 
 
 // ─── Divider ──────────────────────────────────────────────────────────────────
 
-function Divider({ color }: { color: string }) {
+function Divider() {
   return <View style={{ height: 1, backgroundColor: "#F1F5F9", marginVertical: 16 }} />;
 }
 
@@ -397,7 +396,6 @@ function PageFooter({ tag, customerName }: { tag: string; customerName: string }
 
 export function QuotePDF({
   companySlug,
-  companyTagline,
   quoteNumber,
   quoteDate,
   validUntil,
@@ -407,14 +405,12 @@ export function QuotePDF({
   customerZip,
   title: titleProp,
   category: categoryProp,
-  tagline: taglineProp,
   intro,
   outro,
   items,
   totalExVat,
   totalVat,
   totalIncVat,
-  itemsHeader,
   status,
   acceptedAt,
   flow: flowProp = [],
@@ -439,7 +435,6 @@ export function QuotePDF({
   const exclusions = exclusionsProp;
   const title = titleProp || brand.defaultTitle;
   const category = categoryProp || brand.defaultCategory;
-  const tagline = taglineProp || companyTagline || brand.defaultTagline;
   const showChoiceGroups = choiceGroupsProp.length > 0 && status !== "ACCEPTED";
   const showExVat = commercialProp?.priceDisplayMode === "excl";
   const priceLabel = showExVat ? "excl. btw" : "incl. btw";
@@ -467,7 +462,6 @@ export function QuotePDF({
   const coverDark = !isKoolhaas;
   const coverText = coverDark ? "#FFFFFF" : brand.colors.text;
   const coverMuted = coverDark ? "rgba(255,255,255,0.50)" : brand.colors.muted;
-  const coverSoft = coverDark ? "rgba(255,255,255,0.09)" : brand.colors.surface;
   const coverBorder = coverDark ? "rgba(255,255,255,0.13)" : brand.colors.border;
 
   return (
@@ -643,7 +637,7 @@ export function QuotePDF({
           ))}
         </View>
 
-        {approach.length > 0 && <Divider color={brand.colors.border} />}
+        {approach.length > 0 && <Divider />}
         </>
         )}
 
@@ -927,7 +921,7 @@ export function QuotePDF({
           </View>
         ))}
 
-        <Divider color={brand.colors.border} />
+        <Divider />
 
         {options.length > 0 && (
           <>
@@ -1084,7 +1078,7 @@ export function QuotePDF({
                 </View>
               ))}
             </View>
-            <Divider color={brand.colors.border} />
+            <Divider />
           </>
         )}
 
@@ -1096,7 +1090,7 @@ export function QuotePDF({
 
         {(planningProp || commercialProp) && (
           <>
-            <Divider color={brand.colors.border} />
+            <Divider />
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14, marginBottom: 4 }}>
               {planningProp?.leadTime && (
                 <View style={{ minWidth: 180 }}>
@@ -1126,7 +1120,7 @@ export function QuotePDF({
           </>
         )}
 
-        <Divider color={brand.colors.border} />
+        <Divider />
 
         {/* Sign */}
         <Eyebrow text={isKoolhaas ? "Akkoord voor uitvoering" : "Volgende stap"} color={brand.colors.muted} />

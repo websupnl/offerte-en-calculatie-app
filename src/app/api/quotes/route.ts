@@ -152,8 +152,11 @@ export async function POST(req: NextRequest) {
       items: itemsWithTotals.length ? { create: itemsWithTotals } : undefined,
       attachments: attachments?.length
         ? {
-            create: attachments.map(({ id: _id, ...attachment }, sortOrder) => ({
-              ...attachment,
+            create: attachments.map((attachment, sortOrder) => ({
+              title: attachment.title,
+              imageUrl: attachment.imageUrl,
+              liveUrl: attachment.liveUrl,
+              caption: attachment.caption,
               sortOrder,
             })),
           }

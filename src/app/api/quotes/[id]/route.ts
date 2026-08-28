@@ -222,7 +222,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     // Replace items
     await prisma.quoteItem.deleteMany({ where: { quoteId: id } });
     await prisma.quoteItem.createMany({
-      data: itemsWithTotals.map(({ id: _id, ...item }) => ({ ...item, quoteId: id })),
+      data: itemsWithTotals.map((item) => ({
+        quoteId: id,
+        productId: item.productId,
+        description: item.description,
+        qty: item.qty,
+        unitPrice: item.unitPrice,
+        costPrice: item.costPrice,
+        vatRate: item.vatRate,
+        total: item.total,
+        sortOrder: item.sortOrder,
+        indent: item.indent,
+        type: item.type,
+        hiddenOnQuote: item.hiddenOnQuote,
+      })),
     });
   }
 
@@ -230,9 +243,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     await prisma.quoteAttachment.deleteMany({ where: { quoteId: id } });
     if (attachments.length) {
       await prisma.quoteAttachment.createMany({
-        data: attachments.map(({ id: _id, ...attachment }, sortOrder) => ({
-          ...attachment,
+        data: attachments.map((attachment, sortOrder) => ({
           quoteId: id,
+          title: attachment.title,
+          imageUrl: attachment.imageUrl,
+          liveUrl: attachment.liveUrl,
+          caption: attachment.caption,
+          section: attachment.section,
           sortOrder,
         })),
       });

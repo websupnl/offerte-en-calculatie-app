@@ -137,7 +137,7 @@ function SectionTable({ title, lines, intern }: { title: string; lines: Line[]; 
 
 export function CalculatieExportClient({ quote }: { quote: QuoteForExport }) {
   const [intern, setIntern] = useState(true);
-  const choiceGroups = quote.choiceGroups ?? [];
+  const choiceGroups = useMemo(() => quote.choiceGroups ?? [], [quote.choiceGroups]);
 
   const grandTotal = useMemo(() => {
     const allLines = [...quote.items, ...choiceGroups.flatMap((g) => g.choices.flatMap((c) => c.items))];

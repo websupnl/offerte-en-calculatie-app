@@ -1857,7 +1857,7 @@ app.post("/mcp", async (req: Request, res: Response) => {
     const server = createMcpServer();
     await server.connect(transport);
     await transport.handleRequest(req, res, req.body);
-  } catch (err) {
+  } catch {
     if (!res.headersSent) {
       res.status(500).json({ error: "Internal server error" });
     }

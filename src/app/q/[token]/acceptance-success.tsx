@@ -1,20 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, ArrowDown, Sparkles, Download, Loader2 } from "lucide-react";
+import { ArrowDown, Sparkles, Download, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { filenameFromResponse } from "@/lib/download-filename";
 
 interface AcceptanceSuccessProps {
-  customerName: string;
   quoteTitle: string;
   signerName: string;
   isKoolhaas: boolean;
   selectedChoices: Array<{ groupTitle: string; choiceTitle: string }>;
   selectedOptions: Array<{ title: string }>;
   baseItems: Array<{ description: string; unitPrice: number; qty: number }>;
-  totalExVat: number;
-  totalIncVat: number;
   priceLabel: string;
   displayedTotal: number;
   onScrollToQuote: () => void;
@@ -23,15 +20,12 @@ interface AcceptanceSuccessProps {
 }
 
 export function AcceptanceSuccess({
-  customerName,
   quoteTitle,
   signerName,
   isKoolhaas,
   selectedChoices,
   selectedOptions,
   baseItems,
-  totalExVat,
-  totalIncVat,
   priceLabel,
   displayedTotal,
   onScrollToQuote,

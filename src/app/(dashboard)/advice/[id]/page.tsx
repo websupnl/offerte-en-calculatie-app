@@ -14,13 +14,10 @@ export default async function EditAdvicePage({
 
   const companyId = session.user.activeCompanyId;
   
-  const [customers, company, adviceReport] = await Promise.all([
+  const [customers, adviceReport] = await Promise.all([
     prisma.customer.findMany({
       where: { companyId },
       orderBy: { name: "asc" },
-    }),
-    prisma.company.findUnique({
-      where: { id: companyId },
     }),
     prisma.adviceDocument.findUnique({
       where: { id, companyId },
@@ -35,8 +32,6 @@ export default async function EditAdvicePage({
   return (
     <AdviceBuilder 
       customers={customers} 
-      companyName={company?.name || "Koolhaas Installaties"} 
-      companySlug={company?.slug || "koolhaas"}
       initialAdvice={serializedAdvice}
     />
   );

@@ -627,6 +627,7 @@ export function AgendaClient({
       </div>
 
       <NewEventDialog
+        key={createDefaults ? `${createDefaults.date.toISOString()}-${createDefaults.minutes}-${createDefaults.title ?? ""}` : "closed"}
         open={createDefaults !== null}
         onOpenChange={(open) => { if (!open) setCreateDefaults(null); }}
         defaults={createDefaults}
@@ -656,26 +657,14 @@ function NewEventDialog({
   projects: Project[];
   onCreated: (task: AgendaTask) => void;
 }) {
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(defaults?.title ?? "");
   const [scope, setScope] = useState<Scope>(hasCompany ? "business" : "private");
   const [allDay, setAllDay] = useState(false);
-  const [date, setDate] = useState("");
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("10:00");
+  const [date, setDate] = useState(defaults ? toDateValue(defaults.date) : "");
+  const [startTime, setStartTime] = useState(defaults ? toTimeValue(defaults.minutes) : "09:00");
+  const [endTime, setEndTime] = useState(defaults ? toTimeValue(defaults.minutes + 60) : "10:00");
   const [projectId, setProjectId] = useState<string>("none");
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!open || !defaults) return;
-    setTitle(defaults.title ?? "");
-    setScope(hasCompany ? "business" : "private");
-    setAllDay(false);
-    setDate(toDateValue(defaults.date));
-    setStartTime(toTimeValue(defaults.minutes));
-    setEndTime(toTimeValue(defaults.minutes + 60));
-    setProjectId("none");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, defaults?.date, defaults?.minutes, defaults?.title]);
 
   async function submit() {
     if (!title.trim() || !date) return;

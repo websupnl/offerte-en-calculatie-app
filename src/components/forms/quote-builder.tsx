@@ -2451,6 +2451,7 @@ export function QuoteBuilder({
                       {attachments.map((attachment) => (
                         <div key={attachment.id} className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
                           {attachment.imageUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element -- directe preview van een upload/blob-URL
                             <img
                               src={attachment.imageUrl}
                               alt=""

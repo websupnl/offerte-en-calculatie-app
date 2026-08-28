@@ -115,7 +115,26 @@ export async function calculateDonnaQuote(ref: string, instruction?: string, ide
     ? [quote.notes, `Donna-calculatie-instructie: ${instruction}`, marker].filter(Boolean).join("\n\n")
     : quote.notes;
   await prisma.$transaction(async (tx) => {
-    if (items.length) { await tx.quoteItem.deleteMany({ where: { quoteId: ref } }); await tx.quoteItem.createMany({ data: items.map(({ id: _id, quoteId: _quoteId, ...item }) => ({ ...item, quoteId: ref })) }); }
+    if (items.length) {
+      await tx.quoteItem.deleteMany({ where: { quoteId: ref } });
+      await tx.quoteItem.createMany({
+        data: items.map((item) => ({
+          quoteId: ref,
+          productId: item.productId,
+          description: item.description,
+          qty: item.qty,
+          unitPrice: item.unitPrice,
+          costPrice: item.costPrice,
+          vatRate: item.vatRate,
+          total: item.total,
+          sortOrder: item.sortOrder,
+          indent: item.indent,
+          type: item.type,
+          choiceGroupId: item.choiceGroupId,
+          hiddenOnQuote: item.hiddenOnQuote,
+        })),
+      });
+    }
     await tx.quote.update({ where: { id: ref }, data: { totalExVat: totals.revenueExVat, totalVat: totals.vat, totalIncVat: totals.revenueIncVat, notes, pdfUrl: null } });
   });
   return loadDonnaQuote(ref);

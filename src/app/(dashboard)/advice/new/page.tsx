@@ -13,15 +13,5 @@ export default async function NewAdvicePage() {
     orderBy: { name: "asc" },
   });
 
-  const company = await prisma.company.findUnique({
-    where: { id: companyId },
-  });
-
-  return (
-    <AdviceBuilder 
-      customers={customers} 
-      companyName={company?.name || "Koolhaas Installaties"} 
-      companySlug={company?.slug || "koolhaas"}
-    />
-  );
+  return <AdviceBuilder customers={customers} />;
 }

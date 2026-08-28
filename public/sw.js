@@ -76,7 +76,7 @@ self.addEventListener("push", function (event) {
   var data = {};
   try {
     data = event.data ? event.data.json() : {};
-  } catch (error) {
+  } catch {
     data = { title: "Werkplek", body: event.data ? event.data.text() : "" };
   }
 

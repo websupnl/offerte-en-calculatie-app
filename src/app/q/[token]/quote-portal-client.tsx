@@ -155,11 +155,13 @@ export function QuotePortalClient({
     ? {
         name: "Koolhaas Installaties",
         website: "koolhaasinstallaties.nl",
+        // eslint-disable-next-line @next/next/no-img-element -- klantportaal rendert dynamische merkassets in print en web
         logo: <img src="/logos/koolhaas-lockup-white.png" alt="Koolhaas Installaties" />,
       }
     : {
         name: "WebsUp.nl",
         website: "websup.nl",
+        // eslint-disable-next-line @next/next/no-img-element -- klantportaal rendert dynamische merkassets in print en web
         logo: <img src="/logos/websup-lockup-white.png" alt="WebsUp.nl" />,
       };
 
@@ -326,7 +328,6 @@ export function QuotePortalClient({
 
         {submitted === "accepted" && (
           <AcceptanceSuccess
-            customerName={quote.customer.name}
             quoteTitle={quote.title || quote.category || "Offerte"}
             signerName={signerName}
             isKoolhaas={isKoolhaas}
@@ -344,8 +345,6 @@ export function QuotePortalClient({
               unitPrice: Number(i.unitPrice),
               qty: Number(i.qty),
             }))}
-            totalExVat={totals.totalExVat}
-            totalIncVat={totals.totalIncVat}
             priceLabel={priceLabel}
             displayedTotal={showExVat ? totals.totalExVat : totals.totalIncVat}
             accentColor={isKoolhaas ? "#0e7490" : "#7c3aed"}
@@ -741,6 +740,7 @@ export function QuotePortalClient({
                 const inner = (
                   <div className="portal-preview-card">
                     <div className="portal-preview-img">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- URL kan een tijdelijke opslag-URL zijn */}
                       <img src={attachment.imageUrl} alt={attachment.title || "Voorbeeldontwerp"} />
                     </div>
                     {(attachment.title || attachment.caption) && (

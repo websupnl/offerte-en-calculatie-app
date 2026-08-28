@@ -331,6 +331,7 @@ export function QuoteSheetPreview({
       <div className="section-figure">
         {imgs.map((att, i) => (
           <figure className="section-figure-item" key={att.id ?? `${att.imageUrl}-${i}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- offerte-afbeeldingen kunnen tijdelijke opslag-URL's zijn */}
             <img src={att.imageUrl} alt={att.title || "Afbeelding bij deze sectie"} />
             {att.caption && <figcaption>{att.caption}</figcaption>}
           </figure>
@@ -450,16 +451,20 @@ export function QuoteSheetPreview({
 
   const renderHeaderLogo = (cover = false) => {
     if (isKoolhaas) {
+      // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout gebruikt intrinsieke CSS-afmetingen
       return <img src="/logos/koolhaas-logo-tight.png" alt="Koolhaas Installaties" className={cover ? "brand-logo brand-logo-cover" : "brand-logo"} />;
     }
+    // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout gebruikt intrinsieke CSS-afmetingen
     return <img src="/logos/websup-cover.png" alt="WebsUp" className={cover ? "brand-logo brand-logo-cover" : "brand-logo"} />;
   };
 
   const renderPageFooter = (pageNo: string) => (
     <div className="doc-foot">
       {isKoolhaas ? (
+        // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout gebruikt intrinsieke CSS-afmetingen
         <img src="/logos/koolhaas-logo-tight.png" alt="Koolhaas Installaties" className="brand-logo doc-foot-brand-logo" />
       ) : (
+        // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout gebruikt intrinsieke CSS-afmetingen
         <img src="/logos/websup-icon.png" alt="WebsUp" className="doc-foot-icon" />
       )}
       <div className="doc-foot-meta">
@@ -892,7 +897,10 @@ export function QuoteSheetPreview({
                   </div>
                 </div>
                 <div className="cov-foot">
-                  {!isKoolhaas && <img src="/logos/websup-icon-w.png" alt="" className="cov-foot-icon" />}
+                  {!isKoolhaas && (
+                    // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout gebruikt intrinsieke CSS-afmetingen
+                    <img src="/logos/websup-icon-w.png" alt="" className="cov-foot-icon" />
+                  )}
                   <span><small>Web</small><b>{brand.website}</b></span>
                   <span><small>Mail</small><b>{brand.email}</b></span>
                   <span><small>Telefoon</small><b>{brand.phone}</b></span>
@@ -935,6 +943,7 @@ export function QuoteSheetPreview({
             />
             <div className="sig">
               <div className="sig-av">
+                {/* eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout gebruikt intrinsieke CSS-afmetingen */}
                 <img src="/logos/daan-koolhaas.jpg" alt="Daan Koolhaas" />
               </div>
               <div>
@@ -1042,6 +1051,7 @@ export function QuoteSheetPreview({
               <figure className="design-full design-full-preview">
                 <div className="design-full-frame">
                   {attachment.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- offerte-afbeeldingen kunnen tijdelijke opslag-URL's zijn
                     <img
                       src={attachment.imageUrl}
                       alt={attachment.title || `Ontwerpvoorbeeld ${index + 1}`}
@@ -1336,6 +1346,7 @@ export function QuoteSheetPreview({
                 <div className="sign-who">Namens opdrachtnemer</div>
                 <div className="sign-org">{brand.contractor}</div>
                 <div className="sign-signature-slot">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- handtekening volgt de vaste printlayout */}
                   <img src="/signatures/daan-koolhaas-signature.png" alt="Handtekening" className="sign-signature-img" />
                 </div>
               </div>

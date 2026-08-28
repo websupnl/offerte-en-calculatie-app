@@ -8,10 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/layout/page-header";
-import { ArticlePickerDialog, type ArticlePickerProduct } from "@/components/products/article-picker-dialog";
+import { ArticlePickerDialog } from "@/components/products/article-picker-dialog";
 import { SearchablePopoverSelect } from "@/components/forms/searchable-popover-select";
 import { SupplierSelect } from "@/components/forms/supplier-select";
 import { toast } from "sonner";
@@ -24,7 +23,6 @@ import {
   Trash2,
   Clock,
   Layers,
-  Wand2,
   TrendingUp,
   Loader2,
   Percent,
@@ -33,11 +31,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import {
-  formatCurrency,
-  CALCULATION_STATUS_LABELS,
-  CALCULATION_STATUS_COLORS,
-} from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import { estimateTravelDistanceKm, getTravelPrice, type TravelPricingTier } from "@/lib/travel";
 
 type ProductOption = {
@@ -205,11 +199,11 @@ export function CalculationBuilderClient({
 
   // Form Header State
   const [title, setTitle] = useState(initialCalculation.title);
-  const [description, setDescription] = useState(initialCalculation.description ?? "");
-  const [notes, setNotes] = useState(initialCalculation.notes ?? "");
+  const description = initialCalculation.description ?? "";
+  const notes = initialCalculation.notes ?? "";
   const [customerId, setCustomerId] = useState(initialCalculation.customerId ?? "");
   const [projectId, setProjectId] = useState(initialCalculation.projectId ?? "");
-  const [status, setStatus] = useState(initialCalculation.status);
+  const status = initialCalculation.status;
 
   const [saving, setSaving] = useState(false);
   const [converting, setConverting] = useState(false);
@@ -254,18 +248,18 @@ export function CalculationBuilderClient({
   }, [items]);
 
   // Helper to update a single item property and recalculate prices
-  function updateItem(index: number, field: keyof CalculationItemState, val: any) {
+  function updateItem(index: number, field: keyof CalculationItemState, val: CalculationItemState[keyof CalculationItemState]) {
     setItems((prev) => {
       const copy = [...prev];
       const current = { ...copy[index], [field]: val };
 
       // Recalculate cost, markup or unitPrice based on edited field
       if (field === "costPrice" || field === "markupPercent" || field === "qty") {
-        const cost = field === "costPrice" ? parseFloat(val) || 0 : current.costPrice;
-        const markup = field === "markupPercent" ? parseFloat(val) || 0 : current.markupPercent;
+        const cost = field === "costPrice" ? parseFloat(String(val)) || 0 : current.costPrice;
+        const markup = field === "markupPercent" ? parseFloat(String(val)) || 0 : current.markupPercent;
         current.unitPrice = Math.round(cost * (1 + markup / 100) * 100) / 100;
       } else if (field === "unitPrice") {
-        const unitP = parseFloat(val) || 0;
+        const unitP = parseFloat(String(val)) || 0;
         if (current.costPrice > 0) {
           current.markupPercent = Math.round(((unitP - current.costPrice) / current.costPrice) * 1000) / 10;
         }

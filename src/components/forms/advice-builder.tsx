@@ -15,7 +15,6 @@ import {
   ArrowLeft, 
   Save, 
   ChevronDown, 
-  User, 
   FileText,
   Activity,
   Zap,
@@ -25,7 +24,6 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { formatCurrency } from "@/lib/format";
 
 type Customer = { id: string; name: string; email: string | null };
 type AdviceScenario = { name: string; capacityKwh: number; goal: string };
@@ -45,23 +43,17 @@ type AdviceData = {
 
 export function AdviceBuilder({
   customers,
-  companyName,
-  companySlug,
   initialAdvice,
 }: {
   customers: Customer[];
-  companyName: string;
-  companySlug: string;
   initialAdvice?: AdviceData;
 }) {
   const router = useRouter();
   
   // State
   const [customerId, setCustomerId] = useState(initialAdvice?.customerId || "");
-  const [title, setTitle] = useState(initialAdvice?.title || "Energie-advies Thuisbatterij");
   const [intakePrompt, setIntakePrompt] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
 
@@ -161,7 +153,7 @@ export function AdviceBuilder({
             </PopoverContent>
           </Popover>
 
-          <Button disabled={!adviceData || saving} className="bg-blue-600 hover:bg-blue-700">
+          <Button disabled={!adviceData} className="bg-blue-600 hover:bg-blue-700">
             <Save className="mr-2 h-4 w-4" /> Rapport Opslaan
           </Button>
         </div>
