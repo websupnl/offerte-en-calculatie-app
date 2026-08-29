@@ -1,0 +1,455 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - img "Koolhaas Installaties" [ref=e5]
+        - generic [ref=e6]: Offerte portaal
+      - generic [ref=e7]:
+        - img [ref=e8]
+        - text: Beveiligde verbinding
+    - main [ref=e10]:
+      - region "Offerte overzicht" [ref=e11]:
+        - generic [ref=e12]:
+          - paragraph [ref=e13]: KI-2026-0009
+          - heading "Vervanging laadpunt en slimme energiesturing" [level=1] [ref=e14]
+          - paragraph [ref=e15]: Bauke Braaksma · Koolhaas Installaties
+        - generic [ref=e16]:
+          - img [ref=e17]
+          - generic [ref=e20]: Geldig tot 23-09-2026
+      - generic [ref=e21]:
+        - generic [ref=e24]:
+          - generic [ref=e29]:
+            - generic [ref=e30]:
+              - img "Koolhaas Installaties" [ref=e31]
+              - generic [ref=e33]:
+                - term [ref=e34]: Offertenummer
+                - definition [ref=e35]: KI-2026-0009
+                - term [ref=e36]: Datum
+                - definition [ref=e37]: 29-08-2026
+                - term [ref=e38]: Geldig tot
+                - definition [ref=e39]: 23-09-2026
+                - term [ref=e40]: Contactpersoon
+                - definition [ref=e41]: Daan Koolhaas
+            - generic [ref=e44]:
+              - generic [ref=e45]: Offerte
+              - heading "Vervanging laadpunt en slimme energiesturing" [level=1] [ref=e46]
+              - text: Sigen EV AC, dynamische load balancing en optionele warmtepompsturing
+              - generic [ref=e47]:
+                - generic [ref=e48]: Voor
+                - generic [ref=e49]: Bauke Braaksma
+                - generic [ref=e50]: Hogeveensweg 10, 8415 AE Bontebok
+            - generic [ref=e51]:
+              - generic [ref=e52]:
+                - generic [ref=e53]: Web
+                - generic [ref=e54]: koolhaasinstallaties.nl
+              - generic [ref=e55]:
+                - generic [ref=e56]: Mail
+                - generic [ref=e57]: info@koolhaasinstallaties.nl
+              - generic [ref=e58]:
+                - generic [ref=e59]: Telefoon
+                - generic [ref=e60]: 06 82 20 21 48
+              - generic [ref=e61]:
+                - generic [ref=e62]: KVK
+                - generic [ref=e63]: "95524061"
+          - generic [ref=e66]:
+            - generic [ref=e67]:
+              - img "Koolhaas Installaties" [ref=e68]
+              - generic [ref=e69]: KI-2026-0009 · Bauke Braaksma
+            - generic [ref=e71]: Toelichting op mijn voorstel
+            - heading "Vervanging laadpunt en slimme energiesturing" [level=2] [ref=e72]
+            - generic [ref=e73]:
+              - paragraph [ref=e74]: Beste Bauke,
+              - paragraph [ref=e75]: Ik ben gevraagd om mee te denken over het laadprobleem sinds uw overstap naar de Kia EV3, en hoe uw installaties slimmer kunnen samenwerken. De Kia EV3 vraagt namelijk langer een hoger vermogen dan uw eerdere hybride auto, waardoor de huidige capaciteit van uw 3x25A-aansluiting kan worden overschreden als andere grote energieverbruikers in huis tegelijkertijd actief zijn.
+              - paragraph [ref=e76]: Mijn advies is het Webasto Pure-laadpunt te vervangen door een Sigen EV AC met 11 kW en dynamische load balancing, welke zal samenwerken met uw bestaande SigenStor-thuisbatterij en Solaredge-zonnepanelen. Deze oplossing voorkomt dat de hoofdaansluiting wordt overbelast door het laadvermogen aan te passen aan het actuele verbruik in huis, zonder dat andere systemen in de weg zitten.
+              - paragraph [ref=e77]: Met deze aanpak kunt u genieten van efficiënter energiegebruik, slimmer laden en lagere energiekosten door gebruik te maken van zonne-overschotten en dynamische energietarieven. Bovendien blijft de al aanwezige apparatuur, zoals de SolarEdge-installatie, intact.
+              - paragraph [ref=e78]: Voorafgaand aan de uitvoering controleer ik dat de Sigen Power Sensor correct ingesteld is als hoofdmeting, zodat deze het totale energieverbruik en de teruglevering nauwkeurig registreert.
+            - generic [ref=e79]:
+              - img "Daan Koolhaas" [ref=e81]
+              - generic [ref=e82]:
+                - generic [ref=e83]: Daan Koolhaas
+                - generic [ref=e84]: Koolhaas Installaties
+            - generic [ref=e85]:
+              - img "Koolhaas Installaties" [ref=e86]
+              - generic [ref=e87]:
+                - generic [ref=e88]:
+                  - generic [ref=e89]: info@koolhaasinstallaties.nl
+                  - generic [ref=e90]: 06 82 20 21 48
+                  - generic [ref=e91]: KVK 95524061
+                - generic [ref=e92]:
+                  - generic [ref=e93]: Geldig tot 23-09-2026
+                  - generic [ref=e94]: 02 / 09
+          - generic [ref=e97]:
+            - generic [ref=e98]:
+              - img "Koolhaas Installaties" [ref=e99]
+              - generic [ref=e100]: KI-2026-0009 · Bauke Braaksma
+            - generic [ref=e102]:
+              - generic [ref=e103]: Werking van de installatie
+              - heading "Zo werkt het in de praktijk." [level=2] [ref=e104]
+            - generic [ref=e105]:
+              - generic [ref=e106]:
+                - generic [ref=e107]: "01"
+                - generic [ref=e108]:
+                  - heading "Dynamische load balancing" [level=4] [ref=e109]
+                  - paragraph [ref=e110]: Het laadvermogen past zich aan het actuele stroomverbruik in de woning aan. Zo wordt de 3x25A-aansluiting benut zonder dat het laadpunt andere grote verbruikers negeert. [1]
+              - generic [ref=e111]:
+                - generic [ref=e112]: "02"
+                - generic [ref=e113]:
+                  - heading "Laden op zonne-overschot" [level=4] [ref=e114]
+                  - paragraph [ref=e115]: Wanneer de hoofdmeting netto teruglevering ziet, kan het beschikbare overschot worden gebruikt om de auto te laden. De bestaande SolarEdge-installatie kan behouden blijven. [1]
+              - generic [ref=e116]:
+                - generic [ref=e117]: "03"
+                - generic [ref=e118]:
+                  - heading "Laden bij dynamische prijzen" [level=4] [ref=e119]
+                  - paragraph [ref=e120]: Sigenergy ondersteunt dynamische tarieven en kan laadmomenten verschuiven naar goedkopere perioden. Tibber rekent de elektriciteitsprijs af op basis van EPEX Day Ahead-prijzen. [1] [4]
+              - generic [ref=e121]:
+                - generic [ref=e122]: "04"
+                - generic [ref=e123]:
+                  - heading "Afstemming met de thuisbatterij" [level=4] [ref=e124]
+                  - paragraph [ref=e125]: De SigenStor en het laadpunt werken binnen hetzelfde energiesysteem. Daardoor kunnen zonne-energie, batterij en autoladen vanuit dezelfde meting en laadstrategie worden aangestuurd. [1]
+              - generic [ref=e126]:
+                - generic [ref=e127]: "05"
+                - generic [ref=e128]:
+                  - heading "Warmte maken op een gunstig moment" [level=4] [ref=e129]
+                  - paragraph [ref=e130]: Met SG Ready kan de warmtepomp een signaal krijgen voor een verhoogde bedrijfsstand, bijvoorbeeld bij zonne-overschot. De warmtepomp bewaakt zelf haar temperaturen en beveiligingen. [2]
+              - generic [ref=e131]:
+                - generic [ref=e132]: "06"
+                - generic [ref=e133]:
+                  - heading "V2G en V2H" [level=4] [ref=e134]
+                  - paragraph [ref=e135]: De Sigen EV AC is niet bidirectioneel. De Kia EV3 is voorbereid op V2G en V2H, maar deze functies zijn in Nederland nog niet regulier beschikbaar. Easee Charge Max is hardwarematig voorbereid, zonder dat dit de dienst vandaag beschikbaar maakt. [3] [5]
+            - generic [ref=e136]:
+              - img "Koolhaas Installaties" [ref=e137]
+              - generic [ref=e138]:
+                - generic [ref=e139]:
+                  - generic [ref=e140]: info@koolhaasinstallaties.nl
+                  - generic [ref=e141]: 06 82 20 21 48
+                  - generic [ref=e142]: KVK 95524061
+                - generic [ref=e143]:
+                  - generic [ref=e144]: Geldig tot 23-09-2026
+                  - generic [ref=e145]: 03 / 09
+          - generic [ref=e148]:
+            - generic [ref=e149]:
+              - img "Koolhaas Installaties" [ref=e150]
+              - generic [ref=e151]: KI-2026-0009 · Bauke Braaksma
+            - generic [ref=e152]:
+              - generic [ref=e153]:
+                - generic [ref=e154]: Mogelijke systemen
+                - heading "Kies de uitvoering die bij uw situatie past" [level=3] [ref=e155]
+                - paragraph [ref=e156]: Beide opties vervangen het bestaande Webasto-laadpunt. Optie 2 voegt daar de SG Ready-sturing van de warmtepomp aan toe.
+              - generic [ref=e157]: Optie 1 / 2
+            - generic [ref=e158]:
+              - generic [ref=e159]:
+                - heading "Sigen EV AC 11 kW met slim energiebeheer" [level=4] [ref=e160]
+                - generic [ref=e161]: Aanbevolen
+              - paragraph [ref=e162]: Het nieuwe laadpunt wordt onderdeel van de bestaande Sigenergy-installatie en ingesteld voor dynamische load balancing, laden op zonne-overschot en slim laden bij dynamische tarieven.
+              - list [ref=e163]:
+                - listitem [ref=e164]:
+                  - img [ref=e165]
+                  - generic [ref=e167]: Sigenergy Sigen EV 11 kW AC Charger
+                - listitem [ref=e168]:
+                  - img [ref=e169]
+                  - generic [ref=e171]: Voorrijkosten (± 61 km enkele reis)
+                - listitem [ref=e172]:
+                  - img [ref=e173]
+                  - generic [ref=e175]: Arbeidsuren installatie / montage
+              - generic [ref=e176]:
+                - generic [ref=e177]: Geselecteerd
+                - strong [ref=e178]: € 1.181,69 incl. btw
+            - generic [ref=e179]:
+              - img "Koolhaas Installaties" [ref=e180]
+              - generic [ref=e181]:
+                - generic [ref=e182]:
+                  - generic [ref=e183]: info@koolhaasinstallaties.nl
+                  - generic [ref=e184]: 06 82 20 21 48
+                  - generic [ref=e185]: KVK 95524061
+                - generic [ref=e186]:
+                  - generic [ref=e187]: Geldig tot 23-09-2026
+                  - generic [ref=e188]: 04 / 09
+          - generic [ref=e191]:
+            - generic [ref=e192]:
+              - img "Koolhaas Installaties" [ref=e193]
+              - generic [ref=e194]: KI-2026-0009 · Bauke Braaksma
+            - generic [ref=e195]:
+              - generic [ref=e196]:
+                - generic [ref=e197]: Mogelijke systemen
+                - heading "Kies de uitvoering die bij uw situatie past" [level=3] [ref=e198]
+                - paragraph [ref=e199]: Beide opties vervangen het bestaande Webasto-laadpunt. Optie 2 voegt daar de SG Ready-sturing van de warmtepomp aan toe.
+              - generic [ref=e200]: Optie 2 / 2
+            - generic [ref=e201]:
+              - heading "Sigen EV AC met SG Ready-warmtepompsturing" [level=4] [ref=e203]
+              - paragraph [ref=e204]: Deze uitvoering bevat alles uit optie 1 en voegt een koppeling toe waarmee de Alpha Innotec-warmtepomp op gunstige energiemomenten naar een verhoogde bedrijfsstand kan gaan.
+              - list [ref=e205]:
+                - listitem [ref=e206]:
+                  - img [ref=e207]
+                  - generic [ref=e209]: Sigenergy Sigen EV 11 kW AC Charger
+                - listitem [ref=e210]:
+                  - img [ref=e211]
+                  - generic [ref=e213]: Mean Well HDR-30-12 DIN-railvoeding
+                - listitem [ref=e214]:
+                  - img [ref=e215]
+                  - generic [ref=e217]: Finder 4C.01 12VDC interfacerelais
+                - listitem [ref=e218]:
+                  - img [ref=e219]
+                  - generic [ref=e221]: XMvK 2x1,5 mm²
+                - listitem [ref=e222]:
+                  - img [ref=e223]
+                  - generic [ref=e225]: Kleinmateriaal
+                - listitem [ref=e226]:
+                  - img [ref=e227]
+                  - generic [ref=e229]: Voorrijkosten (± 61 km enkele reis)
+                - listitem [ref=e230]:
+                  - img [ref=e231]
+                  - generic [ref=e233]: Arbeidsuren installatie / montage
+              - generic [ref=e234]:
+                - generic [ref=e235]: Keuze bij akkoord
+                - strong [ref=e236]: € 1.532,01 incl. btw
+            - generic [ref=e237]:
+              - img "Koolhaas Installaties" [ref=e238]
+              - generic [ref=e239]:
+                - generic [ref=e240]:
+                  - generic [ref=e241]: info@koolhaasinstallaties.nl
+                  - generic [ref=e242]: 06 82 20 21 48
+                  - generic [ref=e243]: KVK 95524061
+                - generic [ref=e244]:
+                  - generic [ref=e245]: Geldig tot 23-09-2026
+                  - generic [ref=e246]: 05 / 09
+          - generic [ref=e249]:
+            - generic [ref=e250]:
+              - img "Koolhaas Installaties" [ref=e251]
+              - generic [ref=e252]: KI-2026-0009 · Bauke Braaksma
+            - generic [ref=e254]:
+              - generic [ref=e255]: Technische uitgangspunten
+              - heading "Uitgangspunten voor de uitvoering." [level=2] [ref=e256]
+            - generic [ref=e257]:
+              - paragraph [ref=e259]: De bestaande YMVK 5x6 mm² voedingskabel is technisch geschikt voor hergebruik.
+              - paragraph [ref=e261]: De bestaande laadgroep is technisch geschikt voor hergebruik.
+              - paragraph [ref=e263]: De aanwezige Sigen Power Sensor meet de totale afname en teruglevering van de woning.
+              - paragraph [ref=e265]: De bestaande SigenStor is correct aangesloten en functioneert normaal.
+              - paragraph [ref=e267]: Voor de SG Ready-koppeling is maximaal 20 meter normaal bereikbare stuurkabel nodig.
+            - generic [ref=e268]:
+              - paragraph [ref=e270]: De Sigen EV AC is niet geschikt voor bidirectioneel laden. Voor V2G of V2H zijn naast geschikte hardware ook compatibele software, voertuigondersteuning, regelgeving en een passende elektrische installatie nodig.
+              - paragraph [ref=e272]: De SG Ready-sturing geeft de warmtepomp een extern bedrijfssignaal. De interne regeling van de warmtepomp blijft verantwoordelijk voor temperaturen, draaitijden en beveiligingen.
+              - paragraph [ref=e274]: Blijkt bij de technische controle dat een uitgangspunt niet klopt, dan bespreek ik eerst de benodigde aanpassing en eventuele meerprijs.
+            - generic [ref=e275]:
+              - img "Koolhaas Installaties" [ref=e276]
+              - generic [ref=e277]:
+                - generic [ref=e278]:
+                  - generic [ref=e279]: info@koolhaasinstallaties.nl
+                  - generic [ref=e280]: 06 82 20 21 48
+                  - generic [ref=e281]: KVK 95524061
+                - generic [ref=e282]:
+                  - generic [ref=e283]: Geldig tot 23-09-2026
+                  - generic [ref=e284]: 06 / 09
+          - generic [ref=e287]:
+            - generic [ref=e288]:
+              - img "Koolhaas Installaties" [ref=e289]
+              - generic [ref=e290]: KI-2026-0009 · Bauke Braaksma
+            - generic [ref=e292]:
+              - generic [ref=e293]: Niet inbegrepen
+              - heading "Wat valt er buiten de offerte." [level=2] [ref=e294]
+            - generic [ref=e295]:
+              - paragraph [ref=e297]: Uitbreiding of grote aanpassing van de meterkast.
+              - paragraph [ref=e299]: Vervanging van de bestaande voedingskabel.
+              - paragraph [ref=e301]: Aanvullende energiemeting als de huidige Sigen Power Sensor niet geschikt of niet correct geplaatst blijkt.
+              - paragraph [ref=e303]: Grondwerk.
+              - paragraph [ref=e305]: Hak-, breek-, schilder- of herstelwerk.
+              - paragraph [ref=e307]: Reparaties of aanpassingen aan defecte bestaande apparatuur.
+              - paragraph [ref=e309]: Een V2G- of V2H-laadoplossing.
+            - generic [ref=e310]:
+              - img "Koolhaas Installaties" [ref=e311]
+              - generic [ref=e312]:
+                - generic [ref=e313]:
+                  - generic [ref=e314]: info@koolhaasinstallaties.nl
+                  - generic [ref=e315]: 06 82 20 21 48
+                  - generic [ref=e316]: KVK 95524061
+                - generic [ref=e317]:
+                  - generic [ref=e318]: Geldig tot 23-09-2026
+                  - generic [ref=e319]: 07 / 09
+          - generic [ref=e322]:
+            - generic [ref=e323]:
+              - img "Koolhaas Installaties" [ref=e324]
+              - generic [ref=e325]: KI-2026-0009 · Bauke Braaksma
+            - generic [ref=e327]:
+              - generic [ref=e328]: Technische onderbouwing
+              - heading "Bronnen bij dit advies." [level=2] [ref=e329]
+            - paragraph [ref=e330]: De belangrijkste technische uitgangspunten in deze offerte zijn gecontroleerd aan de hand van onderstaande informatie van fabrikanten en aanbieders.
+            - generic [ref=e331]:
+              - link "1 Sigenergy, Sigen EV AC Charger Load balancing, samenwerking met SigenStor, zonne-overschot en dynamische tarieven. Open officiële bron" [ref=e332] [cursor=pointer]:
+                - /url: https://eu-store.sigenergy.com/pages/sigenstor-ev-ac
+                - generic [ref=e333]: "1"
+                - generic [ref=e334]:
+                  - strong [ref=e335]: Sigenergy, Sigen EV AC Charger
+                  - generic [ref=e336]: Load balancing, samenwerking met SigenStor, zonne-overschot en dynamische tarieven.
+                  - generic [ref=e337]:
+                    - text: Open officiële bron
+                    - img [ref=e338]
+              - link "2 Alpha Innotec, SG Ready-interface Externe aansturing, bedrijfsstanden en het benutten van PV-overschot voor warmte. Open officiële bron" [ref=e342] [cursor=pointer]:
+                - /url: https://www.alpha-innotec.com/en/knowledge-base/heat-pump-knowledge-center/sg-ready-interface-for-heat-pumps
+                - generic [ref=e343]: "2"
+                - generic [ref=e344]:
+                  - strong [ref=e345]: Alpha Innotec, SG Ready-interface
+                  - generic [ref=e346]: Externe aansturing, bedrijfsstanden en het benutten van PV-overschot voor warmte.
+                  - generic [ref=e347]:
+                    - text: Open officiële bron
+                    - img [ref=e348]
+              - link "3 Kia Nederland, slim laden en V2G/V2H Voorbereiding van de Kia EV3 en de actuele beschikbaarheid van bidirectioneel laden. Open officiële bron" [ref=e352] [cursor=pointer]:
+                - /url: https://www.kia.com/nl/elektrisch/slim-laden/
+                - generic [ref=e353]: "3"
+                - generic [ref=e354]:
+                  - strong [ref=e355]: Kia Nederland, slim laden en V2G/V2H
+                  - generic [ref=e356]: Voorbereiding van de Kia EV3 en de actuele beschikbaarheid van bidirectioneel laden.
+                  - generic [ref=e357]:
+                    - text: Open officiële bron
+                    - img [ref=e358]
+              - link "4 Tibber Nederland, contractvoorwaarden Dynamische elektriciteitsprijs op basis van de EPEX Day Ahead-markt. Open officiële bron" [ref=e362] [cursor=pointer]:
+                - /url: https://tibber.com/nl/voorwaarden/contractvoorwaarden
+                - generic [ref=e363]: "4"
+                - generic [ref=e364]:
+                  - strong [ref=e365]: Tibber Nederland, contractvoorwaarden
+                  - generic [ref=e366]: Dynamische elektriciteitsprijs op basis van de EPEX Day Ahead-markt.
+                  - generic [ref=e367]:
+                    - text: Open officiële bron
+                    - img [ref=e368]
+              - link "5 Easee, FAQ over V2G Charge Max is hardwarematig voorbereid; V2G is nog niet commercieel beschikbaar voor consumenten. Open officiële bron" [ref=e372] [cursor=pointer]:
+                - /url: https://support.easee.com/hc/nl/articles/43470807350801-FAQ-Easee-V2G
+                - generic [ref=e373]: "5"
+                - generic [ref=e374]:
+                  - strong [ref=e375]: Easee, FAQ over V2G
+                  - generic [ref=e376]: Charge Max is hardwarematig voorbereid; V2G is nog niet commercieel beschikbaar voor consumenten.
+                  - generic [ref=e377]:
+                    - text: Open officiële bron
+                    - img [ref=e378]
+            - generic [ref=e382]:
+              - img "Koolhaas Installaties" [ref=e383]
+              - generic [ref=e384]:
+                - generic [ref=e385]:
+                  - generic [ref=e386]: info@koolhaasinstallaties.nl
+                  - generic [ref=e387]: 06 82 20 21 48
+                  - generic [ref=e388]: KVK 95524061
+                - generic [ref=e389]:
+                  - generic [ref=e390]: Geldig tot 23-09-2026
+                  - generic [ref=e391]: 08 / 09
+          - generic [ref=e394]:
+            - generic [ref=e395]:
+              - img "Koolhaas Installaties" [ref=e396]
+              - generic [ref=e397]: KI-2026-0009 · Bauke Braaksma
+            - generic [ref=e398]: Akkoord voor uitvoering
+            - heading "Onderteken om te starten." [level=2] [ref=e399]
+            - generic [ref=e400]:
+              - generic [ref=e401]:
+                - generic [ref=e402]: Namens opdrachtgever
+                - generic [ref=e403]: Bauke Braaksma
+                - generic [ref=e405]: Naam
+              - generic [ref=e408]:
+                - generic [ref=e409]: Namens opdrachtnemer
+                - generic [ref=e410]: Koolhaas Installaties - Daan Koolhaas
+                - img "Handtekening" [ref=e412]
+            - generic [ref=e413]:
+              - img "Koolhaas Installaties" [ref=e414]
+              - generic [ref=e415]:
+                - generic [ref=e416]:
+                  - generic [ref=e417]: info@koolhaasinstallaties.nl
+                  - generic [ref=e418]: 06 82 20 21 48
+                  - generic [ref=e419]: KVK 95524061
+                - generic [ref=e420]:
+                  - generic [ref=e421]: Geldig tot 23-09-2026
+                  - generic [ref=e422]: 09 / 09
+        - complementary [ref=e423]:
+          - generic [ref=e424]:
+            - generic [ref=e426]:
+              - generic [ref=e427]:
+                - img [ref=e429]
+                - generic [ref=e432]:
+                  - paragraph [ref=e433]: Offertenummer
+                  - generic [ref=e434]: KI-2026-0009
+              - generic [ref=e435]:
+                - img [ref=e437]
+                - generic [ref=e439]:
+                  - paragraph [ref=e440]: Datum
+                  - generic [ref=e441]: 29-08-2026
+              - generic [ref=e442]:
+                - img [ref=e444]
+                - generic [ref=e447]:
+                  - paragraph [ref=e448]: Geldig tot
+                  - generic [ref=e449]: 23-09-2026
+              - generic [ref=e450]:
+                - img [ref=e452]
+                - generic [ref=e456]:
+                  - paragraph [ref=e457]: Status
+                  - generic [ref=e458]: Bekeken
+              - generic [ref=e459]:
+                - img [ref=e461]
+                - generic [ref=e463]:
+                  - paragraph [ref=e464]: Voorgestelde investering
+                  - generic [ref=e465]: € 1.181,69 incl. btw
+              - generic [ref=e466]:
+                - img [ref=e468]
+                - generic [ref=e471]:
+                  - paragraph [ref=e472]: Klant
+                  - generic [ref=e473]: baukebraaksma@outlook.com
+            - generic [ref=e475]:
+              - paragraph [ref=e476]: Totale investering
+              - strong [ref=e477]: € 1.181,69 incl. btw
+            - button "Print / PDF" [ref=e478] [cursor=pointer]:
+              - img [ref=e479]
+              - text: Print / PDF
+            - generic [ref=e482]:
+              - paragraph [ref=e483]: Akkoord geven
+              - generic [ref=e484]:
+                - generic [ref=e485]:
+                  - img [ref=e486]
+                  - generic [ref=e491]:
+                    - heading "Stel je opdracht samen" [level=3] [ref=e492]
+                    - paragraph [ref=e493]: Pas de samenstelling aan op jouw wensen en situatie.
+                - group "Kies de uitvoering die bij uw situatie past" [ref=e494]:
+                  - generic [ref=e495]: Kies de uitvoering die bij uw situatie past
+                  - paragraph [ref=e496]: Beide opties vervangen het bestaande Webasto-laadpunt. Optie 2 voegt daar de SG Ready-sturing van de warmtepomp aan toe.
+                  - generic [ref=e497]:
+                    - generic [ref=e498] [cursor=pointer]:
+                      - radio "Sigen EV AC 11 kW met slim energiebeheer Aanbevolen Het nieuwe laadpunt wordt onderdeel van de bestaande Sigenergy-installatie en ingesteld voor dynamische load balancing, laden op zonne-overschot en slim laden bij dynamische tarieven. € 1.181,69 incl. btw — compleet" [checked]
+                      - generic [ref=e500]:
+                        - generic [ref=e501]:
+                          - generic [ref=e502]: Sigen EV AC 11 kW met slim energiebeheer
+                          - emphasis [ref=e503]: Aanbevolen
+                        - generic [ref=e504]: Het nieuwe laadpunt wordt onderdeel van de bestaande Sigenergy-installatie en ingesteld voor dynamische load balancing, laden op zonne-overschot en slim laden bij dynamische tarieven.
+                        - strong [ref=e505]:
+                          - text: € 1.181,69
+                          - generic [ref=e506]: incl. btw — compleet
+                    - generic [ref=e507] [cursor=pointer]:
+                      - radio "Sigen EV AC met SG Ready-warmtepompsturing Deze uitvoering bevat alles uit optie 1 en voegt een koppeling toe waarmee de Alpha Innotec-warmtepomp op gunstige energiemomenten naar een verhoogde bedrijfsstand kan gaan. € 1.532,01 incl. btw — compleet"
+                      - generic [ref=e509]:
+                        - generic [ref=e511]: Sigen EV AC met SG Ready-warmtepompsturing
+                        - generic [ref=e512]: Deze uitvoering bevat alles uit optie 1 en voegt een koppeling toe waarmee de Alpha Innotec-warmtepomp op gunstige energiemomenten naar een verhoogde bedrijfsstand kan gaan.
+                        - strong [ref=e513]:
+                          - text: € 1.532,01
+                          - generic [ref=e514]: incl. btw — compleet
+                - generic [ref=e515]:
+                  - generic [ref=e516]: Jouw definitieve investering
+                  - generic [ref=e517]: Wordt bijgewerkt wanneer je een optie selecteert.
+                  - generic [ref=e518]: € 1.181,69 incl. btw
+              - generic [ref=e519]:
+                - generic [ref=e520]: Jouw naam
+                - textbox "Jouw naam" [ref=e521]:
+                  - /placeholder: Volledige naam
+                  - text: Bauke Braaksma
+              - generic [ref=e522]:
+                - generic [ref=e523]: Vragen of opmerkingen (optioneel)
+                - textbox "Vragen of opmerkingen (optioneel)" [ref=e524]:
+                  - /placeholder: Laat hier eventueel een vraag, opmerking of aanvullende afspraak achter.
+              - generic [ref=e525] [cursor=pointer]:
+                - checkbox "Ik ga akkoord met deze offerte en de algemene voorwaarden en het privacybeleid." [ref=e526]
+                - generic [ref=e527]:
+                  - text: Ik ga akkoord met deze offerte en de
+                  - link "algemene voorwaarden" [ref=e528]:
+                    - /url: /api/legal/koolhaas/terms
+                  - text: en het
+                  - link "privacybeleid" [ref=e529]:
+                    - /url: /api/legal/koolhaas/privacy
+                  - text: .
+              - button "Offerte accepteren" [disabled] [ref=e530]:
+                - img [ref=e531]
+                - text: Offerte accepteren
+              - button "Offerte afwijzen" [ref=e534] [cursor=pointer]
+              - paragraph [ref=e535]:
+                - img [ref=e536]
+                - text: Beveiligd met SSL-encryptie. Elektronisch akkoord is rechtsgeldig.
+  - region "Notifications alt+T"

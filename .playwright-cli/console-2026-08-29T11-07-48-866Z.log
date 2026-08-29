@@ -1,0 +1,94 @@
+[   19104ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   19475ms] [LOG] [HMR] connected @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   19602ms] [ERROR] %c%s%c (node:247903) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created) background: #e6e6e6;background: light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.25));color: #000000;color: light-dark(#000000, #ffffff);border-radius: 2px  Server   @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[   19604ms] [WARNING] %c%s%c [Telegram] Missing TELEGRAM_TOKEN or TELEGRAM_CHAT_ID in environment variables background: #e6e6e6;background: light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.25));color: #000000;color: light-dark(#000000, #ffffff);border-radius: 2px  Server   @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   19802ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   19865ms] [LOG] [Fast Refresh] done in 186ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   20171ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   20232ms] [LOG] [Fast Refresh] done in 170ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   20352ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   20687ms] [LOG] [Fast Refresh] done in 436ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  286232ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  286412ms] [LOG] [Fast Refresh] done in 280ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  294221ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  294243ms] [LOG] [Fast Refresh] done in 123ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  302619ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  302661ms] [LOG] [HMR] connected @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  302685ms] [WARNING] %c%s%c [Telegram] Missing TELEGRAM_TOKEN or TELEGRAM_CHAT_ID in environment variables background: #e6e6e6;background: light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.25));color: #000000;color: light-dark(#000000, #ffffff);border-radius: 2px  Server   @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  302942ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  302976ms] [LOG] [Fast Refresh] done in 134ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  406644ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  406949ms] [LOG] [Fast Refresh] done in 301ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  436018ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  436077ms] [LOG] [HMR] connected @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  436085ms] [WARNING] %c%s%c [Telegram] Missing TELEGRAM_TOKEN or TELEGRAM_CHAT_ID in environment variables background: #e6e6e6;background: light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.25));color: #000000;color: light-dark(#000000, #ffffff);border-radius: 2px  Server   @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  436447ms] Error: Hydration failed because the server rendered text didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <SegmentViewNode type="page" pagePath="q/[token]/...">
+      <SegmentTrieNode>
+      <QuotePortalPage>
+        <QuotePortalClient quote={{id:"cmtdbp...", ...}} share={{id:"cmtdbw...", ...}} companySlug="koolhaas" ...>
+          <div className="portal-con...">
+            <header>
+            <main className="portal-shell">
+              <section>
+              <div className="portal-layout">
+                <div className="doc-viewer" id="offerte" ref={{current:null}}>
+                  <QuoteSheetPreview quote={{id:"cmtdbp...", ...}} companySlug="koolhaas" selectedChoiceIds={{...}} ...>
+                    <div className="portal-con..." style={{...}}>
+                      <div className="doc-viewer" style={{...}}>
+                        <section>
+                        <section className="sheet">
+                          <div>
+                          <div className="pad">
+                            <div>
+                            <div>
+                            <h2>
+                            <InlineTextarea isEditable={false} value={"Beste Ba..."} onChange={function onChange} ...>
+                              <div className="letter">
+                                <p>
+                                <p>
+                                <p>
+                                <p>
+                                <p>
+                                <p style={{whiteSpace:"pre-line"}}>
++                                 ...ebeurt. [1] Als uitbreiding kan ook de Alpha Innotec-warmtepomp via SG Ready worde...
+-                                 ...ebeurt. Bron 1 Als uitbreiding kan ook de Alpha Innotec-warmtepomp via SG Ready wo...
+                            ...
+                        ...
+                ...
+            ...
+    ...
+
+    at throwOnHydrationMismatch (http://localhost:3001/_next/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:3318:56)
+    at prepareToHydrateHostInstance (http://localhost:3001/_next/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:3372:23)
+    at completeWork (http://localhost:3001/_next/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:6922:60)
+    at runWithFiberInDEV (http://localhost:3001/_next/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:965:74)
+    at completeUnitOfWork (http://localhost:3001/_next/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9622:23)
+    at performUnitOfWork (http://localhost:3001/_next/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9557:28)
+    at workLoopConcurrentByScheduler (http://localhost:3001/_next/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9551:58)
+    at renderRootConcurrent (http://localhost:3001/_next/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9534:71)
+    at performWorkOnRoot (http://localhost:3001/_next/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:9061:150)
+    at performWorkOnRootViaSchedulerTask (http://localhost:3001/_next/static/chunks/node_modules_next_dist_compiled_react-dom_058-ah~._.js:10255:9)
+    at MessagePort.performWorkUntilDeadline (http://localhost:3001/_next/static/chunks/node_modules_next_dist_compiled_0rpq4pf._.js:2647:64)
+[  436607ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  436763ms] [LOG] [Fast Refresh] done in 255ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477

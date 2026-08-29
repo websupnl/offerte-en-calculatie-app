@@ -116,6 +116,56 @@ type ApproachStep = { n: number | string; t: string; d: string };
 type QuoteAttachment = { id?: string; title?: string | null; imageUrl: string; liveUrl?: string | null; caption?: string | null; section?: string | null };
 type QuoteSource = { id?: string; label: string; description?: string; url: string };
 
+const CitedText = ({
+  value,
+  sources,
+  className,
+  paragraphs = false,
+}: {
+  value: string;
+  sources: QuoteSource[];
+  className?: string;
+  paragraphs?: boolean;
+}) => {
+  const renderInline = (text: string) =>
+    text.split(/(\[\d+\])/g).map((part, index) => {
+      const match = part.match(/^\[(\d+)\]$/);
+      if (!match) return part;
+
+      const sourceNumber = match[1];
+      const source = sources.find((candidate) => String(candidate.id) === sourceNumber)
+        ?? sources[Number(sourceNumber) - 1];
+      if (!source) return part;
+
+      return (
+        <a
+          key={`${sourceNumber}-${index}`}
+          href={source.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-citation"
+          aria-label={`Bron ${sourceNumber}: ${source.label}`}
+          title={source.label}
+        >
+          Bron {sourceNumber}
+          <ExternalLink size={9} aria-hidden="true" />
+        </a>
+      );
+    });
+
+  if (paragraphs) {
+    return (
+      <div className={className}>
+        {value.split(/\n\s*\n/).map((paragraph, index) => (
+          <p key={index} style={{ whiteSpace: "pre-line" }}>{renderInline(paragraph)}</p>
+        ))}
+      </div>
+    );
+  }
+
+  return <p style={{ whiteSpace: "pre-wrap" }} className={className}>{renderInline(value)}</p>;
+};
+
 export type QuotePreviewData = {
   number: string;
   title: string | null;
@@ -543,12 +593,16 @@ export function QuoteSheetPreview({
     <div className="doc-text-list">
       {values.map((item, index) => (
         <div key={index} className="doc-text-row">
-          <InlineTextarea
-            isEditable={Boolean(isEditable)}
-            value={item}
-            onChange={(value) => updateTextList(field, values, index, value)}
-            className="doc-text-line"
-          />
+          {isEditable ? (
+            <InlineTextarea
+              isEditable
+              value={item}
+              onChange={(value) => updateTextList(field, values, index, value)}
+              className="doc-text-line"
+            />
+          ) : (
+            <CitedText value={item} sources={sources} className="doc-text-line" />
+          )}
           {isEditable && (
             <button
               type="button"
@@ -942,12 +996,16 @@ export function QuoteSheetPreview({
                 onChange={(v) => onUpdate?.({ title: v })}
               />
             </h2>
-            <InlineTextarea 
-              isEditable={isEditable} 
-              value={introText} 
-              onChange={(v) => onUpdate?.({ intro: v })} 
-              className="letter" 
-            />
+            {isEditable ? (
+              <InlineTextarea
+                isEditable
+                value={introText}
+                onChange={(v) => onUpdate?.({ intro: v })}
+                className="letter"
+              />
+            ) : (
+              <CitedText value={introText} sources={sources} className="letter" paragraphs />
+            )}
             <div className="sig">
               <div className="sig-av">
                 {/* eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout gebruikt intrinsieke CSS-afmetingen */}
@@ -978,7 +1036,7 @@ export function QuoteSheetPreview({
                   <h2 className="h2">Zo werkt het in de praktijk.</h2>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px", marginTop: "16px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "10px", marginTop: "12px" }}>
                 {approach.map((step, index) => (
                   <div className="flow-item" key={index} style={{ position: "relative" }}>
                     <div className="fn">{step.n ?? index + 1}</div>
@@ -993,14 +1051,18 @@ export function QuoteSheetPreview({
                           placeholder="Titel van de stap"
                         />
                       </h4>
-                      <InlineTextarea
-                        isEditable={Boolean(isEditable)}
-                        value={step.d}
-                        onChange={(value) =>
-                          onUpdate?.({ approach: approach.map((s, i) => (i === index ? { ...s, d: value } : s)) })
-                        }
-                        placeholder="Uitleg van deze stap"
-                      />
+                      {isEditable ? (
+                        <InlineTextarea
+                          isEditable
+                          value={step.d}
+                          onChange={(value) =>
+                            onUpdate?.({ approach: approach.map((s, i) => (i === index ? { ...s, d: value } : s)) })
+                          }
+                          placeholder="Uitleg van deze stap"
+                        />
+                      ) : (
+                        <CitedText value={step.d} sources={sources} />
+                      )}
                     </div>
                     {isEditable && (
                       <button

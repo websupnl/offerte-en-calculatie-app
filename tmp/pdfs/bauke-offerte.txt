@@ -1,0 +1,336 @@
+                                                         OFFERTENUMMER            KI-2026-0009
+                                                         DATUM                    29-08-2026
+                                                         GELDIG TOT               23-09-2026
+                                                         CONTACTPERSOON Daan Koolhaas
+
+
+
+
+OFFERTE
+
+
+Vervanging laadpunt en
+slimme energiesturing
+Sigen EV AC met dynamische load balancing en optionele SG Ready-
+warmtepompsturing
+
+VOOR
+Bauke Braaksma
+Hogeveensweg 10, 8415 AE Bontebok
+
+
+
+
+WEB                       MAIL                                   TELEFOON              KVK
+koolhaasinstallaties.nl   info@koolhaasinstallaties.nl           06 82 20 21 48        95524061
+                                                                   KI-2026-0009 · Bauke Braaksma
+
+
+TO E L I C H T I N G O P M IJ N V O O R S T E L
+
+Vervanging laadpunt en slimme energiesturing
+Beste Bauke,
+U heeft mij gevraagd mee te denken over het laadprobleem sinds de overstap naar de Kia EV3
+en over de mogelijkheden om uw installaties slimmer samen te laten werken.
+Uw woning beschikt over een 3x25A-aansluiting, een Webasto Pure-laadpunt van maximaal
+11 kW, een SolarEdge-zonnepaneleninstallatie, een SigenStor-thuisbatterij van 16,12 kWh en
+een Alpha Innotec SWC V-serie warmtepomp. Daarnaast maakt u gebruik van een dynamisch
+energiecontract bij Tibber.
+Met uw eerdere hybride auto gaf het laden geen problemen. De Kia EV3 vraagt tijdens het
+laden langer een hoger vermogen. In combinatie met andere grote stroomverbruikers kan
+daardoor de beschikbare capaciteit van de 3x25A-aansluiting worden overschreden.
+Ik adviseer het huidige Webasto Pure-laadpunt te vervangen door een Sigen EV AC 11 kW
+met dynamische load balancing. Omdat er al een SigenStor aanwezig is, is voor deze
+uitvoering geen apart energiemanagementsysteem nodig. Het laadpunt wordt opgenomen in
+hetzelfde Sigenergy-systeem en gebruikt de bestaande energiemeting.
+Ik ga ervan uit dat de aanwezige Sigen Power Sensor als hoofdmeting in de meterkast is
+aangesloten en de totale afname en teruglevering van de woning meet. Op basis daarvan kan
+Sigenergy het laadvermogen automatisch aanpassen aan wat er op dat moment in de woning
+gebeurt. Bron 1    Als uitbreiding kan ook de Alpha Innotec-warmtepomp via SG Ready
+worden aangestuurd. Bron 2
+
+        Daan Koolhaas
+        Koolhaas Installaties
+
+
+
+
+                                            info@koolhaasinstallaties.nl   06 82 20 21 48   KVK 95524061
+                                                                           Geldig tot 23-09-2026   02 / 09
+                                                                    KI-2026-0009 · Bauke Braaksma
+
+
+W E R K I N G VA N D E I N S TA L L AT I E
+
+Zo werkt het in de praktijk.
+01 Dynamische load balancing
+     Het laadvermogen wordt automatisch aangepast aan het overige stroomverbruik. Is er
+     voldoende capaciteit beschikbaar, dan kan de auto sneller laden. Wordt elders meer
+     stroom gebruikt, dan verlaagt het laadpunt het laadvermogen. Zo wordt de 3x25A-
+     aansluiting beter benut en wordt overbelasting voorkomen. Bron 1
+
+02 Laden met beschikbare zonne-energie
+     De hoofdmeting ziet wanneer de woning netto elektriciteit teruglevert. Het beschikbare
+     overschot kan dan worden gebruikt om de auto te laden. De bestaande SolarEdge-
+     installatie kan hiervoor behouden blijven. Bron 1
+
+03 Laden op gunstige energieprijzen
+     Sigenergy kan rekening houden met dynamische tarieven en het laden verschuiven naar
+     goedkopere momenten. Het dynamische Tibber-tarief volgt de EPEX Day Ahead-markt.
+     Voor deze prijssturing is geen rechtstreekse koppeling tussen Tibber en het laadpunt
+     nodig. Bron 1    Bron 4
+
+
+
+04 Samenwerking met de thuisbatterij
+     De SigenStor en het laadpunt werken binnen hetzelfde systeem. Afhankelijk van de
+     gekozen laadmodus kunnen zonne-energie, het elektriciteitsnet en de thuisbatterij samen
+     worden gebruikt voor het laden van de auto. De laadstrategie wordt ingesteld in
+     mySigen. Bron 1
+
+05 Warmtepomp slim laten meedoen
+     SG Ready is een stuursignaal naar de warmtepomp. Bij bijvoorbeeld zonne-overschot kan
+     Sigenergy een verhoogde bedrijfsstand adviseren. De warmtepomp bepaalt binnen haar
+     eigen regeling of extra energie naar warm water, vloerverwarming of andere
+     warmteopslag kan gaan. Bron 2
+
+06 V2G en V2H
+     De Sigen EV AC is niet geschikt voor bidirectioneel laden. De Kia EV3 is hierop
+     voorbereid, maar Kia geeft aan dat V2G en V2H in Nederland nog niet daadwerkelijk
+     kunnen worden gebruikt. Easee Charge Max is hardwarematig V2G-ready, terwijl de
+     consumentendienst nog niet beschikbaar is en de laadregeling dan buiten het Sigenergy-
+     systeem komt te liggen. Bron 3     Bron 5
+
+
+
+
+                                             info@koolhaasinstallaties.nl   06 82 20 21 48   KVK 95524061
+                                                                            Geldig tot 23-09-2026   03 / 09
+                                                                             KI-2026-0009 · Bauke Braaksma
+
+
+M O G E L IJ K E S YS T E M E N                                                                         Optie 1 / 2
+
+Kies de uitvoering die bij uw installatie past
+Beide uitvoeringen vervangen het bestaande Webasto-laadpunt. De tweede uitvoering voegt
+daar de SG Ready-sturing van de warmtepomp aan toe.
+
+
+
+
+     Sigen EV AC 11 kW met slim energiebeheer
+       AANBEVOLEN
+
+
+     Het nieuwe laadpunt wordt opgenomen in de bestaande Sigenergy-installatie.
+     Dynamische load balancing, laden met beschikbare zonne-energie, prijsgestuurd
+     laden en afstemming met de SigenStor worden ingesteld.
+
+
+       INBEGREPEN BIJ DEZE KEUZE
+
+           Bestaand Webasto Pure-laadpunt demonteren
+
+           Sigen EV AC 11 kW in wit leveren en monteren
+
+           Vaste Type 2-laadkabel van 5 meter
+
+           Bestaande YMVK 5x6 mm² voedingskabel hergebruiken
+
+           Bestaande laadgroep controleren en hergebruiken, mits technisch geschikt
+
+           Koppelen aan de bestaande Sigen Power Sensor
+
+           Dynamische load balancing instellen
+
+           Afstemmen op de bestaande SigenStor
+
+           mySigen configureren
+
+           Installatie testen en in bedrijf stellen
+
+           Uitleg over de bediening
+
+
+
+     GESELECTEERD                                                                € 1.181,69 incl. btw
+
+
+
+
+                                                      info@koolhaasinstallaties.nl   06 82 20 21 48   KVK 95524061
+                                                                                     Geldig tot 23-09-2026   04 / 09
+                                                                       KI-2026-0009 · Bauke Braaksma
+
+
+M O G E L IJ K E S YS T E M E N                                                                   Optie 2 / 2
+
+Kies de uitvoering die bij uw installatie past
+Beide uitvoeringen vervangen het bestaande Webasto-laadpunt. De tweede uitvoering voegt
+daar de SG Ready-sturing van de warmtepomp aan toe.
+
+
+
+
+     Sigen EV AC met SG Ready-warmtepompsturing
+     Deze uitvoering bevat alles uit de eerste uitvoering. Daarnaast krijgt de Alpha
+     Innotec-warmtepomp via SG Ready een signaal voor een verhoogde bedrijfsstand
+     op gunstige energiemomenten.
+
+
+       INBEGREPEN BIJ DEZE KEUZE
+
+           Alles uit de uitvoering met slim energiebeheer
+
+           Verbinding tussen Sigenergy en de warmtepomp aanleggen
+
+           Mean Well DIN-railvoeding plaatsen
+
+           Finder interfacerelais plaatsen
+
+           Maximaal 20 meter stuurkabel aanleggen
+
+           Aansluiten op de SG Ready-interface
+
+           Eén verhoogde bedrijfsstand configureren
+
+           Aansturing testen en in bedrijf stellen
+
+
+
+                                                                           € 1.532,01 incl. btw
+
+
+
+
+                                                info@koolhaasinstallaties.nl   06 82 20 21 48   KVK 95524061
+                                                                               Geldig tot 23-09-2026   05 / 09
+                                                                    KI-2026-0009 · Bauke Braaksma
+
+
+T E C H N I S C H E U I TG A N G S P U N T E N
+
+Uitgangspunten voor de uitvoering.
+De bestaande YMVK 5x6 mm² voedingskabel is technisch geschikt voor hergebruik.
+
+De bestaande laadgroep is technisch geschikt voor hergebruik.
+
+De aanwezige Sigen Power Sensor meet de totale afname en teruglevering van de woning.
+
+De bestaande SigenStor is correct aangesloten en functioneert normaal.
+
+Voor de SG Ready-koppeling is maximaal 20 meter normaal bereikbare stuurkabel nodig.
+
+Blijkt tijdens de uitvoering dat een uitgangspunt afwijkt, dan bespreek ik eventuele
+aanvullende werkzaamheden en kosten vooraf.
+
+De Sigen EV AC is niet geschikt voor bidirectioneel laden. Voor V2G of V2H zijn naast
+geschikte hardware ook compatibele software, voertuigondersteuning, regelgeving en een
+passende elektrische installatie nodig.    Bron 1     Bron 3     Bron 5
+
+
+
+De SG Ready-koppeling geeft de warmtepomp een extern bedrijfssignaal. De interne regeling
+van de warmtepomp blijft verantwoordelijk voor temperaturen, draaitijden en beveiligingen.
+ Bron 2
+
+
+
+
+                                             info@koolhaasinstallaties.nl   06 82 20 21 48   KVK 95524061
+                                                                            Geldig tot 23-09-2026   06 / 09
+                                                                 KI-2026-0009 · Bauke Braaksma
+
+
+NIET INBEGREPEN
+
+Wat valt er buiten de offerte.
+Uitbreiding of grote aanpassing van de meterkast.
+
+Vervanging van de bestaande voedingskabel.
+
+Aanvullende energiemeting als de huidige Sigen Power Sensor niet geschikt of niet correct
+geplaatst blijkt.
+
+Grondwerk.
+
+Hak-, breek-, schilder- of herstelwerk.
+
+Reparaties aan defecte bestaande apparatuur.
+
+Een V2G- of V2H-laadoplossing.
+
+
+
+
+                                          info@koolhaasinstallaties.nl   06 82 20 21 48   KVK 95524061
+                                                                         Geldig tot 23-09-2026   07 / 09
+                                                                            KI-2026-0009 · Bauke Braaksma
+
+
+TECHNISCHE ONDERBOUWING
+
+Bronnen bij dit advies.
+De belangrijkste technische uitgangspunten in deze offerte zijn gecontroleerd aan de hand
+van onderstaande informatie van fabrikanten en aanbieders.
+
+
+   1    Sigenergy, Sigen EV AC Charger
+        Dynamische load balancing, samenwerking met SigenStor, laden met PV-overschot en dynamische tarieven.
+        Open officiële bron
+
+
+
+
+   2    Alpha Innotec, SG Ready-interface
+        Externe aansturing, verhoogde bedrijfsstand en het benutten van PV-overschot voor warmte.
+        Open officiële bron
+
+
+
+
+   3    Kia Nederland, slim laden en V2G/V2H
+        V2X-voorbereiding van de Kia EV3 en de actuele beschikbaarheid van bidirectioneel laden.
+        Open officiële bron
+
+
+
+
+   4    Tibber Nederland, contractvoorwaarden
+        Dynamische elektriciteitsprijs op basis van de EPEX Day Ahead-markt.
+        Open officiële bron
+
+
+
+
+   5    Easee, Charge Max en V2G
+        Charge Max is hardwarematig V2G-ready; V2G is nog niet commercieel beschikbaar voor gewone consumenten.
+        Open officiële bron
+
+
+
+
+                                                   info@koolhaasinstallaties.nl     06 82 20 21 48   KVK 95524061
+                                                                                     Geldig tot 23-09-2026   08 / 09
+                                                                  KI-2026-0009 · Bauke Braaksma
+
+
+A K KO O R D V O O R U I T V O E R I N G
+Onderteken om te starten.
+Mijn advies is de uitvoering met de Sigen EV AC en slim energiebeheer. Kies de tweede
+uitvoering als u ook de warmtepomp via SG Ready op gunstige energiemomenten wilt laten
+reageren. Na akkoord neem ik contact met u op om de technische controle en montagedatum
+af te stemmen.
+
+
+
+  N A M E N S O P D RAC H TG EV E R                   N A M E N S O P D RAC H T N E M E R
+  Bauke Braaksma                                      Koolhaas Installaties - Daan Koolhaas
+  Naam
+
+
+
+
+                                           info@koolhaasinstallaties.nl   06 82 20 21 48   KVK 95524061
+                                                                          Geldig tot 23-09-2026   09 / 09
+
