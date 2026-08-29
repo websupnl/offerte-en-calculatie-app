@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { QuotePortalClient } from "./quote-portal-client";
@@ -34,52 +35,55 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
 
   if (!share) notFound();
 
-  // "The Stalker" Logic: Send Telegram Notification
-  const isFirstView = !share.viewedAt;
-  const customerName = share.quote.customer.name;
-  const quoteTitle = share.quote.title || share.quote.number;
-  
-  const telegramMsg = `
+  // Interne preview: als je ingelogd bent in het dashboard tel je niet mee als
+  // klantweergave — geen Telegram, geen view-log, geen statuswissel.
+  const session = await auth();
+  const isInternalPreview = Boolean(session?.user);
+
+  if (!isInternalPreview) {
+    // "The Stalker" Logic: Send Telegram Notification
+    const isFirstView = !share.viewedAt;
+    const customerName = share.quote.customer.name;
+    const quoteTitle = share.quote.title || share.quote.number;
+
+    const telegramMsg = `
 🔔 <b>${isFirstView ? "NIEUWE VIEW!" : "KLANT KIJKT WEER!"}</b>
 👤 <b>Klant:</b> ${customerName}
 📄 <b>Offerte:</b> ${quoteTitle}
 📍 <b>Locatie:</b> ${city}
 💻 <b>Apparaat:</b> ${isMobile}
-  `.trim();
+    `.trim();
+    sendTelegramMessage(telegramMsg).catch(console.error);
 
-  // We use after() or just fire and forget if not using after
-  // Since it's a server component, we can just await it or not.
-  // We'll await it to be sure, or use after if available in this context.
-  sendTelegramMessage(telegramMsg).catch(console.error);
-
-  // Elke view loggen (niet alleen de eerste) zodat de tracker het volledige
-  // bezoekpatroon laat zien.
-  const now = new Date();
-  const ip = headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
-  await prisma.$transaction([
-    prisma.quoteShare.update({
-      where: { id: share.id },
-      data: {
-        viewedAt: share.viewedAt ?? now,
-        lastViewedAt: now,
-        viewCount: { increment: 1 },
-      },
-    }),
-    prisma.quoteEvent.create({
-      data: {
-        quoteId: share.quoteId,
-        type: "VIEWED",
-        detail: `${city} · ${isMobile}`,
-        userAgent,
-        ip: ip ?? undefined,
-      },
-    }),
-  ]);
-  if (share.quote.status === "SENT") {
-    await prisma.quote.update({
-      where: { id: share.quoteId },
-      data: { status: "VIEWED" },
-    });
+    // Elke view loggen (niet alleen de eerste) zodat de tracker het volledige
+    // bezoekpatroon laat zien.
+    const now = new Date();
+    const ip = headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+    await prisma.$transaction([
+      prisma.quoteShare.update({
+        where: { id: share.id },
+        data: {
+          viewedAt: share.viewedAt ?? now,
+          lastViewedAt: now,
+          viewCount: { increment: 1 },
+        },
+      }),
+      prisma.quoteEvent.create({
+        data: {
+          quoteId: share.quoteId,
+          type: "VIEWED",
+          detail: `${city} · ${isMobile}`,
+          userAgent,
+          ip: ip ?? undefined,
+        },
+      }),
+    ]);
+    if (share.quote.status === "SENT") {
+      await prisma.quote.update({
+        where: { id: share.quoteId },
+        data: { status: "VIEWED" },
+      });
+    }
   }
 
   const branding = (share.quote.company.branding ?? {}) as Record<string, string>;

@@ -18,6 +18,8 @@ type Quote = {
   status: string;
   totalIncVat: string | number;
   createdAt: string;
+  sentAt: string | null;
+  sendCount: number;
   customer: { id: string; name: string; email: string | null };
   _count: { items: number };
   choiceGroupCount: number;
@@ -39,6 +41,23 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
 };
 
 const statuses = ["all", "DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED"] as const;
+
+const SENT_STATES = ["SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"];
+
+function SentMarker({ quote }: { quote: Quote }) {
+  if (quote.sentAt) {
+    return (
+      <p className="mt-1 text-xs text-emerald-600">
+        Verstuurd {formatDate(quote.sentAt)}
+        {quote.sendCount > 1 ? ` · ${quote.sendCount}x` : ""}
+      </p>
+    );
+  }
+  if (SENT_STATES.includes(quote.status)) {
+    return <p className="mt-1 text-xs text-amber-600">Verzendmoment onbekend</p>;
+  }
+  return null;
+}
 
 function quoteAmount(quote: Quote) {
   if (quote.status === "ACCEPTED" || !quote.pricing.hasChoices) return formatCurrency(Number(quote.totalIncVat));
@@ -137,9 +156,12 @@ export function QuotesListClient({ initialQuotes }: { initialQuotes: Quote[] }) 
                           {quote.number} · {quote.customer.name}
                         </p>
                       </div>
-                      <Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>
-                        {QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
-                      </Badge>
+                      <div className="shrink-0 text-right">
+                        <Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>
+                          {QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
+                        </Badge>
+                        <SentMarker quote={quote} />
+                      </div>
                     </div>
                     <div className="mt-3 flex items-end justify-between gap-3 text-sm">
                       <div className="min-w-0 text-slate-500">
@@ -200,6 +222,7 @@ export function QuotesListClient({ initialQuotes }: { initialQuotes: Quote[] }) 
                           <Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>
                             {QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
                           </Badge>
+                          <SentMarker quote={quote} />
                         </TableCell>
                         <TableCell className="text-slate-500">{formatDate(quote.createdAt)}</TableCell>
                         <TableCell className="text-right tabular-nums">

@@ -144,7 +144,7 @@ Laat optionele velden weg of gebruik lege arrays wanneer er geen relevante infor
 
 Gebruik onderstaande woorden en formuleringen niet, tenzij ze aantoonbaar noodzakelijk zijn en concreet worden uitgelegd:
 
-* ontzorgen / volledig ontzorgd / totaaloplossing / hoogwaardige oplossing / innovatieve oplossing / naadloze integratie / toekomstbestendig / state-of-the-art / zorgeloos genieten / passende oplossing / optimaal resultaat / van A tot Z / naar wens / professioneel en vakkundig / kwaliteit staat voorop / met genoegen / hierbij ontvangt u / in deze offerte nemen wij u mee / ons ervaren team / vrijblijvend voorstel / geheel naar uw wensen
+* ontzorgen / volledig ontzorgd / totaaloplossing / hoogwaardige oplossing / innovatieve oplossing / naadloze integratie / toekomstbestendig / state-of-the-art / zorgeloos genieten / passende oplossing / optimaal resultaat / van A tot Z / naar wens / professioneel en vakkundig / kwaliteit staat voorop / met genoegen / hierbij ontvangt u / in deze offerte nemen wij u mee / ons ervaren team / vrijblijvend voorstel / geheel naar uw wensen / slim energiebeheer (wel toegestaan: "energiemanagement" / "energy management" / "EMS", of concreet beschrijven: sturen op stroomprijs, eigen verbruik verhogen)
 
 Vermijd ook lege claims: snel, betrouwbaar, flexibel, gebruiksvriendelijk, professioneel, veilig, duurzaam — alleen als de offerte concreet maakt waaruit dat blijkt.
 
@@ -261,6 +261,15 @@ Houd `commercial.validDays` gelijk aan het losse veld `validDays`.
 Gebruik `batteryAdvice` alleen bij offertes voor thuisbatterijen, zakelijke batterijsystemen, zonne-energie met opslag of noodstroomsystemen. Maak duidelijk onderscheid tussen nominale en bruikbare capaciteit. Verzin geen waarden.
 
 Velden: `nominalCapacityKwh`, `usableCapacityKwh`, `backupReservePercent`, `chargePowerKw`, `recommendedScenario`.
+
+### Bronnen (`batteryAdvice.sources`)
+
+Optioneel: array van `{label, description, url}`. Verwijs in de lopende tekst met `[1]`, `[2]` naar de volgorde in de array.
+
+- Plaats een verwijzing **alleen bij een echte feitelijke bewering** die op een externe bron steunt: regelgeving, salderingsafbouw, subsidie- of belastingbedragen, gepubliceerde rendements- of netcijfers.
+- Niet citeren bij eigen advies, inschattingen, algemene uitleg of iets dat al uit de offerte zelf volgt.
+- Eén verwijzing per bewering. Herhaal dezelfde bron niet bij elke zin waarin het onderwerp terugkomt en zet nooit twee verwijzingen achter elkaar (`[1][2]`).
+- Geen bronnen → laat `sources` weg en gebruik geen `[n]`-markeringen.
 
 ## 26. Attachments
 

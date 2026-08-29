@@ -101,6 +101,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     where: { id, companyId: session.user.activeCompanyId },
     select: {
       status: true,
+      sentAt: true,
       choiceGroups: true,
       items: {
         orderBy: { sortOrder: "asc" },
@@ -185,6 +186,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         return NextResponse.json({ error: "Een of meer gekoppelde artikelen bestaan niet binnen het actieve bedrijf." }, { status: 400 });
       }
     }
+  }
+
+  // "Verstuurd" wordt uitsluitend gezet door een echte e-mail via de app
+  // (send-email). Handmatig de status op SENT zetten mag niet — dat zou een
+  // verzending suggereren die niet heeft plaatsgevonden.
+  if (parsed.data.status === "SENT" && existingQuote.status !== "SENT") {
+    return NextResponse.json(
+      { error: "Een offerte wordt 'Verstuurd' door hem via 'Verstuur offerte' te mailen, niet handmatig." },
+      { status: 400 },
+    );
   }
 
   let updateData: Record<string, unknown> = { ...rest, pdfUrl: null };

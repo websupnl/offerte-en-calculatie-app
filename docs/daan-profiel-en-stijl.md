@@ -259,6 +259,7 @@ Gebruik **nooit** tenzij concreet onderbouwd:
 - hierbij ontvangt u
 - ons ervaren team
 - vrijblijvend voorstel
+- slim energiebeheer — klinkt als verkooptaal. Wel toegestaan: "energiemanagement" / "energy management" / "EMS (energy management system)", of concreet beschrijven wat het systeem doet (bijv. "de batterij laadt op als de stroomprijs laag is en levert terug als die hoog is")
 
 Vermijd ook lege claims: *snel*, *betrouwbaar*, *flexibel*, *gebruiksvriendelijk*, *professioneel*, *veilig*, *duurzaam* — alleen als de offerte concreet maakt waaruit dat blijkt.
 

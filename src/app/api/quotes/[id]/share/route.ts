@@ -24,9 +24,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     update: {},
   });
 
-  if (quote.status === "DRAFT") {
-    await prisma.quote.update({ where: { id }, data: { status: "SENT" } });
-  }
+  // Een deellink ophalen is geen verzending. De status blijft staan; "Verstuurd"
+  // wordt alleen gezet door een echte e-mail via de app (send-email) of door de
+  // knop "Markeer als verstuurd".
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const url = `${appUrl}/q/${share.token}`;

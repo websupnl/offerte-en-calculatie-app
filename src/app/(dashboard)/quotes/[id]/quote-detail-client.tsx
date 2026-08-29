@@ -450,6 +450,18 @@ export function QuoteDetailClient({
         </div>
       )}
 
+      {!quote.sentAt && ["SENT", "VIEWED", "DECLINED", "EXPIRED"].includes(quote.status) && (
+        <Card className="border-amber-300 bg-amber-50">
+          <CardContent className="pt-4">
+            <p className="text-sm font-semibold text-amber-800">Verzending niet bevestigd</p>
+            <p className="mt-1 text-xs text-amber-700">
+              Deze offerte staat op &ldquo;{QUOTE_STATUS_LABELS[quote.status] ?? quote.status}&rdquo;, maar er is geen verzendmoment vastgelegd.
+              Waarschijnlijk is hij niet via de app verstuurd. Verstuur hem via &ldquo;Verstuur offerte&rdquo; of markeer hem handmatig als verstuurd.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {quote.sentAt && (
         <Card>
           <CardContent className="pt-4">
@@ -548,7 +560,7 @@ export function QuoteDetailClient({
             <CardContent className="pt-4">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-medium text-muted-foreground">Status:</span>
-                {(quote.status === "ACCEPTED" ? ["ACCEPTED"] : ["DRAFT", "SENT", "DECLINED"]).map((s) => (
+                {(quote.status === "ACCEPTED" ? ["ACCEPTED"] : ["DRAFT", "DECLINED"]).map((s) => (
                   <Button
                     key={s}
                     variant={quote.status === s ? "default" : "outline"}
@@ -559,7 +571,13 @@ export function QuoteDetailClient({
                     {QUOTE_STATUS_LABELS[s]}
                   </Button>
                 ))}
+                {["SENT", "VIEWED"].includes(quote.status) && (
+                  <Badge variant="outline">{QUOTE_STATUS_LABELS[quote.status]}</Badge>
+                )}
               </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                &ldquo;Verstuurd&rdquo; wordt automatisch gezet zodra je de offerte via &ldquo;Verstuur offerte&rdquo; mailt.
+              </p>
             </CardContent>
           </Card>
 

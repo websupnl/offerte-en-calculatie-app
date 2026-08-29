@@ -31,7 +31,7 @@ export function GET() {
       approach: "Alleen een inhoudelijke werkwijze wanneer die iets toevoegt en flow niet herhaalt. Standaard leeg.",
       planning: "Object {leadTime, executionDuration, preferredDate} — levertijd, uitvoeringsduur, voorkeursdatum.",
       commercial: "Object {validDays, paymentTerms, warranty} — geldigheid in dagen, betaalvoorwaarden, garantie.",
-      batteryAdvice: "Alleen voor accu/zonne-offertes: {nominalCapacityKwh, usableCapacityKwh, backupReservePercent, chargePowerKw, recommendedScenario}.",
+      batteryAdvice: "Alleen voor accu/zonne-offertes: {nominalCapacityKwh, usableCapacityKwh, backupReservePercent, chargePowerKw, recommendedScenario}. Optioneel sources: [{label, description, url}]; verwijs met [1]/[2] uitsluitend bij echte feitelijke beweringen (regelgeving, saldering, subsidiebedragen, gepubliceerde cijfers), max. één verwijzing per bewering, nooit dezelfde bron herhaald bij elke zin of twee markeringen achter elkaar.",
       attachments: "Bijlagen: array van {title, imageUrl of liveUrl, caption}. Minimaal imageUrl of liveUrl vereist.",
       // Tekst & afsluiting
       outro: "Afsluitende alinea aan de klant.",
