@@ -116,6 +116,16 @@ type ApproachStep = { n: number | string; t: string; d: string };
 type QuoteAttachment = { id?: string; title?: string | null; imageUrl: string; liveUrl?: string | null; caption?: string | null; section?: string | null };
 type QuoteSource = { id?: string; label: string; description?: string; url: string };
 
+const sourceShortName = (source: QuoteSource) => {
+  try {
+    const host = new URL(source.url).hostname.replace(/^www\./, "");
+    if (host) return host;
+  } catch {
+    /* geen geldige URL — val terug op label */
+  }
+  return source.label;
+};
+
 const CitedText = ({
   value,
   sources,
@@ -147,7 +157,7 @@ const CitedText = ({
           aria-label={`Bron ${sourceNumber}: ${source.label}`}
           title={source.label}
         >
-          Bron {sourceNumber}
+          {sourceShortName(source)}
           <ExternalLink size={9} aria-hidden="true" />
         </a>
       );
