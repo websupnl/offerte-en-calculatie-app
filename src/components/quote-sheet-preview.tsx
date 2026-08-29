@@ -145,7 +145,8 @@ const CitedText = ({
       const sourceNumber = match[1];
       const source = sources.find((candidate) => String(candidate.id) === sourceNumber)
         ?? sources[Number(sourceNumber) - 1];
-      if (!source) return part;
+      // Onbekende verwijzing (bron verwijderd) — marker weglaten i.p.v. "[3]" tonen.
+      if (!source) return null;
 
       return (
         <a
