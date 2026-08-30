@@ -368,6 +368,10 @@ function buildQuoteEmailHtml(identity: CompanyEmailIdentity, data: QuoteEmailDat
 </html>`.trim();
 }
 
+// Elke via de app verstuurde offerte gaat als kopie naar Donna's archiefpostbus.
+// Overrulebaar via env voor test/staging.
+const QUOTE_ARCHIVE_BCC = process.env.QUOTE_ARCHIVE_BCC ?? "donna@onlinewerkplek.cloud";
+
 export async function sendQuoteEmail(data: QuoteEmailData) {
   const smtp = getTransporter();
   if (!smtp) return { sent: false, reason: "SMTP niet geconfigureerd" };
@@ -378,6 +382,7 @@ export async function sendQuoteEmail(data: QuoteEmailData) {
     from: `"${identity.fromName}" <${identity.fromEmail}>`,
     replyTo: identity.replyTo,
     to: data.to,
+    bcc: QUOTE_ARCHIVE_BCC || undefined,
     subject: `Offerte ${data.quoteNumber} van ${identity.fromName}${data.quoteTitle ? `: ${data.quoteTitle}` : ""}`,
     html: buildQuoteEmailHtml(identity, data),
     attachments: data.attachments?.length

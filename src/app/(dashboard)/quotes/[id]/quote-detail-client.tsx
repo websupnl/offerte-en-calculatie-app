@@ -19,6 +19,7 @@ import {
   Printer,
   Mail,
   Calculator,
+  ChevronDown,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatDateTime, QUOTE_STATUS_LABELS } from "@/lib/format";
 import { QuoteBuilder } from "@/components/forms/quote-builder";
@@ -222,6 +223,7 @@ export function QuoteDetailClient({
   }, [quote.status, router]);
 
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
 
   async function handleShare() {
     setSharing(true);
@@ -465,28 +467,38 @@ export function QuoteDetailClient({
       {quote.sentAt && (
         <Card>
           <CardContent className="pt-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-slate-700">Tijdlijn</p>
-              <p className="text-xs text-slate-400">
+            <button
+              type="button"
+              onClick={() => setTimelineOpen((open) => !open)}
+              aria-expanded={timelineOpen}
+              className="flex w-full flex-wrap items-center justify-between gap-2 text-left"
+            >
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${timelineOpen ? "" : "-rotate-90"}`} />
+                Tijdlijn
+              </span>
+              <span className="text-xs text-slate-400">
                 Verstuurd op {formatDateTime(quote.sentAt)}
                 {quote.sendCount > 1 ? ` · ${quote.sendCount}x verstuurd` : ""}
                 {quote.share?.viewCount ? ` · ${quote.share.viewCount}x bekeken` : " · nog niet geopend"}
-              </p>
-            </div>
-            {quote.events.length > 0 ? (
-              <ol className="mt-3 space-y-2 text-sm">
-                {quote.events.map((event) => (
-                  <li key={event.id} className="flex items-start justify-between gap-3 border-t border-slate-100 pt-2 first:border-0 first:pt-0">
-                    <div className="min-w-0">
-                      <p className="font-medium text-slate-800">{EVENT_LABELS[event.type] ?? event.type}</p>
-                      {event.detail && <p className="truncate text-xs text-slate-400">{event.detail}</p>}
-                    </div>
-                    <span className="shrink-0 text-xs text-slate-400">{formatDateTime(event.createdAt)}</span>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="mt-2 text-xs text-slate-400">Nog geen activiteit geregistreerd.</p>
+              </span>
+            </button>
+            {timelineOpen && (
+              quote.events.length > 0 ? (
+                <ol className="mt-3 space-y-2 text-sm">
+                  {quote.events.map((event) => (
+                    <li key={event.id} className="flex items-start justify-between gap-3 border-t border-slate-100 pt-2 first:border-0 first:pt-0">
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-800">{EVENT_LABELS[event.type] ?? event.type}</p>
+                        {event.detail && <p className="truncate text-xs text-slate-400">{event.detail}</p>}
+                      </div>
+                      <span className="shrink-0 text-xs text-slate-400">{formatDateTime(event.createdAt)}</span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="mt-2 text-xs text-slate-400">Nog geen activiteit geregistreerd.</p>
+              )
             )}
           </CardContent>
         </Card>
