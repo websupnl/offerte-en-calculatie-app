@@ -842,6 +842,12 @@ export function QuoteBuilder({
     }
 
     setSaving(true);
+    // Wacht tot een lopende autosave klaar is en blokkeer nieuwe autosaves,
+    // zodat autosave en handmatig opslaan nooit tegelijk dezelfde offerte schrijven.
+    while (autosaveInFlight.current) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    autosaveInFlight.current = true;
     try {
       const hasLinkedCalculations = choiceGroups.some((group) => group.choices.some((choice) => choice.calculationId));
       const freshChoiceGroups = hasLinkedCalculations ? await getFreshChoiceGroups() : choiceGroups;
@@ -865,6 +871,7 @@ export function QuoteBuilder({
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Opslaan mislukt");
     } finally {
+      autosaveInFlight.current = false;
       setSaving(false);
     }
   }

@@ -230,40 +230,49 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return { ...item, total: calculateLine(item).revenueExVat, sortOrder: i };
     });
 
-    // Replace items
-    await prisma.quoteItem.deleteMany({ where: { quoteId: id } });
-    await prisma.quoteItem.createMany({
-      data: itemsWithTotals.map((item) => ({
-        quoteId: id,
-        productId: item.productId,
-        description: item.description,
-        qty: item.qty,
-        unitPrice: item.unitPrice,
-        costPrice: item.costPrice,
-        vatRate: item.vatRate,
-        total: item.total,
-        sortOrder: item.sortOrder,
-        indent: item.indent,
-        type: item.type,
-        hiddenOnQuote: item.hiddenOnQuote,
-      })),
-    });
+    // Replace items in één transactie: twee gelijktijdige opslagacties (autosave +
+    // handmatig opslaan) mogen niet allebei losstaand delete + create draaien, want
+    // dan blijven beide createMany-batches staan en verdubbelen de regels.
+    await prisma.$transaction([
+      prisma.quoteItem.deleteMany({ where: { quoteId: id } }),
+      prisma.quoteItem.createMany({
+        data: itemsWithTotals.map((item) => ({
+          quoteId: id,
+          productId: item.productId,
+          description: item.description,
+          qty: item.qty,
+          unitPrice: item.unitPrice,
+          costPrice: item.costPrice,
+          vatRate: item.vatRate,
+          total: item.total,
+          sortOrder: item.sortOrder,
+          indent: item.indent,
+          type: item.type,
+          hiddenOnQuote: item.hiddenOnQuote,
+        })),
+      }),
+    ]);
   }
 
   if (attachments) {
-    await prisma.quoteAttachment.deleteMany({ where: { quoteId: id } });
+    const deleteAttachments = prisma.quoteAttachment.deleteMany({ where: { quoteId: id } });
     if (attachments.length) {
-      await prisma.quoteAttachment.createMany({
-        data: attachments.map((attachment, sortOrder) => ({
-          quoteId: id,
-          title: attachment.title,
-          imageUrl: attachment.imageUrl,
-          liveUrl: attachment.liveUrl,
-          caption: attachment.caption,
-          section: attachment.section,
-          sortOrder,
-        })),
-      });
+      await prisma.$transaction([
+        deleteAttachments,
+        prisma.quoteAttachment.createMany({
+          data: attachments.map((attachment, sortOrder) => ({
+            quoteId: id,
+            title: attachment.title,
+            imageUrl: attachment.imageUrl,
+            liveUrl: attachment.liveUrl,
+            caption: attachment.caption,
+            section: attachment.section,
+            sortOrder,
+          })),
+        }),
+      ]);
+    } else {
+      await deleteAttachments;
     }
   }
 

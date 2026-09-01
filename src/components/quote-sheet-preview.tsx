@@ -1201,11 +1201,26 @@ export function QuoteSheetPreview({
               <figure className="design-full design-full-preview">
                 <div className="design-full-frame">
                   {attachment.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- offerte-afbeeldingen kunnen tijdelijke opslag-URL's zijn
-                    <img
-                      src={attachment.imageUrl}
-                      alt={attachment.title || `Ontwerpvoorbeeld ${index + 1}`}
-                    />
+                    attachment.liveUrl ? (
+                      <a
+                        href={attachment.liveUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Open ${attachment.title || "het ontwerpvoorbeeld"} in een nieuw tabblad`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element -- offerte-afbeeldingen kunnen tijdelijke opslag-URL's zijn */}
+                        <img
+                          src={attachment.imageUrl}
+                          alt={attachment.title || `Ontwerpvoorbeeld ${index + 1}`}
+                        />
+                      </a>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element -- offerte-afbeeldingen kunnen tijdelijke opslag-URL's zijn
+                      <img
+                        src={attachment.imageUrl}
+                        alt={attachment.title || `Ontwerpvoorbeeld ${index + 1}`}
+                      />
+                    )
                   ) : (
                     <a
                       href={attachment.liveUrl || undefined}

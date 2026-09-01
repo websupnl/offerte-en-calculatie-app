@@ -1,4 +1,5 @@
 # Offerte App — WebsUp & Koolhaas Installaties
+gebruik .claude\commands\maak-offerte.md bij het maken van offertesm werkt dit bestand ook bij bij nieuwe mogelijkheden
 
 ## Stack
 - Next.js 14 (App Router), React, TypeScript, Tailwind CSS, shadcn/ui

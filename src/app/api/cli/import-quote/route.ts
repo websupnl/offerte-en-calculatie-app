@@ -138,8 +138,23 @@ export async function POST(req: NextRequest) {
       totalVat: "totalVat" in totals ? totals.totalVat : totals.vat,
       totalIncVat: "totalIncVat" in totals ? totals.totalIncVat : totals.revenueIncVat,
       items: itemsWithOrder.length ? { create: itemsWithOrder } : undefined,
+      attachments: data.attachments.length
+        ? {
+            create: data.attachments.map((attachment, sortOrder) => ({
+              title: attachment.title ?? null,
+              imageUrl: attachment.imageUrl,
+              liveUrl: attachment.liveUrl ?? null,
+              caption: attachment.caption ?? null,
+              sortOrder,
+            })),
+          }
+        : undefined,
     },
-    include: { customer: true, items: true },
+    include: {
+      customer: true,
+      items: true,
+      attachments: { orderBy: { sortOrder: "asc" } },
+    },
   });
 
   return NextResponse.json(

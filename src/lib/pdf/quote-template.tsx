@@ -682,7 +682,13 @@ export function QuotePDF({
             {pair.map((attachment, i) => (
               <View key={i} style={{ flex: 1, minHeight: 0, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: brand.colors.border }}>
                 <View style={{ flex: 1, overflow: "hidden", backgroundColor: "#FFFFFF" }}>
-                  <Image src={publicImageDataUri(attachment.imageUrl)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  {attachment.liveUrl ? (
+                    <Link src={attachment.liveUrl} style={{ width: "100%", height: "100%" }}>
+                      <Image src={publicImageDataUri(attachment.imageUrl)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    </Link>
+                  ) : (
+                    <Image src={publicImageDataUri(attachment.imageUrl)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  )}
                 </View>
                 {(attachment.title || attachment.caption) && (
                   <View style={{ marginTop: 7, minHeight: 32 }}>
