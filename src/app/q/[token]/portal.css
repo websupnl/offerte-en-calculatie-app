@@ -334,7 +334,8 @@
 }
 
 .portal-websup .ph .brand-logo {
-  height: 72px;
+  height: 96px;
+  max-width: 360px;
 }
 .portal-koolhaas .ph .brand-logo {
   height: 38px;

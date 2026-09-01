@@ -336,7 +336,7 @@ function PageHeader({ brand, quoteNumber, customerName }: { brand: BrandConfig; 
   return (
     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
       {brand.key === "websup" && brand.logoColor ? (
-        <Image src={brand.logoColor} style={{ height: 22, width: 102, objectFit: "contain", objectPositionX: "0%" }} />
+        <Image src={brand.logoColor} style={{ height: 32, width: 148, objectFit: "contain", objectPositionX: "0%" }} />
       ) : brand.key === "websup" ? (
         <View style={{ flexDirection: "row", alignItems: "baseline", gap: 1 }}>
           <Text style={{ fontSize: 16, fontFamily: "Helvetica-Bold", color: brand.colors.primary }}>Webs</Text>
