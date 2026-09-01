@@ -361,6 +361,20 @@ export function QuoteSheetPreview({
     selectedChoiceIds,
     selectedOptionIds,
   });
+  // Terugkerende bedragen van geselecteerde modules — los van het eenmalige totaal.
+  const recurringTotalLines: { interval: string; amount: number }[] = [];
+  if (totals.recurring.perMonthExVat > 0) {
+    recurringTotalLines.push({
+      interval: "per maand",
+      amount: showExVat ? totals.recurring.perMonthExVat : totals.recurring.perMonthIncVat,
+    });
+  }
+  if (totals.recurring.perYearExVat > 0) {
+    recurringTotalLines.push({
+      interval: "per jaar",
+      amount: showExVat ? totals.recurring.perYearExVat : totals.recurring.perYearIncVat,
+    });
+  }
   // Vaste werkzaamheden zitten in elke configuratie → per optie tonen we een all-in prijs (systeem + basis).
   const baseIncVat = quote.items.reduce(
     (sum, item) => sum + Number(item.qty) * Number(item.unitPrice) * (1 + Number(item.vatRate) / 100),
@@ -561,7 +575,7 @@ export function QuoteSheetPreview({
     onUpdate?.({
       options: [
         ...options,
-        { id: `morework-${Date.now()}`, t: "Nieuw optioneel meerwerk", d: "Korte omschrijving van deze uitbreiding.", tag: "Optioneel", price: 0, vatRate: 21, details: [] },
+        { id: `morework-${Date.now()}`, t: "Nieuw optioneel meerwerk", d: "Korte omschrijving van deze uitbreiding.", tag: "Optioneel", price: 0, recurringPrice: null, recurringInterval: null, vatRate: 21, defaultSelected: false, details: [] },
       ],
     });
   };
@@ -728,10 +742,18 @@ export function QuoteSheetPreview({
           <tfoot>
             <tr className="grand-total">
               <td>
-                <span>Totaal {showExVat ? "excl." : "incl."} btw</span>
+                <span>{recurringTotalLines.length > 0 ? "Eenmalig" : "Totaal"} {showExVat ? "excl." : "incl."} btw</span>
                 <strong>{formatCurrency(Number(showExVat ? totals.totalExVat : totals.totalIncVat))}</strong>
               </td>
             </tr>
+            {recurringTotalLines.map((line) => (
+              <tr className="grand-total grand-total-recurring" key={line.interval}>
+                <td>
+                  <span>Daarna {line.interval} {showExVat ? "excl." : "incl."} btw</span>
+                  <strong>{formatCurrency(line.amount)}</strong>
+                </td>
+              </tr>
+            ))}
           </tfoot>
         </table>
       </div>
@@ -865,21 +887,69 @@ export function QuoteSheetPreview({
                 </span>
               )}
               {isEditable && (
-                <div className="mt-2 flex items-center gap-2 text-xs font-bold text-slate-900">
-                  <span>€</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={o.price ?? ""}
-                    placeholder="Op aanvraag"
-                    onChange={(event) =>
-                      updateOption(idx, { price: event.target.value === "" ? null : Number(event.target.value) })
-                    }
-                    className="editable-input max-w-28"
-                    aria-label="Prijs optioneel meerwerk exclusief btw (leeg = op aanvraag)"
-                  />
-                  <span>excl. btw</span>
+                <div className="mt-2 space-y-2 text-xs font-bold text-slate-900">
+                  <div className="flex items-center gap-2">
+                    <span>Eenmalig €</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={o.price ?? ""}
+                      placeholder="Op aanvraag"
+                      onChange={(event) =>
+                        updateOption(idx, { price: event.target.value === "" ? null : Number(event.target.value) })
+                      }
+                      className="editable-input max-w-28"
+                      aria-label="Eenmalige prijs optioneel meerwerk exclusief btw (leeg = op aanvraag)"
+                    />
+                    <span>excl. btw</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span>Per</span>
+                    <select
+                      value={o.recurringInterval ?? ""}
+                      onChange={(event) =>
+                        updateOption(idx, {
+                          recurringInterval: (event.target.value || null) as "maand" | "jaar" | null,
+                          ...(event.target.value ? {} : { recurringPrice: null }),
+                        })
+                      }
+                      className="editable-input max-w-24"
+                      aria-label="Interval terugkerende prijs"
+                    >
+                      <option value="">geen abonnement</option>
+                      <option value="maand">maand</option>
+                      <option value="jaar">jaar</option>
+                    </select>
+                    {o.recurringInterval && (
+                      <>
+                        <span>€</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={o.recurringPrice ?? ""}
+                          placeholder="0,00"
+                          onChange={(event) =>
+                            updateOption(idx, {
+                              recurringPrice: event.target.value === "" ? null : Number(event.target.value),
+                            })
+                          }
+                          className="editable-input max-w-28"
+                          aria-label="Terugkerende prijs exclusief btw"
+                        />
+                        <span>excl. btw</span>
+                      </>
+                    )}
+                  </div>
+                  <label className="flex items-center gap-2 font-medium">
+                    <input
+                      type="checkbox"
+                      checked={o.defaultSelected ?? false}
+                      onChange={(event) => updateOption(idx, { defaultSelected: event.target.checked })}
+                    />
+                    Standaard aangevinkt in het klantportaal
+                  </label>
                 </div>
               )}
               {isEditable && (

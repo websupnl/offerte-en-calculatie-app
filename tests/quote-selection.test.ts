@@ -49,6 +49,7 @@ assert.deepEqual(totals, {
   totalExVat: 1850,
   totalVat: 388.5,
   totalIncVat: 2238.5,
+  recurring: { perMonthExVat: 0, perMonthIncVat: 0, perYearExVat: 0, perYearIncVat: 0 },
 });
 
 assert.equal(getQuoteOptionPrice({ price: null, tag: "€495 excl. btw" }), 495);
@@ -92,6 +93,44 @@ const recurringOptionTotals = calculateQuoteSelectionTotals(
   { selectedChoiceIds: {}, selectedOptionIds: ["hosting"] },
 );
 assert.equal(recurringOptionTotals.totalExVat, 1499);
+
+// Echte terugkerende velden: price is de eenmalige prijs, recurringPrice staat los.
+const moduleWithRealFields: QuoteOption = {
+  id: "onderhoud",
+  t: "Technisch onderhoud",
+  d: "WordPress up-to-date houden.",
+  tag: "Maandelijks",
+  price: 95,
+  recurringPrice: 15,
+  recurringInterval: "maand",
+  vatRate: 21,
+  defaultSelected: true,
+  details: [],
+};
+assert.equal(getQuoteOptionPrice(moduleWithRealFields), 95);
+assert.equal(getQuoteOptionRecurringPrice(moduleWithRealFields), 15);
+assert.equal(getQuoteOptionRecurringInterval(moduleWithRealFields), "per maand");
+
+const realFieldTotals = calculateQuoteSelectionTotals(
+  [{ description: "Restyle", qty: 1, unitPrice: 595, vatRate: 21 }],
+  [],
+  [moduleWithRealFields],
+  { selectedChoiceIds: {}, selectedOptionIds: ["onderhoud"] },
+);
+assert.equal(realFieldTotals.totalExVat, 690); // 595 + 95 eenmalig
+assert.equal(realFieldTotals.recurring.perMonthExVat, 15);
+assert.equal(realFieldTotals.recurring.perMonthIncVat, 18.15);
+assert.equal(realFieldTotals.recurring.perYearExVat, 0);
+
+// recurringInterval zonder recurringPrice = geen terugkerende prijs.
+assert.equal(
+  getQuoteOptionRecurringPrice({ price: 50, tag: "Optioneel", recurringInterval: "maand", recurringPrice: null }),
+  null,
+);
+assert.equal(
+  getQuoteOptionPrice({ price: 50, tag: "Optioneel", recurringInterval: "maand", recurringPrice: null }),
+  50,
+);
 
 const requiredOption: QuoteOption = {
   id: "hosting",

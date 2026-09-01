@@ -139,7 +139,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     notes: quote.notes ?? undefined,
     flow: (quote.flow as Array<{ n: number; t: string; d: string }> | null) || [],
     approach: (quote.approach as Array<{ n: string; t: string; d: string }> | null) || [],
-    options: (quote.options as Array<{ id?: string; t: string; d: string; tag: string; price?: number | null; vatRate?: number }> | null) || [],
+    options: (quote.options as Array<{ id?: string; t: string; d: string; tag: string; price?: number | null; recurringPrice?: number | null; recurringInterval?: "maand" | "jaar" | null; vatRate?: number; defaultSelected?: boolean; details?: string[] }> | null) || [],
     selectedOptionIds: (share.selectedOptionIds as string[] | null) ?? [],
     signerName: share.signerName ?? undefined,
     exclusions: (quote.exclusions as string[]) || [],

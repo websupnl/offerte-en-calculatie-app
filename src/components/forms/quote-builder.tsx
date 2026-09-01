@@ -25,6 +25,7 @@ import {
   ChevronRight,
   ChevronLeft,
   ChevronDown,
+  ChevronUp,
   CornerDownRight,
   FileText,
   Search,
@@ -125,9 +126,12 @@ type QuoteOption = {
   t: string;
   d: string;
   tag: string;
-  price: number | null; // null = "Op aanvraag" (geen vaste prijs)
+  price: number | null; // null = "Op aanvraag" (geen eenmalige prijs)
+  recurringPrice?: number | null; // abonnement/onderhoud per interval, excl. btw
+  recurringInterval?: "maand" | "jaar" | null;
   vatRate: number;
   required?: boolean;
+  defaultSelected?: boolean; // standaard aangevinkt in het klantportaal
   details: string[];
   technicalCondition?: string;
 };
@@ -477,8 +481,11 @@ export function QuoteBuilder({
       d: option.d,
       tag: option.tag || "Optioneel",
       price: option.price == null ? null : Number(option.price),
+      recurringPrice: option.recurringPrice == null ? null : Number(option.recurringPrice),
+      recurringInterval: option.recurringInterval ?? null,
       vatRate: Number(option.vatRate || 21),
       required: option.required === true,
+      defaultSelected: option.defaultSelected === true,
       details: option.details || [],
       technicalCondition: option.technicalCondition || "",
     }))
@@ -977,6 +984,45 @@ export function QuoteBuilder({
 
   function choiceItemTotal(item: ChoiceItem) {
     return Number(item.qty || 0) * Number(item.unitPrice || 0);
+  }
+
+  // ─── Modules (optioneel meerwerk) ──────────────────────────────────────────
+  function addModule() {
+    setOptions((prev) => [
+      ...prev,
+      {
+        id: `module-${genId()}`,
+        t: "Nieuwe module",
+        d: "Korte omschrijving van wat deze module inhoudt.",
+        tag: "Optioneel",
+        price: null,
+        recurringPrice: null,
+        recurringInterval: null,
+        vatRate: 21,
+        required: false,
+        defaultSelected: false,
+        details: [],
+        technicalCondition: "",
+      },
+    ]);
+  }
+
+  function updateModule(index: number, patch: Partial<QuoteOption>) {
+    setOptions((prev) => prev.map((option, i) => (i === index ? { ...option, ...patch } : option)));
+  }
+
+  function removeModule(index: number) {
+    setOptions((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function moveModule(index: number, direction: -1 | 1) {
+    setOptions((prev) => {
+      const next = [...prev];
+      const target = index + direction;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
   }
 
   function addChoiceGroup() {
@@ -1942,6 +1988,7 @@ export function QuoteBuilder({
             <TabsList className="w-full bg-white shadow-sm">
               <TabsTrigger value="regels" className="flex-1">Regels</TabsTrigger>
               <TabsTrigger value="configuraties" className="flex-1">Configuraties</TabsTrigger>
+              <TabsTrigger value="modules" className="flex-1">Modules</TabsTrigger>
               <TabsTrigger value="media" className="flex-1">Media</TabsTrigger>
               <TabsTrigger value="documenten" className="flex-1">Documenten</TabsTrigger>
             </TabsList>
@@ -2398,6 +2445,172 @@ export function QuoteBuilder({
                         </Button>
                       </div>
                     ))
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="modules" className="space-y-6">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-bold flex items-center justify-between">
+                    Modules & optioneel meerwerk
+                    <Button size="sm" variant="outline" onClick={addModule} className="h-8">
+                      <Plus className="h-3 w-3 mr-1" /> Module
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {options.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
+                      Losse bouwstenen die de klant in het portaal aan- of uitzet. Bijvoorbeeld &ldquo;Twitch-embed&rdquo;, &ldquo;Basis SEO&rdquo; of &ldquo;Technisch onderhoud &euro; 15 per maand&rdquo;. Zet een prijs bij eenmalig, bij abonnement, of allebei.
+                    </div>
+                  ) : (
+                    options.map((option, index) => {
+                      const moduleKind = option.required ? "verplicht" : option.defaultSelected ? "standaard" : "optioneel";
+                      return (
+                        <div key={option.id} className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
+                          <div className="flex items-start gap-2">
+                            <Input
+                              value={option.t}
+                              onChange={(e) => updateModule(index, { t: e.target.value })}
+                              className="h-8 flex-1 text-sm font-bold"
+                              placeholder="Bijv. Twitch-embed"
+                            />
+                            <div className="flex items-center">
+                              <Button size="icon" variant="ghost" onClick={() => moveModule(index, -1)} disabled={index === 0} className="h-8 w-8">
+                                <ChevronUp className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" onClick={() => moveModule(index, 1)} disabled={index === options.length - 1} className="h-8 w-8">
+                                <ChevronDown className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" onClick={() => removeModule(index)} className="h-8 w-8 text-red-500">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          <Textarea
+                            value={option.d}
+                            onChange={(e) => updateModule(index, { d: e.target.value })}
+                            rows={2}
+                            className="resize-none text-sm"
+                            placeholder="Wat houdt deze module in? Maximaal twee zinnen."
+                          />
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-[11px] text-slate-500">In het portaal</Label>
+                              <Select
+                                value={moduleKind}
+                                onValueChange={(value) =>
+                                  updateModule(index, {
+                                    required: value === "verplicht",
+                                    defaultSelected: value === "standaard",
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="optioneel">Optioneel (uit)</SelectItem>
+                                  <SelectItem value="standaard">Standaard aangevinkt</SelectItem>
+                                  <SelectItem value="verplicht">Verplicht (vast aan)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label className="text-[11px] text-slate-500">Label</Label>
+                              <Input
+                                value={option.tag ?? ""}
+                                onChange={(e) => updateModule(index, { tag: e.target.value })}
+                                className="h-8 text-xs"
+                                placeholder="Optioneel"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-[11px] text-slate-500">Eenmalig &euro; excl. btw</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={option.price ?? ""}
+                                onChange={(e) => updateModule(index, { price: e.target.value === "" ? null : Number(e.target.value) })}
+                                className="h-8 text-xs"
+                                placeholder="Op aanvraag"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-[11px] text-slate-500">BTW %</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={option.vatRate}
+                                onChange={(e) => updateModule(index, { vatRate: Number(e.target.value) })}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-[11px] text-slate-500">Abonnement</Label>
+                              <Select
+                                value={option.recurringInterval ?? "geen"}
+                                onValueChange={(value) =>
+                                  updateModule(index, {
+                                    recurringInterval: value === "geen" ? null : (value as "maand" | "jaar"),
+                                    ...(value === "geen" ? { recurringPrice: null } : {}),
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="geen">Geen abonnement</SelectItem>
+                                  <SelectItem value="maand">Per maand</SelectItem>
+                                  <SelectItem value="jaar">Per jaar</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {option.recurringInterval && (
+                              <div>
+                                <Label className="text-[11px] text-slate-500">Bedrag &euro; excl. btw</Label>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={option.recurringPrice ?? ""}
+                                  onChange={(e) => updateModule(index, { recurringPrice: e.target.value === "" ? null : Number(e.target.value) })}
+                                  className="h-8 text-xs"
+                                  placeholder="0,00"
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <Label className="text-[11px] text-slate-500">Details, &eacute;&eacute;n regel per punt</Label>
+                            <Textarea
+                              value={(option.details ?? []).join("\n")}
+                              onChange={(e) => updateModule(index, { details: e.target.value.split("\n").map((line) => line.trim()).filter(Boolean) })}
+                              rows={2}
+                              className="resize-none text-xs"
+                              placeholder={"Inclusief installatie\nInclusief korte uitleg"}
+                            />
+                          </div>
+
+                          <Input
+                            value={option.technicalCondition ?? ""}
+                            onChange={(e) => updateModule(index, { technicalCondition: e.target.value })}
+                            className="h-8 text-xs"
+                            placeholder="Technische voorwaarde (optioneel)"
+                          />
+                        </div>
+                      );
+                    })
                   )}
                 </CardContent>
               </Card>

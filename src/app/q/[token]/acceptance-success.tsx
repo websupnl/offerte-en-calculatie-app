@@ -14,6 +14,7 @@ interface AcceptanceSuccessProps {
   baseItems: Array<{ description: string; unitPrice: number; qty: number }>;
   priceLabel: string;
   displayedTotal: number;
+  recurringLines?: Array<{ interval: string; amount: number }>;
   onScrollToQuote: () => void;
   accentColor: string;
   shareToken: string;
@@ -28,6 +29,7 @@ export function AcceptanceSuccess({
   baseItems,
   priceLabel,
   displayedTotal,
+  recurringLines = [],
   onScrollToQuote,
   accentColor,
   shareToken,
@@ -154,9 +156,18 @@ export function AcceptanceSuccess({
         </ul>
 
         <div className="acceptance-success__total">
-          <span>{priceLabel === "excl. btw" ? "Totaal excl. btw" : "Totaal incl. btw"}</span>
+          <span>
+            {recurringLines.length > 0 ? "Eenmalig " : "Totaal "}
+            {priceLabel === "excl. btw" ? "excl. btw" : "incl. btw"}
+          </span>
           <strong>{formatCurrency(displayedTotal)}</strong>
         </div>
+        {recurringLines.map((line) => (
+          <div key={line.interval} className="acceptance-success__total acceptance-success__total--recurring">
+            <span>Daarna {line.interval} {priceLabel === "excl. btw" ? "excl. btw" : "incl. btw"}</span>
+            <strong>{formatCurrency(line.amount)}</strong>
+          </div>
+        ))}
       </div>
 
       {/* CTAs */}

@@ -109,6 +109,12 @@ export function QuotePortalClient({
   const optionalWork = quote.options ?? [];
   const documents = quote.documents ?? [];
   const requiredOptionIds = optionalWork.filter((option) => option.required).map((option) => option.id);
+  // Modules die standaard aanstaan (maar afvinkbaar zijn), plus de verplichte.
+  const defaultOptionIds = optionalWork
+    .filter((option) => option.defaultSelected || option.required)
+    .map((option) => option.id);
+  const hasSavedOptionSelection =
+    Array.isArray(share.selectedOptionIds) && share.selectedOptionIds.length > 0;
   // Standaard de aanbevolen optie voorselecteren (recommendedChoiceId → label "Aanbevolen" → eerste optie),
   // zodat de totale investering meteen een echte all-in prijs toont i.p.v. alleen de vaste basis.
   const defaultChoiceIds: Record<string, string> = {};
@@ -125,7 +131,10 @@ export function QuotePortalClient({
       : defaultChoiceIds,
   );
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([
-    ...new Set([...(share.selectedOptionIds ?? []), ...requiredOptionIds]),
+    ...new Set([
+      ...(hasSavedOptionSelection ? share.selectedOptionIds! : defaultOptionIds),
+      ...requiredOptionIds,
+    ]),
   ]);
   const totals = calculateQuoteSelectionTotals(quote.items, choiceGroups, optionalWork, {
     selectedChoiceIds,
@@ -287,6 +296,148 @@ export function QuotePortalClient({
     }
   }
 
+  // ─── Prijsopbouw voor de samensteller ──────────────────────────────────────
+  const moduleIsIncluded = (option: QuoteOption) =>
+    option.required === true || option.defaultSelected === true;
+  const includedModules = optionalWork.filter(moduleIsIncluded);
+  const extraModules = optionalWork.filter((option) => !moduleIsIncluded(option));
+
+  const oneTimeTotal = showExVat ? totals.totalExVat : totals.totalIncVat;
+
+  const recurringDisplayLines: { interval: string; amount: number }[] = [];
+  if (totals.recurring.perMonthExVat > 0) {
+    recurringDisplayLines.push({
+      interval: "per maand",
+      amount: showExVat ? totals.recurring.perMonthExVat : totals.recurring.perMonthIncVat,
+    });
+  }
+  if (totals.recurring.perYearExVat > 0) {
+    recurringDisplayLines.push({
+      interval: "per jaar",
+      amount: showExVat ? totals.recurring.perYearExVat : totals.recurring.perYearIncVat,
+    });
+  }
+  const hasRecurring = recurringDisplayLines.length > 0;
+  const recurringMetaSuffix = recurringDisplayLines
+    .map((line) => `${formatCurrency(line.amount)} ${line.interval}`)
+    .join(" + ");
+
+  const oneTimeBreakdown: { label: string; amount: number }[] = [];
+  if (baseExVat > 0) {
+    oneTimeBreakdown.push({
+      label: quote.itemsHeader?.trim() || "Vaste werkzaamheden",
+      amount: showExVat ? baseExVat : baseIncVat,
+    });
+  }
+  for (const group of choiceGroups) {
+    const choice = group.choices.find((c) => c.id === selectedChoiceIds[group.id]);
+    if (!choice) continue;
+    const choiceExVat = choice.items.reduce((sum, item) => sum + Number(item.qty) * Number(item.unitPrice), 0);
+    if (choiceExVat <= 0) continue;
+    const choiceIncVat = choice.items.reduce(
+      (sum, item) => sum + Number(item.qty) * Number(item.unitPrice) * (1 + Number(item.vatRate) / 100),
+      0,
+    );
+    oneTimeBreakdown.push({ label: choice.title, amount: showExVat ? choiceExVat : choiceIncVat });
+  }
+  for (const option of optionalWork) {
+    if (!selectedOptionIds.includes(option.id)) continue;
+    const oneTimePrice = getQuoteOptionPrice(option);
+    if (oneTimePrice == null || oneTimePrice <= 0) continue;
+    oneTimeBreakdown.push({
+      label: option.t,
+      amount: showExVat ? oneTimePrice : oneTimePrice * (1 + option.vatRate / 100),
+    });
+  }
+
+  const renderOptionCard = (option: QuoteOption) => {
+    const selected = selectedOptionIds.includes(option.id);
+    const expanded = expandedOptionIds.includes(option.id);
+    const canExpandDescription = (option.d?.length ?? 0) > 110;
+    const isRequired = option.required === true;
+    const optionPrice = getQuoteOptionPrice(option);
+    const optionInterval = getQuoteOptionRecurringInterval(option);
+    const recurringOptionPrice = getQuoteOptionRecurringPrice(option);
+    const displayedOptionPrice =
+      optionPrice == null ? null : showExVat ? optionPrice : optionPrice * (1 + option.vatRate / 100);
+    const displayedRecurringOptionPrice =
+      recurringOptionPrice == null
+        ? null
+        : showExVat
+          ? recurringOptionPrice
+          : recurringOptionPrice * (1 + option.vatRate / 100);
+    const fallbackPriceLabel = option.tag ? formatOptionPriceTag(option.tag) : "Prijs op aanvraag";
+    const prefixFallbackPrice = !/op aanvraag/i.test(fallbackPriceLabel);
+    const fallbackPriceParts = fallbackPriceLabel.match(/^(.*?)(\s+(?:excl|incl)\.?\s+btw.*)$/i);
+    return (
+      <div key={option.id} className={`portal-select-card portal-option-card ${selected ? "is-selected" : ""}`}>
+        <label>
+          <input
+            type="checkbox"
+            checked={selected}
+            disabled={isRequired}
+            onChange={() => toggleOption(option.id)}
+          />
+          <span className="portal-select-indicator" />
+          <span className="portal-select-copy">
+            <span className="portal-select-title">
+              <b>{option.t}</b>
+              {isRequired ? <em>Verplicht</em> : option.defaultSelected ? <em>Inbegrepen</em> : null}
+            </span>
+            {option.d && (
+              <>
+                <small className={`portal-option-desc ${expanded ? "is-expanded" : ""}`}>{option.d}</small>
+                {canExpandDescription && (
+                  <button
+                    type="button"
+                    className="portal-option-read-more"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      toggleOptionExpanded(option.id);
+                    }}
+                  >
+                    {expanded ? "Minder tonen" : "Lees meer"}
+                  </button>
+                )}
+              </>
+            )}
+            {option.details.length > 0 && (
+              <ul className="portal-option-bullets">
+                {option.details.map((detail) => <li key={detail}>{detail}</li>)}
+              </ul>
+            )}
+            {option.technicalCondition && (
+              <small className="portal-option-condition">{option.technicalCondition}</small>
+            )}
+            <span className="portal-option-price">
+              {displayedOptionPrice != null && (
+                <span className="portal-option-price-row">
+                  <b>+ {formatCurrency(displayedOptionPrice)}</b>
+                  <small>eenmalig {priceLabel}</small>
+                </span>
+              )}
+              {displayedRecurringOptionPrice != null && optionInterval && (
+                <span className="portal-option-price-row is-recurring">
+                  <b>+ {formatCurrency(displayedRecurringOptionPrice)}</b>
+                  <small>{optionInterval} {priceLabel}</small>
+                </span>
+              )}
+              {displayedOptionPrice == null && displayedRecurringOptionPrice == null
+                ? fallbackPriceParts
+                  ? <>
+                      <b>{prefixFallbackPrice && "+ "}{fallbackPriceParts[1]}</b>
+                      <small>{fallbackPriceParts[2].trim()}</small>
+                    </>
+                  : <b>{prefixFallbackPrice && "+ "}{fallbackPriceLabel}</b>
+                : null}
+            </span>
+          </span>
+        </label>
+      </div>
+    );
+  };
+
   return (
     <div className={`portal-container ${isKoolhaas ? "portal-koolhaas" : "portal-websup"}`}>
       <header className="portal-topbar no-print">
@@ -343,6 +494,7 @@ export function QuotePortalClient({
             }))}
             priceLabel={priceLabel}
             displayedTotal={showExVat ? totals.totalExVat : totals.totalIncVat}
+            recurringLines={recurringDisplayLines}
             accentColor={isKoolhaas ? "#0e7490" : "#7c3aed"}
             onScrollToQuote={() => documentRef.current?.scrollIntoView({ behavior: "smooth" })}
             shareToken={share.token}
@@ -370,7 +522,13 @@ export function QuotePortalClient({
                       ? [{ icon: <Clock />, label: isExpired ? "Verlopen op" : "Geldig tot", value: formatDate(quote.validUntil) }]
                       : []),
                     { icon: <Building2 />, label: "Status", value: statusLabel },
-                    { icon: <Euro />, label: "Voorgestelde investering", value: `${formatCurrency(Number(displayedTotal))} ${priceLabel}` },
+                    {
+                      icon: <Euro />,
+                      label: "Voorgestelde investering",
+                      value: hasRecurring
+                        ? `${formatCurrency(Number(displayedTotal))} ${priceLabel} eenmalig + ${recurringMetaSuffix} ${priceLabel}`
+                        : `${formatCurrency(Number(displayedTotal))} ${priceLabel}`,
+                    },
                     ...(quote.customer.email ? [{ icon: <Mail />, label: "Klant", value: quote.customer.email }] : []),
                   ].map(({ icon, label, value }) => (
                     <div key={label} className="portal-meta-row">
@@ -386,12 +544,17 @@ export function QuotePortalClient({
 
               <div className="portal-card portal-total-card">
                 <div>
-                  <p>Totale investering</p>
+                  <p>{hasRecurring ? "Eenmalige investering" : "Totale investering"}</p>
                   <strong>
                     {formatCurrency(Number(displayedTotal))}
                     {" "}
                     <small>{priceLabel}</small>
                   </strong>
+                  {recurringDisplayLines.map((line) => (
+                    <span key={line.interval} className="portal-total-recurring">
+                      daarna {formatCurrency(line.amount)} {line.interval} {priceLabel}
+                    </span>
+                  ))}
                 </div>
               </div>
 
@@ -489,111 +652,47 @@ export function QuotePortalClient({
                         </fieldset>
                       ))}
 
-                      {optionalWork.length > 0 && (
+                      {includedModules.length > 0 && (
                         <fieldset className="portal-choice-group">
-                          <legend>Aanvullende opties</legend>
+                          <legend>Inbegrepen in dit voorstel</legend>
+                          <p className="portal-choice-help">Standaard meegenomen. Vink af wat je niet wilt.</p>
                           <div className="portal-choice-list">
-                            {optionalWork.map((option) => {
-                              const selected = selectedOptionIds.includes(option.id);
-                              const expanded = expandedOptionIds.includes(option.id);
-                              const canExpandDescription = (option.d?.length ?? 0) > 110;
-                              const isRequired = option.required === true;
-                              const optionPrice = getQuoteOptionPrice(option);
-                              const optionInterval = getQuoteOptionRecurringInterval(option);
-                              const recurringOptionPrice = getQuoteOptionRecurringPrice(option);
-                              const displayedOptionPrice = optionPrice == null
-                                ? null
-                                : showExVat
-                                  ? optionPrice
-                                  : optionPrice * (1 + option.vatRate / 100);
-                              const displayedRecurringOptionPrice = recurringOptionPrice == null
-                                ? null
-                                : showExVat
-                                  ? recurringOptionPrice
-                                  : recurringOptionPrice * (1 + option.vatRate / 100);
-                              const fallbackPriceLabel = option.tag
-                                ? formatOptionPriceTag(option.tag)
-                                : "Prijs op aanvraag";
-                              const prefixFallbackPrice = !/op aanvraag/i.test(fallbackPriceLabel);
-                              const fallbackPriceParts = fallbackPriceLabel.match(
-                                /^(.*?)(\s+(?:excl|incl)\.?\s+btw.*)$/i,
-                              );
-                              return (
-                                <div key={option.id} className={`portal-select-card portal-option-card ${selected ? "is-selected" : ""}`}>
-                                  <label>
-                                    <input
-                                      type="checkbox"
-                                      checked={selected}
-                                      disabled={isRequired}
-                                      onChange={() => toggleOption(option.id)}
-                                    />
-                                    <span className="portal-select-indicator" />
-                                    <span className="portal-select-copy">
-                                      <span className="portal-select-title">
-                                        <b>{option.t}</b>
-                                        {isRequired && <em>Verplicht</em>}
-                                      </span>
-                                      {option.d && (
-                                        <>
-                                          <small className={`portal-option-desc ${expanded ? "is-expanded" : ""}`}>{option.d}</small>
-                                          {canExpandDescription && (
-                                            <button
-                                              type="button"
-                                              className="portal-option-read-more"
-                                              onClick={(event) => {
-                                                event.preventDefault();
-                                                event.stopPropagation();
-                                                toggleOptionExpanded(option.id);
-                                              }}
-                                            >
-                                              {expanded ? "Minder tonen" : "Lees meer"}
-                                            </button>
-                                          )}
-                                        </>
-                                      )}
-                                      {option.details.length > 0 && (
-                                        <ul className="portal-option-bullets">
-                                          {option.details.map((detail) => <li key={detail}>{detail}</li>)}
-                                        </ul>
-                                      )}
-                                      {option.technicalCondition && (
-                                        <small className="portal-option-condition">{option.technicalCondition}</small>
-                                      )}
-                                      <span className="portal-option-price">
-                                        {displayedOptionPrice != null && (
-                                          <span className="portal-option-price-row">
-                                            <b>+ {formatCurrency(displayedOptionPrice)}</b>
-                                            <small>eenmalig {priceLabel}</small>
-                                          </span>
-                                        )}
-                                        {displayedRecurringOptionPrice != null && optionInterval && (
-                                          <span className="portal-option-price-row">
-                                            <b>+ {formatCurrency(displayedRecurringOptionPrice)}</b>
-                                            <small>{optionInterval} {priceLabel}</small>
-                                          </span>
-                                        )}
-                                        {displayedOptionPrice == null && displayedRecurringOptionPrice == null
-                                          ? fallbackPriceParts
-                                            ? <>
-                                                <b>{prefixFallbackPrice && "+ "}{fallbackPriceParts[1]}</b>
-                                                <small>{fallbackPriceParts[2].trim()}</small>
-                                              </>
-                                            : <b>{prefixFallbackPrice && "+ "}{fallbackPriceLabel}</b>
-                                          : null}
-                                      </span>
-                                    </span>
-                                  </label>
-                                </div>
-                              );
-                            })}
+                            {includedModules.map(renderOptionCard)}
+                          </div>
+                        </fieldset>
+                      )}
+
+                      {extraModules.length > 0 && (
+                        <fieldset className="portal-choice-group">
+                          <legend>{includedModules.length > 0 ? "Extra opties" : "Aanvullende opties"}</legend>
+                          <div className="portal-choice-list">
+                            {extraModules.map(renderOptionCard)}
                           </div>
                         </fieldset>
                       )}
 
                       <div className="portal-composer-total">
                         <span>Jouw definitieve investering</span>
-                        <small>Wordt bijgewerkt wanneer je een optie selecteert.</small>
-                        <b>{formatCurrency(showExVat ? totals.totalExVat : totals.totalIncVat)} <small>{priceLabel}</small></b>
+                        {oneTimeBreakdown.length > 1 && (
+                          <ul className="portal-composer-breakdown">
+                            {oneTimeBreakdown.map((line, index) => (
+                              <li key={index}>
+                                <span>{line.label}</span>
+                                <span>{formatCurrency(line.amount)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <b>
+                          {formatCurrency(oneTimeTotal)}{" "}
+                          <small>{hasRecurring ? "eenmalig" : ""} {priceLabel}</small>
+                        </b>
+                        {recurringDisplayLines.map((line) => (
+                          <b key={line.interval} className="portal-composer-recurring">
+                            + {formatCurrency(line.amount)} <small>{line.interval} {priceLabel}</small>
+                          </b>
+                        ))}
+                        <small>Wordt bijgewerkt wanneer je een optie aan- of uitzet.</small>
                       </div>
                     </div>
                   )}
@@ -767,8 +866,13 @@ export function QuotePortalClient({
       {canRespond && (
         <div className="portal-mobile-action no-print">
           <div>
-            <span>Totaal {priceLabel}</span>
-            <b>{formatCurrency(Number(displayedTotal))}</b>
+            <span>{hasRecurring ? `Eenmalig ${priceLabel}` : `Totaal ${priceLabel}`}</span>
+            <b>
+              {formatCurrency(Number(displayedTotal))}
+              {recurringDisplayLines.length > 0 && (
+                <em> + {formatCurrency(recurringDisplayLines[0].amount)} {recurringDisplayLines[0].interval}</em>
+              )}
+            </b>
           </div>
           <a href="#akkoord" className="btn-primary">
             Bekijk akkoord

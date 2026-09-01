@@ -21,7 +21,7 @@ export function GET() {
       // Regels & prijzen
       items: "Vaste basis van de offerte; mag leeg zijn wanneer de offerte alleen configuraties bevat. Nooit alternatieve systemen of optioneel meerwerk. Eén regel per product/dienst, prijs excl. btw. indent:1 = subregel. unitPrice 0 = inbegrepen.",
       configurations: "Volledige onderling exclusieve systemen; klant kiest exact één per groep bij akkoord. Markeer de aanbevolen keuze met label 'Aanbevolen'. Geen id's emitten.",
-      optionalWork: "Los selecteerbaar meerwerk met prijs excl. btw (of null = 'Op aanvraag'). Prijs nooit in het tag-veld zetten.",
+      optionalWork: "Los selecteerbaar meerwerk / modules. Velden: t, d, price (eenmalig, excl. btw, of null), recurringPrice (per interval, excl. btw, of null), recurringInterval ('maand'|'jaar'|null), vatRate, tag, defaultSelected (bool, standaard aangevinkt in het portaal maar afvinkbaar), details, technicalCondition. Een maandelijkse module (onderhoud, hosting, abonnement) hoort in recurringPrice + recurringInterval, niet in price of in het tag-label.",
       exclusions: "Alleen concrete, relevante zaken die redelijkerwijs inbegrepen kunnen lijken. Laat leeg als er niets specifieks is.",
       // Onderbouwing & uitvoering
       assumptions: "Aannames/uitgangspunten waarop de prijs is gebaseerd. Array van zinnen.",

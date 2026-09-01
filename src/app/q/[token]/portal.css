@@ -2185,6 +2185,25 @@ a.portal-preview-link:hover {
   color: rgba(255,255,255,.72);
   white-space: nowrap;
 }
+.portal-total-recurring {
+  display: block;
+  margin-top: 10px;
+  font: 700 14px/1.35 var(--text);
+  color: rgba(255,255,255,.82);
+}
+.portal-total-recurring::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff6f61, #ec4899 46%, #a78bfa);
+  vertical-align: middle;
+}
+.portal-koolhaas .portal-total-recurring::before {
+  background: linear-gradient(90deg, #1f9ba3, #1f7295 46%, #5bbfb0);
+}
 
 .portal-result-card,
 .portal-expired-card {
@@ -2541,6 +2560,28 @@ a.portal-preview-link:hover {
   align-items: baseline;
   gap: .4rem;
 }
+.portal-option-price-row.is-recurring b {
+  color: #7c3aed;
+}
+.portal-koolhaas .portal-option-price-row.is-recurring b {
+  color: #0e7490;
+}
+.portal-option-price-row.is-recurring::before {
+  content: 'abonnement';
+  align-self: center;
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #7c3aed;
+  background: color-mix(in srgb, #7c3aed 12%, transparent);
+  padding: .12rem .35rem;
+  border-radius: .3rem;
+}
+.portal-koolhaas .portal-option-price-row.is-recurring::before {
+  color: #0e7490;
+  background: color-mix(in srgb, #0e7490 12%, transparent);
+}
 
 .portal-option-price b {
   font-size: 1.05rem;
@@ -2603,6 +2644,35 @@ a.portal-preview-link:hover {
 .portal-composer-total > small { display: block; color: #94a3b8; font-size: .8rem; font-weight: 400; }
 .portal-composer-total b { color: #0f172a; font-size: 1.35rem; font-weight: 800; margin-top: 4px; }
 .portal-composer-total b small { color: #64748b; font-size: .9rem; font-weight: 500; }
+.portal-composer-total b.portal-composer-recurring {
+  font-size: 1.05rem;
+  color: #7c3aed;
+}
+.portal-koolhaas .portal-composer-total b.portal-composer-recurring { color: #0e7490; }
+.portal-composer-total b.portal-composer-recurring small { color: #94a3b8; }
+
+.portal-composer-breakdown {
+  list-style: none;
+  margin: .5rem 0 .35rem;
+  padding: .6rem 0 0;
+  width: 100%;
+  border-top: 1px dashed #e2e8f0;
+  display: grid;
+  gap: .3rem;
+}
+.portal-composer-breakdown li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: .85rem;
+  font-weight: 600;
+  color: #475569;
+}
+.portal-composer-breakdown li span:last-child {
+  color: #0f172a;
+  font-weight: 700;
+  white-space: nowrap;
+}
 
 .portal-result-selection {
   display: grid;
@@ -2982,6 +3052,12 @@ a.portal-preview-link:hover {
     font: 800 16px/1 var(--display);
     color: var(--on);
   }
+  .portal-mobile-action b em {
+    font: 700 12px/1 var(--text);
+    font-style: normal;
+    color: var(--on-s);
+    white-space: nowrap;
+  }
   .portal-mobile-action .btn-primary {
     width: auto;
     min-width: 148px;
@@ -3137,6 +3213,20 @@ a.portal-preview-link:hover {
 .article-table tfoot .grand-total strong {
   font: 900 20px/1 var(--display);
   color: var(--on);
+}
+
+.article-table tfoot .grand-total-recurring td {
+  background: transparent;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  border-top: 1px dashed var(--border, #e2e8f0);
+}
+.article-table tfoot .grand-total-recurring span {
+  font-size: 13px;
+  letter-spacing: .06em;
+}
+.article-table tfoot .grand-total-recurring strong {
+  font-size: 16px;
 }
 
 .opts {
@@ -3413,6 +3503,17 @@ a.portal-preview-link:hover {
   color: #0f172a;
   letter-spacing: -.02em;
 }
+
+.acceptance-success__total--recurring {
+  border-top: none;
+  padding-top: .35rem;
+  margin-top: 0;
+}
+.acceptance-success__total--recurring strong {
+  font-size: 1.15rem;
+  color: #7c3aed;
+}
+.acceptance-success__total--recurring span { text-transform: none; letter-spacing: 0; }
 
 /* CTAs */
 .acceptance-success__actions {

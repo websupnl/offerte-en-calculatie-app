@@ -82,7 +82,7 @@ type QuotePDFProps = {
   acceptedAt?: string;
   flow?: { n: number; t: string; d: string }[];
   approach?: { n: string; t: string; d: string }[];
-  options?: { id?: string; t: string; d: string; tag: string; price?: number | null; vatRate?: number }[];
+  options?: { id?: string; t: string; d: string; tag: string; price?: number | null; recurringPrice?: number | null; recurringInterval?: "maand" | "jaar" | null; vatRate?: number; defaultSelected?: boolean; details?: string[] }[];
   selectedOptionIds?: string[];
   signerName?: string;
   exclusions?: string[];
@@ -179,7 +179,7 @@ type BrandConfig = {
   };
   flow: { n: number; t: string; d: string }[];
   approach: { n: string; t: string; d: string }[];
-  options: { t: string; d: string; tag: string; price?: number | null; vatRate?: number }[];
+  options: { t: string; d: string; tag: string; price?: number | null; recurringPrice?: number | null; recurringInterval?: "maand" | "jaar" | null; vatRate?: number }[];
   exclusions: string[];
 };
 

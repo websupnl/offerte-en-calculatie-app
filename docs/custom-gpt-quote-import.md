@@ -212,13 +212,31 @@ Gebruik `"label": "Aanbevolen"` alleen wanneer uit de bron of een onderbouwde te
 
 Gebruik concrete titels: "SolarEdge zonder noodstroom" / "Sigenergy met back-up" — niet "Optie 1" / "Optie 2" / "Pakket A".
 
-## 17. OptionalWork
+## 17. OptionalWork (modules)
 
-Gebruik `optionalWork` uitsluitend voor werkzaamheden of uitbreidingen die niet in de vaste basis zitten en los gekozen kunnen worden.
+Gebruik `optionalWork` voor bouwstenen die niet in de vaste basis zitten en die de klant in het portaal los aan- of uitzet. Denk aan losse diensten ("Basis SEO", "Twitch-embed"), uitbreidingen of doorlopend onderhoud.
 
-Elk onderdeel: `t` (titel), `d` (uitleg), `tag`, `price` (excl. btw of null), `vatRate`, `details`, `technicalCondition` (optioneel).
+Elk onderdeel:
 
-Gebruik bij onbekende prijs: `"tag": "Op aanvraag"` + `"price": null`.
+| Veld | Betekenis |
+|---|---|
+| `t` | Titel |
+| `d` | Uitleg, maximaal twee zinnen |
+| `tag` | Kort label ("Optioneel", "Uitbreiding", "Maandelijks") — nooit een prijs |
+| `price` | Eenmalige prijs excl. btw, of `null` als er geen eenmalige prijs is |
+| `recurringPrice` | Terugkerende prijs excl. btw (abonnement, onderhoud, hosting), of `null` |
+| `recurringInterval` | `"maand"` of `"jaar"` bij een terugkerende prijs, anders `null` |
+| `vatRate` | Btw-percentage, meestal 21 |
+| `defaultSelected` | `true` = in het portaal standaard aangevinkt, maar de klant kan het afvinken |
+| `details` | Array met korte punten |
+| `technicalCondition` | Voorwaarde waaronder dit technisch kan (optioneel) |
+
+Regels:
+
+- Een maandelijkse module (onderhoud, hosting, abonnement) hoort in `recurringPrice` + `recurringInterval`. Zet dat bedrag **nooit** in `price` of als tekst in `tag`.
+- Een module mag zowel een eenmalige als een terugkerende prijs hebben (bijv. installatie + maandbedrag).
+- Onbekende prijs: `"price": null` + `"tag": "Op aanvraag"`.
+- Gebruik `defaultSelected: true` voor onderdelen die je aanraadt maar die de klant mag weglaten. Gebruik dit niet voor de harde basis — die hoort in `items`.
 
 ## 18. Exclusions
 
@@ -398,7 +416,7 @@ Gebruik optionele secties alleen wanneer ze concrete, aangeboden inhoud bevatten
 | `itemsHeader` | string | Kop boven de prijstabel. |
 | `items[]` | array | **Vereist, min. 1.** `{description, qty, unitPrice, costPrice?, vatRate, indent}`. Prijs excl. btw. |
 | `configurations[]` | array | Keuzegroepen `{title, description?, choices[]}`. Elke choice: `{label?, title, summary?, tag?, items[]}` (min. 2 choices). |
-| `optionalWork[]` | array | `{t, d, tag, price, vatRate, details[], technicalCondition?}`. `price` excl. btw of `null`. |
+| `optionalWork[]` | array | `{t, d, tag, price, recurringPrice?, recurringInterval?, vatRate, defaultSelected?, details[], technicalCondition?}`. `price` = eenmalig excl. btw of `null`. `recurringPrice` + `recurringInterval` (`"maand"`/`"jaar"`) voor abonnement/onderhoud. `defaultSelected: true` = standaard aangevinkt in het portaal. |
 | `exclusions[]` | string[] | Wat niet inbegrepen is. |
 | `assumptions[]` | string[] | Aannames achter de prijs. |
 | `technicalNotes[]` | string[] | Technische uitgangspunten. |
@@ -468,6 +486,17 @@ Gebruik optionele secties alleen wanneer ze concrete, aangeboden inhoud bevatten
       "price": 2495,
       "vatRate": 21,
       "details": ["Inclusief montage en aansluiting"]
+    },
+    {
+      "t": "Onderhoudsabonnement",
+      "d": "Jaarlijkse controle van de installatie, firmware-updates en voorrang bij storingen.",
+      "tag": "Optioneel",
+      "price": null,
+      "recurringPrice": 149,
+      "recurringInterval": "jaar",
+      "vatRate": 21,
+      "defaultSelected": false,
+      "details": ["Jaarlijkse inspectie ter plaatse", "Firmware- en instellingencheck"]
     }
   ],
   "exclusions": [

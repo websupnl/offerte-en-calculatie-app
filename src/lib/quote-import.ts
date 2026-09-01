@@ -2,7 +2,7 @@ import { z } from "zod";
 import { quoteChoiceGroupSchema, quoteChoiceSchema, selectableLineSchema, quoteOptionSchema } from "@/lib/quote-selection";
 import { findForbiddenKoolhaasPhrases, normalizeQuoteCopyValue } from "@/lib/quote-copy";
 
-export const QUOTE_IMPORT_CONTRACT_VERSION = "2026-06-24.2";
+export const QUOTE_IMPORT_CONTRACT_VERSION = "2026-08-31.1";
 
 export const QUOTE_IMPORT_AI_SYSTEM_PROMPT = [
   "You convert pasted Dutch quotation content into the exact quotation JSON schema supplied to you.",
@@ -16,7 +16,8 @@ export const QUOTE_IMPORT_AI_SYSTEM_PROMPT = [
   "Keep customer-facing text concise and suitable for an offer.",
   "Put mutually exclusive complete systems in configurations; never duplicate a configuration price in base items.",
   "Each configuration is an object with title and choices (an array of at least two objects, each with title, an optional summary of at most two sentences, an optional short label, and an items array). Mark the recommended choice by setting its label to 'Aanbevolen'. Do not output id or recommendedChoiceId fields; the application assigns identifiers itself.",
-  "Put selectable additions in optionalWork. Each optionalWork entry has these fields: t (title), d (description, at most two sentences), price (number, EXCLUDING VAT, or null), vatRate (number, e.g. 21), tag (a short label such as 'Optioneel'), details (array of strings), technicalCondition (string).",
+  "Put selectable additions in optionalWork. Each optionalWork entry has these fields: t (title), d (description, at most two sentences), price (one-time price, number, EXCLUDING VAT, or null), recurringPrice (subscription or maintenance price per interval, number EXCLUDING VAT, or null), recurringInterval ('maand' or 'jaar', or null), vatRate (number, e.g. 21), tag (a short label such as 'Optioneel'), defaultSelected (boolean, true = pre-checked in the customer portal but still removable), details (array of strings), technicalCondition (string).",
+  "For a recurring module (monthly maintenance, hosting, a subscription) put the amount in recurringPrice with recurringInterval, not in price and not as text in tag. price stays null when there is no one-time fee.",
   "All prices in every field are EXCLUDING VAT. Never output amounts including VAT anywhere. The application calculates VAT and can show totals including or excluding VAT.",
   "Never put a price or money amount inside the tag field; tag is only a short label.",
   "If an option has no fixed price (for example 'op aanvraag' or 'prijs op aanvraag'), set price to null and set tag to 'Op aanvraag'.",
@@ -191,6 +192,16 @@ const optionAliases: Record<string, string> = {
   vat_rate: "vatRate",
   btw: "vatRate",
   technical_condition: "technicalCondition",
+  recurring_price: "recurringPrice",
+  recurringprice: "recurringPrice",
+  maandprijs: "recurringPrice",
+  monthly_price: "recurringPrice",
+  recurring_interval: "recurringInterval",
+  interval: "recurringInterval",
+  period: "recurringInterval",
+  default_selected: "defaultSelected",
+  defaultselected: "defaultSelected",
+  preselected: "defaultSelected",
 };
 
 const configAliases: Record<string, string> = {
@@ -439,6 +450,28 @@ export function normalizeQuoteImportInput(input: unknown): { value: unknown; unk
         }
       }
       normalizedOption.price = price;
+
+      // Terugkerende prijs (abonnement/onderhoud) als echt veld.
+      if (normalizedOption.recurringPrice === undefined || normalizedOption.recurringPrice === null || normalizedOption.recurringPrice === "") {
+        normalizedOption.recurringPrice = null;
+      } else {
+        const parsedRecurring = parseMoney(normalizedOption.recurringPrice);
+        normalizedOption.recurringPrice = typeof parsedRecurring === "number" ? parsedRecurring : null;
+      }
+
+      // Interval normaliseren naar "maand" / "jaar".
+      const rawInterval = normalizedOption.recurringInterval;
+      if (rawInterval === undefined || rawInterval === null || rawInterval === "") {
+        normalizedOption.recurringInterval = null;
+      } else if (typeof rawInterval === "string") {
+        const lowered = rawInterval.trim().toLowerCase();
+        if (/maand|month|mnd|p\/m|\/m\b/.test(lowered)) normalizedOption.recurringInterval = "maand";
+        else if (/jaar|year|annual|p\/j|\/j\b/.test(lowered)) normalizedOption.recurringInterval = "jaar";
+      }
+
+      if (normalizedOption.defaultSelected !== undefined) {
+        normalizedOption.defaultSelected = normalizedOption.defaultSelected === true || normalizedOption.defaultSelected === "true";
+      }
 
       if (typeof normalizedOption.id !== "string" || !normalizedOption.id.trim()) {
         normalizedOption.id = makeOptionId(normalizedOption.t, index);

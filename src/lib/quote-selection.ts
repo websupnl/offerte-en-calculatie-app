@@ -44,10 +44,16 @@ export const quoteOptionSchema = z.object({
   t: z.string().trim().min(1),
   d: z.string().trim().min(1),
   tag: z.string().trim().min(1).default("Optioneel"),
-  // Prijs is altijd EXCL. btw. null = "Op aanvraag" (geen vaste prijs, telt niet mee in de totalen).
+  // Eenmalige prijs, altijd EXCL. btw. null = "Op aanvraag" (geen vaste prijs, telt niet mee in de totalen).
   price: z.coerce.number().min(0).nullable().optional(),
+  // Terugkerende prijs (abonnement/onderhoud), EXCL. btw. Echt veld — niet meer
+  // uit het label geraden. Telt niet mee in de eenmalige totalen.
+  recurringPrice: z.coerce.number().min(0).nullable().optional(),
+  recurringInterval: z.enum(["maand", "jaar"]).nullable().optional(),
   vatRate: z.coerce.number().min(0).max(100).default(21),
   required: z.boolean().optional(),
+  // true = in het klantportaal standaard aangevinkt (maar wél afvinkbaar, anders 'required').
+  defaultSelected: z.boolean().optional(),
   details: z.array(z.string().trim().min(1)).optional().default([]),
   technicalCondition: z.string().trim().optional(),
 });
@@ -72,6 +78,14 @@ export type QuoteSelection = {
   selectedOptionIds: string[];
 };
 
+export type QuoteRecurringTotals = {
+  /// Per interval een los totaal, zodat "per maand" en "per jaar" niet bij elkaar opgeteld worden.
+  perMonthExVat: number;
+  perMonthIncVat: number;
+  perYearExVat: number;
+  perYearIncVat: number;
+};
+
 export type QuoteSelectionTotals = {
   totalExVat: number;
   totalVat: number;
@@ -79,6 +93,8 @@ export type QuoteSelectionTotals = {
   baseExVat: number;
   choicesExVat: number;
   optionsExVat: number;
+  /// Terugkerende bedragen van geselecteerde modules — staan LOS van de eenmalige totalen.
+  recurring: QuoteRecurringTotals;
 };
 
 export type QuotePriceSummary = {
@@ -101,14 +117,25 @@ function parseDutchMoney(value: string) {
   return Number.isFinite(amount) ? amount : null;
 }
 
-export function getQuoteOptionRecurringInterval(option: Pick<QuoteOption, "tag"> & { d?: string }) {
+export function getQuoteOptionRecurringInterval(
+  option: Pick<QuoteOption, "tag" | "recurringInterval"> & { d?: string },
+) {
+  // Echt veld heeft voorrang; oude offertes vallen terug op tekstherkenning in het label.
+  if (option.recurringInterval === "maand") return "per maand";
+  if (option.recurringInterval === "jaar") return "per jaar";
   const text = `${option.tag ?? ""} ${option.d ?? ""}`;
   if (/per\s+maand|\/\s*maand|p\/m|maandelijks/i.test(text)) return "per maand";
   if (/per\s+jaar|\/\s*jaar|p\/j|jaarlijks/i.test(text)) return "per jaar";
   return null;
 }
 
-export function getQuoteOptionRecurringPrice(option: Pick<QuoteOption, "price" | "tag"> & { d?: string }) {
+export function getQuoteOptionRecurringPrice(
+  option: Pick<QuoteOption, "price" | "tag" | "recurringPrice" | "recurringInterval"> & { d?: string },
+) {
+  // Echt veld heeft voorrang op alle tekstherkenning.
+  if (option.recurringPrice != null) return Number(option.recurringPrice);
+  if (option.recurringInterval) return null;
+
   const interval = getQuoteOptionRecurringInterval(option);
   if (!interval) return null;
 
@@ -128,7 +155,14 @@ export function getQuoteOptionRecurringPrice(option: Pick<QuoteOption, "price" |
   return null;
 }
 
-export function getQuoteOptionPrice(option: Pick<QuoteOption, "price" | "tag"> & { d?: string }) {
+export function getQuoteOptionPrice(
+  option: Pick<QuoteOption, "price" | "tag" | "recurringPrice" | "recurringInterval"> & { d?: string },
+) {
+  // Nieuw model: zodra er expliciete terugkerende velden zijn, is `price` altijd de eenmalige prijs.
+  if (option.recurringPrice != null || option.recurringInterval) {
+    return option.price != null ? Number(option.price) : null;
+  }
+
   const recurringInterval = getQuoteOptionRecurringInterval(option);
   if (option.price != null) {
     if (recurringInterval && !/eenmalig/i.test(option.tag ?? "")) return null;
@@ -182,12 +216,32 @@ export function calculateQuoteSelectionTotals(
     }
   }
 
+  let recurringMonthExVat = 0;
+  let recurringMonthIncVat = 0;
+  let recurringYearExVat = 0;
+  let recurringYearIncVat = 0;
+
   for (const option of options) {
     if (!selection.selectedOptionIds.includes(option.id)) continue;
+
     const optionPrice = getQuoteOptionPrice(option);
-    if (optionPrice == null) continue;
-    optionsExVat += optionPrice;
-    totalVat += optionPrice * (option.vatRate / 100);
+    if (optionPrice != null) {
+      optionsExVat += optionPrice;
+      totalVat += optionPrice * (option.vatRate / 100);
+    }
+
+    const recurringPrice = getQuoteOptionRecurringPrice(option);
+    const recurringInterval = getQuoteOptionRecurringInterval(option);
+    if (recurringPrice != null && recurringInterval) {
+      const incVat = recurringPrice * (1 + option.vatRate / 100);
+      if (recurringInterval === "per jaar") {
+        recurringYearExVat += recurringPrice;
+        recurringYearIncVat += incVat;
+      } else {
+        recurringMonthExVat += recurringPrice;
+        recurringMonthIncVat += incVat;
+      }
+    }
   }
 
   const totalExVat = baseExVat + choicesExVat + optionsExVat;
@@ -198,6 +252,12 @@ export function calculateQuoteSelectionTotals(
     totalExVat: roundMoney(totalExVat),
     totalVat: roundMoney(totalVat),
     totalIncVat: roundMoney(totalExVat + totalVat),
+    recurring: {
+      perMonthExVat: roundMoney(recurringMonthExVat),
+      perMonthIncVat: roundMoney(recurringMonthIncVat),
+      perYearExVat: roundMoney(recurringYearExVat),
+      perYearIncVat: roundMoney(recurringYearIncVat),
+    },
   };
 }
 
