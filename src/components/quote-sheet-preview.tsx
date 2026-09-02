@@ -114,6 +114,9 @@ type QuoteItem = {
 type FlowItem = { n: number | string; t: string; d: string };
 type ApproachStep = { n: number | string; t: string; d: string };
 type QuoteAttachment = { id?: string; title?: string | null; imageUrl: string; liveUrl?: string | null; caption?: string | null; section?: string | null };
+
+const quoteAttachmentSection = (attachment: QuoteAttachment) =>
+  attachment.section?.trim().toLowerCase() || "intro";
 type QuoteSource = { id?: string; label: string; description?: string; url: string };
 
 const sourceShortName = (source: QuoteSource) => {
@@ -398,9 +401,9 @@ export function QuoteSheetPreview({
   // Een afbeelding hoort bij een sectie (staat onderaan die pagina) of krijgt een eigen pagina.
   const SECTION_KEYS = ["intro", "werking", "items", "terms", "sign", "opties"];
   const isSectionImage = (a: QuoteAttachment) =>
-    Boolean(a.imageUrl) && SECTION_KEYS.includes(a.section ?? "intro");
+    Boolean(a.imageUrl) && SECTION_KEYS.includes(quoteAttachmentSection(a));
   const sectionImages = (key: string) =>
-    attachments.filter((a) => isSectionImage(a) && (a.section ?? "intro") === key);
+    attachments.filter((a) => isSectionImage(a) && quoteAttachmentSection(a) === key);
   const standaloneAttachments = attachments.filter((a) => !isSectionImage(a));
   const attachmentPages = standaloneAttachments.length;
   // Rendert de afbeelding(en) van een sectie in de vrije ruimte onderaan die pagina,
@@ -412,8 +415,15 @@ export function QuoteSheetPreview({
       <div className="section-figure">
         {imgs.map((att, i) => (
           <figure className="section-figure-item" key={att.id ?? `${att.imageUrl}-${i}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- offerte-afbeeldingen kunnen tijdelijke opslag-URL's zijn */}
-            <img src={att.imageUrl} alt={att.title || "Afbeelding bij deze sectie"} />
+            {att.liveUrl ? (
+              <a href={att.liveUrl} target="_blank" rel="noopener noreferrer" className="attachment-image-link">
+                {/* eslint-disable-next-line @next/next/no-img-element -- offerte-afbeeldingen kunnen tijdelijke opslag-URL's zijn */}
+                <img src={att.imageUrl} alt={att.title || "Afbeelding bij deze sectie"} />
+              </a>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- offerte-afbeeldingen kunnen tijdelijke opslag-URL's zijn
+              <img src={att.imageUrl} alt={att.title || "Afbeelding bij deze sectie"} />
+            )}
             {att.caption && <figcaption>{att.caption}</figcaption>}
           </figure>
         ))}
@@ -1206,6 +1216,7 @@ export function QuoteSheetPreview({
                         href={attachment.liveUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        className="attachment-image-link"
                         aria-label={`Open ${attachment.title || "het ontwerpvoorbeeld"} in een nieuw tabblad`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element -- offerte-afbeeldingen kunnen tijdelijke opslag-URL's zijn */}

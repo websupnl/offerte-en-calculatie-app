@@ -43,7 +43,7 @@ type QuoteItem = {
 
 type FlowItem = { n: number; t: string; d: string };
 type ApproachStep = { n: string; t: string; d: string };
-type QuoteAttachment = { id: string; title: string | null; imageUrl: string; caption: string | null };
+type QuoteAttachment = { id: string; title: string | null; imageUrl: string; liveUrl?: string | null; caption: string | null };
 
 type Quote = {
   id: string;
@@ -842,10 +842,10 @@ export function QuotePortalClient({
                     )}
                   </div>
                 );
-                return (attachment as { liveUrl?: string | null }).liveUrl ? (
+                return attachment.liveUrl ? (
                   <a
                     key={attachment.id}
-                    href={(attachment as { liveUrl?: string | null }).liveUrl!}
+                    href={attachment.liveUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="portal-preview-link"

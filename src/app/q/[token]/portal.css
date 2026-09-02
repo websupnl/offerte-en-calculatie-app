@@ -1074,14 +1074,21 @@
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   overflow: hidden;
-  background:
-    linear-gradient(45deg, rgba(148,163,184,.08) 25%, transparent 25%),
-    linear-gradient(-45deg, rgba(148,163,184,.08) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, rgba(148,163,184,.08) 75%),
-    linear-gradient(-45deg, transparent 75%, rgba(148,163,184,.08) 75%),
-    #fff;
-  background-size: 20px 20px;
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+  background: var(--surface-in);
+}
+.attachment-image-link {
+  display: block;
+  width: 100%;
+  height: 100%;
+  line-height: 0;
+}
+.attachment-image-link:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+.design-full-frame > .attachment-image-link > img {
+  width: 100%;
+  height: 100%;
 }
 .design-full-frame img {
   display: block;
@@ -1399,6 +1406,17 @@
   max-height: 100%;
   object-fit: contain;
   border-radius: 4px;
+}
+.section-figure-item .attachment-image-link {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.section-figure-item .attachment-image-link img {
+  width: auto;
+  height: auto;
 }
 .section-figure-item figcaption {
   flex: 0 0 auto;

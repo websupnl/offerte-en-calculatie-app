@@ -175,6 +175,8 @@ const ATTACHMENT_SECTIONS: { value: string; label: string }[] = [
   { value: "eigen-pagina", label: "Op een eigen pagina" },
 ];
 
+const ATTACHMENT_INLINE_SECTIONS = ATTACHMENT_SECTIONS.filter((section) => section.value !== "eigen-pagina");
+
 type GeneratedQuoteItem = {
   description?: string | null;
   qty?: number | string | null;
@@ -2689,18 +2691,49 @@ export function QuoteBuilder({
                               <X className="h-4 w-4" />
                             </Button>
                           </div>
-                          <label className="flex items-center gap-2 text-xs text-slate-600">
-                            <span className="shrink-0 font-medium">Hoort bij</span>
-                            <select
-                              value={attachment.section || "intro"}
-                              onChange={(e) => updateAttachment(attachment.id, { section: e.target.value })}
-                              className="h-8 flex-1 rounded-md border border-slate-200 bg-white px-2 text-sm"
-                            >
-                              {ATTACHMENT_SECTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
-                              ))}
-                            </select>
-                          </label>
+                          <fieldset className="space-y-2">
+                            <legend className="text-xs font-medium text-slate-700">Plaatsing in de offerte</legend>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => updateAttachment(attachment.id, { section: "intro" })}
+                                className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                                  attachment.section !== "eigen-pagina"
+                                    ? "border-violet-300 bg-violet-50 text-violet-950 ring-1 ring-violet-200"
+                                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                }`}
+                              >
+                                <span className="block font-semibold">In de offerte</span>
+                                <span className="block text-[11px] opacity-75">Onder een gekozen onderdeel</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateAttachment(attachment.id, { section: "eigen-pagina" })}
+                                className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                                  attachment.section === "eigen-pagina"
+                                    ? "border-violet-300 bg-violet-50 text-violet-950 ring-1 ring-violet-200"
+                                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                }`}
+                              >
+                                <span className="block font-semibold">Eigen ontwerppagina</span>
+                                <span className="block text-[11px] opacity-75">Groot, met uitleg en link</span>
+                              </button>
+                            </div>
+                            {attachment.section !== "eigen-pagina" && (
+                              <label className="flex items-center gap-2 text-xs text-slate-600">
+                                <span className="shrink-0">Onderdeel</span>
+                                <select
+                                  value={ATTACHMENT_INLINE_SECTIONS.some((option) => option.value === attachment.section) ? attachment.section : "intro"}
+                                  onChange={(e) => updateAttachment(attachment.id, { section: e.target.value })}
+                                  className="h-8 flex-1 rounded-md border border-slate-200 bg-white px-2 text-sm"
+                                >
+                                  {ATTACHMENT_INLINE_SECTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>{option.label.replace("Bij ", "")}</option>
+                                  ))}
+                                </select>
+                              </label>
+                            )}
+                          </fieldset>
                           <Input
                             value={attachment.storageRef ? "" : attachment.imageUrl}
                             onChange={(e) => updateAttachment(attachment.id, { imageUrl: e.target.value })}
