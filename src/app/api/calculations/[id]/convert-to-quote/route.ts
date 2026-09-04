@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse, after } from "next/server";
+import { saveQuoteModules } from "@/lib/quote-modules";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateQuoteNumber } from "@/lib/format";
@@ -87,7 +88,6 @@ export async function POST(
       totalVat,
       totalIncVat,
       projectId: calculation.projectId,
-      options: quoteOptions,
       items: {
         create: quoteItemsData,
       },
@@ -97,6 +97,11 @@ export async function POST(
       items: true,
     },
   });
+
+  // Optionele regels uit de calculatie worden modules, in hun eigen tabel.
+  if (quoteOptions.length) {
+    await saveQuoteModules(quote.id, quoteOptions);
+  }
 
   // Link Quote to Calculation and update status to QUOTED
   await prisma.calculation.update({

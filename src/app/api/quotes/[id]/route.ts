@@ -10,6 +10,7 @@ import {
 } from "@/lib/quote-selection";
 import { calculateLine, calculateTotals } from "@/lib/calculation";
 import { normalizeQuoteCopyValue } from "@/lib/quote-copy";
+import { saveQuoteModules } from "@/lib/quote-modules";
 import {
   getQuoteAttachmentStorageKey,
   resolveQuoteAttachmentImages,
@@ -142,7 +143,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Voeg minimaal één offerteregel of configuratie toe." }, { status: 400 });
   }
 
-  const { items, attachments, ...rest } = parsed.data;
+  // Modules gaan naar hun eigen tabel, niet meer als blob mee in de Quote-update.
+  const { items, attachments, options, ...rest } = parsed.data;
   const attachmentPrefix = `offertes/${session.user.activeCompanyId}/`;
   if (attachments?.some((attachment) => {
     const key = getQuoteAttachmentStorageKey(attachment.imageUrl);
@@ -285,6 +287,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     where: { id, companyId: session.user.activeCompanyId },
     data: updateData,
   });
+
+  if (options !== undefined) {
+    await saveQuoteModules(id, options);
+  }
 
   if (isStorageConfigured() && removedAttachmentKeys.length > 0) {
     await Promise.all(

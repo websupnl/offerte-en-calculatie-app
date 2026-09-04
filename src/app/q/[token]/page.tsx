@@ -8,6 +8,7 @@ import { quoteChoiceGroupSchema, quoteOptionSchema } from "@/lib/quote-selection
 import { z } from "zod";
 import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
 import { isStorageConfigured, presignDownload } from "@/lib/storage";
+import { modulesToOptions } from "@/lib/quote-modules";
 
 export default async function QuotePortalPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -24,6 +25,8 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
         include: {
           customer: true,
           items: { orderBy: { sortOrder: "asc" } },
+          modules: { orderBy: { sortOrder: "asc" } },
+          contentBlocks: { orderBy: { sortOrder: "asc" } },
           attachments: { orderBy: { sortOrder: "asc" } },
           documents: { include: { productDocument: true }, orderBy: { sortOrder: "asc" } },
           adviceDocuments: { orderBy: { createdAt: "desc" } },
@@ -94,11 +97,24 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
     { expiresIn: 21600 },
   );
   const parsedChoiceGroups = z.array(quoteChoiceGroupSchema).safeParse(serialized.quote.choiceGroups);
-  const parsedOptions = z.array(quoteOptionSchema).safeParse(serialized.quote.options);
+  // Modules komen uit de QuoteModule-tabel; het portaal leest ze verder als `options`.
+  const parsedOptions = z.array(quoteOptionSchema).safeParse(modulesToOptions(share.quote.modules));
   serialized.quote.choiceGroups = parsedChoiceGroups.success
     ? await resolveChoiceGroupImages(parsedChoiceGroups.data, { expiresIn: 21600 })
     : [];
   serialized.quote.options = parsedOptions.success ? parsedOptions.data : [];
+  // Expliciet meegeven, net als options: anders verschilt de client-render van de
+  // server-render en telt de klant een pagina minder (hydration-mismatch).
+  serialized.quote.contentBlocks = share.quote.contentBlocks.map((block) => ({
+    id: block.id,
+    type: block.type,
+    title: block.title,
+    body: block.body,
+    items: block.items,
+    tone: block.tone,
+    imageUrl: block.imageUrl,
+    caption: block.caption,
+  }));
   serialized.quote.documents = await Promise.all(
     serialized.quote.documents.map(async (d: { id: string; productDocument: { name: string; type: string; objectKey: string } }) => ({
       id: d.id,

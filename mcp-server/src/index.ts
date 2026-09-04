@@ -86,6 +86,64 @@ function normalizeOptionalWork(options: z.infer<typeof optionalWorkInputSchema>[
   }));
 }
 
+// Modules staan sinds september 2026 in de tabel QuoteModule. Per module bijwerken
+// in plaats van de hele JSON-array vervangen: zo kan een schrijver die een veld niet
+// meestuurt het niet meer wissen, wat eerder een maandbedrag en een required-vlag kostte.
+type NormalizedModule = ReturnType<typeof normalizeOptionalWork>[number];
+
+async function saveQuoteModules(quoteId: string, modules: NormalizedModule[]): Promise<void> {
+  const keys = modules.map((m) => m.id).filter(Boolean);
+  if (keys.length > 0) {
+    await query(
+      `DELETE FROM "QuoteModule" WHERE "quoteId" = $1 AND key <> ALL($2::text[])`,
+      [quoteId, keys]
+    );
+  } else {
+    await query(`DELETE FROM "QuoteModule" WHERE "quoteId" = $1`, [quoteId]);
+  }
+
+  for (const [index, m] of modules.entries()) {
+    const now = new Date().toISOString();
+    await query(
+      `INSERT INTO "QuoteModule" (id,"quoteId",key,title,summary,tag,price,"recurringPrice","recurringInterval",
+         "vatRate",required,"defaultSelected",details,"technicalCondition","sortOrder","createdAt","updatedAt")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15,$16,$16)
+       ON CONFLICT ("quoteId", key) DO UPDATE SET
+         title = EXCLUDED.title, summary = EXCLUDED.summary, tag = EXCLUDED.tag,
+         price = EXCLUDED.price, "recurringPrice" = EXCLUDED."recurringPrice",
+         "recurringInterval" = EXCLUDED."recurringInterval", "vatRate" = EXCLUDED."vatRate",
+         -- required staat niet in het MCP-schema. Niet overschrijven, anders wist een
+         -- update die het veld niet kent alsnog het verplicht-vinkje.
+         "defaultSelected" = EXCLUDED."defaultSelected",
+         details = EXCLUDED.details, "technicalCondition" = EXCLUDED."technicalCondition",
+         "sortOrder" = EXCLUDED."sortOrder", "updatedAt" = EXCLUDED."updatedAt"`,
+      [crypto.randomUUID(), quoteId, m.id, m.t, m.d, m.tag, m.price, m.recurringPrice,
+       m.recurringInterval, m.vatRate, false, m.defaultSelected,
+       JSON.stringify(m.details ?? []), m.technicalCondition ?? null, index, now]
+    );
+  }
+}
+
+async function readQuoteModules(quoteId: string) {
+  const rows = await query<Record<string, unknown>>(
+    `SELECT key, title, summary, tag, price, "recurringPrice", "recurringInterval", "vatRate",
+            required, "defaultSelected", details, "technicalCondition"
+     FROM "QuoteModule" WHERE "quoteId" = $1 ORDER BY "sortOrder"`,
+    [quoteId]
+  );
+  return rows.map((r) => ({
+    id: r.key, t: r.title, d: r.summary, tag: r.tag,
+    price: r.price === null ? null : Number(r.price),
+    recurringPrice: r.recurringPrice === null ? null : Number(r.recurringPrice),
+    recurringInterval: r.recurringInterval,
+    vatRate: Number(r.vatRate),
+    required: r.required,
+    defaultSelected: r.defaultSelected,
+    details: r.details,
+    technicalCondition: r.technicalCondition,
+  }));
+}
+
 function normalizeConfigurations(groups: z.infer<typeof configurationInputSchema>[]) {
   return groups.map((group) => ({
     id: group.id,
@@ -130,6 +188,18 @@ function appUrl(): string {
 }
 // Als SQL-literal, zodat de UNION-query de links direct kan samenstellen.
 const appUrlSql = `'${appUrl().replace(/'/g, "''")}' || `;
+
+const contentBlockInputSchema = z.object({
+  type: z.enum(["heading", "text", "list", "steps", "callout", "specs", "image"])
+    .describe("heading = sectiekop, text = alinea's, list = opsomming, steps = genummerde stappen, callout = kader dat opvalt, specs = twee kolommen kenmerk/waarde, image = afbeelding met bijschrift"),
+  title: z.string().optional().describe("Kop boven het blok"),
+  body: z.string().optional().describe("Tekst; lege regels scheiden alinea's. Bij een heading is dit het kleine label erboven."),
+  items: z.array(z.unknown()).optional()
+    .describe("list: [\"regel\", ...] · steps: [{t, d}, ...] · specs: [{k, v}, ...]"),
+  tone: z.enum(["info", "warning", "success"]).optional().describe("Alleen voor callout"),
+  image_url: z.string().optional().describe("Alleen voor image"),
+  caption: z.string().optional().describe("Bijschrift onder een afbeelding"),
+});
 
 const calculationItemInputSchema = z.object({
   type: z.enum(["MATERIAL", "LABOR", "CUSTOM", "SET"]).default("MATERIAL")
@@ -766,19 +836,22 @@ function createMcpServer() {
 
       await query(
         `INSERT INTO "Quote" (id, "companyId", "customerId", "createdById", number, title, category, tagline,
-          "itemsHeader", intro, outro, notes, flow, approach, options, exclusions, status, "validUntil",
+          "itemsHeader", intro, outro, notes, flow, approach, exclusions, status, "validUntil",
           "totalExVat", "totalVat", "totalIncVat", "quoteType", assumptions, "technicalNotes", 
           "customerResponsibilities", planning, commercial, "batteryAdvice", "choiceGroups", "internalAdvice",
           "createdAt", "updatedAt")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16::jsonb,'DRAFT',$17,$18,$19,$20,$21,$22::jsonb,$23::jsonb,$24::jsonb,$25::jsonb,$26::jsonb,$27::jsonb,$28::jsonb,$29,$30,$30)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,'DRAFT',$16,$17,$18,$19,$20,$21::jsonb,$22::jsonb,$23::jsonb,$24::jsonb,$25::jsonb,$26::jsonb,$27::jsonb,$28,$29,$29)`,
         [quoteId, co.id, customer_id, user.id, number, quoteTitle, quoteCategory,
          quoteTagline, quoteItemsHeader, normalizeQuoteValue(intro ?? null), normalizeQuoteValue(outro ?? null), normalizeQuoteValue(notes ?? null),
-         JSON.stringify(quoteFlow), JSON.stringify(quoteApproach), JSON.stringify(quoteOptions), JSON.stringify(quoteExclusions),
+         JSON.stringify(quoteFlow), JSON.stringify(quoteApproach), JSON.stringify(quoteExclusions),
          validUntilDate, totalExVat.toFixed(2), totalVat.toFixed(2), totalIncVat.toFixed(2),
          quote_type ?? 'GENERAL', JSON.stringify(normalizeQuoteValue(assumptions ?? [])), JSON.stringify(normalizeQuoteValue(technical_notes ?? [])),
          JSON.stringify(normalizeQuoteValue(customer_responsibilities ?? [])), JSON.stringify(normalizeQuoteValue(planning ?? {})), JSON.stringify(normalizeQuoteValue(commercial ?? {})),
          JSON.stringify(normalizeQuoteValue(battery_advice ?? {})), JSON.stringify(quoteConfigurations), normalizeQuoteValue(internal_advice ?? null), now]
       );
+
+      // Modules horen in hun eigen tabel, niet in de Quote-rij.
+      if (quoteOptions.length) await saveQuoteModules(quoteId, quoteOptions);
 
       for (let i = 0; i < normalizedItems.length; i++) {
         const item = normalizedItems[i];
@@ -878,7 +951,11 @@ function createMcpServer() {
         [quote_id]
       );
 
-      return { content: [{ type: "text", text: JSON.stringify({ ...quote, items, attachments, share }, null, 2) }] };
+      // Modules komen uit QuoteModule; onder de sleutel `options` blijft de vorm
+      // gelijk aan wat de rest van de app en eerdere sessies gewend zijn.
+      const options = await readQuoteModules(quote_id);
+
+      return { content: [{ type: "text", text: JSON.stringify({ ...quote, options, items, attachments, share }, null, 2) }] };
     }
   );
 
@@ -985,14 +1062,26 @@ function createMcpServer() {
       if (updates.technical_notes !== undefined) { map["technicalNotes"] = updates.technical_notes; delete map.technical_notes; }
       if (updates.customer_responsibilities !== undefined) { map["customerResponsibilities"] = updates.customer_responsibilities; delete map.customer_responsibilities; }
       if (updates.battery_advice !== undefined) { map["batteryAdvice"] = updates.battery_advice; delete map.battery_advice; }
-      if (updates.optional_work !== undefined) { map.options = normalizeOptionalWork(updates.optional_work); delete map.optional_work; }
+      const modulesToSave = updates.optional_work !== undefined ? normalizeOptionalWork(updates.optional_work) : null;
+      if (updates.optional_work !== undefined) { delete map.optional_work; }
       if (updates.configurations !== undefined) { map["choiceGroups"] = normalizeConfigurations(updates.configurations); delete map.configurations; }
       if (updates.internal_advice !== undefined) { map["internalAdvice"] = updates.internal_advice; delete map.internal_advice; }
 
-      const fields = Object.entries(map).filter(([, v]) => v !== undefined);
-      if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
+      if (modulesToSave) await saveQuoteModules(quote_id, modulesToSave);
 
-      const jsonFields = new Set(["flow", "approach", "options", "exclusions", "assumptions", "technicalNotes", "customerResponsibilities", "planning", "commercial", "batteryAdvice", "choiceGroups"]);
+      const fields = Object.entries(map).filter(([, v]) => v !== undefined);
+      if (fields.length === 0) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: modulesToSave
+              ? `Modules van offerte ${quote_id} bijgewerkt.`
+              : "Geen velden om bij te werken.",
+          }],
+        };
+      }
+
+      const jsonFields = new Set(["flow", "approach", "exclusions", "assumptions", "technicalNotes", "customerResponsibilities", "planning", "commercial", "batteryAdvice", "choiceGroups"]);
       const setClauses = fields.map(([k], i) => `"${k}" = $${i + 2}${jsonFields.has(k) ? "::jsonb" : ""}`);
       const values = [
         quote_id,
@@ -2218,6 +2307,57 @@ function createMcpServer() {
       await query(`UPDATE "Quote" SET "pdfUrl" = NULL, "updatedAt" = NOW() WHERE id = $1`, [att.quoteId]);
 
       return { content: [{ type: "text", text: "Bijlage bijgewerkt." }] };
+    }
+  );
+
+  // ─── Inhoudsblokken ─────────────────────────────────────────────────────────
+
+  server.tool(
+    "set_quote_content",
+    "Vervang de inhoudsblokken van een offerte: vrije uitleg die tussen de intro en de prijzen komt, verdeeld over zoveel pagina's als nodig. Gebruik dit voor verhaal en onderbouwing; harde regels horen in de calculatie, losse keuzes in modules.",
+    {
+      quote_id: z.string().describe("Quote ID"),
+      blocks: z.array(contentBlockInputSchema).describe("De blokken op volgorde. Een lege lijst wist alle blokken."),
+    },
+    async ({ quote_id, blocks }) => {
+      const quote = await queryOne<{ number: string }>(`SELECT number FROM "Quote" WHERE id = $1`, [quote_id]);
+      if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+
+      await query(`DELETE FROM "QuoteContentBlock" WHERE "quoteId" = $1`, [quote_id]);
+      for (const [index, block] of blocks.entries()) {
+        const now = new Date().toISOString();
+        await query(
+          `INSERT INTO "QuoteContentBlock" (id,"quoteId",type,title,body,items,tone,"imageUrl",caption,"sortOrder","createdAt","updatedAt")
+           VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$11)`,
+          [crypto.randomUUID(), quote_id, block.type, block.title ?? null, block.body ?? null,
+           JSON.stringify(block.items ?? []), block.tone ?? null, block.image_url ?? null,
+           block.caption ?? null, index, now]
+        );
+      }
+      await query(`UPDATE "Quote" SET "pdfUrl" = NULL, "updatedAt" = NOW() WHERE id = $1`, [quote_id]);
+
+      return {
+        content: [{
+          type: "text",
+          text: blocks.length === 0
+            ? `Inhoudsblokken van ${quote.number} gewist.`
+            : `${blocks.length} inhoudsblokken opgeslagen bij ${quote.number}.`,
+        }],
+      };
+    }
+  );
+
+  server.tool(
+    "get_quote_content",
+    "Haal de inhoudsblokken van een offerte op, op volgorde",
+    { quote_id: z.string().describe("Quote ID") },
+    async ({ quote_id }) => {
+      const blocks = await query(
+        `SELECT id, type, title, body, items, tone, "imageUrl", caption, "sortOrder"
+         FROM "QuoteContentBlock" WHERE "quoteId" = $1 ORDER BY "sortOrder"`,
+        [quote_id]
+      );
+      return { content: [{ type: "text", text: JSON.stringify(blocks, null, 2) }] };
     }
   );
 

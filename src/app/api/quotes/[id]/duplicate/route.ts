@@ -15,6 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     where: { id, companyId },
     include: {
       items: { orderBy: { sortOrder: "asc" } },
+      modules: { orderBy: { sortOrder: "asc" } },
       attachments: { orderBy: { sortOrder: "asc" } },
     },
   });
@@ -72,6 +73,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               type: item.type,
               choiceGroupId: item.choiceGroupId,
               hiddenOnQuote: item.hiddenOnQuote,
+            })),
+          }
+        : undefined,
+      modules: source.modules.length
+        ? {
+            create: source.modules.map((m) => ({
+              key: m.key, title: m.title, summary: m.summary, tag: m.tag,
+              price: m.price, recurringPrice: m.recurringPrice, recurringInterval: m.recurringInterval,
+              vatRate: m.vatRate, required: m.required, defaultSelected: m.defaultSelected,
+              details: m.details as object, technicalCondition: m.technicalCondition, sortOrder: m.sortOrder,
             })),
           }
         : undefined,

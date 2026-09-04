@@ -5,6 +5,7 @@ import { QuoteDetailClient } from "./quote-detail-client";
 import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
 import { isStorageConfigured, presignDownload } from "@/lib/storage";
 import { DEFAULT_SETTINGS, type TravelPricingTier } from "@/lib/branding";
+import { modulesToOptions } from "@/lib/quote-modules";
 
 export default async function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,6 +19,8 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
       include: {
         customer: true,
         items: { orderBy: { sortOrder: "asc" } },
+        modules: { orderBy: { sortOrder: "asc" } },
+        contentBlocks: { orderBy: { sortOrder: "asc" } },
         attachments: { orderBy: { sortOrder: "asc" } },
         adviceDocuments: { orderBy: { createdAt: "desc" } },
         documents: { include: { productDocument: true }, orderBy: { sortOrder: "asc" } },
@@ -61,7 +64,9 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
   );
 
   const serialized = JSON.parse(JSON.stringify({
-    quote: { ...quote, attachments, choiceGroups, documents },
+    // Modules komen uit de QuoteModule-tabel, maar de editor en preview verwachten
+    // nog steeds een `options`-array. Die vorm bouwen we hier op.
+    quote: { ...quote, options: modulesToOptions(quote.modules), attachments, choiceGroups, documents },
     company,
     customers,
     products,

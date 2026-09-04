@@ -12,6 +12,7 @@ import { calculateLine, calculateTotals } from "@/lib/calculation";
 import { normalizeQuoteCopyValue } from "@/lib/quote-copy";
 import { getQuoteAttachmentStorageKey } from "@/lib/quote-attachments";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
+import { saveQuoteModules } from "@/lib/quote-modules";
 
 const itemSchema = z.object({
   productId: z.string().optional(),
@@ -136,7 +137,6 @@ export async function POST(req: NextRequest) {
       notes,
       flow,
       approach,
-      options,
       exclusions,
       assumptions,
       technicalNotes,
@@ -164,6 +164,11 @@ export async function POST(req: NextRequest) {
     },
     include: { customer: true, items: true, attachments: { orderBy: { sortOrder: "asc" } } },
   });
+
+  // Modules staan in hun eigen tabel, dus na het aanmaken van de offerte wegschrijven.
+  if (options?.length) {
+    await saveQuoteModules(quote.id, options);
+  }
 
   const host = req.headers.get("host") ?? "localhost:3000";
   const cookie = req.headers.get("cookie") ?? "";

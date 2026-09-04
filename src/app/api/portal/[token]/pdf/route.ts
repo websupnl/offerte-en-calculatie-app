@@ -5,6 +5,7 @@ import { generateAndStorePortalPdf } from "@/lib/pdf/generate-and-store";
 // Fallback if Chromium not available
 import { renderToBuffer } from "@react-pdf/renderer";
 import { QuotePDF } from "@/lib/pdf/quote-template";
+import { modulesToOptions } from "@/lib/quote-modules";
 import { formatDate } from "@/lib/format";
 import { createElement } from "react";
 import { DEFAULT_BRANDING } from "@/lib/branding";
@@ -25,6 +26,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
         include: {
           customer: true,
           items: { orderBy: { sortOrder: "asc" } },
+          modules: { orderBy: { sortOrder: "asc" } },
           attachments: { orderBy: { sortOrder: "asc" } },
           company: true,
         },
@@ -139,7 +141,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     notes: quote.notes ?? undefined,
     flow: (quote.flow as Array<{ n: number; t: string; d: string }> | null) || [],
     approach: (quote.approach as Array<{ n: string; t: string; d: string }> | null) || [],
-    options: (quote.options as Array<{ id?: string; t: string; d: string; tag: string; price?: number | null; recurringPrice?: number | null; recurringInterval?: "maand" | "jaar" | null; vatRate?: number; defaultSelected?: boolean; details?: string[] }> | null) || [],
+    options: modulesToOptions(quote.modules),
     selectedOptionIds: (share.selectedOptionIds as string[] | null) ?? [],
     signerName: share.signerName ?? undefined,
     exclusions: (quote.exclusions as string[]) || [],

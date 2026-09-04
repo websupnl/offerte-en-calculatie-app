@@ -119,6 +119,59 @@ const quoteAttachmentSection = (attachment: QuoteAttachment) =>
   attachment.section?.trim().toLowerCase() || "intro";
 type QuoteSource = { id?: string; label: string; description?: string; url: string };
 
+export type QuoteContentBlock = {
+  id?: string;
+  type: "heading" | "text" | "list" | "steps" | "callout" | "specs" | "image";
+  title?: string | null;
+  body?: string | null;
+  items?: unknown;
+  tone?: string | null;
+  imageUrl?: string | null;
+  caption?: string | null;
+};
+
+/**
+ * Hoeveel regels een blok ongeveer inneemt. Zelfde ruwe maat als estimateTermLines
+ * hieronder: genoeg om te bepalen wanneer een pagina vol is, zonder echt te meten.
+ */
+const estimateBlockLines = (block: QuoteContentBlock): number => {
+  const textLines = (value?: string | null) =>
+    value ? Math.max(1, Math.ceil(value.length / 90)) : 0;
+  const list = Array.isArray(block.items) ? block.items : [];
+
+  switch (block.type) {
+    case "heading": return 2;
+    case "image": return 12;
+    case "list": return 2 + list.length;
+    case "steps": return 2 + list.length * 3;
+    case "specs": return 2 + Math.ceil(list.length / 2) * 2;
+    case "callout": return 2 + textLines(block.body);
+    default: return 1 + textLines(block.body);
+  }
+};
+
+/** Verdeelt de blokken over pagina's op basis van dat regelbudget. */
+const paginateContentBlocks = (blocks: QuoteContentBlock[], budget = 34): QuoteContentBlock[][] => {
+  const pages: QuoteContentBlock[][] = [];
+  let current: QuoteContentBlock[] = [];
+  let used = 0;
+
+  for (const block of blocks) {
+    const cost = estimateBlockLines(block);
+    // Een kop onderaan een pagina hoort bij wat erna komt, dus die schuift mee.
+    const startsSection = block.type === "heading";
+    if (current.length > 0 && (used + cost > budget || (startsSection && used > budget - 8))) {
+      pages.push(current);
+      current = [];
+      used = 0;
+    }
+    current.push(block);
+    used += cost;
+  }
+  if (current.length > 0) pages.push(current);
+  return pages;
+};
+
 // Een kort label ("Easee: ERE") zegt de lezer meer dan de hostname. Alleen als het
 // label ontbreekt of te lang is voor een inline chip vallen we terug op het domein.
 const SOURCE_LABEL_MAX = 28;
@@ -197,6 +250,7 @@ export type QuotePreviewData = {
   outro: string | null;
   notes?: string | null;
   validUntil: string | null;
+  createdAt?: string | null;
   acceptedAt?: string | null;
   totalExVat: string | number;
   totalVat: string | number;
@@ -210,6 +264,7 @@ export type QuotePreviewData = {
   assumptions?: string[];
   technicalNotes?: string[];
   customerResponsibilities?: string[];
+  contentBlocks?: QuoteContentBlock[];
   attachments?: QuoteAttachment[];
   adviceDocuments?: { id: string; type: string }[];
   company?: { name?: string | null; slug?: string | null };
@@ -353,7 +408,10 @@ export function QuoteSheetPreview({
     return merged;
   }, [externalSelectedChoiceIds, defaultSelectedChoiceIds, quote.choiceGroups]);
 
-  const today = new Date().toISOString();
+  // De offertedatum komt uit de offerte zelf. Eerder stond hier new Date(), waardoor
+  // de server een andere datum kon renderen dan de browser (hydration-mismatch) en de
+  // klant elke dag een nieuwe datum zag in plaats van de datum van het aanbod.
+  const today = quote.createdAt ?? new Date().toISOString();
   const activeSlug = companySlug || quote.company?.slug || "websup";
   const brand = activeSlug === "koolhaas" ? COMPANY_COPY.koolhaas : COMPANY_COPY.websup;
   const isKoolhaas = brand.slug === "koolhaas";
@@ -471,8 +529,11 @@ export function QuoteSheetPreview({
     termsLineLoad > 24;
   const termsPageOffset = splitTermsPage ? 1 : 0;
 
+  const contentBlocks = (quote.contentBlocks ?? []).filter(Boolean);
+  const contentPages = paginateContentBlocks(contentBlocks);
+
   const totalPages =
-    4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0) + (hasTermsPage ? 1 : 0) + termsPageOffset + (hasSourcesPage ? 1 : 0);
+    4 + approachPageOffset + contentPages.length + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0) + (hasTermsPage ? 1 : 0) + termsPageOffset + (hasSourcesPage ? 1 : 0);
   const pageLabel = (page: number) =>
     `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
   const coverHeading = isKoolhaas ? (quote.title || brand.defaultTitle) : "Offerte";
@@ -1118,6 +1179,114 @@ export function QuoteSheetPreview({
           </div>
         </section>
 
+        {/* ── INHOUDSBLOKKEN: vrije uitleg tussen intro en prijzen ── */}
+        {contentPages.map((page, pageIndex) => (
+          <section className="sheet" key={`content-${pageIndex}`}>
+            <div className="bar"></div>
+            <div className="pad">
+              <div className="ph">
+                {renderHeaderLogo()}
+                <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
+              </div>
+
+              <div className="content-blocks">
+                {page.map((block, blockIndex) => {
+                  const key = block.id ?? `${pageIndex}-${blockIndex}`;
+                  const list = Array.isArray(block.items) ? block.items : [];
+
+                  if (block.type === "heading") {
+                    return (
+                      <div className="row-badge" key={key}>
+                        <div>
+                          {block.body && <span className="eyebrow">{block.body}</span>}
+                          <h2 className="h2">{block.title}</h2>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (block.type === "list") {
+                    return (
+                      <div className="content-block" key={key}>
+                        {block.title && <h3 className="content-block-title">{block.title}</h3>}
+                        <ul className="content-list">
+                          {(list as string[]).map((entry, i) => <li key={i}>{entry}</li>)}
+                        </ul>
+                      </div>
+                    );
+                  }
+
+                  if (block.type === "steps") {
+                    return (
+                      <div className="content-block" key={key}>
+                        {block.title && <h3 className="content-block-title">{block.title}</h3>}
+                        <div className="flow">
+                          {(list as { t?: string; d?: string }[]).map((step, i) => (
+                            <div className="flow-item" key={i}>
+                              <div className="flow-num">{String(i + 1).padStart(2, "0")}</div>
+                              <div>
+                                <div className="flow-title">{step.t}</div>
+                                <div className="flow-desc">{step.d}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (block.type === "specs") {
+                    return (
+                      <div className="content-block" key={key}>
+                        {block.title && <h3 className="content-block-title">{block.title}</h3>}
+                        <div className="content-specs">
+                          {(list as { k?: string; v?: string }[]).map((spec, i) => (
+                            <div className="content-spec" key={i}>
+                              <span className="content-spec-key">{spec.k}</span>
+                              <span className="content-spec-value">{spec.v}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (block.type === "callout") {
+                    return (
+                      <div className={`content-callout content-callout-${block.tone || "info"}`} key={key}>
+                        {block.title && <strong>{block.title}</strong>}
+                        {block.body && <CitedText value={block.body} sources={sources} paragraphs />}
+                      </div>
+                    );
+                  }
+
+                  if (block.type === "image") {
+                    return (
+                      <figure className="content-image" key={key}>
+                        {block.imageUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element -- offerte-afbeeldingen kunnen tijdelijke opslag-URL's zijn
+                          <img src={block.imageUrl} alt={block.title || block.caption || "Afbeelding"} />
+                        )}
+                        {block.caption && <figcaption>{block.caption}</figcaption>}
+                      </figure>
+                    );
+                  }
+
+                  return (
+                    <div className="content-block" key={key}>
+                      {block.title && <h3 className="content-block-title">{block.title}</h3>}
+                      {block.body && <CitedText value={block.body} sources={sources} className="letter" paragraphs />}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="spacer"></div>
+              {renderPageFooter(pageLabel(3 + pageIndex))}
+            </div>
+          </section>
+        ))}
+
         {/* ── WERKING VAN DE INSTALLATIE ── */}
         {hasApproachPage && (
           <section className="sheet">
@@ -1192,7 +1361,7 @@ export function QuoteSheetPreview({
                 )}
               </div>
               {renderSectionSpace("werking")}
-              {renderPageFooter(pageLabel(3))}
+              {renderPageFooter(pageLabel(3 + contentPages.length))}
             </div>
           </section>
         )}
@@ -1275,7 +1444,7 @@ export function QuoteSheetPreview({
                 </figcaption>
               </figure>
 
-              {renderPageFooter(pageLabel(3 + approachPageOffset + index))}
+              {renderPageFooter(pageLabel(3 + contentPages.length + approachPageOffset + index))}
             </div>
           </section>
         ))}
@@ -1293,7 +1462,7 @@ export function QuoteSheetPreview({
               {!splitItemsPage && itemsTableBlock}
 
               {renderSectionSpace("items")}
-              {renderPageFooter(pageLabel(3 + approachPageOffset + attachmentPages))}
+              {renderPageFooter(pageLabel(3 + contentPages.length + approachPageOffset + attachmentPages))}
             </div>
           </section>
         )}
@@ -1396,7 +1565,7 @@ export function QuoteSheetPreview({
                 {isLast && !splitItemsPage && visibleItems.length > 0 && itemsTableBlock}
 
                 {isLast ? renderSectionSpace("items") : <div className="spacer"></div>}
-                {renderPageFooter(pageLabel(3 + approachPageOffset + attachmentPages + entryIndex))}
+                {renderPageFooter(pageLabel(3 + contentPages.length + approachPageOffset + attachmentPages + entryIndex))}
               </div>
             </section>
           );
@@ -1414,7 +1583,7 @@ export function QuoteSheetPreview({
               {itemsTableBlock}
 
               {renderSectionSpace("items")}
-              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + choicePagesOffset))}
+              {renderPageFooter(pageLabel(4 + contentPages.length + approachPageOffset + attachmentPages + choicePagesOffset))}
             </div>
           </section>
         )}
@@ -1431,7 +1600,7 @@ export function QuoteSheetPreview({
               {optionsBlock}
 
               {renderSectionSpace("opties")}
-              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset))}
+              {renderPageFooter(pageLabel(4 + contentPages.length + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset))}
             </div>
           </section>
         )}
@@ -1462,7 +1631,7 @@ export function QuoteSheetPreview({
               )}
 
               {renderSectionSpace("terms")}
-              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0)))}
+              {renderPageFooter(pageLabel(4 + contentPages.length + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0)))}
             </div>
           </section>
         )}
@@ -1483,7 +1652,7 @@ export function QuoteSheetPreview({
               {exclusionsBlock}
 
               <div className="spacer"></div>
-              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0) + 1))}
+              {renderPageFooter(pageLabel(4 + contentPages.length + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0) + 1))}
             </div>
           </section>
         )}

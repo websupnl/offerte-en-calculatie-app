@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { saveQuoteModules } from "@/lib/quote-modules";
 import { prisma } from "@/lib/prisma";
 import { validateQuoteImportInput } from "@/lib/quote-import";
 import { generateQuoteNumber } from "@/lib/format";
@@ -130,8 +131,6 @@ export async function POST(req: NextRequest) {
       planning: data.planning ?? {},
       commercial: data.commercial ?? {},
       batteryAdvice: data.batteryAdvice ?? {},
-      // optionalWork → options JSON
-      options: data.optionalWork ?? [],
       // configurations → choiceGroups JSON
       choiceGroups: data.configurations ?? [],
       totalExVat: "totalExVat" in totals ? totals.totalExVat : totals.revenueExVat,
@@ -156,6 +155,11 @@ export async function POST(req: NextRequest) {
       attachments: { orderBy: { sortOrder: "asc" } },
     },
   });
+
+  // optionalWork wordt opgeslagen als modules in hun eigen tabel.
+  if (data.optionalWork?.length) {
+    await saveQuoteModules(quote.id, data.optionalWork);
+  }
 
   return NextResponse.json(
     { ...quote, warnings },

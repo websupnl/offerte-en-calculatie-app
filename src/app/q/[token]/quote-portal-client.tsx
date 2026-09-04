@@ -56,6 +56,7 @@ type Quote = {
   intro: string | null;
   outro: string | null;
   validUntil: string | null;
+  createdAt?: string | null;
   totalExVat: string | number;
   totalVat: string | number;
   totalIncVat: string | number;
@@ -205,7 +206,9 @@ export function QuotePortalClient({
     : false;
   const canRespond = !submitted && !isExpired;
   const selectionsComplete = choiceGroups.every((group) => Boolean(selectedChoiceIds[group.id]));
-  const today = new Date().toISOString();
+  // Zelfde reden als in de sheet: de offertedatum is een eigenschap van de offerte,
+  // geen "nu". new Date() hier gaf een hydration-mismatch en een verspringende datum.
+  const today = quote.createdAt ?? new Date().toISOString();
   const statusLabel = submitted === "accepted"
     ? "Geaccepteerd"
     : submitted === "declined"

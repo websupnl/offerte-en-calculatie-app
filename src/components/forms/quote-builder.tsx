@@ -1088,7 +1088,9 @@ export function QuoteBuilder({
           {
             id: choiceId,
             label: "Alternatief",
-            title: `Configuratie ${group.choices.length + 1}`,
+            // Doortellen met letters, zodat de derde "Configuratie C" heet en niet
+            // "Configuratie 3" naast een bestaande "Configuratie A".
+            title: `Configuratie ${String.fromCharCode(65 + group.choices.length)}`,
             summary: "",
             items: [{ description: "Complete configuratie", qty: 1, unitPrice: 0, vatRate: 21, indent: 0 }],
           },
@@ -1900,18 +1902,19 @@ export function QuoteBuilder({
     <div className="min-h-[calc(100vh-72px)] bg-slate-50">
       {/* ── Top Toolbar ── */}
       <header className="sticky top-[72px] z-20 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-200 bg-white px-4 py-3 shadow-sm lg:px-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => router.back()}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Terug
-          </Button>
-          <div className="hidden h-6 w-px bg-slate-200 sm:block" />
-          <div className="min-w-0 leading-tight">
-            <h1 className="truncate font-bold text-slate-900">
-              {initialQuote ? `${title || initialQuote.number} bewerken` : "Nieuwe offerte"}
-            </h1>
-            {initialQuote && <p className="text-xs text-slate-400">{initialQuote.number}</p>}
+        {/* Bij een bestaande offerte staan titel, nummer en een terugknop al in de
+            paginakop erboven. Alleen een nieuwe offerte heeft hier een eigen kop nodig. */}
+        {initialQuote ? (
+          <div className="min-w-0" />
+        ) : (
+          <div className="flex min-w-0 items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => router.back()}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Terug
+            </Button>
+            <div className="hidden h-6 w-px bg-slate-200 sm:block" />
+            <h1 className="truncate font-bold text-slate-900">Nieuwe offerte</h1>
           </div>
-        </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <label className="inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50/50 px-2.5 text-sm font-bold text-blue-600 transition-colors hover:bg-blue-50">
@@ -1998,25 +2001,31 @@ export function QuoteBuilder({
             />
           </div>
 
-          <div className="flex min-w-[130px] items-center justify-end gap-1.5 text-xs font-medium" aria-live="polite">
+          {/* De offerte slaat zichzelf op. De knop is er alleen als vangnet bij een
+              fout, zodat "Verstuur offerte" de enige opvallende actie blijft. */}
+          <div className="flex items-center justify-end gap-1.5 text-xs font-medium" aria-live="polite">
             {saveStatus === "saving" && (
-              <><Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" /><span className="text-slate-500">Bezig met opslaan…</span></>
+              <><Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" /><span className="text-slate-500">Bezig met opslaan</span></>
             )}
             {saveStatus === "saved" && (
               <><Check className="h-3.5 w-3.5 text-emerald-600" /><span className="text-emerald-600">Opgeslagen</span></>
             )}
             {saveStatus === "unsaved" && (
-              <span className="text-amber-600">Wijzigingen worden opgeslagen…</span>
-            )}
-            {saveStatus === "error" && (
-              <span className="text-red-600">Opslaan mislukt, klik Opslaan</span>
+              <span className="text-slate-500">Wijzigingen worden opgeslagen</span>
             )}
           </div>
 
-          <Button onClick={handleSave} disabled={saving} className="bg-orange-600 hover:bg-orange-700">
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Offerte Opslaan
-          </Button>
+          {saveStatus === "error" ? (
+            <Button onClick={handleSave} disabled={saving} className="bg-red-600 hover:bg-red-700">
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Opslaan mislukt, opnieuw
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" onClick={handleSave} disabled={saving} title="Nu opslaan">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              <span className="sr-only">Nu opslaan</span>
+            </Button>
+          )}
         </div>
       </header>
 
@@ -2268,7 +2277,14 @@ export function QuoteBuilder({
                               placeholder="Bijv. Kies uw batterijsysteem"
                             />
                             <Select value={group.recommendedChoiceId || ""} onValueChange={(value) => updateChoiceGroup(group.id, { recommendedChoiceId: value || undefined })}>
-                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Aanbevolen configuratie" /></SelectTrigger>
+                              <SelectTrigger className="h-8 text-xs">
+                                {/* Expliciet de titel tonen; anders valt de trigger terug
+                                    op de waarde en staat er een technische id op het scherm. */}
+                                <SelectValue placeholder="Aanbevolen configuratie">
+                                  {group.choices.find((choice) => choice.id === group.recommendedChoiceId)?.title
+                                    || "Aanbevolen configuratie"}
+                                </SelectValue>
+                              </SelectTrigger>
                               <SelectContent>
                                 {group.choices.map((choice) => (
                                   <SelectItem key={choice.id} value={choice.id}>{choice.title}</SelectItem>
@@ -2434,6 +2450,14 @@ export function QuoteBuilder({
 
                                 {!choice.calculationId && (
                                 <div className="space-y-2">
+                                  {/* Zonder koppen zijn de drie getalvelden niet te onderscheiden. */}
+                                  <div className="grid grid-cols-[1fr_54px_78px_58px_32px] gap-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                    <span>Omschrijving</span>
+                                    <span>Aantal</span>
+                                    <span>Prijs</span>
+                                    <span>Btw %</span>
+                                    <span className="sr-only">Verwijderen</span>
+                                  </div>
                                   {choice.items.map((item, itemIndex) => (
                                     <div key={itemIndex} className="grid grid-cols-[1fr_54px_78px_58px_32px] gap-2">
                                       <div className="relative">
