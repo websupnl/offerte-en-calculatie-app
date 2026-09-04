@@ -119,14 +119,20 @@ const quoteAttachmentSection = (attachment: QuoteAttachment) =>
   attachment.section?.trim().toLowerCase() || "intro";
 type QuoteSource = { id?: string; label: string; description?: string; url: string };
 
+// Een kort label ("Easee: ERE") zegt de lezer meer dan de hostname. Alleen als het
+// label ontbreekt of te lang is voor een inline chip vallen we terug op het domein.
+const SOURCE_LABEL_MAX = 28;
+
 const sourceShortName = (source: QuoteSource) => {
+  const label = source.label?.trim();
+  if (label && label.length <= SOURCE_LABEL_MAX) return label;
   try {
     const host = new URL(source.url).hostname.replace(/^www\./, "");
     if (host) return host;
   } catch {
     /* geen geldige URL — val terug op label */
   }
-  return source.label;
+  return label || source.url;
 };
 
 const CitedText = ({

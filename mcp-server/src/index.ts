@@ -124,6 +124,92 @@ async function recalculateQuoteTotals(quoteId: string): Promise<void> {
   );
 }
 
+// Basis-URL van de app, voor de links die search en fetch teruggeven.
+function appUrl(): string {
+  return (process.env.APP_URL ?? "https://app.websup.nl").replace(/\/+$/, "");
+}
+// Als SQL-literal, zodat de UNION-query de links direct kan samenstellen.
+const appUrlSql = `'${appUrl().replace(/'/g, "''")}' || `;
+
+const calculationItemInputSchema = z.object({
+  type: z.enum(["MATERIAL", "LABOR", "CUSTOM", "SET"]).default("MATERIAL")
+    .describe("MATERIAL voor artikelen, LABOR voor eigen uren, CUSTOM voor posten zoals voorrijkosten"),
+  description: z.string().describe("Omschrijving van precies één regel"),
+  qty: z.number().default(1).describe("Aantal"),
+  unit: z.string().default("stuk").describe("Eenheid: stuk, meter, uur, post"),
+  cost_price: z.number().default(0).describe("Inkoopprijs per eenheid excl. btw"),
+  markup_percent: z.number().default(0).describe("Opslagpercentage; alleen gebruikt als unit_price 0 is"),
+  unit_price: z.number().default(0).describe("Verkoopprijs per eenheid excl. btw. 0 met markup_percent laat de opslag rekenen; 0 zonder opslag is een zichtbare werkzaamheid zonder prijs."),
+  vat_rate: z.number().default(21).describe("BTW-percentage"),
+  product_id: z.string().optional().describe("Koppeling met een bestaand artikel uit de artikeldatabase"),
+  supplier: z.string().optional().describe("Leverancier; neem die over van het artikel"),
+  sku: z.string().optional().describe("Artikelnummer; neem dat over van het artikel"),
+  hidden_on_quote: z.boolean().default(false)
+    .describe("true = prijsdrager die niet los op de offerte komt; false = zichtbare werkzaamheid"),
+});
+
+async function insertCalculationItems(
+  calculationId: string,
+  items: z.infer<typeof calculationItemInputSchema>[],
+  startSortOrder: number
+): Promise<void> {
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    // Zelfde regel als de app: een expliciete unit_price wint, anders opslag op de inkoopprijs.
+    const unitPrice = item.unit_price > 0
+      ? item.unit_price
+      : Math.round(item.cost_price * (1 + item.markup_percent / 100) * 100) / 100;
+    await query(
+      `INSERT INTO "CalculationItem" (id, "calculationId", "productId", type, supplier, sku, description, qty, unit,
+         "costPrice", "markupPercent", "unitPrice", "totalCostPrice", "totalSalesPrice", "vatRate", optional,
+         "hiddenOnQuote", "sortOrder")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,false,$16,$17)`,
+      [crypto.randomUUID(), calculationId, item.product_id ?? null, item.type, item.supplier ?? null,
+       item.sku ?? null, item.description, item.qty, item.unit, item.cost_price, item.markup_percent,
+       unitPrice, item.qty * item.cost_price, item.qty * unitPrice, item.vat_rate,
+       item.hidden_on_quote, startSortOrder + i]
+    );
+  }
+}
+
+// Kostprijs volgt de app-conventie uit src/app/api/calculations/route.ts: eigen uren
+// (type LABOR) zijn geen inkoopkost en tellen dus niet mee in totalCostPrice.
+async function recalculateCalculationTotals(calculationId: string): Promise<void> {
+  await query(
+    `UPDATE "Calculation" SET
+      "totalCostPrice"  = COALESCE((SELECT SUM("totalCostPrice") FROM "CalculationItem" WHERE "calculationId" = $1 AND type <> 'LABOR'), 0),
+      "totalSalesPrice" = COALESCE((SELECT SUM("totalSalesPrice") FROM "CalculationItem" WHERE "calculationId" = $1), 0),
+      "updatedAt"       = NOW()
+     WHERE id = $1`,
+    [calculationId]
+  );
+  await query(
+    `UPDATE "Calculation" SET
+      "marginAmount"  = "totalSalesPrice" - "totalCostPrice",
+      "marginPercent" = CASE WHEN "totalSalesPrice" > 0
+                          THEN ("totalSalesPrice" - "totalCostPrice") / "totalSalesPrice" * 100
+                          ELSE 0 END
+     WHERE id = $1`,
+    [calculationId]
+  );
+}
+
+// Op het hoogste bestaande volgnummer doortellen. Tellen op aantal records (zoals de
+// app doet) botst zodra er ooit een dubbel nummer in de historie is geraakt.
+async function nextCalculationNumber(companyId: string, companySlug: string): Promise<string> {
+  const prefix = companySlug === "koolhaas" ? "KI" : "WU";
+  const year = new Date().getFullYear();
+  const rows = await query<{ number: string }>(
+    `SELECT number FROM "Calculation" WHERE "companyId" = $1 AND number LIKE $2`,
+    [companyId, `${prefix}-${year}-C%`]
+  );
+  const highest = rows
+    .map((r) => Number(r.number.slice(-3)))
+    .filter((n) => Number.isFinite(n));
+  const next = (highest.length ? Math.max(...highest) : 0) + 1;
+  return `${prefix}-${year}-C${String(next).padStart(3, "0")}`;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function generateQuoteNumber(companySlug = "websup"): string {
@@ -1836,6 +1922,441 @@ function createMcpServer() {
     }
   );
 
+  // ─── Calculaties ────────────────────────────────────────────────────────────
+
+  server.tool(
+    "list_calculations",
+    "Geef een overzicht van calculaties voor een bedrijf, met kostprijs, verkoopprijs en marge",
+    {
+      company_slug: z.string().describe("Bedrijfsslug"),
+      customer_id: z.string().optional().describe("Filter op klant"),
+      status: z.enum(["DRAFT", "COMPLETED", "QUOTED"]).optional().describe("Filter op status"),
+      limit: z.number().default(20).describe("Max aantal resultaten"),
+    },
+    async ({ company_slug, customer_id, status, limit }) => {
+      const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+      const params: unknown[] = [co.id];
+      let sql = `SELECT c.id, c.number, c.title, c.status, c."totalCostPrice", c."totalSalesPrice",
+                        c."marginAmount", c."marginPercent", c."quoteId", q.number AS quote_number,
+                        cu.name AS customer_name, c."updatedAt"
+                 FROM "Calculation" c
+                 LEFT JOIN "Quote" q ON q.id = c."quoteId"
+                 LEFT JOIN "Customer" cu ON cu.id = c."customerId"
+                 WHERE c."companyId" = $1`;
+      if (customer_id) { sql += ` AND c."customerId" = $${params.length + 1}`; params.push(customer_id); }
+      if (status) { sql += ` AND c.status = $${params.length + 1}`; params.push(status); }
+      sql += ` ORDER BY c."updatedAt" DESC LIMIT $${params.length + 1}`;
+      params.push(limit);
+
+      return { content: [{ type: "text", text: JSON.stringify(await query(sql, params), null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "get_calculation",
+    "Haal een calculatie op met alle regels, inkoopprijzen, opslagpercentages en marges",
+    { calculation_id: z.string().describe("Calculatie ID of nummer, bijvoorbeeld KI-2026-C015") },
+    async ({ calculation_id }) => {
+      const calc = await queryOne(
+        `SELECT c.*, cu.name AS customer_name, q.number AS quote_number
+         FROM "Calculation" c
+         LEFT JOIN "Customer" cu ON cu.id = c."customerId"
+         LEFT JOIN "Quote" q ON q.id = c."quoteId"
+         WHERE c.id = $1 OR c.number = $1`,
+        [calculation_id]
+      );
+      if (!calc) return { content: [{ type: "text", text: `Calculatie ${calculation_id} niet gevonden.` }] };
+
+      const items = await query(
+        `SELECT ci.id, ci."sortOrder", ci.type, ci.supplier, ci.sku, ci.description, ci.qty, ci.unit,
+                ci."costPrice", ci."markupPercent", ci."unitPrice", ci."totalCostPrice", ci."totalSalesPrice",
+                ci."vatRate", ci.optional, ci."hiddenOnQuote", ci."productId", p.name AS product_name
+         FROM "CalculationItem" ci
+         LEFT JOIN "Product" p ON p.id = ci."productId"
+         WHERE ci."calculationId" = $1 ORDER BY ci."sortOrder"`,
+        [(calc as { id: string }).id]
+      );
+
+      // Eigen uren zitten niet in totalCostPrice; toon ze apart zodat de echte marge zichtbaar is.
+      const labor = items
+        .filter((i) => (i as { type: string }).type === "LABOR")
+        .reduce((sum, i) => sum + Number((i as { totalCostPrice: string }).totalCostPrice), 0);
+      const sales = Number((calc as { totalSalesPrice: string }).totalSalesPrice);
+      const cost = Number((calc as { totalCostPrice: string }).totalCostPrice);
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            ...calc,
+            items,
+            _toelichting: {
+              kostprijs_systeem: cost.toFixed(2),
+              eigen_uren_kostprijs: labor.toFixed(2),
+              kostprijs_inclusief_uren: (cost + labor).toFixed(2),
+              marge_werkelijk: (sales - cost - labor).toFixed(2),
+              marge_werkelijk_percent: sales > 0 ? (((sales - cost - labor) / sales) * 100).toFixed(2) : "0.00",
+              opmerking: "De app telt eigen uren (LABOR) niet mee in totalCostPrice. De _werkelijk-waarden doen dat wel.",
+            },
+          }, null, 2),
+        }],
+      };
+    }
+  );
+
+  server.tool(
+    "create_calculation",
+    "Maak een nieuwe calculatie met regels. Gebruik type MATERIAL voor artikelen, LABOR voor eigen uren en CUSTOM voor posten zoals voorrijkosten. Regels met unit_price 0 zijn zichtbare werkzaamheden zonder prijs.",
+    {
+      company_slug: z.string().describe("Bedrijfsslug"),
+      title: z.string().describe("Titel van de calculatie"),
+      customer_id: z.string().optional().describe("Klant ID"),
+      description: z.string().optional().describe("Toelichting, bijvoorbeeld waarop deze calculatie is gebaseerd"),
+      notes: z.string().optional().describe("Interne notities"),
+      items: z.array(calculationItemInputSchema).default([]).describe("De calculatieregels"),
+    },
+    async ({ company_slug, title, customer_id, description, notes, items }) => {
+      const co = await queryOne<{ id: string; slug: string }>(
+        `SELECT id, slug FROM "Company" WHERE slug = $1`, [company_slug]
+      );
+      if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
+
+      const id = crypto.randomUUID();
+      const number = await nextCalculationNumber(co.id, co.slug);
+      const now = new Date().toISOString();
+
+      await query(
+        `INSERT INTO "Calculation" (id, "companyId", "customerId", number, title, description, status, "vatRate",
+           "totalCostPrice", "totalSalesPrice", "marginAmount", "marginPercent", notes, "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,'DRAFT',21,0,0,0,0,$7,$8,$8)`,
+        [id, co.id, customer_id ?? null, number, title, description ?? null, notes ?? null, now]
+      );
+
+      await insertCalculationItems(id, items, 0);
+      await recalculateCalculationTotals(id);
+
+      const totals = await queryOne<{ totalCostPrice: string; totalSalesPrice: string; marginPercent: string }>(
+        `SELECT "totalCostPrice", "totalSalesPrice", "marginPercent" FROM "Calculation" WHERE id = $1`, [id]
+      );
+      return {
+        content: [{
+          type: "text",
+          text: `Calculatie ${number} aangemaakt met ${items.length} regels (ID: ${id}).\n`
+            + `Kostprijs €${totals?.totalCostPrice} — verkoop €${totals?.totalSalesPrice} — marge ${totals?.marginPercent}%.\n`
+            + `Let op: eigen uren tellen niet mee in de kostprijs; gebruik get_calculation voor de werkelijke marge.`,
+        }],
+      };
+    }
+  );
+
+  server.tool(
+    "add_calculation_items",
+    "Voeg regels toe aan een bestaande calculatie en herbereken de totalen",
+    {
+      calculation_id: z.string().describe("Calculatie ID of nummer"),
+      items: z.array(calculationItemInputSchema).min(1).describe("De toe te voegen regels"),
+    },
+    async ({ calculation_id, items }) => {
+      const calc = await queryOne<{ id: string; number: string }>(
+        `SELECT id, number FROM "Calculation" WHERE id = $1 OR number = $1`, [calculation_id]
+      );
+      if (!calc) return { content: [{ type: "text", text: `Calculatie ${calculation_id} niet gevonden.` }] };
+
+      const max = await queryOne<{ max: number }>(
+        `SELECT COALESCE(MAX("sortOrder"), -1) AS max FROM "CalculationItem" WHERE "calculationId" = $1`, [calc.id]
+      );
+      await insertCalculationItems(calc.id, items, (max?.max ?? -1) + 1);
+      await recalculateCalculationTotals(calc.id);
+
+      return { content: [{ type: "text", text: `${items.length} regels toegevoegd aan ${calc.number}. Totalen herberekend.` }] };
+    }
+  );
+
+  server.tool(
+    "update_calculation_item",
+    "Pas één calculatieregel aan (aantal, prijs, opslag, omschrijving of zichtbaarheid) en herbereken de totalen",
+    {
+      item_id: z.string().describe("ID van de calculatieregel"),
+      description: z.string().optional(),
+      qty: z.number().optional(),
+      unit: z.string().optional(),
+      cost_price: z.number().optional().describe("Inkoopprijs excl. btw"),
+      markup_percent: z.number().optional().describe("Opslagpercentage"),
+      unit_price: z.number().optional().describe("Verkoopprijs per eenheid excl. btw"),
+      hidden_on_quote: z.boolean().optional().describe("true = prijsdrager die niet los op de offerte komt"),
+    },
+    async ({ item_id, ...updates }) => {
+      const item = await queryOne<{ calculationId: string; qty: string; costPrice: string; unitPrice: string }>(
+        `SELECT "calculationId", qty, "costPrice", "unitPrice" FROM "CalculationItem" WHERE id = $1`, [item_id]
+      );
+      if (!item) return { content: [{ type: "text", text: `Calculatieregel ${item_id} niet gevonden.` }] };
+
+      const map: Record<string, unknown> = {
+        description: updates.description, qty: updates.qty, unit: updates.unit,
+        costPrice: updates.cost_price, markupPercent: updates.markup_percent,
+        unitPrice: updates.unit_price, hiddenOnQuote: updates.hidden_on_quote,
+      };
+      const fields = Object.entries(map).filter(([, v]) => v !== undefined);
+      if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
+
+      const params: unknown[] = [item_id];
+      const setClauses = fields.map(([k, v]) => { params.push(v); return `"${k}" = $${params.length}`; });
+      await query(`UPDATE "CalculationItem" SET ${setClauses.join(", ")} WHERE id = $1`, params);
+
+      // Regeltotalen volgen altijd uit aantal x prijs, dus na elke wijziging opnieuw zetten.
+      await query(
+        `UPDATE "CalculationItem"
+         SET "totalCostPrice" = qty * "costPrice", "totalSalesPrice" = qty * "unitPrice"
+         WHERE id = $1`, [item_id]
+      );
+      await recalculateCalculationTotals(item.calculationId);
+
+      return { content: [{ type: "text", text: "Calculatieregel bijgewerkt en totalen herberekend." }] };
+    }
+  );
+
+  server.tool(
+    "delete_calculation_item",
+    "Verwijder een calculatieregel en herbereken de totalen",
+    { item_id: z.string().describe("ID van de calculatieregel") },
+    async ({ item_id }) => {
+      const item = await queryOne<{ calculationId: string; description: string }>(
+        `SELECT "calculationId", description FROM "CalculationItem" WHERE id = $1`, [item_id]
+      );
+      if (!item) return { content: [{ type: "text", text: `Calculatieregel ${item_id} niet gevonden.` }] };
+
+      await query(`DELETE FROM "CalculationItem" WHERE id = $1`, [item_id]);
+      await recalculateCalculationTotals(item.calculationId);
+      return { content: [{ type: "text", text: `Regel verwijderd: ${item.description}. Totalen herberekend.` }] };
+    }
+  );
+
+  server.tool(
+    "link_calculation_to_quote",
+    "Koppel een calculatie aan een offerte. Met copy_items worden de calculatieregels als offerteregels overgenomen: prijsdragers verborgen, werkzaamheden met prijs 0 zichtbaar.",
+    {
+      calculation_id: z.string().describe("Calculatie ID of nummer"),
+      quote_id: z.string().describe("Offerte ID"),
+      copy_items: z.boolean().default(true).describe("Calculatieregels als offerteregels overnemen (vervangt bestaande offerteregels)"),
+    },
+    async ({ calculation_id, quote_id, copy_items }) => {
+      const calc = await queryOne<{ id: string; number: string }>(
+        `SELECT id, number FROM "Calculation" WHERE id = $1 OR number = $1`, [calculation_id]
+      );
+      if (!calc) return { content: [{ type: "text", text: `Calculatie ${calculation_id} niet gevonden.` }] };
+      const quote = await queryOne<{ number: string }>(`SELECT number FROM "Quote" WHERE id = $1`, [quote_id]);
+      if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+
+      let copied = 0;
+      if (copy_items !== false) {
+        const rows = await query<{
+          productId: string | null; description: string; qty: string;
+          costPrice: string; unitPrice: string; vatRate: string; hiddenOnQuote: boolean;
+        }>(
+          `SELECT "productId", description, qty, "costPrice", "unitPrice", "vatRate", "hiddenOnQuote"
+           FROM "CalculationItem" WHERE "calculationId" = $1 ORDER BY "sortOrder"`, [calc.id]
+        );
+        await query(`DELETE FROM "QuoteItem" WHERE "quoteId" = $1`, [quote_id]);
+        for (let i = 0; i < rows.length; i++) {
+          const r = rows[i];
+          await query(
+            `INSERT INTO "QuoteItem" (id, "quoteId", "productId", description, qty, "unitPrice", "costPrice",
+               "vatRate", total, "sortOrder", indent, type, "hiddenOnQuote")
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0,'main',$11)`,
+            [crypto.randomUUID(), quote_id, r.productId, r.description, r.qty, r.unitPrice, r.costPrice,
+             r.vatRate, (Number(r.qty) * Number(r.unitPrice)).toFixed(2), i, r.hiddenOnQuote]
+          );
+        }
+        copied = rows.length;
+        await recalculateQuoteTotals(quote_id);
+      }
+
+      // Calculation.quoteId is uniek, dus eerst een eventuele oude koppeling losmaken.
+      await query(`UPDATE "Calculation" SET "quoteId" = NULL WHERE "quoteId" = $1`, [quote_id]);
+      await query(`UPDATE "Calculation" SET "quoteId" = $2, status = 'QUOTED', "updatedAt" = NOW() WHERE id = $1`,
+        [calc.id, quote_id]);
+
+      return {
+        content: [{
+          type: "text",
+          text: `Calculatie ${calc.number} gekoppeld aan offerte ${quote.number}.`
+            + (copy_items !== false ? ` ${copied} regels overgenomen en offertetotalen herberekend.` : ""),
+        }],
+      };
+    }
+  );
+
+  server.tool(
+    "update_quote_attachment",
+    "Pas titel, bijschrift of de link naar een werkend voorbeeld van een offertebijlage aan",
+    {
+      attachment_id: z.string().describe("Attachment ID"),
+      title: z.string().optional().describe("Titel boven de afbeelding"),
+      caption: z.string().optional().describe("Bijschrift onder de afbeelding"),
+      live_url: z.string().optional().describe("Link naar het werkende voorbeeld; leeg maken met een lege string"),
+    },
+    async ({ attachment_id, title, caption, live_url }) => {
+      const att = await queryOne<{ quoteId: string }>(
+        `SELECT "quoteId" FROM "QuoteAttachment" WHERE id = $1`, [attachment_id]
+      );
+      if (!att) return { content: [{ type: "text", text: `Bijlage ${attachment_id} niet gevonden.` }] };
+
+      const map: Record<string, unknown> = {
+        title, caption,
+        liveUrl: live_url === undefined ? undefined : (live_url === "" ? null : live_url),
+      };
+      const fields = Object.entries(map).filter(([, v]) => v !== undefined);
+      if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
+
+      const params: unknown[] = [attachment_id];
+      const setClauses = fields.map(([k, v]) => { params.push(v); return `"${k}" = $${params.length}`; });
+      await query(
+        `UPDATE "QuoteAttachment" SET ${setClauses.join(", ")}, "updatedAt" = NOW() WHERE id = $1`, params
+      );
+      await query(`UPDATE "Quote" SET "pdfUrl" = NULL, "updatedAt" = NOW() WHERE id = $1`, [att.quoteId]);
+
+      return { content: [{ type: "text", text: "Bijlage bijgewerkt." }] };
+    }
+  );
+
+  // ─── search / fetch ─────────────────────────────────────────────────────────
+  // ChatGPT-connectors verwachten deze twee read-only tools volgens het
+  // compatibility schema: search geeft {id, title, url}, fetch geeft de inhoud.
+  // De id is altijd "<soort>:<uuid>", zodat fetch weet welke tabel hij moet lezen.
+
+  server.tool(
+    "search",
+    "Zoek door offertes, calculaties, klanten, artikelen en datasheets. Geeft een lijst met id, titel en link; gebruik fetch met een id voor de volledige inhoud.",
+    {
+      query: z.string().describe("Zoekterm, bijvoorbeeld een klantnaam, offertenummer of artikelnaam"),
+      company_slug: z.string().optional().describe("Beperk tot één bedrijf: 'websup' of 'koolhaas'"),
+      limit: z.number().default(20).describe("Max aantal resultaten in totaal"),
+    },
+    async ({ query: term, company_slug, limit }) => {
+      const like = `%${term.toLowerCase()}%`;
+      let companyId: string | null = null;
+      if (company_slug) {
+        const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
+        if (!co) return { content: [{ type: "text", text: JSON.stringify({ results: [] }) }] };
+        companyId = co.id;
+      }
+      const scope = (alias: string) => (companyId ? ` AND ${alias}."companyId" = $2` : "");
+      const params: unknown[] = companyId ? [like, companyId] : [like];
+      const perType = Math.max(3, Math.ceil(limit / 5));
+
+      const rows = await query<{ id: string; title: string; url: string }>(
+        `(SELECT 'quote:' || q.id AS id,
+                 q.number || ' — ' || COALESCE(q.title, 'Offerte') || ' (' || c.name || ')' AS title,
+                 ${appUrlSql}'/quotes/' || q.id AS url
+          FROM "Quote" q JOIN "Customer" c ON c.id = q."customerId"
+          WHERE (LOWER(q.number) LIKE $1 OR LOWER(COALESCE(q.title,'')) LIKE $1 OR LOWER(c.name) LIKE $1)${scope("q")}
+          ORDER BY q."updatedAt" DESC LIMIT ${perType})
+         UNION ALL
+         (SELECT 'calculation:' || cal.id, cal.number || ' — ' || cal.title,
+                 ${appUrlSql}'/calculations/' || cal.id
+          FROM "Calculation" cal
+          WHERE (LOWER(cal.number) LIKE $1 OR LOWER(cal.title) LIKE $1)${scope("cal")}
+          ORDER BY cal."updatedAt" DESC LIMIT ${perType})
+         UNION ALL
+         (SELECT 'customer:' || cu.id, cu.name || COALESCE(' — ' || cu.email, ''),
+                 ${appUrlSql}'/customers/' || cu.id
+          FROM "Customer" cu
+          WHERE (LOWER(cu.name) LIKE $1 OR LOWER(COALESCE(cu.email,'')) LIKE $1)${scope("cu")}
+          ORDER BY cu.name LIMIT ${perType})
+         UNION ALL
+         (SELECT 'product:' || p.id, p.name || COALESCE(' — ' || p.sku, ''),
+                 ${appUrlSql}'/products/' || p.id
+          FROM "Product" p
+          WHERE (LOWER(p.name) LIKE $1 OR LOWER(COALESCE(p.sku,'')) LIKE $1 OR LOWER(COALESCE(p.ean,'')) LIKE $1)${scope("p")}
+          ORDER BY p.name LIMIT ${perType})
+         UNION ALL
+         (SELECT 'datasheet:' || d.id, d.brand || ' ' || d.model,
+                 ${appUrlSql}'/knowledge/datasheets/' || d.id
+          FROM "Datasheet" d
+          WHERE (LOWER(d.brand) LIKE $1 OR LOWER(d.model) LIKE $1 OR LOWER(COALESCE(d.notes,'')) LIKE $1)${scope("d")}
+          ORDER BY d."updatedAt" DESC LIMIT ${perType})
+         LIMIT ${limit}`,
+        params
+      );
+
+      return { content: [{ type: "text", text: JSON.stringify({ results: rows }, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    "fetch",
+    "Haal de volledige inhoud op van één zoekresultaat. Gebruik het id uit search, bijvoorbeeld 'quote:abc123'.",
+    { id: z.string().describe("Id uit search, in de vorm '<soort>:<uuid>'") },
+    async ({ id }) => {
+      const sep = id.indexOf(":");
+      const kind = sep === -1 ? "" : id.slice(0, sep);
+      const key = sep === -1 ? id : id.slice(sep + 1);
+
+      const notFound = { content: [{ type: "text" as const, text: `Niets gevonden voor id '${id}'.` }] };
+      const wrap = (title: string, url: string, body: unknown, metadata: Record<string, unknown>) => ({
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({ id, title, url, text: JSON.stringify(body, null, 2), metadata }, null, 2),
+        }],
+      });
+
+      if (kind === "quote") {
+        const q = await queryOne<Record<string, unknown>>(
+          `SELECT q.*, c.name AS customer_name, c.email AS customer_email, co.slug AS company_slug
+           FROM "Quote" q JOIN "Customer" c ON c.id = q."customerId"
+           JOIN "Company" co ON co.id = q."companyId" WHERE q.id = $1`, [key]
+        );
+        if (!q) return notFound;
+        const items = await query(
+          `SELECT description, qty, "unitPrice", "costPrice", total, "hiddenOnQuote", "sortOrder"
+           FROM "QuoteItem" WHERE "quoteId" = $1 ORDER BY "sortOrder"`, [key]
+        );
+        return wrap(`${q.number} — ${q.title ?? "Offerte"}`, `${appUrl()}/quotes/${key}`, { ...q, items },
+          { soort: "offerte", status: q.status, bedrijf: q.company_slug, klant: q.customer_name });
+      }
+
+      if (kind === "calculation") {
+        const cal = await queryOne<Record<string, unknown>>(`SELECT * FROM "Calculation" WHERE id = $1`, [key]);
+        if (!cal) return notFound;
+        const items = await query(
+          `SELECT type, supplier, sku, description, qty, unit, "costPrice", "markupPercent", "unitPrice",
+                  "totalCostPrice", "totalSalesPrice", "hiddenOnQuote"
+           FROM "CalculationItem" WHERE "calculationId" = $1 ORDER BY "sortOrder"`, [key]
+        );
+        return wrap(`${cal.number} — ${cal.title}`, `${appUrl()}/calculations/${key}`, { ...cal, items },
+          { soort: "calculatie", status: cal.status });
+      }
+
+      if (kind === "customer") {
+        const cu = await queryOne<Record<string, unknown>>(`SELECT * FROM "Customer" WHERE id = $1`, [key]);
+        if (!cu) return notFound;
+        const quotes = await query(
+          `SELECT number, title, status, "totalIncVat" FROM "Quote" WHERE "customerId" = $1 ORDER BY "createdAt" DESC`,
+          [key]
+        );
+        return wrap(String(cu.name), `${appUrl()}/customers/${key}`, { ...cu, quotes }, { soort: "klant" });
+      }
+
+      if (kind === "product") {
+        const p = await queryOne<Record<string, unknown>>(`SELECT * FROM "Product" WHERE id = $1`, [key]);
+        if (!p) return notFound;
+        return wrap(String(p.name), `${appUrl()}/products/${key}`, p,
+          { soort: "artikel", sku: p.sku, leverancier: p.supplier });
+      }
+
+      if (kind === "datasheet") {
+        const d = await queryOne<Record<string, unknown>>(`SELECT * FROM "Datasheet" WHERE id = $1`, [key]);
+        if (!d) return notFound;
+        return wrap(`${d.brand} ${d.model}`, `${appUrl()}/knowledge/datasheets/${key}`, d,
+          { soort: "datasheet", merk: d.brand, model: d.model, bron: d.sourceUrl });
+      }
+
+      return { content: [{ type: "text" as const, text: `Onbekend soort '${kind}'. Gebruik een id uit search.` }] };
+    }
+  );
+
   return server;
 }
 
@@ -1846,7 +2367,7 @@ app.use(express.json({ limit: "20mb" }));
 
 const MCP_API_KEY = process.env.MCP_API_KEY;
 
-app.use("/mcp", (req: Request, res: Response, next) => {
+const requireApiKey = (req: Request, res: Response, next: () => void) => {
   if (MCP_API_KEY) {
     const auth = req.headers.authorization;
     if (auth !== `Bearer ${MCP_API_KEY}`) {
@@ -1855,7 +2376,10 @@ app.use("/mcp", (req: Request, res: Response, next) => {
     }
   }
   next();
-});
+};
+
+app.use("/mcp", requireApiKey);
+app.use("/sse", requireApiKey);
 
 app.post("/mcp", async (req: Request, res: Response) => {
   try {
@@ -1869,6 +2393,32 @@ app.post("/mcp", async (req: Request, res: Response) => {
     }
   }
 });
+
+// ChatGPT-connectors openen de verbinding met GET op een SSE-endpoint. Beide paden
+// draaien op dezelfde transport, zodat /mcp en /sse dezelfde toolset aanbieden.
+async function handleSseConnect(req: Request, res: Response) {
+  try {
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    const server = createMcpServer();
+    await server.connect(transport);
+    await transport.handleRequest(req, res);
+  } catch {
+    if (!res.headersSent) res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+app.get("/mcp", handleSseConnect);
+app.post("/sse", async (req: Request, res: Response) => {
+  try {
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    const server = createMcpServer();
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  } catch {
+    if (!res.headersSent) res.status(500).json({ error: "Internal server error" });
+  }
+});
+app.get("/sse", handleSseConnect);
 
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", service: "websup-quote-mcp" });
