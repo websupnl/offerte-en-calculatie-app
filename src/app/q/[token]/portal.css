@@ -1428,67 +1428,65 @@
 
 .source-intro {
   max-width: 68ch;
-  margin: 8px 0 18px;
+  margin: 6px 0 14px;
   color: var(--on-m);
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: 14px;
+  line-height: 1.5;
 }
+
+/* Bronnen zijn onderbouwing, geen inhoud: compacte regels in plaats van kaarten,
+   zodat ze onderaan een pagina passen en de aandacht niet opeisen. */
 .source-grid {
   display: grid;
-  gap: 10px;
+  gap: 0;
+  border-top: 1px solid var(--line);
 }
 .source-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  background: var(--surface-in);
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--line);
   color: var(--on);
   text-decoration: none;
   break-inside: avoid;
 }
-.source-card:hover {
-  border-color: var(--accent);
-  background: #fff;
-}
+.source-card:hover { background: var(--surface-in); }
 .source-number {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
-  background: var(--accent-bg);
-  color: var(--accent);
-  font-weight: 900;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--on-m);
+  font-variant-numeric: tabular-nums;
 }
 .source-copy {
   min-width: 0;
   display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 4px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
 }
 .source-copy strong {
-  font-size: 15px;
-  line-height: 1.3;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 .source-copy small {
   color: var(--on-m);
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 13px;
+  line-height: 1.35;
 }
 .source-link {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 2px;
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 800;
+  gap: 4px;
+  color: var(--on-m);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }
+.source-card:hover .source-link { color: var(--accent); }
+
 .inline-citation {
   display: inline-flex;
   align-items: center;
@@ -3776,4 +3774,32 @@ a.portal-preview-link:hover {
 
 @media (max-width: 640px) {
   .content-specs { grid-template-columns: 1fr; }
+}
+
+/* Bewerkbare bronkaart: zelfde vorm als de klantweergave, maar met invoervelden. */
+.source-card-edit {
+  cursor: default;
+  align-items: flex-start;
+}
+
+.source-card-edit .source-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.source-card-edit .editable-input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px 4px;
+}
+
+.source-card-edit .editable-input:hover { border-color: var(--line); }
+.source-card-edit .editable-input:focus {
+  border-color: var(--accent);
+  background: #fff;
+  outline: none;
 }

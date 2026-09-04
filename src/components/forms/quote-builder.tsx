@@ -45,6 +45,8 @@ import { calculateQuotePriceSummary, type QuoteChoiceGroup } from "@/lib/quote-s
 import { estimateTravelDistanceKm, getTravelPrice, type TravelPricingTier } from "@/lib/travel";
 import { QuoteSheetPreview, type QuotePreviewData } from "@/components/quote-sheet-preview";
 import { SheetScaler } from "@/components/sheet-scaler";
+import { SheetOverflowMonitor } from "@/components/forms/sheet-overflow-monitor";
+import { SectionToggles } from "@/components/forms/section-toggles";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -456,6 +458,7 @@ export function QuoteBuilder({
   const [customerResponsibilities, setCustomerResponsibilities] = useState<string[]>(initialQuote?.customerResponsibilities || []);
   const [planning, setPlanning] = useState(initialQuote?.planning || PLANNING_DEFAULTS);
   const [commercial, setCommercial] = useState(initialQuote?.commercial || COMMERCIAL_DEFAULTS);
+  const [hiddenSections, setHiddenSections] = useState<string[]>(initialQuote?.hiddenSections ?? []);
   const [batteryAdvice, setBatteryAdvice] = useState(initialQuote?.batteryAdvice || {
     nominalCapacityKwh: initialAdvice?.calculation?.resultKwh || 0,
     recommendedScenario: initialAdvice?.scenarios[1]?.name || ""
@@ -502,6 +505,8 @@ export function QuoteBuilder({
   // saving = bezig, saved = opgeslagen, error = mislukt.
   const [saveStatus, setSaveStatus] = useState<"idle" | "unsaved" | "saving" | "saved" | "error">("idle");
   const autosaveInFlight = useRef(false);
+  // Container van de gerenderde pagina's, zodat we kunnen meten of tekst overloopt.
+  const paperRef = useRef<HTMLDivElement>(null);
   const firstAutosaveRender = useRef(true);
   const savedSignatureRef = useRef<string | null>(null);
   const [aiInput, setAiInput] = useState("");
@@ -574,6 +579,12 @@ export function QuoteBuilder({
     approach,
     options,
     exclusions,
+    // Zonder deze drie kon de editor de bronnen, de inhoudsblokken en de
+    // offertedatum niet tonen, en dus ook niet laten aanpassen.
+    batteryAdvice,
+    hiddenSections,
+    contentBlocks: initialQuote?.contentBlocks ?? [],
+    createdAt: initialQuote?.createdAt ?? null,
     commercial: { ...commercial, priceDisplayMode },
     customer: {
       name: customer?.name || "Selecteer een klant",
@@ -748,6 +759,7 @@ export function QuoteBuilder({
       planning,
       commercial: { ...commercial, priceDisplayMode },
       batteryAdvice,
+      hiddenSections,
       internalAdvice,
       choiceGroups: (overrideChoiceGroups ?? choiceGroups).map((group) => ({
         ...group,
@@ -1619,6 +1631,9 @@ export function QuoteBuilder({
     if (updates.technicalNotes !== undefined) setTechnicalNotes(updates.technicalNotes ?? []);
     if (updates.customerResponsibilities !== undefined) setCustomerResponsibilities(updates.customerResponsibilities ?? []);
     if (updates.notes !== undefined) setNotes(updates.notes ?? "");
+    // Bronnen bij het advies. Zonder deze regel deed "Bron toevoegen" niets:
+    // de preview stuurde de wijziging wel, maar de builder ving hem niet op.
+    if (updates.batteryAdvice !== undefined) setBatteryAdvice(updates.batteryAdvice ?? {});
   };
 
   function buildQuoteImportPrompt(contract: QuoteContractResponse) {
@@ -2031,7 +2046,8 @@ export function QuoteBuilder({
 
       <div className="flex w-full max-w-[1920px] flex-col gap-6 p-4 lg:flex-row lg:gap-8 lg:p-6 2xl:px-10 mx-auto items-start">
         {/* ── Visual Editor (The Paper) ── */}
-        <div className="w-full min-w-0 flex-1">
+        <div className="w-full min-w-0 flex-1" ref={paperRef}>
+          <SheetOverflowMonitor containerRef={paperRef} />
           <SheetScaler>
             <QuoteSheetPreview
               quote={quoteData}
@@ -2052,6 +2068,7 @@ export function QuoteBuilder({
               <TabsTrigger value="regels" className="flex-1">Regels</TabsTrigger>
               <TabsTrigger value="configuraties" className="flex-1">Configuraties</TabsTrigger>
               <TabsTrigger value="modules" className="flex-1">Modules</TabsTrigger>
+              <TabsTrigger value="pagina" className="flex-1">Pagina&apos;s</TabsTrigger>
               <TabsTrigger value="media" className="flex-1">Media</TabsTrigger>
               <TabsTrigger value="documenten" className="flex-1">Documenten</TabsTrigger>
             </TabsList>
@@ -2690,6 +2707,33 @@ export function QuoteBuilder({
                       );
                     })
                   )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="pagina" className="space-y-6">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-bold">Welke secties tonen</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="mb-3 text-xs leading-relaxed text-slate-500">
+                    Zet uit wat deze offerte niet nodig heeft. De inhoud blijft bewaard, dus je kunt een
+                    sectie later weer aanzetten zonder opnieuw te schrijven.
+                  </p>
+                  <SectionToggles
+                    hidden={hiddenSections}
+                    onChange={setHiddenSections}
+                    beschikbaar={{
+                      content: (initialQuote?.contentBlocks?.length ?? 0) > 0,
+                      approach: approach.length > 0,
+                      visuals: attachments.length > 0,
+                      modules: options.length > 0,
+                      terms: exclusions.length > 0 || assumptions.length > 0 || technicalNotes.length > 0,
+                      sources: Array.isArray((batteryAdvice as { sources?: unknown[] })?.sources)
+                        && ((batteryAdvice as { sources?: unknown[] }).sources?.length ?? 0) > 0,
+                    }}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>

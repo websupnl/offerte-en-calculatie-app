@@ -265,6 +265,7 @@ export type QuotePreviewData = {
   technicalNotes?: string[];
   customerResponsibilities?: string[];
   contentBlocks?: QuoteContentBlock[];
+  hiddenSections?: string[];
   attachments?: QuoteAttachment[];
   adviceDocuments?: { id: string; type: string }[];
   company?: { name?: string | null; slug?: string | null };
@@ -459,8 +460,11 @@ export function QuoteSheetPreview({
   const technicalNotes = [...assumptionsOwn, ...technicalNotesOwn];
   const customerResponsibilities = isKoolhaas ? (quote.customerResponsibilities ?? []).filter(Boolean) : [];
   const attachments = quote.attachments ?? [];
+  // De klant ziet alleen complete bronnen. Tijdens bewerken blijven onvolledige
+  // regels staan, anders verdwijnt een net toegevoegde bron voordat je hem invult.
   const sources = Array.isArray(quote.batteryAdvice?.sources)
-    ? quote.batteryAdvice.sources.filter((source) => source.label && source.url)
+    ? quote.batteryAdvice.sources.filter((source) =>
+        isEditable ? source : source.label && source.url)
     : [];
   // Een afbeelding hoort bij een sectie (staat onderaan die pagina) of krijgt een eigen pagina.
   const SECTION_KEYS = ["intro", "werking", "items", "terms", "sign", "opties"];
@@ -468,8 +472,7 @@ export function QuoteSheetPreview({
     Boolean(a.imageUrl) && SECTION_KEYS.includes(quoteAttachmentSection(a));
   const sectionImages = (key: string) =>
     attachments.filter((a) => isSectionImage(a) && quoteAttachmentSection(a) === key);
-  const standaloneAttachments = attachments.filter((a) => !isSectionImage(a));
-  const attachmentPages = standaloneAttachments.length;
+  const standaloneAttachmentsAlle = attachments.filter((a) => !isSectionImage(a));
   // Rendert de afbeelding(en) van een sectie in de vrije ruimte onderaan die pagina,
   // of een lege spacer als er geen afbeelding is. Nooit overloop dankzij max-height.
   const renderSectionSpace = (key: string) => {
@@ -495,22 +498,49 @@ export function QuoteSheetPreview({
     );
   };
   const validUntilLabel = quote.validUntil ? formatDate(quote.validUntil) : null;
-  const hasOptionsPage = options.length > 0;
-  const hasTermsPage = Boolean(exclusions.length || technicalNotes.length || customerResponsibilities.length || quote.outro);
-  const hasSourcesPage = sources.length > 0;
-  // Werking van de installatie (approach-stappen) krijgt een eigen pagina na de intro.
-  const hasApproachPage = approach.length > 0;
-  const approachPageOffset = hasApproachPage ? 1 : 0;
+  // Secties die je bewust hebt uitgezet. De inhoud blijft staan, hij wordt
+  // alleen niet getoond en telt niet mee in de paginanummering.
+  const uit = new Set(quote.hiddenSections ?? []);
+  const standaloneAttachments = uit.has("visuals") ? [] : standaloneAttachmentsAlle;
+  const hasOptionsPage = options.length > 0 && !uit.has("modules");
+  const hasTermsPage = !uit.has("terms") && Boolean(exclusions.length || technicalNotes.length || customerResponsibilities.length || quote.outro);
+  // Tijdens bewerken blijft de bronnenpagina staan, ook als hij nog leeg is.
+  // Anders kun je een eerste bron niet toevoegen omdat de pagina er niet is.
+  const hasSourcesPage = !uit.has("sources") && (sources.length > 0 || Boolean(isEditable));
+
+  // Een A4 heeft `overflow: hidden`, dus wat niet past valt er stil af. Bij door
+  // AI geschreven stappen gebeurde dat: acht blokken liepen over de pagina heen.
+  // Daarom verdelen we ze vooraf over zoveel pagina's als nodig.
+  const approachPages: typeof approach[] = (() => {
+    if (approach.length === 0 || uit.has("approach")) return [];
+    const kosten = (step: { t?: string; d?: string }) =>
+      2 + Math.max(1, Math.ceil((step.d?.length ?? 0) / 68));
+    // Regelbudget van een pagina, na kop en voettekst.
+    const BUDGET = 30;
+    const pages: typeof approach[] = [];
+    let huidig: typeof approach = [];
+    let gebruikt = 0;
+    for (const step of approach) {
+      const kost = kosten(step);
+      if (huidig.length > 0 && gebruikt + kost > BUDGET) {
+        pages.push(huidig);
+        huidig = [];
+        gebruikt = 0;
+      }
+      huidig.push(step);
+      gebruikt += kost;
+    }
+    if (huidig.length > 0) pages.push(huidig);
+    return pages;
+  })();
 
   // Bij keuze-configuraties krijgt de inbegrepen-tabel een eigen pagina, zodat
   // de keuze-kaarten een volle pagina houden en niets afgesneden wordt.
   const splitItemsPage = choiceGroups.length > 0 && visibleItems.length > 0;
-  const itemsPageOffset = splitItemsPage ? 1 : 0;
 
   // Elke systeemoptie krijgt een eigen volle pagina i.p.v. samen op één pagina
   // gepropt te worden — anders wordt de langste checklist afgesneden.
   const choiceEntries = choiceGroups.flatMap((group) => group.choices.map((choice) => ({ group, choice })));
-  const choicePagesOffset = choiceEntries.length > 0 ? choiceEntries.length - 1 : 0;
 
   // Voorwaarden-pagina opsplitsen als de tekst te vol wordt: technische
   // uitgangspunten op pagina 1, voorbereiding + niet-inbegrepen op pagina 2.
@@ -527,15 +557,34 @@ export function QuoteSheetPreview({
     technicalNotes.length > 0 &&
     customerResponsibilities.length + exclusions.length > 0 &&
     termsLineLoad > 24;
-  const termsPageOffset = splitTermsPage ? 1 : 0;
 
-  const contentBlocks = (quote.contentBlocks ?? []).filter(Boolean);
+  const contentBlocks = uit.has("content") ? [] : (quote.contentBlocks ?? []).filter(Boolean);
   const contentPages = paginateContentBlocks(contentBlocks);
 
-  const totalPages =
-    4 + approachPageOffset + contentPages.length + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0) + (hasTermsPage ? 1 : 0) + termsPageOffset + (hasSourcesPage ? 1 : 0);
-  const pageLabel = (page: number) =>
-    `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
+  // De paginavolgorde staat hier één keer, in plaats van als rekensom bij elke
+  // voettekst. Een sectie toevoegen of verplaatsen is nu één regel in deze lijst;
+  // voorheen moest je acht optellingen bijwerken en dat ging telkens mis.
+  const pageOrder: string[] = [
+    "cover",
+    "intro",
+    ...contentPages.map((_, i) => `content-${i}`),
+    ...approachPages.map((_, i) => `approach-${i}`),
+    ...standaloneAttachments.map((_, i) => `attachment-${i}`),
+    ...choiceEntries.map((_, i) => `choice-${i}`),
+    ...(splitItemsPage ? ["items"] : []),
+    ...(choiceEntries.length === 0 ? ["investering"] : []),
+    ...(hasOptionsPage ? ["options"] : []),
+    ...(hasTermsPage ? ["terms"] : []),
+    ...(splitTermsPage ? ["terms-2"] : []),
+    ...(hasSourcesPage ? ["sources"] : []),
+    "sign",
+  ];
+  const totalPages = pageOrder.length;
+  const pageNr = (id: string) => {
+    const index = pageOrder.indexOf(id);
+    const page = index === -1 ? totalPages : index + 1;
+    return `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
+  };
   const coverHeading = isKoolhaas ? (quote.title || brand.defaultTitle) : "Offerte";
   const introText = quote.intro?.trim() && !isMisplacedIntroLine(quote.intro, quote.customer.name)
     ? stripPersonalSignOff(quote.intro)
@@ -655,6 +704,28 @@ export function QuoteSheetPreview({
         { id: `morework-${Date.now()}`, t: "Nieuw optioneel meerwerk", d: "Korte omschrijving van deze uitbreiding.", tag: "Optioneel", price: 0, recurringPrice: null, recurringInterval: null, vatRate: 21, defaultSelected: false, details: [] },
       ],
     });
+  };
+
+  // De id van een bron is het nummer waarnaar de tekst verwijst ([1], [2], ...).
+  // Bij bewerken blijft die id staan, zodat bestaande verwijzingen blijven kloppen.
+  const writeSources = (next: QuoteSource[]) => {
+    onUpdate?.({ batteryAdvice: { ...(quote.batteryAdvice ?? {}), sources: next } });
+  };
+
+  const updateSource = (index: number, updates: Partial<QuoteSource>) => {
+    writeSources(sources.map((source, i) => (i === index ? { ...source, ...updates } : source)));
+  };
+
+  const addSource = () => {
+    const highest = sources.reduce((max, source) => Math.max(max, Number(source.id) || 0), 0);
+    writeSources([
+      ...sources,
+      { id: String(highest + 1), label: "Nieuwe bron", description: "", url: "" },
+    ]);
+  };
+
+  const removeSource = (index: number) => {
+    writeSources(sources.filter((_, i) => i !== index));
   };
 
   const removeOption = (index: number) => {
@@ -1175,7 +1246,7 @@ export function QuoteSheetPreview({
               </div>
             </div>
             {renderSectionSpace("intro")}
-            {renderPageFooter(pageLabel(2))}
+            {renderPageFooter(pageNr("intro"))}
           </div>
         </section>
 
@@ -1282,14 +1353,14 @@ export function QuoteSheetPreview({
               </div>
 
               <div className="spacer"></div>
-              {renderPageFooter(pageLabel(3 + pageIndex))}
+              {renderPageFooter(pageNr(`content-${pageIndex}`))}
             </div>
           </section>
         ))}
 
         {/* ── WERKING VAN DE INSTALLATIE ── */}
-        {hasApproachPage && (
-          <section className="sheet">
+        {approachPages.map((paginaStappen, paginaIndex) => (
+          <section className="sheet" key={`approach-${paginaIndex}`}>
             <div className="bar"></div>
             <div className="pad">
               <div className="ph">
@@ -1299,11 +1370,13 @@ export function QuoteSheetPreview({
               <div className="row-badge">
                 <div>
                   <span className="eyebrow">Werking van de installatie</span>
-                  <h2 className="h2">Zo werkt het in de praktijk.</h2>
+                  <h2 className="h2">{paginaIndex === 0 ? "Zo werkt het in de praktijk." : "Zo werkt het in de praktijk, vervolg."}</h2>
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "10px", marginTop: "12px" }}>
-                {approach.map((step, index) => (
+                {paginaStappen.map((step) => {
+                  const index = approach.indexOf(step);
+                  return (
                   <div className="flow-item" key={index} style={{ position: "relative" }}>
                     <div className="fn">{step.n ?? index + 1}</div>
                     <div style={{ flex: 1 }}>
@@ -1341,8 +1414,9 @@ export function QuoteSheetPreview({
                       </button>
                     )}
                   </div>
-                ))}
-                {isEditable && (
+                  );
+                })}
+                {isEditable && paginaIndex === approachPages.length - 1 && (
                   <button
                     type="button"
                     className="doc-edit-btn doc-list-add"
@@ -1361,10 +1435,10 @@ export function QuoteSheetPreview({
                 )}
               </div>
               {renderSectionSpace("werking")}
-              {renderPageFooter(pageLabel(3 + contentPages.length))}
+              {renderPageFooter(pageNr(`approach-${paginaIndex}`))}
             </div>
           </section>
-        )}
+        ))}
 
         {/* ── ONTWERPVOORBEELDEN ── */}
         {standaloneAttachments.map((attachment, index) => (
@@ -1444,7 +1518,7 @@ export function QuoteSheetPreview({
                 </figcaption>
               </figure>
 
-              {renderPageFooter(pageLabel(3 + contentPages.length + approachPageOffset + index))}
+              {renderPageFooter(pageNr(`attachment-${index}`))}
             </div>
           </section>
         ))}
@@ -1462,7 +1536,7 @@ export function QuoteSheetPreview({
               {!splitItemsPage && itemsTableBlock}
 
               {renderSectionSpace("items")}
-              {renderPageFooter(pageLabel(3 + contentPages.length + approachPageOffset + attachmentPages))}
+              {renderPageFooter(pageNr("investering"))}
             </div>
           </section>
         )}
@@ -1565,7 +1639,7 @@ export function QuoteSheetPreview({
                 {isLast && !splitItemsPage && visibleItems.length > 0 && itemsTableBlock}
 
                 {isLast ? renderSectionSpace("items") : <div className="spacer"></div>}
-                {renderPageFooter(pageLabel(3 + contentPages.length + approachPageOffset + attachmentPages + entryIndex))}
+                {renderPageFooter(pageNr(`choice-${entryIndex}`))}
               </div>
             </section>
           );
@@ -1583,7 +1657,7 @@ export function QuoteSheetPreview({
               {itemsTableBlock}
 
               {renderSectionSpace("items")}
-              {renderPageFooter(pageLabel(4 + contentPages.length + approachPageOffset + attachmentPages + choicePagesOffset))}
+              {renderPageFooter(pageNr("items"))}
             </div>
           </section>
         )}
@@ -1600,7 +1674,7 @@ export function QuoteSheetPreview({
               {optionsBlock}
 
               {renderSectionSpace("opties")}
-              {renderPageFooter(pageLabel(4 + contentPages.length + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset))}
+              {renderPageFooter(pageNr("options"))}
             </div>
           </section>
         )}
@@ -1631,7 +1705,7 @@ export function QuoteSheetPreview({
               )}
 
               {renderSectionSpace("terms")}
-              {renderPageFooter(pageLabel(4 + contentPages.length + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0)))}
+              {renderPageFooter(pageNr("terms"))}
             </div>
           </section>
         )}
@@ -1652,7 +1726,7 @@ export function QuoteSheetPreview({
               {exclusionsBlock}
 
               <div className="spacer"></div>
-              {renderPageFooter(pageLabel(4 + contentPages.length + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0) + 1))}
+              {renderPageFooter(pageNr("terms-2"))}
             </div>
           </section>
         )}
@@ -1677,25 +1751,69 @@ export function QuoteSheetPreview({
               </p>
               <div className="source-grid">
                 {sources.map((source, index) => (
-                  <a
-                    key={source.id ?? source.url}
-                    href={source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="source-card"
-                  >
-                    <span className="source-number">{index + 1}</span>
-                    <span className="source-copy">
-                      <strong>{source.label}</strong>
-                      {source.description && <small>{source.description}</small>}
-                      <span className="source-link">Open officiële bron <ExternalLink size={12} /></span>
-                    </span>
-                  </a>
+                  isEditable ? (
+                    // Bewerkbaar: label, toelichting en link. AI vult deze bronnen,
+                    // dus je moet ze zonder omweg kunnen corrigeren.
+                    <div key={source.id ?? index} className="source-card source-card-edit group relative">
+                      <span className="source-number">{index + 1}</span>
+                      <span className="source-copy">
+                        <InlineInput
+                          isEditable
+                          value={source.label}
+                          onChange={(value) => updateSource(index, { label: value })}
+                          placeholder="Merk: onderwerp"
+                          className="font-bold"
+                        />
+                        <InlineInput
+                          isEditable
+                          value={source.description ?? ""}
+                          onChange={(value) => updateSource(index, { description: value })}
+                          placeholder="Wat deze bron onderbouwt"
+                          className="text-xs"
+                        />
+                        <InlineInput
+                          isEditable
+                          value={source.url}
+                          onChange={(value) => updateSource(index, { url: value })}
+                          placeholder="https://..."
+                          className="text-xs"
+                        />
+                      </span>
+                      <button
+                        type="button"
+                        className="inline-delete"
+                        onClick={() => removeSource(index)}
+                        aria-label="Bron verwijderen"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <a
+                      key={source.id ?? source.url}
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="source-card"
+                    >
+                      <span className="source-number">{index + 1}</span>
+                      <span className="source-copy">
+                        <strong>{source.label}</strong>
+                        {source.description && <small>{source.description}</small>}
+                        <span className="source-link">Open officiële bron <ExternalLink size={12} /></span>
+                      </span>
+                    </a>
+                  )
                 ))}
               </div>
+              {isEditable && (
+                <button type="button" className="doc-edit-btn doc-list-add" onClick={addSource}>
+                  <PlusCircle size={14} /> Bron toevoegen
+                </button>
+              )}
 
               <div className="spacer"></div>
-              {renderPageFooter(pageLabel(totalPages - 1))}
+              {renderPageFooter(pageNr("sources"))}
             </div>
           </section>
         )}
@@ -1747,7 +1865,7 @@ export function QuoteSheetPreview({
             </div>
 
             {renderSectionSpace("sign")}
-            {renderPageFooter(pageLabel(totalPages))}
+            {renderPageFooter(pageNr("sign"))}
           </div>
         </section>
       </div>

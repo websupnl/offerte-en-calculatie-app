@@ -64,6 +64,7 @@ const schema = z.object({
   commercial: z.any().optional(),
   batteryAdvice: z.any().optional(),
   choiceGroups: z.array(quoteChoiceGroupSchema).optional(),
+  hiddenSections: z.array(z.string()).optional(),
   internalAdvice: z.string().nullable().optional(),
   items: z.array(itemSchema).optional(),
   attachments: z.array(attachmentSchema).optional(),

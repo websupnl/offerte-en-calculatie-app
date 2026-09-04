@@ -308,6 +308,9 @@ model Quote {
   commercial               Json?       @default("{}")
   batteryAdvice            Json?       @default("{}")
   choiceGroups             Json?       @default("[]") // [{ id: "g1", title: "Kies uw optie", type: "SINGLE_SELECT" }]
+  /// Secties die je bewust hebt uitgezet. Leeg = alles tonen zoals voorheen,
+  /// dus een bestaande offerte verandert niet. De inhoud blijft bewaard.
+  hiddenSections           String[]    @default([])
   internalAdvice           String?     @db.Text
   version                  Int         @default(1)
   pdfUrl                   String?
