@@ -2367,10 +2367,14 @@ app.use(express.json({ limit: "20mb" }));
 
 const MCP_API_KEY = process.env.MCP_API_KEY;
 
+// Sommige clients (bv. ChatGPT-connectors) bieden alleen een URL-veld en geen
+// eigen headerconfiguratie. Voor die clients mag de key ook als padsegment
+// (/mcp/<key>) staan i.p.v. in de Authorization-header.
 const requireApiKey = (req: Request, res: Response, next: () => void) => {
   if (MCP_API_KEY) {
     const auth = req.headers.authorization;
-    if (auth !== `Bearer ${MCP_API_KEY}`) {
+    const pathKey = (req.params as { key?: string }).key;
+    if (auth !== `Bearer ${MCP_API_KEY}` && pathKey !== MCP_API_KEY) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
@@ -2378,10 +2382,7 @@ const requireApiKey = (req: Request, res: Response, next: () => void) => {
   next();
 };
 
-app.use("/mcp", requireApiKey);
-app.use("/sse", requireApiKey);
-
-app.post("/mcp", async (req: Request, res: Response) => {
+app.post(["/mcp", "/mcp/:key"], requireApiKey, async (req: Request, res: Response) => {
   try {
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     const server = createMcpServer();
@@ -2407,8 +2408,8 @@ async function handleSseConnect(req: Request, res: Response) {
   }
 }
 
-app.get("/mcp", handleSseConnect);
-app.post("/sse", async (req: Request, res: Response) => {
+app.get(["/mcp", "/mcp/:key"], requireApiKey, handleSseConnect);
+app.post(["/sse", "/sse/:key"], requireApiKey, async (req: Request, res: Response) => {
   try {
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     const server = createMcpServer();
@@ -2418,7 +2419,7 @@ app.post("/sse", async (req: Request, res: Response) => {
     if (!res.headersSent) res.status(500).json({ error: "Internal server error" });
   }
 });
-app.get("/sse", handleSseConnect);
+app.get(["/sse", "/sse/:key"], requireApiKey, handleSseConnect);
 
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", service: "websup-quote-mcp" });
