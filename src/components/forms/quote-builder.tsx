@@ -463,6 +463,8 @@ export function QuoteBuilder({
   const [choiceGroups, setChoiceGroups] = useState<ChoiceGroup[]>(initialQuote?.choiceGroups || []);
   const [internalAdvice, setInternalAdvice] = useState(initialQuote?.internalAdvice || initialAdvice?.analysis || "");
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [attachmentDropActive, setAttachmentDropActive] = useState(false);
+  const [activeTab, setActiveTab] = useState("regels");
   const [uploadingChoiceImageId, setUploadingChoiceImageId] = useState<string | null>(null);
 
   // Calculatie-koppeling per systeemoptie
@@ -1470,48 +1472,91 @@ export function QuoteBuilder({
     ]);
   }
 
-  async function uploadAttachment(file: File) {
+  async function uploadAttachments(files: File[]) {
+    const images = files.filter((file) => file.type.startsWith("image/"));
+    if (images.length === 0) return;
+
     setUploadingAttachment(true);
+    let added = 0;
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      // Eén voor één: de upload-route neemt per aanroep één bestand aan.
+      for (const file of images) {
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
 
-      const response = await fetch("/api/quote-attachments/upload", {
-        method: "POST",
-        body: formData,
-      });
-      const result = await response.json().catch(() => null) as {
-        error?: string;
-        url?: string;
-        previewUrl?: string;
-        title?: string;
-      } | null;
+          const response = await fetch("/api/quote-attachments/upload", {
+            method: "POST",
+            body: formData,
+          });
+          const result = await response.json().catch(() => null) as {
+            error?: string;
+            url?: string;
+            previewUrl?: string;
+            title?: string;
+          } | null;
 
-      if (!response.ok || !result?.url || !result.previewUrl) {
-        throw new Error(result?.error || "Uploaden mislukt");
+          if (!response.ok || !result?.url || !result.previewUrl) {
+            throw new Error(result?.error || "Uploaden mislukt");
+          }
+          const storageRef = result.url;
+          const previewUrl = result.previewUrl;
+
+          setAttachments((current) => [
+            ...current,
+            {
+              id: genId(),
+              title: result.title || file.name.replace(/\.[^.]+$/, ""),
+              imageUrl: previewUrl,
+              storageRef,
+              liveUrl: "",
+              caption: "",
+              section: "intro",
+            },
+          ]);
+          added += 1;
+        } catch (error) {
+          toast.error(
+            `${file.name}: ${error instanceof Error ? error.message : "uploaden mislukt"}`,
+          );
+        }
       }
-      const storageRef = result.url;
-      const previewUrl = result.previewUrl;
-
-      setAttachments((current) => [
-        ...current,
-        {
-          id: genId(),
-          title: result.title || file.name.replace(/\.[^.]+$/, ""),
-          imageUrl: previewUrl,
-          storageRef,
-          liveUrl: "",
-          caption: "",
-          section: "intro",
-        },
-      ]);
-      toast.success("Afbeelding geüpload");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Uploaden mislukt");
     } finally {
       setUploadingAttachment(false);
     }
+
+    if (added > 0) {
+      // Spring naar de mediatab, anders plak je iets wat je nergens ziet staan.
+      setActiveTab("media");
+      toast.success(added === 1 ? "Afbeelding toegevoegd" : `${added} afbeeldingen toegevoegd`);
+    }
   }
+
+  // Een screenshot uit het klembord plakken werkt overal in de builder. Staat de
+  // cursor in een tekstveld, dan bevat het klembord tekst en gebeurt hier niets.
+  useEffect(() => {
+    function handlePaste(event: ClipboardEvent) {
+      const images = Array.from(event.clipboardData?.files ?? []).filter((file) =>
+        file.type.startsWith("image/"),
+      );
+      if (images.length === 0) return;
+      event.preventDefault();
+      void uploadAttachments(
+        images.map((file, index) =>
+          // Een geplakte screenshot heet overal "image.png"; dat wordt anders de titel.
+          file.name && file.name !== "image.png"
+            ? file
+            : new File(
+                [file],
+                `Afbeelding${images.length > 1 ? ` ${index + 1}` : ""}.${file.type.split("/")[1] || "png"}`,
+                { type: file.type },
+              ),
+        ),
+      );
+    }
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, []);
 
   async function openDocPicker() {
     setDocPickerOpen(true);
@@ -1993,7 +2038,7 @@ export function QuoteBuilder({
 
         {/* ── Right Panel (Controls) ── */}
         <aside className="w-full space-y-6 pb-2 lg:w-[360px] lg:shrink-0 xl:sticky xl:top-[132px] xl:max-h-[calc(100vh-148px)] xl:w-[400px] xl:overflow-y-auto xl:overscroll-contain xl:pr-2 [scrollbar-gutter:stable] 2xl:w-[440px]">
-          <Tabs defaultValue="regels">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="w-full bg-white shadow-sm">
               <TabsTrigger value="regels" className="flex-1">Regels</TabsTrigger>
               <TabsTrigger value="configuraties" className="flex-1">Configuraties</TabsTrigger>
@@ -2644,12 +2689,13 @@ export function QuoteBuilder({
                           Uploaden
                           <input
                             type="file"
+                            multiple
                             accept="image/jpeg,image/png,image/webp,image/gif"
                             className="sr-only"
                             disabled={uploadingAttachment}
                             onChange={(event) => {
-                              const file = event.target.files?.[0];
-                              if (file) void uploadAttachment(file);
+                              const files = Array.from(event.target.files ?? []);
+                              if (files.length > 0) void uploadAttachments(files);
                               event.target.value = "";
                             }}
                           />
@@ -2660,10 +2706,34 @@ export function QuoteBuilder({
                     </div>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent
+                  onDragOver={(event) => {
+                    if (!event.dataTransfer.types.includes("Files")) return;
+                    event.preventDefault();
+                    setAttachmentDropActive(true);
+                  }}
+                  onDragLeave={(event) => {
+                    // Alleen loslaten als de cursor de kaart echt verlaat, niet bij
+                    // elk kind-element waar hij overheen beweegt.
+                    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+                    setAttachmentDropActive(false);
+                  }}
+                  onDrop={(event) => {
+                    const files = Array.from(event.dataTransfer.files ?? []);
+                    if (files.length === 0) return;
+                    event.preventDefault();
+                    setAttachmentDropActive(false);
+                    void uploadAttachments(files);
+                  }}
+                  className={
+                    attachmentDropActive
+                      ? "rounded-lg outline-2 outline-dashed outline-offset-[-6px] outline-slate-400"
+                      : undefined
+                  }
+                >
                   {attachments.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
-                      Voeg een installatie-, product- of projectfoto toe en kies bij welke sectie hij hoort. De afbeelding komt onderaan die pagina in de vrije ruimte.
+                      Sleep afbeeldingen hierheen, plak een screenshot met Ctrl+V of gebruik Uploaden. Kies daarna bij welke sectie de afbeelding hoort; hij komt onderaan die pagina in de vrije ruimte.
                     </div>
                   ) : (
                     <div className="space-y-3">
