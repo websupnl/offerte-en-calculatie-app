@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -33,6 +33,7 @@ import {
   Layers,
   PackagePlus,
   Upload,
+  SlidersHorizontal,
   Copy,
   Check,
   Calculator,
@@ -43,10 +44,13 @@ import { formatCurrency } from "@/lib/format";
 import { calculateTotals } from "@/lib/calculation";
 import { calculateQuotePriceSummary, type QuoteChoiceGroup } from "@/lib/quote-selection";
 import { estimateTravelDistanceKm, getTravelPrice, type TravelPricingTier } from "@/lib/travel";
-import { QuoteSheetPreview, type QuotePreviewData } from "@/components/quote-sheet-preview";
+import { QuoteSheetPreview, type QuotePageMeta, type QuotePreviewData } from "@/components/quote-sheet-preview";
 import { SheetScaler } from "@/components/sheet-scaler";
 import { SheetOverflowMonitor } from "@/components/forms/sheet-overflow-monitor";
 import { SectionToggles } from "@/components/forms/section-toggles";
+import { QuotePageRail } from "@/components/forms/quote-page-rail";
+import { QuotePricePanel, type PanelCalculation } from "@/components/forms/quote-price-panel";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -243,6 +247,25 @@ type InitialQuote = Partial<Omit<QuotePreviewData, "items" | "customer" | "choic
   commercial?: Record<string, string | number>;
   batteryAdvice?: Record<string, unknown>;
   internalAdvice?: string | null;
+  status?: string;
+  /**
+   * De gekoppelde calculaties. Sinds de omslag is dit de bron van de prijs en de
+   * artikelen; `items` blijft alleen gevuld bij offertes van vóór die omslag.
+   */
+  calculations?: {
+    id: string;
+    number: string;
+    title: string;
+    role?: string | null;
+    items?: {
+      optional?: boolean | null;
+      hiddenOnQuote?: boolean | null;
+      totalSalesPrice?: string | number | null;
+      totalCostPrice?: string | number | null;
+      type?: string | null;
+      recurringInterval?: string | null;
+    }[] | null;
+  }[] | null;
 };
 
 type InitialAdvice = {
@@ -467,7 +490,53 @@ export function QuoteBuilder({
   const [internalAdvice, setInternalAdvice] = useState(initialQuote?.internalAdvice || initialAdvice?.analysis || "");
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [attachmentDropActive, setAttachmentDropActive] = useState(false);
-  const [activeTab, setActiveTab] = useState("regels");
+  const [activeTab, setActiveTab] = useState("prijs");
+  // Het paneel is een lade, geen vaste kolom. Het papier krijgt de hele breedte;
+  // de paar dingen die niet op het papier passen zitten hier één klik vandaan.
+  const [paneelOpen, setPaneelOpen] = useState(false);
+  const [paginas, setPaginas] = useState<QuotePageMeta[]>([]);
+
+  // Prijs en artikelen komen uit de calculaties zodra er losse offerteregels
+  // meer zijn. Zie src/lib/quote-pricing.ts voor waarom die grens daar ligt.
+  const gekoppeldeCalculaties = initialQuote?.calculations ?? [];
+  const werktMetCalculaties = gekoppeldeCalculaties.length > 0
+    && (initialQuote?.items?.length ?? 0) === 0;
+
+  const paneelCalculaties: PanelCalculation[] = gekoppeldeCalculaties.map((calculatie) => {
+    const regels = (calculatie.items ?? []).filter((regel) => !regel.hiddenOnQuote);
+    const vast = regels.filter((regel) => !regel.optional);
+    const omzet = vast.reduce((som, regel) => som + Number(regel.totalSalesPrice ?? 0), 0);
+    const inkoop = vast
+      .filter((regel) => regel.type !== "LABOR")
+      .reduce((som, regel) => som + Number(regel.totalCostPrice ?? 0), 0);
+    return {
+      id: calculatie.id,
+      number: calculatie.number,
+      title: calculatie.title,
+      role: calculatie.role ?? "BASE",
+      totalExVat: omzet,
+      marginPercent: omzet > 0 ? ((omzet - inkoop) / omzet) * 100 : 0,
+      regels: vast.length,
+      extras: regels.length - vast.length,
+    };
+  });
+
+  // Optionele regels in een variant zouden alleen mogen tellen als die variant
+  // gekozen is, en dat kan het klantportaal niet. Ze verdwijnen dus stil van de
+  // offerte. Dat melden we, in plaats van het te laten gebeuren.
+  const variantExtraWaarschuwing = (() => {
+    const varianten = paneelCalculaties.filter((c) => c.role === "VARIANT");
+    if (varianten.length < 2) return null;
+    const stille = varianten.filter((c) => c.extras > 0);
+    if (stille.length === 0) return null;
+    return `Optionele regels in een variant verschijnen niet op de offerte. Zet ze in de `
+      + `basiscalculatie. Het gaat om: ${stille.map((c) => `${c.number} (${c.title})`).join(", ")}.`;
+  })();
+
+  const wisselSectie = (key: string) =>
+    setHiddenSections((vorige) =>
+      vorige.includes(key) ? vorige.filter((k) => k !== key) : [...vorige, key],
+    );
   const [uploadingChoiceImageId, setUploadingChoiceImageId] = useState<string | null>(null);
 
   // Calculatie-koppeling per systeemoptie
@@ -761,31 +830,37 @@ export function QuoteBuilder({
       batteryAdvice,
       hiddenSections,
       internalAdvice,
-      choiceGroups: (overrideChoiceGroups ?? choiceGroups).map((group) => ({
-        ...group,
-        choices: group.choices.map((choice) => {
-          // imageUrl is een tijdelijke presigned URL; alleen `image` (ref) opslaan
-          const sanitized = { ...choice };
-          delete sanitized.imageUrl;
-          return sanitized;
-        }),
-      })),
       flow,
       approach,
-      options,
       exclusions,
       ...(includeAttachments ? { attachments: attachmentsPayload } : {}),
-      items: items.map(({ id, ...rest }) => ({
-        ...rest,
-        id: (initialQuote?.id && id.length > 20) ? id : undefined,
-      })),
+      // Prijs, artikelen, varianten en modules komen op het nieuwe pad uit de
+      // calculaties. Ze staan hier alleen in de state om het papier te kunnen
+      // tonen. Terugschrijven zou er echte offerteregels en modules van maken,
+      // en dan zijn er weer drie plekken waar een prijs kan ontstaan.
+      ...(werktMetCalculaties ? {} : {
+        choiceGroups: (overrideChoiceGroups ?? choiceGroups).map((group) => ({
+          ...group,
+          choices: group.choices.map((choice) => {
+            // imageUrl is een tijdelijke presigned URL; alleen `image` (ref) opslaan
+            const sanitized = { ...choice };
+            delete sanitized.imageUrl;
+            return sanitized;
+          }),
+        })),
+        options,
+        items: items.map(({ id, ...rest }) => ({
+          ...rest,
+          id: (initialQuote?.id && id.length > 20) ? id : undefined,
+        })),
+      }),
     };
   }
 
   // Is de offerte in een staat die opgeslagen kan worden?
   function canPersist() {
     if (!customerId) return false;
-    if (items.length === 0 && choiceGroups.length === 0) return false;
+    if (!werktMetCalculaties && items.length === 0 && choiceGroups.length === 0) return false;
     if (items.some((i) => !i.description)) return false;
     if (choiceGroups.some((group) => group.choices.length < 2)) return false;
     return true;
@@ -850,7 +925,9 @@ export function QuoteBuilder({
 
   async function handleSave() {
     if (!customerId) return toast.error("Selecteer een klant");
-    if (items.length === 0 && choiceGroups.length === 0) return toast.error("Voeg minimaal één offerteregel of configuratie toe");
+    if (!werktMetCalculaties && items.length === 0 && choiceGroups.length === 0) {
+      return toast.error("Maak eerst een calculatie, of voeg een offerteregel toe");
+    }
     if (items.some((i) => !i.description)) return toast.error("Vul alle omschrijvingen in");
     if (choiceGroups.some((group) => group.choices.length < 2)) return toast.error("Een configuratiekeuze heeft minimaal twee alternatieven nodig");
     if (choiceGroups.some((group) => group.choices.some((choice) => /^(optie\s*\d+|hoofdregel)$/i.test(choice.title)))) {
@@ -2030,6 +2107,25 @@ export function QuoteBuilder({
             )}
           </div>
 
+          <div className="h-6 w-px bg-slate-200" />
+
+          <button
+            type="button"
+            onClick={() => { setActiveTab("prijs"); setPaneelOpen(true); }}
+            className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-1.5 text-left transition-colors hover:bg-slate-50"
+            title="Prijs, media en documenten"
+          >
+            <span className="leading-tight">
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {priceDisplayMode === "incl" ? "Incl. btw" : "Excl. btw"}
+              </span>
+              <span className="block text-sm font-black tabular-nums text-slate-900">
+                {formatCurrency(displayedTotal)}
+              </span>
+            </span>
+            <SlidersHorizontal className="h-4 w-4 text-slate-400" />
+          </button>
+
           {saveStatus === "error" ? (
             <Button onClick={handleSave} disabled={saving} className="bg-red-600 hover:bg-red-700">
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
@@ -2044,8 +2140,15 @@ export function QuoteBuilder({
         </div>
       </header>
 
-      <div className="flex w-full max-w-[1920px] flex-col gap-6 p-4 lg:flex-row lg:gap-8 lg:p-6 2xl:px-10 mx-auto items-start">
-        {/* ── Visual Editor (The Paper) ── */}
+      <div className="mx-auto flex w-full max-w-[1600px] items-start gap-6 p-4 lg:gap-8 lg:p-6 2xl:px-10">
+        <QuotePageRail
+          pages={paginas}
+          hiddenSections={hiddenSections}
+          onToggleSection={wisselSectie}
+          paperRef={paperRef}
+        />
+
+        {/* ── Het papier. Alles wat de klant leest bewerk je hier, niet ernaast. ── */}
         <div className="w-full min-w-0 flex-1" ref={paperRef}>
           <SheetOverflowMonitor containerRef={paperRef} />
           <SheetScaler>
@@ -2054,24 +2157,75 @@ export function QuoteBuilder({
               companySlug={companySlug}
               isEditable={true}
               onUpdate={handleUpdate}
-              onUpdateItem={handlePreviewItemUpdate}
-              onAddItem={addItem}
-              onRemoveItem={removeItem}
+              {...(werktMetCalculaties
+                // Regels bewerk je in de calculatie. Hier zou je aan een kopie
+                // zitten te typen die nooit wordt opgeslagen.
+                ? {}
+                : {
+                    onUpdateItem: handlePreviewItemUpdate,
+                    onAddItem: addItem,
+                    onRemoveItem: removeItem,
+                  })}
+              priceSource={
+                werktMetCalculaties && paneelCalculaties[0]
+                  ? { label: paneelCalculaties[0].number, href: `/calculations/${paneelCalculaties[0].id}` }
+                  : null
+              }
+              onPagesChange={setPaginas}
             />
           </SheetScaler>
         </div>
 
-        {/* ── Right Panel (Controls) ── */}
-        <aside className="w-full space-y-6 pb-2 lg:w-[360px] lg:shrink-0 xl:sticky xl:top-[132px] xl:max-h-[calc(100vh-148px)] xl:w-[400px] xl:overflow-y-auto xl:overscroll-contain xl:pr-2 [scrollbar-gutter:stable] 2xl:w-[440px]">
+        <Sheet open={paneelOpen} onOpenChange={setPaneelOpen}>
+          <SheetContent
+            side="right"
+            className="w-full gap-0 overflow-y-auto p-0 sm:max-w-[540px] lg:max-w-[560px]"
+          >
+            <SheetHeader className="sticky top-0 z-10 border-b bg-white px-5 py-4">
+              <SheetTitle className="text-base">Bij deze offerte</SheetTitle>
+            </SheetHeader>
+            <div className="space-y-6 px-5 pb-8 pt-5">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="w-full bg-white shadow-sm">
-              <TabsTrigger value="regels" className="flex-1">Regels</TabsTrigger>
-              <TabsTrigger value="configuraties" className="flex-1">Configuraties</TabsTrigger>
-              <TabsTrigger value="modules" className="flex-1">Modules</TabsTrigger>
-              <TabsTrigger value="pagina" className="flex-1">Pagina&apos;s</TabsTrigger>
-              <TabsTrigger value="media" className="flex-1">Media</TabsTrigger>
-              <TabsTrigger value="documenten" className="flex-1">Documenten</TabsTrigger>
-            </TabsList>
+            {/* Een eigen knoppenrij in plaats van TabsList: die rekt zijn knoppen
+                op tot één regel en loopt over zodra er meer dan vier zijn.
+                Regels, configuraties en modules bestaan alleen nog bij offertes
+                van vóór de omslag naar calculaties. */}
+            <div className="mb-5 flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+              {[
+                ["prijs", "Prijs"],
+                ["pagina", "Pagina's"],
+                ["media", "Media"],
+                ["documenten", "Documenten"],
+                ...(werktMetCalculaties ? [] : [
+                  ["regels", "Regels"],
+                  ["configuraties", "Configuraties"],
+                  ["modules", "Modules"],
+                ]),
+              ].map(([waarde, label]) => (
+                <button
+                  key={waarde}
+                  type="button"
+                  onClick={() => setActiveTab(waarde)}
+                  className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+                    activeTab === waarde
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <TabsContent value="prijs" className="space-y-6">
+              <QuotePricePanel
+                quoteId={initialQuote?.id ?? ""}
+                calculations={paneelCalculaties}
+                legacyItemCount={werktMetCalculaties ? 0 : items.length}
+                isDraft={(initialQuote?.status ?? "DRAFT") === "DRAFT"}
+                waarschuwing={variantExtraWaarschuwing}
+              />
+            </TabsContent>
 
             <TabsContent value="regels" className="space-y-6">
               <Card>
@@ -3071,7 +3225,9 @@ export function QuoteBuilder({
               </div>
             </CardContent>
           </Card>
-        </aside>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );

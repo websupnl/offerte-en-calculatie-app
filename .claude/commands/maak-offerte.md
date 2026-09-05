@@ -78,11 +78,36 @@ Genereer één geldig JSON-object. Strikte regels:
 - Geen `id`-velden, geen `recommendedChoiceId`
 - Geen totalen berekenen — de app doet dat zelf
 - Aanbevolen configuratie: `"label": "Aanbevolen"` op de betreffende `choice`
+- Bij een nieuwe offerte: zie stap 4b, prijzen gaan via een calculatie
 - Configurations pas gebruiken bij echte keuze uit minimaal twee alternatieven
 - `optionalWork` alleen voor los selecteerbaar meerwerk
 - `internalAdvice` nooit klantzichtbaar
 - Verzin niets: geen prijzen, specs of garanties die niet in de bron staan
 - Klantadres hoort in `assumptions` of `customerResponsibilities`, niet in `intro`
+
+## Stap 4b — Prijzen horen in een calculatie
+
+De prijs van een offerte komt uit een gekoppelde calculatie, niet uit losse
+offerteregels. Bij een nieuwe offerte dus:
+
+1. Maak de offerte aan (teksten, werkwijze, afspraken, bronnen)
+2. Maak er een calculatie bij: `POST /api/quotes/[id]/calculations`
+3. Zet de artikelen in die calculatie met leverancier, artikelnummer en
+   inkoopprijs, zodat de marge klopt
+
+Vertaling van de oude begrippen:
+| Vroeger | Nu |
+|---|---|
+| `items` | gewone regels in de basiscalculatie |
+| `configurations` (keuze) | een tweede calculatie met `role: "VARIANT"` |
+| `optionalWork` / modules | regel in de calculatie met `optional: true` |
+| abonnement per maand | regel met `recurringInterval: "maand"` |
+
+Zet bij een optionele regel een `quoteNote`: dat is wat de klant erbij leest.
+Zonder die tekst toont de offerte alleen aantal en eenheid.
+
+Verzin nooit een artikelnummer, leverancier of inkoopprijs. Ontbreekt er een
+artikel, meld dat dan eerst in plaats van een prijs in te vullen.
 
 ## Stap 5 — Sla de JSON op in een tijdelijk bestand
 

@@ -333,7 +333,7 @@ model Quote {
   share           QuoteShare?
   findings        ResearchFinding[]
   salesInvoices   SalesInvoice[]
-  calculation     Calculation?
+  calculations    Calculation[]
   documents       QuoteDocument[]
   tasks           Task[]
   contracts       Contract[]
@@ -762,12 +762,19 @@ model Calculation {
   companyId   String
   customerId  String?
   projectId   String?
-  quoteId     String?           @unique
+  quoteId     String?
   number      String // bijv. KI-2026-C001
   title       String
   description String?           @db.Text
   status      CalculationStatus @default(DRAFT)
   vatRate     Decimal           @default(21) @db.Decimal(5, 2)
+
+  /// Wat deze calculatie voor de gekoppelde offerte betekent.
+  /// BASE    = telt altijd mee in de prijs (meestal precies een per offerte)
+  /// VARIANT = de klant kiest er een uit (nul, of twee of meer, nooit een)
+  role      String @default("BASE")
+  /// Volgorde van de varianten op de offerte.
+  sortOrder Int    @default(0)
 
   // Totale kosten, verkoop en marges
   totalCostPrice  Decimal @default(0) @db.Decimal(10, 2)
@@ -786,6 +793,7 @@ model Calculation {
   items    CalculationItem[]
 
   @@index([companyId])
+  @@index([quoteId])
 }
 
 enum CalculationStatus {
@@ -810,8 +818,14 @@ model CalculationItem {
   totalCostPrice  Decimal             @default(0) @db.Decimal(10, 2)
   totalSalesPrice Decimal             @default(0) @db.Decimal(10, 2)
   vatRate         Decimal             @default(21) @db.Decimal(5, 2)
+  /// true = de klant mag deze regel aanvinken als extra; telt niet mee in de basisprijs.
   optional        Boolean             @default(false)
+  /// true = alleen intern, verschijnt nooit op de offerte.
   hiddenOnQuote   Boolean             @default(false)
+  /// null = eenmalig. "maand" of "jaar" = abonnementsprijs, telt niet mee in het eenmalige totaal.
+  recurringInterval String?
+  /// Toelichting die de klant op de offerte leest. Leeg = we leiden hem af uit aantal en eenheid.
+  quoteNote         String?
   sortOrder       Int                 @default(0)
 
   calculation Calculation @relation(fields: [calculationId], references: [id], onDelete: Cascade)

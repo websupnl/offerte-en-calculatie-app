@@ -6,6 +6,7 @@ import { generateAndStorePortalPdf } from "@/lib/pdf/generate-and-store";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { QuotePDF } from "@/lib/pdf/quote-template";
 import { modulesToOptions } from "@/lib/quote-modules";
+import { applyCalculationPricing } from "@/lib/quote-with-pricing";
 import { formatDate } from "@/lib/format";
 import { createElement } from "react";
 import { DEFAULT_BRANDING } from "@/lib/branding";
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
           customer: true,
           items: { orderBy: { sortOrder: "asc" } },
           modules: { orderBy: { sortOrder: "asc" } },
+          calculations: { orderBy: { sortOrder: "asc" }, include: { items: { orderBy: { sortOrder: "asc" } } } },
           attachments: { orderBy: { sortOrder: "asc" } },
           company: true,
         },
@@ -36,7 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
 
   if (!share) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const quote = share.quote;
+  const quote = applyCalculationPricing(share.quote);
   const filename = pdfFilename("Offerte", quote.number || token, quote.customer?.name);
   const host = req.headers.get("host") ?? "localhost:3001";
 
@@ -141,7 +143,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     notes: quote.notes ?? undefined,
     flow: (quote.flow as Array<{ n: number; t: string; d: string }> | null) || [],
     approach: (quote.approach as Array<{ n: string; t: string; d: string }> | null) || [],
-    options: modulesToOptions(quote.modules),
+    options: quote.usesCalculations
+      ? (quote.options as ReturnType<typeof modulesToOptions>)
+      : modulesToOptions(quote.modules),
     selectedOptionIds: (share.selectedOptionIds as string[] | null) ?? [],
     signerName: share.signerName ?? undefined,
     exclusions: (quote.exclusions as string[]) || [],

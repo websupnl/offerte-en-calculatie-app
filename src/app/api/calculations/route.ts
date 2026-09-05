@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { generateCalculationNumber } from "@/lib/format";
+import { nextCalculationNumber } from "@/lib/calculation-number";
 
 const calculationItemSchema = z.object({
   productId: z.string().optional().nullable(),
@@ -73,9 +73,8 @@ export async function POST(req: NextRequest) {
     if (!project) return NextResponse.json({ error: "Project bestaat niet binnen dit bedrijf" }, { status: 400 });
   }
 
-  const count = await prisma.calculation.count({ where: { companyId } });
   const company = await prisma.company.findUnique({ where: { id: companyId } });
-  const number = generateCalculationNumber(company?.slug ?? "xx", count + 1);
+  const number = await nextCalculationNumber(companyId, company?.slug ?? "xx");
 
   // Recalculate totals
   let totalCostPrice = 0;

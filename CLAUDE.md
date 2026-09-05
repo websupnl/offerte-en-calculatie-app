@@ -44,6 +44,60 @@ Login: `info@websup.nl` / `Admin123!`
 - `src/middleware.ts` — Route bescherming
 - `src/lib/company-context.tsx` — Company switcher context
 
+## Prijzen: de calculatie is de bron
+
+Sinds september 2026 komt de prijs van een offerte uit gekoppelde calculaties.
+Daarvoor kon een prijs op vier plekken ontstaan (losse `QuoteItem`-regels, een
+`choiceGroups`-blob, `QuoteModule`, en de calculatie), met kopieën die je met de
+hand moest synchroniseren.
+
+```
+Quote ──< Calculation      role = BASE     telt altijd mee in de prijs
+                           role = VARIANT  de klant kiest er een uit
+          └──< CalculationItem
+                 gewoon                 bepaalt de prijs
+                 optional = true        de klant vinkt het aan als extra
+                 hiddenOnQuote = true   alleen intern
+                 recurringInterval      abonnement per maand of per jaar
+                 quoteNote              wat de klant bij een extra leest
+```
+
+### Oud en nieuw naast elkaar
+`usesCalculationPricing()` in `src/lib/quote-pricing.ts` bepaalt het pad:
+**een calculatie gekoppeld én geen `QuoteItem`-regels meer = nieuw pad.**
+Offertes van voor de omslag houden hun regels en renderen onveranderd. Verstuurde
+offertes worden nooit omgezet.
+
+### Sleutelbestanden
+| Bestand | Wat |
+|---|---|
+| `src/lib/quote-pricing.ts` | Calculaties -> wat de klant ziet, plus de grens oud/nieuw |
+| `src/lib/quote-with-pricing.ts` | `applyCalculationPricing()`, gebruik dit bij elke offerte die je laadt om te tonen |
+| `src/lib/quote-totals.ts` | `Quote.total*` gelijktrekken na elke calculatiewijziging |
+| `src/lib/calculation-number.ts` | Volgend nummer op basis van het hoogste bestaande, niet op het aantal records |
+| `src/app/api/quotes/[id]/calculations` | Calculatie maken bij een offerte, ook varianten en het omzetten van oude regels |
+| `src/components/forms/quote-price-panel.tsx` | Waar de prijs vandaan komt, in de bouwer |
+| `src/components/forms/quote-page-rail.tsx` | De paginastrip die de zijkolom verving |
+
+### Regels bij het bouwen
+- De preview, het klantportaal en de PDF renderen nog steeds `items`,
+  `choiceGroups` en `options`. Die vorm wordt afgeleid uit de calculaties door
+  `pricingToPreviewShape()`. Nooit rechtstreeks wegschrijven op het nieuwe pad.
+- `CalculationItem.id` is stabiel: het klantportaal onthoudt aangevinkte extra's
+  op dat id. De PUT van een calculatie werkt regels daarom bij op id in plaats
+  van ze weg te gooien en opnieuw aan te maken.
+- Optionele regels in een `VARIANT` verschijnen niet op de offerte. Zet extra's
+  in de basiscalculatie. `variantExtraWaarschuwing()` meldt dit in de editor.
+
+## Migraties
+`npm run db:push` is **verboden**: schema en database zijn uit elkaar gelopen
+(`QuoteTemplate` en `Quote.document` staan wel in de database, niet in het
+schema). Push zou die droppen. Altijd handgeschreven SQL met
+`ADD COLUMN IF NOT EXISTS`, daarna `npx prisma generate`.
+
+Na `prisma generate` moet de dev-server herstart worden. Hij houdt anders de
+oude client vast en geeft `PrismaClientValidationError` op nieuwe velden.
+
 ## AI Features
 - Offertetekst genereren: `POST /api/ai/quote-text`
 - Adviesdocumenten (Koolhaas): `POST /api/ai/advice`

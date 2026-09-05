@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
 
 const calculationItemSchema = z.object({
   id: z.string().optional(),
@@ -18,6 +19,10 @@ const calculationItemSchema = z.object({
   vatRate: z.coerce.number().default(21),
   optional: z.boolean().default(false),
   hiddenOnQuote: z.boolean().default(false),
+  // null = eenmalig. "maand" of "jaar" = abonnement; telt niet mee in het eenmalige totaal.
+  recurringInterval: z.enum(["maand", "jaar"]).nullable().optional(),
+  // Toelichting die de klant op de offerte leest bij een optionele regel.
+  quoteNote: z.string().trim().max(200).nullable().optional(),
 });
 
 const schema = z.object({
@@ -28,6 +33,9 @@ const schema = z.object({
   projectId: z.string().optional().nullable(),
   vatRate: z.coerce.number().default(21),
   notes: z.string().optional().nullable(),
+  // BASE telt altijd mee in de offerteprijs; VARIANT is een keuze voor de klant.
+  role: z.enum(["BASE", "VARIANT"]).optional(),
+  sortOrder: z.coerce.number().int().min(0).optional(),
   items: z.array(calculationItemSchema).default([]),
 });
 
@@ -80,13 +88,13 @@ export async function PUT(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { title, description, status, customerId, projectId, vatRate, notes, items } = parsed.data;
+  const { title, description, status, customerId, projectId, vatRate, notes, role, sortOrder, items } = parsed.data;
 
   // Calculate totals
   let totalCostPrice = 0;
   let totalSalesPrice = 0;
 
-  const itemsToCreate = items.map((item, index) => {
+  const itemsToWrite = items.map((item, index) => {
     const itemCost = item.qty * item.costPrice;
     const calculatedUnitPrice = item.unitPrice > 0 
       ? item.unitPrice 
@@ -100,6 +108,7 @@ export async function PUT(
     }
 
     return {
+      id: item.id,
       productId: item.productId || null,
       type: item.type,
       supplier: item.supplier || null,
@@ -115,6 +124,8 @@ export async function PUT(
       vatRate: item.vatRate,
       optional: item.optional,
       hiddenOnQuote: item.hiddenOnQuote,
+      recurringInterval: item.recurringInterval ?? null,
+      quoteNote: item.quoteNote || null,
       sortOrder: index,
     };
   });
@@ -122,9 +133,27 @@ export async function PUT(
   const marginAmount = totalSalesPrice - totalCostPrice;
   const marginPercent = totalSalesPrice > 0 ? (marginAmount / totalSalesPrice) * 100 : 0;
 
-  // Transaction: delete old items, create new items, update calculation
+  // Regels bijwerken op id in plaats van alles weggooien en opnieuw aanmaken.
+  // Het klantportaal onthoudt aangevinkte extra's op regel-id; die mag dus niet
+  // veranderen bij elke opslag.
+  const bewaardeIds = itemsToWrite.map((item) => item.id).filter((v): v is string => Boolean(v));
   const updated = await prisma.$transaction(async (tx) => {
-    await tx.calculationItem.deleteMany({ where: { calculationId: id } });
+    await tx.calculationItem.deleteMany({
+      where: { calculationId: id, ...(bewaardeIds.length ? { id: { notIn: bewaardeIds } } : {}) },
+    });
+
+    for (const { id: itemId, ...data } of itemsToWrite) {
+      if (itemId) {
+        // upsert, want een regel-id uit de browser kan intussen verwijderd zijn.
+        await tx.calculationItem.upsert({
+          where: { id: itemId },
+          update: data,
+          create: { ...data, id: itemId, calculationId: id },
+        });
+      } else {
+        await tx.calculationItem.create({ data: { ...data, calculationId: id } });
+      }
+    }
 
     return tx.calculation.update({
       where: { id },
@@ -140,9 +169,8 @@ export async function PUT(
         marginAmount,
         marginPercent,
         notes,
-        items: {
-          create: itemsToCreate,
-        },
+        ...(role ? { role } : {}),
+        ...(sortOrder !== undefined ? { sortOrder } : {}),
       },
       include: {
         customer: true,
@@ -152,6 +180,9 @@ export async function PUT(
       },
     });
   });
+
+  // De offerte leest zijn prijs uit deze calculatie, dus die moet mee.
+  await syncQuoteTotalsFromCalculations(updated.quoteId);
 
   return NextResponse.json(updated);
 }
@@ -170,6 +201,7 @@ export async function DELETE(
   if (!existing) return NextResponse.json({ error: "Calculatie niet gevonden" }, { status: 404 });
 
   await prisma.calculation.delete({ where: { id } });
+  await syncQuoteTotalsFromCalculations(existing.quoteId);
 
   return NextResponse.json({ success: true });
 }

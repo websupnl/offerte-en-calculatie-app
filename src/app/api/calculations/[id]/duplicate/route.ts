@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateCalculationNumber } from "@/lib/format";
+import { nextCalculationNumber } from "@/lib/calculation-number";
+import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -16,19 +17,31 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   });
   if (!source) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const count = await prisma.calculation.count({ where: { companyId } });
+  // { asVariant: true } houdt de kopie aan dezelfde offerte hangen als keuze
+  // voor de klant. Zonder die vlag is het een losse calculatie, zoals voorheen.
+  const body = await req.json().catch(() => ({}));
+  const asVariant = Boolean(body?.asVariant) && Boolean(source.quoteId);
+
   const company = await prisma.company.findUnique({ where: { id: companyId } });
-  const number = generateCalculationNumber(company?.slug ?? "xx", count + 1);
+  const number = await nextCalculationNumber(companyId, company?.slug ?? "xx");
+
+  const hoogsteVolgorde = asVariant
+    ? await prisma.calculation.aggregate({
+        where: { quoteId: source.quoteId },
+        _max: { sortOrder: true },
+      })
+    : null;
 
   const duplicate = await prisma.calculation.create({
     data: {
       companyId,
       customerId: source.customerId,
       projectId: source.projectId,
-      // quoteId is uniek per Calculation — een kopie mag niet aan dezelfde offerte hangen
-      quoteId: null,
+      quoteId: asVariant ? source.quoteId : null,
+      role: asVariant ? "VARIANT" : source.role,
+      sortOrder: asVariant ? (hoogsteVolgorde?._max.sortOrder ?? 0) + 1 : 0,
       number,
-      title: source.title,
+      title: asVariant ? `${source.title} (variant)` : source.title,
       description: source.description,
       status: "DRAFT",
       vatRate: source.vatRate,
@@ -55,6 +68,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
               vatRate: item.vatRate,
               optional: item.optional,
               hiddenOnQuote: item.hiddenOnQuote,
+              recurringInterval: item.recurringInterval,
+              quoteNote: item.quoteNote,
               sortOrder: item.sortOrder,
             })),
           }
@@ -62,6 +77,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     },
     include: { customer: true, project: true, items: true },
   });
+
+  await syncQuoteTotalsFromCalculations(duplicate.quoteId);
 
   return NextResponse.json(duplicate, { status: 201 });
 }

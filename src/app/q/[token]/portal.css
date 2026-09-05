@@ -3803,3 +3803,52 @@ a.portal-preview-link:hover {
   background: #fff;
   outline: none;
 }
+
+/* ── Werkwijze in twee kolommen ──────────────────────────────────────────────
+   Acht stappen onder elkaar maakt twee volle pagina's en leest als een lijst.
+   Naast elkaar passen ze op één pagina en lezen ze als een overzicht. */
+.flow-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 22px;
+  margin-top: 14px;
+}
+
+.flow-grid .flow-item {
+  gap: 10px;
+  break-inside: avoid;
+}
+
+.flow-grid .fn {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  font-size: 13px;
+  box-shadow: none;
+}
+
+.flow-grid .flow-item h4 {
+  font-size: 15px;
+  line-height: 1.2;
+  margin-bottom: 3px;
+}
+
+.flow-grid .flow-item p {
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .flow-grid { grid-template-columns: 1fr; }
+}
+
+/* Het logo van de bronwebsite, in plaats van een volgnummer. Zelfde vak als het
+   nummer, zodat de rijen uitgelijnd blijven als een icoon niet laadt. */
+.source-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  border-radius: 3px;
+  align-self: center;
+  justify-self: center;
+}

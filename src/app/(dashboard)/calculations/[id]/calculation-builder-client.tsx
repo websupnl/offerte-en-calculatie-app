@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { Fragment, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,8 @@ import {
   MapPin,
   Eye,
   EyeOff,
+  GitBranch,
+  Repeat,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { estimateTravelDistanceKm, getTravelPrice, type TravelPricingTier } from "@/lib/travel";
@@ -80,6 +82,10 @@ type CalculationItemState = {
   vatRate: number;
   optional: boolean;
   hiddenOnQuote: boolean;
+  /** null = eenmalig. Anders een abonnementsprijs per maand of per jaar. */
+  recurringInterval?: "maand" | "jaar" | null;
+  /** Wat de klant bij een optionele regel leest. Leeg = aantal en eenheid. */
+  quoteNote?: string | null;
 };
 
 type CalculationDetail = {
@@ -97,6 +103,9 @@ type CalculationDetail = {
   customerId: string | null;
   projectId: string | null;
   quoteId: string | null;
+  /** BASE telt altijd mee; VARIANT is een keuze voor de klant. */
+  role?: "BASE" | "VARIANT";
+  sortOrder?: number;
   customer: { id: string; name: string } | null;
   project: { id: string; number: string; title: string } | null;
   quote: { id: string; number: string; status: string } | null;
@@ -105,6 +114,7 @@ type CalculationDetail = {
 
 export function CalculationBuilderClient({
   initialCalculation,
+  siblings = [],
   products: initialProducts,
   customers,
   projects,
@@ -113,6 +123,8 @@ export function CalculationBuilderClient({
   travelPricingTiers,
 }: {
   initialCalculation: CalculationDetail;
+  /** De andere calculaties op dezelfde offerte, zodat je ziet wat de klant kiest. */
+  siblings?: { id: string; number: string; title: string; role: string }[];
   products: ProductOption[];
   customers: { id: string; name: string; zipCode?: string | null }[];
   projects: { id: string; number: string; title: string }[];
@@ -123,6 +135,8 @@ export function CalculationBuilderClient({
   const router = useRouter();
   const [calculation, setCalculation] = useState<CalculationDetail>(initialCalculation);
   const [items, setItems] = useState<CalculationItemState[]>(initialCalculation.items);
+  const [role, setRole] = useState<"BASE" | "VARIANT">(initialCalculation.role ?? "BASE");
+  const [variantBezig, setVariantBezig] = useState(false);
   const [products, setProducts] = useState<ProductOption[]>(initialProducts);
 
   // Quick-create artikel dialog (voor artikelen die nog niet in de catalogus staan)
@@ -467,6 +481,25 @@ export function CalculationBuilderClient({
     setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
+  async function handleAddVariant() {
+    setVariantBezig(true);
+    try {
+      const res = await fetch(`/api/calculations/${calculation.id}/duplicate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ asVariant: true }),
+      });
+      const created = await res.json();
+      if (!res.ok) throw new Error(created.error || "Variant maken mislukt");
+      toast.success("Variant aangemaakt. Pas hem aan en de klant kan kiezen.");
+      router.push(`/calculations/${created.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Fout bij variant maken");
+    } finally {
+      setVariantBezig(false);
+    }
+  }
+
   async function handleSave() {
     if (!title.trim()) {
       toast.error("Titel is verplicht");
@@ -485,6 +518,7 @@ export function CalculationBuilderClient({
           notes,
           customerId: customerId || null,
           projectId: projectId || null,
+          role,
           items,
         }),
       });
@@ -647,6 +681,75 @@ export function CalculationBuilderClient({
           </Card>
         </div>
 
+        {calculation.quote && (
+          <Card className="border-slate-200 bg-white shadow-sm">
+            <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Deze calculatie bepaalt de prijs van
+                </span>
+                <p className="mt-1 text-base font-bold text-slate-900">
+                  <Link href={`/quotes/${calculation.quote.id}`} className="hover:underline">
+                    {calculation.quote.number}
+                  </Link>
+                  {siblings.length > 0 && (
+                    <span className="ml-2 text-sm font-medium text-slate-500">
+                      samen met {siblings.length} andere{siblings.length === 1 ? "" : "n"}
+                    </span>
+                  )}
+                </p>
+                {siblings.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {siblings.map((zus) => (
+                      <Link key={zus.id} href={`/calculations/${zus.id}`}>
+                        <Badge variant="outline" className="text-[11px] font-normal hover:bg-slate-50">
+                          {zus.role === "VARIANT" ? "Variant" : "Basis"} · {zus.title}
+                        </Badge>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex rounded-lg border border-slate-200 p-0.5">
+                  {([
+                    ["BASE", "Basis", "Telt altijd mee in de prijs"],
+                    ["VARIANT", "Variant", "De klant kiest tussen de varianten"],
+                  ] as const).map(([waarde, label, uitleg]) => (
+                    <button
+                      key={waarde}
+                      type="button"
+                      title={uitleg}
+                      onClick={() => setRole(waarde)}
+                      className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+                        role === waarde ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                <Button variant="outline" size="sm" onClick={handleAddVariant} disabled={variantBezig}>
+                  {variantBezig
+                    ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    : <GitBranch className="mr-1.5 h-4 w-4" />}
+                  Variant toevoegen
+                </Button>
+              </div>
+            </CardContent>
+
+            {role === "VARIANT" && siblings.filter((z) => z.role === "VARIANT").length === 0 && (
+              <div className="border-t border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-900">
+Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar één
+                is, telt deze calculatie op de offerte gewoon mee in de prijs. Voeg er een
+                tweede toe, of zet deze terug op Basis.
+              </div>
+            )}
+          </Card>
+        )}
+
         {/* Calculation Settings Header */}
         <Card className="bg-white shadow-sm">
           <CardHeader className="pb-3 border-b">
@@ -786,7 +889,8 @@ export function CalculationBuilderClient({
                 </thead>
                 <tbody className="divide-y">
                   {items.map((item, idx) => (
-                    <tr key={idx} className={`hover:bg-slate-50/80 transition-colors ${item.optional ? "bg-amber-50/60" : ""}`}>
+                    <Fragment key={idx}>
+                    <tr className={`hover:bg-slate-50/80 transition-colors ${item.optional ? "bg-amber-50/60" : ""}`}>
                       <td className="py-2 px-3 text-slate-400 font-mono text-[11px]">{idx + 1}</td>
 
                       {/* Optional toggle */}
@@ -916,6 +1020,50 @@ export function CalculationBuilderClient({
                         </Button>
                       </td>
                     </tr>
+
+                    {/* Een optionele regel wordt op de offerte een aanvinkbare extra.
+                        Wat de klant daarbij leest hoort hier te staan, niet in de
+                        offerte-editor: daar is het niet meer aan een artikel gekoppeld. */}
+                    {item.optional && (
+                      <tr className="bg-amber-50/60">
+                        <td colSpan={2}></td>
+                        <td colSpan={10} className="px-3 pb-3 pt-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800">
+                              Op de offerte
+                            </span>
+                            <Input
+                              value={item.quoteNote ?? ""}
+                              onChange={(e) => updateItem(idx, "quoteNote", e.target.value)}
+                              placeholder={`Toelichting voor de klant. Leeg = "${item.qty} ${item.unit || "stuk"}"`}
+                              className="h-8 max-w-md flex-1 bg-white text-xs"
+                            />
+                            <div className="flex items-center gap-1 rounded-md border border-amber-200 bg-white p-0.5">
+                              <Repeat className="ml-1.5 h-3.5 w-3.5 text-amber-700" />
+                              {([
+                                [null, "Eenmalig"],
+                                ["maand", "Per maand"],
+                                ["jaar", "Per jaar"],
+                              ] as const).map(([waarde, label]) => (
+                                <button
+                                  key={label}
+                                  type="button"
+                                  onClick={() => updateItem(idx, "recurringInterval", waarde)}
+                                  className={`rounded px-2 py-1 text-[11px] font-semibold transition-colors ${
+                                    (item.recurringInterval ?? null) === waarde
+                                      ? "bg-amber-600 text-white"
+                                      : "text-amber-800 hover:bg-amber-100"
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   ))}
                 </tbody>
 

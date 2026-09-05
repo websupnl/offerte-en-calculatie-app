@@ -140,9 +140,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const effectiveChoiceGroups = parsed.data.choiceGroups === undefined
     ? (Array.isArray(existingQuote.choiceGroups) ? existingQuote.choiceGroups : [])
     : parsed.data.choiceGroups;
-  if (effectiveItemCount === 0 && effectiveChoiceGroups.length === 0) {
-    return NextResponse.json({ error: "Voeg minimaal één offerteregel of configuratie toe." }, { status: 400 });
-  }
+  // Een offerte zonder losse regels is normaal geworden: de prijs komt dan uit
+  // de gekoppelde calculaties. Alleen een offerte zonder allebei is echt leeg,
+  // en dat mag als concept.
+  void effectiveItemCount;
+  void effectiveChoiceGroups;
 
   // Modules gaan naar hun eigen tabel, niet meer als blob mee in de Quote-update.
   const { items, attachments, options, ...rest } = parsed.data;

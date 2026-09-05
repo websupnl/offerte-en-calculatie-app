@@ -87,14 +87,17 @@ export async function createDonnaDraft(input: { company: "koolhaas-installaties"
 }
 
 export async function loadDonnaQuote(ref: string) {
-  const quote = await prisma.quote.findUnique({ where: { id: ref }, include: { customer: true, items: { orderBy: { sortOrder: "asc" } }, calculation: { include: { items: { orderBy: { sortOrder: "asc" } } } } } });
+  const quote = await prisma.quote.findUnique({ where: { id: ref }, include: { customer: true, items: { orderBy: { sortOrder: "asc" } }, calculations: { include: { items: { orderBy: { sortOrder: "asc" } } } } } });
   if (!quote) throw new DonnaError("QUOTE_NOT_FOUND", 404, "Quote was not found");
   return quote;
 }
 
 export function detailedQuoteDto(quote: Awaited<ReturnType<typeof loadDonnaQuote>>) {
+  // Een offerte kan meerdere calculaties hebben (basis plus varianten). Voor Donna
+  // is de basis de calculatie die telt.
+  const calculation = quote.calculations.find((c) => c.role !== "VARIANT") ?? quote.calculations[0] ?? null;
   const totals = calculateTotals(quote.items.map((item) => ({ qty: Number(item.qty), unitPrice: Number(item.unitPrice), costPrice: item.costPrice == null ? null : Number(item.costPrice), vatRate: Number(item.vatRate) })));
-  return { ref: quote.id, customer: customerDto(quote.customer), title: quote.title ?? "", status: quote.status.toLowerCase(), lines: quote.items.map((item) => ({ ref: item.id, description: item.description, quantity: Number(item.qty), unitPrice: Number(item.unitPrice), costPrice: item.costPrice == null ? null : Number(item.costPrice), vatRate: Number(item.vatRate), total: Number(item.total) })), calculation: quote.calculation ? { ref: quote.calculation.id, totalCost: Number(quote.calculation.totalCostPrice), totalSales: Number(quote.calculation.totalSalesPrice), margin: Number(quote.calculation.marginAmount), marginPercent: Number(quote.calculation.marginPercent) } : {}, totals, missingInformation: quote.items.length === 0 ? ["offerteregels"] : [], updatedAt: quote.updatedAt.toISOString() };
+  return { ref: quote.id, customer: customerDto(quote.customer), title: quote.title ?? "", status: quote.status.toLowerCase(), lines: quote.items.map((item) => ({ ref: item.id, description: item.description, quantity: Number(item.qty), unitPrice: Number(item.unitPrice), costPrice: item.costPrice == null ? null : Number(item.costPrice), vatRate: Number(item.vatRate), total: Number(item.total) })), calculation: calculation ? { ref: calculation.id, totalCost: Number(calculation.totalCostPrice), totalSales: Number(calculation.totalSalesPrice), margin: Number(calculation.marginAmount), marginPercent: Number(calculation.marginPercent) } : {}, totals, missingInformation: quote.items.length === 0 ? ["offerteregels"] : [], updatedAt: quote.updatedAt.toISOString() };
 }
 
 export async function reviseDonnaQuote(ref: string, instruction: string, idempotencyKey?: string) {

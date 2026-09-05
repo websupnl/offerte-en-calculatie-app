@@ -61,8 +61,19 @@ export default async function CalculationDetailPage({
   const homeBaseZipCode = (companySettings.homeBaseZipCode as string) ?? DEFAULT_SETTINGS.homeBaseZipCode;
   const travelPricingTiers = (companySettings.travelPricingTiers as TravelPricingTier[]) ?? DEFAULT_SETTINGS.travelPricingTiers;
 
+  // De andere calculaties op dezelfde offerte: basis en varianten samen bepalen
+  // wat de klant te zien krijgt, dus die wil je hier naast elkaar hebben.
+  const siblings = calculation.quoteId
+    ? await prisma.calculation.findMany({
+        where: { quoteId: calculation.quoteId, id: { not: calculation.id } },
+        select: { id: true, number: true, title: true, role: true },
+        orderBy: [{ sortOrder: "asc" }, { number: "asc" }],
+      })
+    : [];
+
   const serializedCalculation = {
     ...calculation,
+    role: calculation.role === "VARIANT" ? ("VARIANT" as const) : ("BASE" as const),
     vatRate: Number(calculation.vatRate),
     totalCostPrice: Number(calculation.totalCostPrice),
     totalSalesPrice: Number(calculation.totalSalesPrice),
@@ -74,6 +85,9 @@ export default async function CalculationDetailPage({
       ...item,
       qty: Number(item.qty),
       unit: item.unit ?? "stuk",
+      recurringInterval: (item.recurringInterval === "maand" || item.recurringInterval === "jaar"
+        ? item.recurringInterval
+        : null) as "maand" | "jaar" | null,
       costPrice: Number(item.costPrice),
       markupPercent: Number(item.markupPercent),
       unitPrice: Number(item.unitPrice),
@@ -122,6 +136,7 @@ export default async function CalculationDetailPage({
   return (
     <CalculationBuilderClient
       initialCalculation={serializedCalculation}
+      siblings={siblings}
       products={serializedProducts}
       customers={customers}
       projects={projects}

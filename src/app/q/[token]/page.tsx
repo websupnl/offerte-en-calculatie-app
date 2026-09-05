@@ -9,6 +9,7 @@ import { z } from "zod";
 import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
 import { isStorageConfigured, presignDownload } from "@/lib/storage";
 import { modulesToOptions } from "@/lib/quote-modules";
+import { applyCalculationPricing } from "@/lib/quote-with-pricing";
 
 export default async function QuotePortalPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -26,6 +27,7 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
           customer: true,
           items: { orderBy: { sortOrder: "asc" } },
           modules: { orderBy: { sortOrder: "asc" } },
+          calculations: { orderBy: { sortOrder: "asc" }, include: { items: { orderBy: { sortOrder: "asc" } } } },
           contentBlocks: { orderBy: { sortOrder: "asc" } },
           attachments: { orderBy: { sortOrder: "asc" } },
           documents: { include: { productDocument: true }, orderBy: { sortOrder: "asc" } },
@@ -103,6 +105,9 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
     ? await resolveChoiceGroupImages(parsedChoiceGroups.data, { expiresIn: 21600 })
     : [];
   serialized.quote.options = parsedOptions.success ? parsedOptions.data : [];
+  // Nieuwe offertes: prijs, artikelen, varianten en extra’s komen uit de gekoppelde
+  // calculaties. Oude offertes houden wat hierboven is opgebouwd.
+  Object.assign(serialized.quote, applyCalculationPricing(serialized.quote));
   // Expliciet meegeven, net als options: anders verschilt de client-render van de
   // server-render en telt de klant een pagina minder (hydration-mismatch).
   serialized.quote.contentBlocks = share.quote.contentBlocks.map((block) => ({

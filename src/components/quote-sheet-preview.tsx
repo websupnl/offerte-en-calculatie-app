@@ -188,6 +188,40 @@ const sourceShortName = (source: QuoteSource) => {
   return label || source.url;
 };
 
+/**
+ * Het logo van de bron, afgeleid uit de URL. Geen veld om in te vullen en geen
+ * instructie voor de AI nodig: het domein staat al in de bron.
+ *
+ * De browser van de klant haalt het icoon bij DuckDuckGo op. Die ziet daarmee
+ * welke domeinen in de offerte staan, maar niet wie de offerte leest of wat
+ * erin staat. Laadt het icoon niet, dan blijft het nummer staan.
+ */
+const SourceIcon = ({ url, index }: { url: string; index: number }) => {
+  const [gefaald, setGefaald] = useState(false);
+
+  const host = (() => {
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return null;
+    }
+  })();
+
+  if (!host || gefaald) return <span className="source-number">{index + 1}</span>;
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`https://icons.duckduckgo.com/ip3/${host}.ico`}
+      alt=""
+      aria-hidden="true"
+      className="source-icon"
+      loading="lazy"
+      onError={() => setGefaald(true)}
+    />
+  );
+};
+
 const CitedText = ({
   value,
   sources,
@@ -293,6 +327,14 @@ const stripPersonalSignOff = (value: string) =>
     )
     .trimEnd();
 
+export type QuotePageMeta = {
+  id: string;
+  nr: number;
+  label: string;
+  /** Sectiesleutel uit SCHAKELBARE_SECTIES, of leeg als de pagina niet uit te zetten is. */
+  section: string;
+};
+
 interface QuoteSheetPreviewProps {
   quote: QuotePreviewData;
   companySlug?: string;
@@ -303,6 +345,10 @@ interface QuoteSheetPreviewProps {
   onRemoveItem?: (id: string) => void;
   selectedChoiceIds?: Record<string, string>;
   selectedOptionIds?: string[];
+  /** De editor gebruikt dit voor de paginastrip; hier telt de offerte zijn pagina's. */
+  onPagesChange?: (pages: QuotePageMeta[]) => void;
+  /** Waar de prijs vandaan komt. Alleen in de editor, zodat je weet waar je moet zijn. */
+  priceSource?: { label: string; href: string } | null;
   // Statische render (PDF/print): geen "kies hieronder"-teksten, want er is
   // geen interactieve keuze-UI beschikbaar zoals in het klantportaal.
   isPrint?: boolean;
@@ -388,6 +434,8 @@ export function QuoteSheetPreview({
   onRemoveItem,
   selectedChoiceIds: externalSelectedChoiceIds,
   selectedOptionIds = [],
+  onPagesChange,
+  priceSource,
   isPrint = false,
 }: QuoteSheetPreviewProps) {
   const defaultSelectedChoiceIds = useMemo(() => {
@@ -516,7 +564,8 @@ export function QuoteSheetPreview({
     const kosten = (step: { t?: string; d?: string }) =>
       2 + Math.max(1, Math.ceil((step.d?.length ?? 0) / 68));
     // Regelbudget van een pagina, na kop en voettekst.
-    const BUDGET = 30;
+    // Twee kolommen, dus per rij telt alleen de langste van de twee.
+    const BUDGET = 60;
     const pages: typeof approach[] = [];
     let huidig: typeof approach = [];
     let gebruikt = 0;
@@ -580,6 +629,59 @@ export function QuoteSheetPreview({
     "sign",
   ];
   const totalPages = pageOrder.length;
+
+  // Zelfde lijst, maar met een naam en de sectie waar de pagina bij hoort. De
+  // paginastrip in de editor leest dit, zodat er maar één plek is die weet uit
+  // welke pagina's een offerte bestaat.
+  const pageLabels: Record<string, string> = {
+    cover: "Voorblad",
+    intro: "Begeleidende brief",
+    items: "Onderdelen",
+    investering: "Investering",
+    options: "Modules",
+    terms: "Afspraken",
+    "terms-2": "Afspraken (2)",
+    sources: "Bronnen",
+    sign: "Akkoord",
+  };
+  const pageSecties: Record<string, string> = {
+    content: "content",
+    approach: "approach",
+    attachment: "visuals",
+    choice: "",
+    items: "",
+    investering: "",
+    options: "modules",
+    terms: "terms",
+    "terms-2": "terms",
+    sources: "sources",
+  };
+  const pageMeta = pageOrder.map((id, index) => {
+    const stam = id.replace(/-\d+$/, "");
+    const genummerd = /-\d+$/.test(id);
+    const nummer = genummerd ? Number(id.slice(stam.length + 1)) + 1 : 0;
+    const namen: Record<string, string> = {
+      content: "Toelichting",
+      approach: "Werkwijze",
+      attachment: "Ontwerp",
+      choice: "Keuze",
+    };
+    return {
+      id,
+      nr: index + 1,
+      label: pageLabels[id] ?? `${namen[stam] ?? stam}${nummer > 1 ? ` ${nummer}` : ""}`,
+      section: pageSecties[id] ?? pageSecties[stam] ?? "",
+    };
+  });
+
+  // De strip in de editor moet weten welke pagina's er zijn. Serialiseren
+  // voorkomt dat een nieuwe array bij elke render een update losmaakt.
+  const paginaSleutel = pageMeta.map((p) => `${p.id}:${p.label}`).join("|");
+  useEffect(() => {
+    onPagesChange?.(pageMeta);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paginaSleutel]);
+
   const pageNr = (id: string) => {
     const index = pageOrder.indexOf(id);
     const page = index === -1 ? totalPages : index + 1;
@@ -883,6 +985,16 @@ export function QuoteSheetPreview({
                     <PlusCircle size={14} />
                     Regel
                   </button>
+                </td>
+              </tr>
+            )}
+            {isEditable && !onAddItem && priceSource && (
+              <tr>
+                <td>
+                  <a href={priceSource.href} className="doc-edit-btn doc-list-add">
+                    <Layers size={14} />
+                    Regels en prijzen staan in {priceSource.label}
+                  </a>
                 </td>
               </tr>
             )}
@@ -1373,7 +1485,7 @@ export function QuoteSheetPreview({
                   <h2 className="h2">{paginaIndex === 0 ? "Zo werkt het in de praktijk." : "Zo werkt het in de praktijk, vervolg."}</h2>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "10px", marginTop: "12px" }}>
+              <div className="flow-grid">
                 {paginaStappen.map((step) => {
                   const index = approach.indexOf(step);
                   return (
@@ -1796,7 +1908,7 @@ export function QuoteSheetPreview({
                       rel="noopener noreferrer"
                       className="source-card"
                     >
-                      <span className="source-number">{index + 1}</span>
+                      <SourceIcon url={source.url} index={index} />
                       <span className="source-copy">
                         <strong>{source.label}</strong>
                         {source.description && <small>{source.description}</small>}
