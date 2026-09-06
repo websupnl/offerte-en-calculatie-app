@@ -188,6 +188,14 @@ const sourceShortName = (source: QuoteSource) => {
   return label || source.url;
 };
 
+const sourceHost = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+};
+
 /**
  * Het logo van de bron, afgeleid uit de URL. Geen veld om in te vullen en geen
  * instructie voor de AI nodig: het domein staat al in de bron.
@@ -196,7 +204,7 @@ const sourceShortName = (source: QuoteSource) => {
  * welke domeinen in de offerte staan, maar niet wie de offerte leest of wat
  * erin staat. Laadt het icoon niet, dan blijft het nummer staan.
  */
-const SourceIcon = ({ url, index }: { url: string; index: number }) => {
+const SourceIcon = ({ url, index, bare }: { url: string; index: number; bare?: boolean }) => {
   const [gefaald, setGefaald] = useState(false);
 
   const host = (() => {
@@ -207,7 +215,7 @@ const SourceIcon = ({ url, index }: { url: string; index: number }) => {
     }
   })();
 
-  if (!host || gefaald) return <span className="source-number">{index + 1}</span>;
+  if (!host || gefaald) return bare ? null : <span className="source-number">{index + 1}</span>;
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -617,11 +625,13 @@ export function QuoteSheetPreview({
   const sourcePages: (typeof sources)[] = (() => {
     if (!hasSourcesPage) return [];
     if (sources.length === 0) return [[]]; // lege pagina in bewerkmodus
+    // Twee kolommen op de pagina, dus er passen ongeveer twee keer zoveel
+    // bronnen als bij een enkele lijst.
     const kosten = (s: QuoteSource) =>
-      1 +
-      Math.max(1, Math.ceil((s.label?.length ?? 0) / 40)) +
-      (s.description ? Math.max(1, Math.ceil(s.description.length / 64)) : 0);
-    const BUDGET = 32;
+      2 +
+      Math.max(1, Math.ceil((s.label?.length ?? 0) / 34)) +
+      (s.description ? Math.max(1, Math.ceil(s.description.length / 40)) : 0);
+    const BUDGET = 62;
     const pages: (typeof sources)[] = [];
     let huidig: typeof sources = [];
     let gebruikt = 0;
@@ -1946,11 +1956,17 @@ export function QuoteSheetPreview({
                       rel="noopener noreferrer"
                       className="source-card"
                     >
-                      <SourceIcon url={source.url} index={index} />
+                      <span className="source-num">{index + 1}</span>
                       <span className="source-copy">
                         <strong>{source.label}</strong>
                         {source.description && <small>{source.description}</small>}
-                        <span className="source-link">Open officiële bron <ExternalLink size={12} /></span>
+                        {sourceHost(source.url) && (
+                          <span className="source-host">
+                            <SourceIcon url={source.url} index={index} bare />
+                            {sourceHost(source.url)}
+                            <ExternalLink size={11} />
+                          </span>
+                        )}
                       </span>
                     </a>
                   );

@@ -31,9 +31,11 @@ function approachStepLines(step: ApproachStep): number {
 }
 
 function sourceLines(source: Source): number {
-  const labelLines = Math.max(1, Math.ceil((source.label?.length ?? 0) / 40));
-  const descLines = source.description ? Math.max(1, Math.ceil(source.description.length / 64)) : 0;
-  return labelLines + descLines + 1; // +1 voor de "open bron"-regel en de rand
+  // De bronnen staan in twee kolommen; per bron telt daarom ongeveer de helft
+  // van de verticale ruimte mee.
+  const labelLines = Math.max(1, Math.ceil((source.label?.length ?? 0) / 34));
+  const descLines = source.description ? Math.max(1, Math.ceil(source.description.length / 40)) : 0;
+  return (labelLines + descLines + 2) / 2;
 }
 
 /** Verdeelt regels greedy over pagina's en geeft de ergste overschrijding terug. */

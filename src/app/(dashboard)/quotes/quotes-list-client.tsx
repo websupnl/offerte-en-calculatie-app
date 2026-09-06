@@ -85,8 +85,55 @@ export function QuotesListClient({
   const confirm = useConfirm();
   const [, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof statuses)[number]>("all");
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function runBulk(action: "archive" | "restore" | "delete") {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    if (action === "delete") {
+      const ok = await confirm({
+        title: `${ids.length} offerte${ids.length === 1 ? "" : "s"} verwijderen?`,
+        body: "Definitief, inclusief regels en deellinks. Geaccepteerde offertes worden overgeslagen. Archiveren houdt ze bewaard.",
+        confirmLabel: "Verwijderen",
+        destructive: true,
+      });
+      if (!ok) return;
+    }
+    setBulkBusy(true);
+    try {
+      const res = await fetch("/api/quotes/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ids }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Bulkactie mislukt");
+      const verb =
+        action === "archive" ? "gearchiveerd" : action === "restore" ? "teruggezet" : "verwijderd";
+      toast.success(
+        `${data.affected} offerte${data.affected === 1 ? "" : "s"} ${verb}` +
+          (data.skipped ? ` · ${data.skipped} overgeslagen (geaccepteerd)` : ""),
+      );
+      setSelected(new Set());
+      startTransition(() => router.refresh());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Er ging iets mis");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   async function archiveQuote(quote: Quote, archived: boolean) {
     setBusyId(quote.id);
@@ -260,6 +307,36 @@ export function QuotesListClient({
           </div>
         </div>
 
+        {selected.size > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-900 px-3 py-2 text-sm text-white shadow-sm">
+            <span className="font-semibold">
+              {selected.size} geselecteerd
+            </span>
+            <div className="ml-auto flex flex-wrap items-center gap-1.5">
+              {showArchived ? (
+                <Button size="sm" variant="secondary" disabled={bulkBusy} onClick={() => runBulk("restore")}>
+                  <ArchiveRestore className="h-4 w-4" /> Herstellen
+                </Button>
+              ) : (
+                <Button size="sm" variant="secondary" disabled={bulkBusy} onClick={() => runBulk("archive")}>
+                  <Archive className="h-4 w-4" /> Archiveren
+                </Button>
+              )}
+              <Button size="sm" variant="destructive" disabled={bulkBusy} onClick={() => runBulk("delete")}>
+                <Trash2 className="h-4 w-4" /> Verwijderen
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-white hover:bg-white/10 hover:text-white"
+                onClick={() => setSelected(new Set())}
+              >
+                Annuleren
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
           {filtered.length === 0 ? (
             <div className="grid min-h-72 place-items-center p-8 text-center">
@@ -273,13 +350,30 @@ export function QuotesListClient({
             <>
               <div className="divide-y md:hidden">
                 {filtered.map((quote) => (
-                  <Link key={quote.id} href={`/quotes/${quote.id}`} className="block p-4 active:bg-slate-50">
+                  <Link
+                    key={quote.id}
+                    href={`/quotes/${quote.id}`}
+                    className={`block p-4 active:bg-slate-50 ${selected.has(quote.id) ? "bg-[var(--ws-accent-soft)]" : ""}`}
+                  >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-slate-950">{quote.title || quote.number}</p>
-                        <p className="mt-1 truncate text-xs text-slate-500">
-                          {quote.number} · {quote.customer.name}
-                        </p>
+                      <div className="flex min-w-0 items-start gap-2.5">
+                        <input
+                          type="checkbox"
+                          aria-label={`Selecteer ${quote.title || quote.number}`}
+                          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-[var(--ws-accent)]"
+                          checked={selected.has(quote.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            toggleOne(quote.id);
+                          }}
+                        />
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-950">{quote.title || quote.number}</p>
+                          <p className="mt-1 truncate text-xs text-slate-500">
+                            {quote.number} · {quote.customer.name}
+                          </p>
+                        </div>
                       </div>
                       <div className="flex shrink-0 items-start gap-1 text-right">
                         <div>
@@ -309,7 +403,28 @@ export function QuotesListClient({
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow>
-                      <TableHead className="pl-4">Offerte</TableHead>
+                      <TableHead className="w-10 pl-4">
+                        <input
+                          type="checkbox"
+                          aria-label="Alles selecteren"
+                          className="h-4 w-4 cursor-pointer accent-[var(--ws-accent)] align-middle"
+                          checked={filtered.length > 0 && filtered.every((q) => selected.has(q.id))}
+                          ref={(el) => {
+                            if (el)
+                              el.indeterminate =
+                                filtered.some((q) => selected.has(q.id)) &&
+                                !filtered.every((q) => selected.has(q.id));
+                          }}
+                          onChange={(e) =>
+                            setSelected(
+                              e.target.checked
+                                ? new Set(filtered.map((q) => q.id))
+                                : new Set(),
+                            )
+                          }
+                        />
+                      </TableHead>
+                      <TableHead>Offerte</TableHead>
                       <TableHead>Klant</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Datum</TableHead>
@@ -331,9 +446,18 @@ export function QuotesListClient({
                             router.push(`/quotes/${quote.id}`);
                           }
                         }}
-                        className="group cursor-pointer focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ws-accent)]"
+                        className={`group cursor-pointer focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ws-accent)] ${selected.has(quote.id) ? "bg-[var(--ws-accent-soft)]" : ""}`}
                       >
-                        <TableCell className="pl-4">
+                        <TableCell className="w-10 pl-4" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            aria-label={`Selecteer ${quote.title || quote.number}`}
+                            className="h-4 w-4 cursor-pointer accent-[var(--ws-accent)] align-middle"
+                            checked={selected.has(quote.id)}
+                            onChange={() => toggleOne(quote.id)}
+                          />
+                        </TableCell>
+                        <TableCell>
                           <Link href={`/quotes/${quote.id}`} className="block" onClick={(event) => event.stopPropagation()}>
                             <p className="max-w-80 truncate font-semibold text-slate-900">{quote.title || quote.number}</p>
                             <p className="text-xs text-slate-400">

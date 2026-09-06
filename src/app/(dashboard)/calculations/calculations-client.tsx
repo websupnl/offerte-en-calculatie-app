@@ -82,6 +82,49 @@ export function CalculationsClient({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [newDialogOpen, setNewDialogOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function runBulk(action: "archive" | "restore" | "delete") {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    if (action === "delete") {
+      const ok = await confirm({
+        title: `${ids.length} calculatie${ids.length === 1 ? "" : "s"} verwijderen?`,
+        body: "Definitief. Archiveren houdt ze bewaard en uit de lijst.",
+        confirmLabel: "Verwijderen",
+        destructive: true,
+      });
+      if (!ok) return;
+    }
+    setBulkBusy(true);
+    try {
+      const res = await fetch("/api/calculations/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ids }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Bulkactie mislukt");
+      setCalculations((prev) => prev.filter((c) => !selected.has(c.id)));
+      setSelected(new Set());
+      const verb = action === "archive" ? "gearchiveerd" : action === "restore" ? "teruggezet" : "verwijderd";
+      toast.success(`${data.affected} calculatie${data.affected === 1 ? "" : "s"} ${verb}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Er ging iets mis");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   // Form State
   const [title, setTitle] = useState("");
@@ -290,6 +333,44 @@ export function CalculationsClient({
           </div>
         </div>
 
+        {selected.size > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-sm text-white">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 cursor-pointer accent-white"
+                checked={filteredCalculations.length > 0 && filteredCalculations.every((c) => selected.has(c.id))}
+                onChange={(e) =>
+                  setSelected(e.target.checked ? new Set(filteredCalculations.map((c) => c.id)) : new Set())
+                }
+              />
+              <span className="font-semibold">{selected.size} geselecteerd</span>
+            </label>
+            <div className="ml-auto flex flex-wrap items-center gap-1.5">
+              {showArchived ? (
+                <Button size="sm" variant="secondary" disabled={bulkBusy} onClick={() => runBulk("restore")}>
+                  <ArchiveRestore className="h-4 w-4" /> Herstellen
+                </Button>
+              ) : (
+                <Button size="sm" variant="secondary" disabled={bulkBusy} onClick={() => runBulk("archive")}>
+                  <Archive className="h-4 w-4" /> Archiveren
+                </Button>
+              )}
+              <Button size="sm" variant="destructive" disabled={bulkBusy} onClick={() => runBulk("delete")}>
+                <Trash2 className="h-4 w-4" /> Verwijderen
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-white hover:bg-white/10 hover:text-white"
+                onClick={() => setSelected(new Set())}
+              >
+                Annuleren
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* List of calculations */}
         {filteredCalculations.length === 0 ? (
           <Card>
@@ -311,9 +392,23 @@ export function CalculationsClient({
           <div className="space-y-3">
             {filteredCalculations.map((calc) => (
               <Link key={calc.id} href={`/calculations/${calc.id}`} className="block group">
-                <Card className="transition-all hover:border-slate-300 hover:shadow-md">
+                <Card
+                  className={`transition-all hover:border-slate-300 hover:shadow-md ${selected.has(calc.id) ? "border-[var(--ws-accent)] bg-[var(--ws-accent-soft)]" : ""}`}
+                >
                   <CardContent className="p-5">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <input
+                        type="checkbox"
+                        aria-label={`Selecteer ${calc.number}`}
+                        className="mt-1 h-4 w-4 shrink-0 cursor-pointer self-start accent-[var(--ws-accent)] md:self-center"
+                        checked={selected.has(calc.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          toggleOne(calc.id);
+                        }}
+                      />
                       {/* Left: Info */}
                       <div className="space-y-1.5 flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
