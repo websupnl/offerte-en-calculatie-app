@@ -2,15 +2,23 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { QuotesListClient } from "./quotes-list-client";
 import { calculateQuotePriceSummary, quoteChoiceGroupSchema } from "@/lib/quote-selection";
+import { markExpiredQuotes } from "@/lib/quote-expiry";
 import { z } from "zod";
 
-export default async function QuotesPage() {
+export default async function QuotesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ archived?: string }>;
+}) {
   const session = await auth();
   const companyId = session?.user?.activeCompanyId;
+  const showArchived = (await searchParams).archived === "1";
+
+  if (companyId) await markExpiredQuotes(companyId);
 
   const quotes = companyId
     ? await prisma.quote.findMany({
-        where: { companyId },
+        where: { companyId, archivedAt: showArchived ? { not: null } : null },
         orderBy: { createdAt: "desc" },
         include: {
           customer: { select: { id: true, name: true, email: true } },
@@ -42,5 +50,5 @@ export default async function QuotesPage() {
     };
   });
 
-  return <QuotesListClient initialQuotes={quotesWithPricing} />;
+  return <QuotesListClient initialQuotes={quotesWithPricing} showArchived={showArchived} />;
 }

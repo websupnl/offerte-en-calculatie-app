@@ -22,7 +22,7 @@ export default async function AdminDashboardPage() {
   const companyId = session.user.activeCompanyId;
 
   const quotes = await prisma.quote.findMany({
-    where: { companyId },
+    where: { companyId, archivedAt: null },
     select: {
       status: true,
       items: {

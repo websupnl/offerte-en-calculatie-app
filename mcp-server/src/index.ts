@@ -5,6 +5,7 @@ import { z } from "zod";
 import pg from "pg";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { estimateQuoteLayout, layoutWarningText } from "./quote-layout-estimate.js";
 
 const { Pool } = pg;
 
@@ -282,13 +283,20 @@ async function nextCalculationNumber(companyId: string, companySlug: string): Pr
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function generateQuoteNumber(companySlug = "websup"): string {
-  const now = new Date();
-  const yy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const rand = String(Math.floor(Math.random() * 9000) + 1000);
-  const prefix = companySlug === "koolhaas" ? "KI" : "WU";
-  return `${prefix}-${yy}-${mm}-${rand}`;
+/**
+ * Volgend offertenummer, doortellend op het hoogste bestaande nummer van dit
+ * jaar (niet op het aantal records — dat gaf dubbele nummers). Zelfde format en
+ * aanpak als `nextQuoteNumber` in de Next-app.
+ */
+async function nextQuoteNumber(companyId: string, companySlug = "websup"): Promise<string> {
+  const prefix = `${companySlug === "koolhaas" ? "KI" : "WU"}-${new Date().getFullYear()}-`;
+  const last = await queryOne<{ number: string }>(
+    `SELECT number FROM "Quote" WHERE "companyId" = $1 AND number LIKE $2 ORDER BY number DESC LIMIT 1`,
+    [companyId, `${prefix}%`]
+  );
+  const highest = last ? Number(last.number.slice(prefix.length)) : 0;
+  const next = (Number.isFinite(highest) ? highest : 0) + 1;
+  return `${prefix}${String(next).padStart(4, "0")}`;
 }
 
 function generateToken(): string {
@@ -832,7 +840,7 @@ function createMcpServer() {
       const now = new Date().toISOString();
       const validUntilDate = new Date(Date.now() + (valid_days ?? 30) * 86400000).toISOString();
       const quoteId = crypto.randomUUID();
-      const number = generateQuoteNumber(company_slug);
+      const number = await nextQuoteNumber(co.id, company_slug);
 
       await query(
         `INSERT INTO "Quote" (id, "companyId", "customerId", "createdById", number, title, category, tagline,
@@ -896,21 +904,23 @@ function createMcpServer() {
     {
       company_slug: z.string().describe("Bedrijfsslug"),
       status: z.enum(["DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"]).optional().describe("Filter op status"),
+      include_archived: z.boolean().optional().describe("Ook gearchiveerde offertes tonen (standaard niet)"),
       limit: z.number().optional().default(20).describe("Max aantal resultaten"),
     },
-    async ({ company_slug, status, limit }) => {
+    async ({ company_slug, status, include_archived, limit }) => {
       const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
       if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
 
       let sql = `
-        SELECT q.id, q.number, q.title, q.status, q."totalIncVat", q."createdAt", q."validUntil",
+        SELECT q.id, q.number, q.title, q.status, q."totalIncVat", q."createdAt", q."validUntil", q."archivedAt",
                c.name AS customer_name, c.email AS customer_email
         FROM "Quote" q
         JOIN "Customer" c ON c.id = q."customerId"
         WHERE q."companyId" = $1
       `;
       const params: unknown[] = [co.id];
-      if (status) { sql += ` AND q.status = $2`; params.push(status); }
+      if (!include_archived) sql += ` AND q."archivedAt" IS NULL`;
+      if (status) { sql += ` AND q.status = $${params.length + 1}`; params.push(status); }
       sql += ` ORDER BY q."createdAt" DESC LIMIT $${params.length + 1}`;
       params.push(limit ?? 20);
 
@@ -955,7 +965,19 @@ function createMcpServer() {
       // gelijk aan wat de rest van de app en eerdere sessies gewend zijn.
       const options = await readQuoteModules(quote_id);
 
-      return { content: [{ type: "text", text: JSON.stringify({ ...quote, options, items, attachments, share }, null, 2) }] };
+      // Loopt de werkwijze of de bronnenlijst over de A4? De preview meet dat in
+      // de DOM; hier schatten we het zodat een AI het ook ziet.
+      const q = quote as { approach?: unknown; batteryAdvice?: { sources?: unknown } };
+      const layoutWarnings = estimateQuoteLayout({
+        approach: Array.isArray(q.approach) ? (q.approach as { t?: string; d?: string }[]) : [],
+        sources: Array.isArray(q.batteryAdvice?.sources)
+          ? (q.batteryAdvice!.sources as { label?: string; description?: string }[])
+          : [],
+      });
+
+      const payload = JSON.stringify({ ...quote, options, items, attachments, share, layoutWarnings }, null, 2);
+      const notice = layoutWarningText(layoutWarnings);
+      return { content: [{ type: "text", text: notice ? `${notice}\n\n${payload}` : payload }] };
     }
   );
 
@@ -1093,7 +1115,20 @@ function createMcpServer() {
         values
       );
 
-      return { content: [{ type: "text", text: `Offerte ${quote_id} bijgewerkt.` }] };
+      // Direct terugkoppelen of de werkwijze of bronnenlijst nu over de A4 loopt.
+      const after = await queryOne<{ approach?: unknown; batteryAdvice?: { sources?: unknown } }>(
+        `SELECT approach, "batteryAdvice" FROM "Quote" WHERE id = $1`,
+        [quote_id]
+      );
+      const warnings = estimateQuoteLayout({
+        approach: Array.isArray(after?.approach) ? (after!.approach as { t?: string; d?: string }[]) : [],
+        sources: Array.isArray(after?.batteryAdvice?.sources)
+          ? (after!.batteryAdvice!.sources as { label?: string; description?: string }[])
+          : [],
+      });
+      const notice = layoutWarningText(warnings);
+
+      return { content: [{ type: "text", text: notice ? `Offerte ${quote_id} bijgewerkt.\n\n${notice}` : `Offerte ${quote_id} bijgewerkt.` }] };
     }
   );
 
@@ -1123,10 +1158,8 @@ function createMcpServer() {
         `INSERT INTO "QuoteShare" (id, "quoteId", token, "createdAt") VALUES ($1, $2, $3, $4)`,
         [crypto.randomUUID(), quote_id, token, now]
       );
-      await query(
-        `UPDATE "Quote" SET status = 'SENT', "updatedAt" = NOW() WHERE id = $1 AND status = 'DRAFT'`,
-        [quote_id]
-      );
+      // Een deellink maken is geen verzenden. De status verandert pas als de
+      // offerte echt via e-mail de deur uit gaat (zelfde regel als de app-route).
 
       return { content: [{ type: "text", text: `Deellink aangemaakt!\nPortaal: /q/${token}` }] };
     }
@@ -2020,20 +2053,22 @@ function createMcpServer() {
       company_slug: z.string().describe("Bedrijfsslug"),
       customer_id: z.string().optional().describe("Filter op klant"),
       status: z.enum(["DRAFT", "COMPLETED", "QUOTED"]).optional().describe("Filter op status"),
+      include_archived: z.boolean().optional().describe("Ook gearchiveerde calculaties tonen (standaard niet)"),
       limit: z.number().default(20).describe("Max aantal resultaten"),
     },
-    async ({ company_slug, customer_id, status, limit }) => {
+    async ({ company_slug, customer_id, status, include_archived, limit }) => {
       const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
       if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
 
       const params: unknown[] = [co.id];
       let sql = `SELECT c.id, c.number, c.title, c.status, c."totalCostPrice", c."totalSalesPrice",
-                        c."marginAmount", c."marginPercent", c."quoteId", q.number AS quote_number,
+                        c."marginAmount", c."marginPercent", c."quoteId", c."archivedAt", q.number AS quote_number,
                         cu.name AS customer_name, c."updatedAt"
                  FROM "Calculation" c
                  LEFT JOIN "Quote" q ON q.id = c."quoteId"
                  LEFT JOIN "Customer" cu ON cu.id = c."customerId"
                  WHERE c."companyId" = $1`;
+      if (!include_archived) sql += ` AND c."archivedAt" IS NULL`;
       if (customer_id) { sql += ` AND c."customerId" = $${params.length + 1}`; params.push(customer_id); }
       if (status) { sql += ` AND c.status = $${params.length + 1}`; params.push(status); }
       sql += ` ORDER BY c."updatedAt" DESC LIMIT $${params.length + 1}`;

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { saveQuoteModules } from "@/lib/quote-modules";
 import { prisma } from "@/lib/prisma";
 import { validateQuoteImportInput } from "@/lib/quote-import";
-import { generateQuoteNumber } from "@/lib/format";
+import { nextQuoteNumber } from "@/lib/quote-number";
 import { z } from "zod";
 import { calculateLine, calculateTotals } from "@/lib/calculation";
 import { calculateQuotePriceSummary } from "@/lib/quote-selection";
@@ -92,8 +92,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Offertenummer genereren
-  const count = await prisma.quote.count({ where: { companyId: company.id } });
-  const number = generateQuoteNumber(company.slug, count + 1);
+  const number = await nextQuoteNumber(company.id, company.slug);
 
   // validUntil berekenen
   const validDays = data.validDays ?? 30;

@@ -561,11 +561,15 @@ export function QuoteSheetPreview({
   // Daarom verdelen we ze vooraf over zoveel pagina's als nodig.
   const approachPages: typeof approach[] = (() => {
     if (approach.length === 0 || uit.has("approach")) return [];
+    // Zelfde model als src/lib/quote-layout-estimate.ts: titel- en tekstregels
+    // apart tellen. De oude schatting (alleen /68) telde te laag, waardoor acht
+    // stappen op één pagina overliepen.
     const kosten = (step: { t?: string; d?: string }) =>
-      2 + Math.max(1, Math.ceil((step.d?.length ?? 0) / 68));
-    // Regelbudget van een pagina, na kop en voettekst.
-    // Twee kolommen, dus per rij telt alleen de langste van de twee.
-    const BUDGET = 60;
+      1 +
+      Math.max(1, Math.ceil((step.t?.length ?? 0) / 34)) +
+      Math.max(1, Math.ceil((step.d?.length ?? 0) / 58));
+    // Regelbudget van een inhoudspagina, na kop en voettekst.
+    const BUDGET = 36;
     const pages: typeof approach[] = [];
     let huidig: typeof approach = [];
     let gebruikt = 0;
@@ -607,6 +611,34 @@ export function QuoteSheetPreview({
     customerResponsibilities.length + exclusions.length > 0 &&
     termsLineLoad > 24;
 
+  // Bronnen kregen één vaste pagina; een lange lijst liep er stil vanaf. Nu
+  // verdelen we ze over zoveel pagina's als nodig, zelfde model als de
+  // werkwijze en als src/lib/quote-layout-estimate.ts.
+  const sourcePages: (typeof sources)[] = (() => {
+    if (!hasSourcesPage) return [];
+    if (sources.length === 0) return [[]]; // lege pagina in bewerkmodus
+    const kosten = (s: QuoteSource) =>
+      1 +
+      Math.max(1, Math.ceil((s.label?.length ?? 0) / 40)) +
+      (s.description ? Math.max(1, Math.ceil(s.description.length / 64)) : 0);
+    const BUDGET = 32;
+    const pages: (typeof sources)[] = [];
+    let huidig: typeof sources = [];
+    let gebruikt = 0;
+    for (const s of sources) {
+      const kost = kosten(s);
+      if (huidig.length > 0 && gebruikt + kost > BUDGET) {
+        pages.push(huidig);
+        huidig = [];
+        gebruikt = 0;
+      }
+      huidig.push(s);
+      gebruikt += kost;
+    }
+    if (huidig.length > 0) pages.push(huidig);
+    return pages;
+  })();
+
   const contentBlocks = uit.has("content") ? [] : (quote.contentBlocks ?? []).filter(Boolean);
   const contentPages = paginateContentBlocks(contentBlocks);
 
@@ -625,7 +657,7 @@ export function QuoteSheetPreview({
     ...(hasOptionsPage ? ["options"] : []),
     ...(hasTermsPage ? ["terms"] : []),
     ...(splitTermsPage ? ["terms-2"] : []),
-    ...(hasSourcesPage ? ["sources"] : []),
+    ...sourcePages.map((_, i) => `sources-${i}`),
     "sign",
   ];
   const totalPages = pageOrder.length;
@@ -665,6 +697,7 @@ export function QuoteSheetPreview({
       approach: "Werkwijze",
       attachment: "Ontwerp",
       choice: "Keuze",
+      sources: "Bronnen",
     };
     return {
       id,
@@ -1843,8 +1876,8 @@ export function QuoteSheetPreview({
           </section>
         )}
 
-        {hasSourcesPage && (
-          <section className="sheet">
+        {sourcePages.map((paginaBronnen, paginaIndex) => (
+          <section className="sheet" key={`sources-${paginaIndex}`}>
             <div className="bar"></div>
             <div className="pad">
               <div className="ph">
@@ -1855,15 +1888,20 @@ export function QuoteSheetPreview({
               <div className="row-badge">
                 <div>
                   <span className="eyebrow">Technische onderbouwing</span>
-                  <h2 className="h2">Bronnen bij dit advies.</h2>
+                  <h2 className="h2">
+                    {paginaIndex === 0 ? "Bronnen bij dit advies." : "Bronnen bij dit advies, vervolg."}
+                  </h2>
                 </div>
               </div>
-              <p className="source-intro">
-                De belangrijkste technische uitgangspunten in deze offerte zijn gecontroleerd aan de hand van onderstaande informatie van fabrikanten en aanbieders.
-              </p>
+              {paginaIndex === 0 && (
+                <p className="source-intro">
+                  De belangrijkste technische uitgangspunten in deze offerte zijn gecontroleerd aan de hand van onderstaande informatie van fabrikanten en aanbieders.
+                </p>
+              )}
               <div className="source-grid">
-                {sources.map((source, index) => (
-                  isEditable ? (
+                {paginaBronnen.map((source) => {
+                  const index = sources.indexOf(source);
+                  return isEditable ? (
                     // Bewerkbaar: label, toelichting en link. AI vult deze bronnen,
                     // dus je moet ze zonder omweg kunnen corrigeren.
                     <div key={source.id ?? index} className="source-card source-card-edit group relative">
@@ -1915,20 +1953,20 @@ export function QuoteSheetPreview({
                         <span className="source-link">Open officiële bron <ExternalLink size={12} /></span>
                       </span>
                     </a>
-                  )
-                ))}
+                  );
+                })}
               </div>
-              {isEditable && (
+              {isEditable && paginaIndex === sourcePages.length - 1 && (
                 <button type="button" className="doc-edit-btn doc-list-add" onClick={addSource}>
                   <PlusCircle size={14} /> Bron toevoegen
                 </button>
               )}
 
               <div className="spacer"></div>
-              {renderPageFooter(pageNr("sources"))}
+              {renderPageFooter(pageNr(`sources-${paginaIndex}`))}
             </div>
           </section>
-        )}
+        ))}
 
         {/* ── PAGINA 5: SIGN ── */}
         <section className="sheet">

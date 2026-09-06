@@ -318,6 +318,8 @@ model Quote {
   sentAt                   DateTime?
   lastSentAt               DateTime?
   sendCount                Int         @default(0)
+  /// Gearchiveerd = uit de werklijsten en de cijfers, maar bewaard. Nooit hard weg.
+  archivedAt               DateTime?
   createdAt                DateTime    @default(now())
   updatedAt                DateTime    @updatedAt
 
@@ -339,6 +341,7 @@ model Quote {
   contracts       Contract[]
   events          QuoteEvent[]
 
+  @@unique([companyId, number])
   @@index([companyId, updatedAt(sort: Desc)])
   @@index([companyId, status])
 }
@@ -783,6 +786,8 @@ model Calculation {
   marginPercent   Decimal @default(0) @db.Decimal(5, 2)
 
   notes     String?  @db.Text
+  /// Gearchiveerd = uit de werklijsten en de cijfers, maar bewaard. Nooit hard weg.
+  archivedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -792,6 +797,7 @@ model Calculation {
   quote    Quote?            @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   items    CalculationItem[]
 
+  @@unique([companyId, number])
   @@index([companyId])
   @@index([quoteId])
 }

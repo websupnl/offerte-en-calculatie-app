@@ -22,6 +22,7 @@ export async function syncQuoteTotalsFromCalculations(quoteId: string | null | u
       id: true,
       items: { select: { id: true }, take: 1 },
       calculations: {
+        where: { archivedAt: null },
         orderBy: [{ sortOrder: "asc" }, { number: "asc" }],
         include: { items: { orderBy: { sortOrder: "asc" } } },
       },

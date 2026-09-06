@@ -1,14 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, FileText, Plus, Search } from "lucide-react";
+import { toast } from "sonner";
+import { Archive, ArchiveRestore, ArrowUpRight, Copy, FileText, MoreVertical, Plus, Search, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useConfirm } from "@/components/confirm-provider";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
 
 type Quote = {
@@ -21,6 +30,7 @@ type Quote = {
   sentAt: string | null;
   sendCount: number;
   customer: { id: string; name: string; email: string | null };
+  archivedAt: string | null;
   _count: { items: number };
   choiceGroupCount: number;
   pricing: {
@@ -64,10 +74,111 @@ function quoteAmount(quote: Quote) {
   return `Vanaf ${formatCurrency(quote.pricing.minimum.totalIncVat)}`;
 }
 
-export function QuotesListClient({ initialQuotes }: { initialQuotes: Quote[] }) {
+export function QuotesListClient({
+  initialQuotes,
+  showArchived = false,
+}: {
+  initialQuotes: Quote[];
+  showArchived?: boolean;
+}) {
   const router = useRouter();
+  const confirm = useConfirm();
+  const [, startTransition] = useTransition();
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof statuses)[number]>("all");
+
+  async function archiveQuote(quote: Quote, archived: boolean) {
+    setBusyId(quote.id);
+    try {
+      const res = await fetch(`/api/quotes/${quote.id}/archive`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Mislukt");
+      toast.success(archived ? "Offerte gearchiveerd" : "Offerte teruggezet");
+      startTransition(() => router.refresh());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Er ging iets mis");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function duplicateQuote(quote: Quote) {
+    setBusyId(quote.id);
+    try {
+      const res = await fetch(`/api/quotes/${quote.id}/duplicate`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Dupliceren mislukt");
+      toast.success(`Gedupliceerd als ${data.number}`);
+      router.push(`/quotes/${data.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Er ging iets mis");
+      setBusyId(null);
+    }
+  }
+
+  async function deleteQuote(quote: Quote) {
+    const ok = await confirm({
+      title: "Offerte verwijderen?",
+      body: `${quote.title || quote.number} wordt definitief verwijderd, inclusief regels en deellinks. Archiveren houdt hem bewaard.`,
+      confirmLabel: "Verwijderen",
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusyId(quote.id);
+    try {
+      const res = await fetch(`/api/quotes/${quote.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Verwijderen mislukt");
+      toast.success("Offerte verwijderd");
+      startTransition(() => router.refresh());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Er ging iets mis");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function RowMenu({ quote }: { quote: Quote }) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label="Acties"
+          disabled={busyId === quote.id}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+          }}
+          className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+        >
+          <MoreVertical className="h-4 w-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenuItem onClick={() => router.push(`/quotes/${quote.id}`)}>
+            <ArrowUpRight className="h-4 w-4" /> Openen
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => duplicateQuote(quote)}>
+            <Copy className="h-4 w-4" /> Dupliceren
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {quote.archivedAt ? (
+            <DropdownMenuItem onClick={() => archiveQuote(quote, false)}>
+              <ArchiveRestore className="h-4 w-4" /> Herstellen
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onClick={() => archiveQuote(quote, true)}>
+              <Archive className="h-4 w-4" /> Archiveren
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem variant="destructive" onClick={() => deleteQuote(quote)}>
+            <Trash2 className="h-4 w-4" /> Verwijderen
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -100,7 +211,11 @@ export function QuotesListClient({ initialQuotes }: { initialQuotes: Quote[] }) 
       <PageHeader
         eyebrow="Verkoop"
         title="Offertes"
-        description={`${initialQuotes.length} offertes · ${openValueLabel} openstaand`}
+        description={
+          showArchived
+            ? `${initialQuotes.length} gearchiveerde offertes`
+            : `${initialQuotes.length} offertes · ${openValueLabel} openstaand`
+        }
         actions={
           <Button nativeButton={false} render={<Link href="/quotes/new" />}>
             <Plus className="h-4 w-4" />
@@ -126,12 +241,22 @@ export function QuotesListClient({ initialQuotes }: { initialQuotes: Quote[] }) 
                 key={status}
                 variant={statusFilter === status ? "default" : "ghost"}
                 size="sm"
+                disabled={showArchived}
                 onClick={() => setStatusFilter(status)}
                 className={`shrink-0 rounded-full ${statusFilter === status ? "bg-[var(--ws-accent)] hover:bg-[var(--ws-accent-hover)]" : ""}`}
               >
                 {status === "all" ? "Alle" : QUOTE_STATUS_LABELS[status]}
               </Button>
             ))}
+            <Button
+              variant={showArchived ? "default" : "ghost"}
+              size="sm"
+              onClick={() => router.push(showArchived ? "/quotes" : "/quotes?archived=1")}
+              className={`shrink-0 rounded-full ${showArchived ? "bg-[var(--ws-accent)] hover:bg-[var(--ws-accent-hover)]" : ""}`}
+            >
+              <Archive className="h-3.5 w-3.5" />
+              Archief
+            </Button>
           </div>
         </div>
 
@@ -156,11 +281,14 @@ export function QuotesListClient({ initialQuotes }: { initialQuotes: Quote[] }) 
                           {quote.number} · {quote.customer.name}
                         </p>
                       </div>
-                      <div className="shrink-0 text-right">
-                        <Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>
-                          {QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
-                        </Badge>
-                        <SentMarker quote={quote} />
+                      <div className="flex shrink-0 items-start gap-1 text-right">
+                        <div>
+                          <Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>
+                            {QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
+                          </Badge>
+                          <SentMarker quote={quote} />
+                        </div>
+                        <RowMenu quote={quote} />
                       </div>
                     </div>
                     <div className="mt-3 flex items-end justify-between gap-3 text-sm">
@@ -238,9 +366,7 @@ export function QuotesListClient({ initialQuotes }: { initialQuotes: Quote[] }) 
                           )}
                         </TableCell>
                         <TableCell>
-                          <Link href={`/quotes/${quote.id}`} onClick={(event) => event.stopPropagation()} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900">
-                            <ArrowUpRight className="h-4 w-4" />
-                          </Link>
+                          <RowMenu quote={quote} />
                         </TableCell>
                       </TableRow>
                     ))}

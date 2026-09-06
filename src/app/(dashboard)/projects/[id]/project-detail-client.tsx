@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "@/components/confirm-provider";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -135,6 +136,7 @@ function formatSize(bytes: number | null): string {
 
 export function ProjectDetailClient({ project }: { project: Project }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [status, setStatus] = useState(project.status);
   const [files, setFiles] = useState<ProjectFile[]>(project.files);
   const [uploading, setUploading] = useState(false);
@@ -278,7 +280,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
   }
 
   async function deleteFile(fileId: string) {
-    if (!confirm("Bestand verwijderen?")) return;
+    if (!(await confirm({ title: "Bestand verwijderen?", confirmLabel: "Verwijderen", destructive: true }))) return;
     try {
       const res = await fetch(`/api/projects/${project.id}/files/${fileId}`, {
         method: "DELETE",

@@ -20,7 +20,18 @@ import {
   Mail,
   Calculator,
   ChevronDown,
+  MoreVertical,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useConfirm } from "@/components/confirm-provider";
 import { formatCurrency, formatDate, formatDateTime, QUOTE_STATUS_LABELS } from "@/lib/format";
 import { QuoteBuilder } from "@/components/forms/quote-builder";
 import { AdviceDocumentForm } from "@/components/forms/advice-document-form";
@@ -119,6 +130,7 @@ type Quote = {
   totalVat: string | number;
   totalIncVat: string | number;
   createdAt: string;
+  archivedAt: string | null;
   sentAt: string | null;
   lastSentAt: string | null;
   sendCount: number;
@@ -177,7 +189,9 @@ export function QuoteDetailClient({
   productSets: { id: string; name: string; items: { productId: string; qty: string | number; product: { id: string; name: string; basePrice: string | number; vatRate: string | number; category: string; unit: string } }[] }[];
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState("view");
+  const [archiving, setArchiving] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [openingMail, setOpeningMail] = useState(false);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
@@ -295,10 +309,34 @@ export function QuoteDetailClient({
   }
 
   async function handleDelete() {
-    if (!confirm("Weet je zeker dat je deze offerte wilt verwijderen?")) return;
+    const ok = await confirm({
+      title: "Offerte verwijderen?",
+      body: "De offerte wordt definitief verwijderd, inclusief regels en deellinks. Archiveren houdt hem bewaard.",
+      confirmLabel: "Verwijderen",
+      destructive: true,
+    });
+    if (!ok) return;
     await fetch(`/api/quotes/${quote.id}`, { method: "DELETE" });
     toast.success("Offerte verwijderd");
     router.push("/quotes");
+  }
+
+  async function handleArchive(archived: boolean) {
+    setArchiving(true);
+    try {
+      const res = await fetch(`/api/quotes/${quote.id}/archive`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Mislukt");
+      toast.success(archived ? "Offerte gearchiveerd" : "Offerte teruggezet");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Er ging iets mis");
+    } finally {
+      setArchiving(false);
+    }
   }
 
   async function handleDuplicate() {
@@ -387,11 +425,45 @@ export function QuoteDetailClient({
               Calculatie
             </Button>
           </Link>
-          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={handleDelete}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Meer acties"
+              disabled={archiving}
+              className="grid h-9 w-9 place-items-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {quote.archivedAt ? (
+                <DropdownMenuItem onClick={() => handleArchive(false)}>
+                  <ArchiveRestore className="h-4 w-4" /> Herstellen
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => handleArchive(true)}>
+                  <Archive className="h-4 w-4" /> Archiveren
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={handleDelete}>
+                <Trash2 className="h-4 w-4" /> Verwijderen
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
+
+      {quote.archivedAt && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+          <span className="flex items-center gap-2">
+            <Archive className="h-4 w-4" />
+            Deze offerte is gearchiveerd. Hij staat niet in de werklijsten en telt niet mee in de cijfers.
+          </span>
+          <Button variant="outline" size="sm" onClick={() => handleArchive(false)} disabled={archiving}>
+            <ArchiveRestore className="mr-2 h-4 w-4" />
+            Herstellen
+          </Button>
+        </div>
+      )}
 
       <Dialog open={sendDialogOpen} onOpenChange={(open) => !openingMail && setSendDialogOpen(open)}>
         <DialogContent className="sm:max-w-lg">

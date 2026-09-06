@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useConfirm } from "@/components/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -78,6 +79,7 @@ export function WorkOrderDetailClient({
   workOrder: WorkOrder;
   signatureUrl: string | null;
 }) {
+  const confirm = useConfirm();
   const [title, setTitle] = useState(workOrder.title);
   const [description, setDescription] = useState(workOrder.description ?? "");
   const [technicianName, setTechnicianName] = useState(workOrder.technicianName ?? "");
@@ -183,7 +185,7 @@ export function WorkOrderDetailClient({
   }
 
   async function clearSignature() {
-    if (!confirm("Handtekening verwijderen en opnieuw laten tekenen?")) return;
+    if (!(await confirm({ title: "Handtekening verwijderen?", body: "De klant moet dan opnieuw tekenen.", confirmLabel: "Verwijderen", destructive: true }))) return;
     const res = await fetch(`/api/workorders/${workOrder.id}/signature`, {
       method: "DELETE",
     });

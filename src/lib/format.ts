@@ -166,6 +166,13 @@ export const CALCULATION_STATUS_COLORS: Record<string, string> = {
   QUOTED: "default",
 };
 
+/** Labels voor de archiveer-acties. Eén plek zodat offertes en calculaties gelijk lopen. */
+export const ARCHIVE_LABELS = {
+  archive: "Archiveren",
+  restore: "Herstellen",
+  archived: "Gearchiveerd",
+} as const;
+
 export const KOOLHAAS_CATEGORIES = [
   "Thuisbatterij",
   "EMS & Energiemanagement",

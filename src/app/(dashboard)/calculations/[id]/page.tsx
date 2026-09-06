@@ -65,7 +65,7 @@ export default async function CalculationDetailPage({
   // wat de klant te zien krijgt, dus die wil je hier naast elkaar hebben.
   const siblings = calculation.quoteId
     ? await prisma.calculation.findMany({
-        where: { quoteId: calculation.quoteId, id: { not: calculation.id } },
+        where: { quoteId: calculation.quoteId, id: { not: calculation.id }, archivedAt: null },
         select: { id: true, number: true, title: true, role: true },
         orderBy: [{ sortOrder: "asc" }, { number: "asc" }],
       })

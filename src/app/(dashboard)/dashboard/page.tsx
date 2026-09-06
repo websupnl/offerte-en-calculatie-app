@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
 import { isOpenQuote } from "@/lib/stats";
+import { markExpiredQuotes } from "@/lib/quote-expiry";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,15 +27,17 @@ export default async function DashboardPage() {
     return <div className="p-8 text-slate-500">Selecteer een bedrijf in de navigatie.</div>;
   }
 
+  await markExpiredQuotes(companyId);
+
   const [quoteStats, recentQuotes, customerCount, projectCount] = await Promise.all([
     prisma.quote.groupBy({
       by: ["status"],
-      where: { companyId },
+      where: { companyId, archivedAt: null },
       _count: true,
       _sum: { totalIncVat: true },
     }),
     prisma.quote.findMany({
-      where: { companyId },
+      where: { companyId, archivedAt: null },
       orderBy: { updatedAt: "desc" },
       take: 10,
       select: {

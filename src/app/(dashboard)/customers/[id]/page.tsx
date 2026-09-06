@@ -41,6 +41,7 @@ export default async function CustomerDetailPage({
     where: { id, companyId },
     include: {
       quotes: {
+        where: { archivedAt: null },
         orderBy: { updatedAt: "desc" },
         take: 20,
         select: {

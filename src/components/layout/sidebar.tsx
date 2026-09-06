@@ -227,18 +227,6 @@ export function Sidebar({
         </nav>
 
         <div className="border-t border-white/10 p-3">
-          <Link
-            href="/admin/settings"
-            onClick={onMobileClose}
-            className={cn(
-              "mb-1 flex h-10 items-center gap-3 rounded-full px-4 text-sm font-medium text-[var(--ws-sidebar-fg)] hover:bg-white/8 hover:text-white",
-              pathname.startsWith("/admin/settings") && "bg-white/10 text-white",
-              collapsed && "lg:justify-center lg:rounded-xl lg:px-0",
-            )}
-          >
-            <Settings className="h-[18px] w-[18px] shrink-0" />
-            <span className={cn(collapsed && "lg:hidden")}>Instellingen</span>
-          </Link>
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: "/login" })}

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, CalendarDays, ChevronRight, Menu, Plus, Search } from "lucide-react";
+import { CalendarDays, ChevronRight, Menu, Plus, Search } from "lucide-react";
 import { AiStatusBadge } from "@/components/ai-status-badge";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -15,12 +15,21 @@ const routeLabels: Record<string, string> = {
   workorders: "Werkbonnen",
   invoices: "Facturen",
   quotes: "Offertes",
+  calculations: "Calculaties",
+  calculatie: "Calculatie",
   customers: "Klanten",
   advice: "Adviesdocumenten",
   knowledge: "Kennisbank",
   admin: "Beheer",
   products: "Artikelen",
   settings: "Instellingen",
+  werkplek: "Werkplek",
+  tasks: "Taken",
+  agenda: "Agenda",
+  notes: "Notities",
+  contracts: "Contracten",
+  tracker: "Verzendtracker",
+  review: "Reviews",
   new: "Nieuw",
 };
 
@@ -151,13 +160,6 @@ export function WorkspaceShell({
             <Plus className="mr-1.5 h-4 w-4" />
             Offerte
           </Link>
-          <button
-            type="button"
-            className="hidden h-10 w-10 place-items-center rounded-full bg-white text-slate-500 shadow-sm hover:text-slate-900 lg:grid"
-            aria-label="Meldingen"
-          >
-            <Bell className="h-4 w-4" />
-          </button>
           <div className="hidden shrink-0 items-center gap-2.5 rounded-full bg-white py-1.5 pl-1.5 pr-4 shadow-sm lg:flex">
             <span className="grid h-7 w-7 place-items-center rounded-full bg-[var(--ws-accent-soft)] text-[11px] font-bold text-[var(--ws-accent)]">
               {initials}

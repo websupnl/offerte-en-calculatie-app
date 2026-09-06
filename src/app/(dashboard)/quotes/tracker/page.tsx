@@ -8,7 +8,7 @@ export default async function QuoteTrackerPage() {
 
   const quotes = companyId
     ? await prisma.quote.findMany({
-        where: { companyId, sentAt: { not: null } },
+        where: { companyId, sentAt: { not: null }, archivedAt: null },
         orderBy: { lastSentAt: "desc" },
         include: {
           customer: { select: { id: true, name: true, email: true } },

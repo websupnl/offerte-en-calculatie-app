@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { saveQuoteModules } from "@/lib/quote-modules";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateQuoteNumber } from "@/lib/format";
+import { nextQuoteNumber } from "@/lib/quote-number";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
 
 export async function POST(
@@ -34,9 +34,8 @@ export async function POST(
     );
   }
 
-  const count = await prisma.quote.count({ where: { companyId } });
   const company = await prisma.company.findUnique({ where: { id: companyId } });
-  const quoteNumber = generateQuoteNumber(company?.slug ?? "xx", count + 1);
+  const quoteNumber = await nextQuoteNumber(companyId, company?.slug ?? "xx");
 
   // Verplichte regels worden gewone QuoteItems; optionele regels worden offerte-opties
   // (Quote.options), zodat ze als losse meerprijs zichtbaar zijn en niet meetellen in het totaal.

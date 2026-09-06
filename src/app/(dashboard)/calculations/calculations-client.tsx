@@ -11,6 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/layout/page-header";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useConfirm } from "@/components/confirm-provider";
 import { toast } from "sonner";
 import {
   Calculator,
@@ -21,7 +29,10 @@ import {
   FolderKanban,
   User,
   ArrowUpRight,
+  Archive,
+  ArchiveRestore,
   Loader2,
+  MoreVertical,
   Trash2,
   Copy,
 } from "lucide-react";
@@ -44,6 +55,7 @@ type CalculationSummary = {
   marginPercent: number;
   createdAt: string;
   updatedAt: string;
+  archivedAt: string | null;
   customer: { id: string; name: string; email: string | null } | null;
   project: { id: string; number: string; title: string } | null;
   quote: { id: string; number: string; status: string } | null;
@@ -56,13 +68,16 @@ export function CalculationsClient({
   initialCalculations,
   customers,
   projects,
+  showArchived = false,
 }: {
   initialCalculations: CalculationSummary[];
   customers: OptionItem[];
   projects: OptionItem[];
   companySlug: string;
+  showArchived?: boolean;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [calculations, setCalculations] = useState<CalculationSummary[]>(initialCalculations);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -122,10 +137,14 @@ export function CalculationsClient({
     }
   }
 
-  async function handleDelete(id: string, e: React.MouseEvent) {
-    e.stopPropagation();
-    e.preventDefault();
-    if (!confirm("Weet je zeker dat je deze calculatie wilt verwijderen?")) return;
+  async function handleDelete(id: string) {
+    const ok = await confirm({
+      title: "Calculatie verwijderen?",
+      body: "De calculatie wordt definitief verwijderd. Archiveren houdt hem bewaard en uit de lijst.",
+      confirmLabel: "Verwijderen",
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const res = await fetch(`/api/calculations/${id}`, { method: "DELETE" });
@@ -137,10 +156,22 @@ export function CalculationsClient({
     }
   }
 
-  async function handleDuplicate(id: string, e: React.MouseEvent) {
-    e.stopPropagation();
-    e.preventDefault();
+  async function handleArchive(id: string, archived: boolean) {
+    try {
+      const res = await fetch(`/api/calculations/${id}/archive`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Mislukt");
+      setCalculations((prev) => prev.filter((c) => c.id !== id));
+      toast.success(archived ? "Calculatie gearchiveerd" : "Calculatie teruggezet");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Er ging iets mis");
+    }
+  }
 
+  async function handleDuplicate(id: string) {
     try {
       const res = await fetch(`/api/calculations/${id}/duplicate`, { method: "POST" });
       const data = await res.json();
@@ -234,7 +265,11 @@ export function CalculationsClient({
           </div>
 
           <div className="flex items-center gap-2">
-            <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || "ALL")}>
+            <Select
+              value={statusFilter}
+              onValueChange={(val) => setStatusFilter(val || "ALL")}
+              disabled={showArchived}
+            >
               <SelectTrigger className="w-[180px] bg-white">
                 <SelectValue placeholder="Filter op status" />
               </SelectTrigger>
@@ -245,6 +280,13 @@ export function CalculationsClient({
                 <SelectItem value="QUOTED">Omgezet naar offerte</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              variant={showArchived ? "default" : "outline"}
+              onClick={() => router.push(showArchived ? "/calculations" : "/calculations?archived=1")}
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              Archief
+            </Button>
           </div>
         </div>
 
@@ -336,23 +378,43 @@ export function CalculationsClient({
                         </div>
 
                         <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                            onClick={(e) => handleDuplicate(calc.id, e)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-slate-400 hover:text-red-600 hover:bg-red-50"
-                            onClick={(e) => handleDelete(calc.id, e)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                          <ArrowUpRight className="h-4 w-4 text-slate-400 group-hover:text-slate-700 transition-colors" />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              aria-label="Acties"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                              }}
+                              className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-48"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <DropdownMenuItem onClick={() => router.push(`/calculations/${calc.id}`)}>
+                                <ArrowUpRight className="h-4 w-4" /> Openen
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDuplicate(calc.id)}>
+                                <Copy className="h-4 w-4" /> Dupliceren
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {calc.archivedAt ? (
+                                <DropdownMenuItem onClick={() => handleArchive(calc.id, false)}>
+                                  <ArchiveRestore className="h-4 w-4" /> Herstellen
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem onClick={() => handleArchive(calc.id, true)}>
+                                  <Archive className="h-4 w-4" /> Archiveren
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem variant="destructive" onClick={() => handleDelete(calc.id)}>
+                                <Trash2 className="h-4 w-4" /> Verwijderen
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     </div>

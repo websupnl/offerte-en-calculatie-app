@@ -131,6 +131,24 @@ npm run import:quote /tmp/offerte-draft.json --company [koolhaas|websup] --custo
 
 De CLI geeft het offertenummer en de directe app-URL terug. Stuur die URL terug aan de gebruiker zodat hij de offerte direct kan bekijken en eventueel aanpassen.
 
+## Stap 7 — Controleer de pagina-opmaak
+
+Een offertepagina is een echte A4 met `overflow: hidden`. Past de tekst niet,
+dan valt het overschot er stil af en ziet de klant een halve zin. Vooral de
+**werkwijze** ("Zo werkt het in de praktijk") en de **bronnenlijst** lopen over
+bij te veel of te lange blokken.
+
+- De MCP-tools `get_quote` en `update_quote` geven een veld `layoutWarnings`
+  terug (en zetten een `LET OP`-regel bovenaan) zodra een sectie over de pagina
+  loopt. Krijg je die waarschuwing, kort dan in:
+  - **Werkwijze:** 5 à 6 korte stappen per pagina. Voeg stappen over hetzelfde
+    onderwerp samen in plaats van drie losse blokken.
+  - **Bronnen:** maximaal ~8 per pagina, elke omschrijving één korte regel.
+- De preview verdeelt beide secties zelf over meerdere pagina's, maar liever
+  kort en één pagina dan uitgesmeerd.
+- Schrijf niet "zoals we hebben afgestemd" als er niets is afgestemd. De klant
+  heeft alleen een mail gestuurd en daar losjes op gereageerd; benoem het zo.
+
 ## Technische context
 
 - App draait op poort **3001** (niet 3000 — dat is een andere app)

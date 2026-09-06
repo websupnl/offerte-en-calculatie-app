@@ -2,6 +2,7 @@
 
 import { Fragment, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "@/components/confirm-provider";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,6 +134,7 @@ export function CalculationBuilderClient({
   travelPricingTiers?: TravelPricingTier[];
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [calculation, setCalculation] = useState<CalculationDetail>(initialCalculation);
   const [items, setItems] = useState<CalculationItemState[]>(initialCalculation.items);
   const [role, setRole] = useState<"BASE" | "VARIANT">(initialCalculation.role ?? "BASE");
@@ -563,7 +565,7 @@ export function CalculationBuilderClient({
   }
 
   async function handleDelete() {
-    if (!confirm("Weet je zeker dat je deze calculatie wilt verwijderen? Dit kan niet ongedaan gemaakt worden.")) return;
+    if (!(await confirm({ title: "Calculatie verwijderen?", body: "Dit kan niet ongedaan gemaakt worden. Archiveren houdt hem bewaard.", confirmLabel: "Verwijderen", destructive: true }))) return;
 
     setDeleting(true);
     try {

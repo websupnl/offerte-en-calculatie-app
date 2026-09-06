@@ -27,7 +27,7 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
           customer: true,
           items: { orderBy: { sortOrder: "asc" } },
           modules: { orderBy: { sortOrder: "asc" } },
-          calculations: { orderBy: { sortOrder: "asc" }, include: { items: { orderBy: { sortOrder: "asc" } } } },
+          calculations: { where: { archivedAt: null }, orderBy: { sortOrder: "asc" }, include: { items: { orderBy: { sortOrder: "asc" } } } },
           contentBlocks: { orderBy: { sortOrder: "asc" } },
           attachments: { orderBy: { sortOrder: "asc" } },
           documents: { include: { productDocument: true }, orderBy: { sortOrder: "asc" } },

@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     prisma.quote.findMany({
       where: {
         companyId,
+        archivedAt: null,
         OR: [
           { number: { contains: query, mode: "insensitive" } },
           { title: { contains: query, mode: "insensitive" } },

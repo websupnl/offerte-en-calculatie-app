@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "@/components/confirm-provider";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -43,6 +44,7 @@ type Customer = {
 
 export function CustomersClient({ initialCustomers }: { initialCustomers: Customer[] }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -109,7 +111,15 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
   }
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`Weet je zeker dat je ${name} wilt verwijderen?`)) return;
+    if (
+      !(await confirm({
+        title: "Klant verwijderen?",
+        body: `${name} wordt definitief verwijderd.`,
+        confirmLabel: "Verwijderen",
+        destructive: true,
+      }))
+    )
+      return;
     const response = await fetch(`/api/customers/${id}`, { method: "DELETE" });
     if (!response.ok) {
       toast.error("Verwijderen mislukt");

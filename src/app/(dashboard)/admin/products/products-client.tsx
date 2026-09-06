@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "@/components/confirm-provider";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -115,6 +116,7 @@ export function ProductsClient({
   initialProductId?: string;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const initialSelectedProduct = initialProducts.find((product) => product.id === initialProductId);
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [sets, setSets] = useState<ProductSet[]>(initialSets);
@@ -398,7 +400,7 @@ export function ProductsClient({
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Weet je zeker dat je dit product wilt verwijderen?")) return;
+    if (!(await confirm({ title: "Product verwijderen?", body: "Dit product wordt definitief verwijderd.", confirmLabel: "Verwijderen", destructive: true }))) return;
     const response = await fetch(`/api/products/${id}`, { method: "DELETE" });
     if (!response.ok) return toast.error("Product verwijderen mislukt");
     setProducts((prev) => prev.filter((p) => p.id !== id));
@@ -493,7 +495,7 @@ export function ProductsClient({
   }
 
   async function handleDeleteSet(id: string) {
-    if (!confirm("Weet je zeker dat je deze set wilt verwijderen?")) return;
+    if (!(await confirm({ title: "Set verwijderen?", body: "Deze productset wordt definitief verwijderd.", confirmLabel: "Verwijderen", destructive: true }))) return;
     const response = await fetch(`/api/product-sets/${id}`, { method: "DELETE" });
     if (!response.ok) return toast.error("Set verwijderen mislukt");
     setSets((prev) => prev.filter((s) => s.id !== id));
@@ -520,7 +522,7 @@ export function ProductsClient({
   }
 
   async function handleDeleteDs(id: string) {
-    if (!confirm("Datasheet-entry verwijderen?")) return;
+    if (!(await confirm({ title: "Datasheet-entry verwijderen?", confirmLabel: "Verwijderen", destructive: true }))) return;
     const response = await fetch(`/api/knowledge/datasheets/${id}`, { method: "DELETE" });
     if (!response.ok) return toast.error("Entry verwijderen mislukt");
     setDatasheets((prev) => prev.filter((d) => d.id !== id));
