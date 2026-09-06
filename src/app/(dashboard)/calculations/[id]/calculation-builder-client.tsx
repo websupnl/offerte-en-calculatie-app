@@ -520,27 +520,24 @@ export function CalculationBuilderClient({
   };
   const currentSignature = JSON.stringify(savePayload);
 
-  const savePayloadRef = useRef(savePayload);
-  savePayloadRef.current = savePayload;
-
   // Stille opslag voor autosave: PUT zonder toast, met statusindicatie.
+  // De debounce-effect hieronder maakt bij elke wijziging een nieuwe timer met
+  // een verse closure, dus deze functie ziet altijd de laatste state.
   const silentSave = async () => {
     if (autosaveInFlight.current) return;
-    const payload = savePayloadRef.current;
-    if (!payload.title.trim()) return;
-    const signature = JSON.stringify(payload);
+    if (!title.trim()) return;
     autosaveInFlight.current = true;
     setSaveStatus("saving");
     try {
       const res = await fetch(`/api/calculations/${calculation.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(savePayload),
       });
       const updated = await res.json();
       if (!res.ok) throw new Error(updated.error || "Opslaan mislukt");
       setCalculation(updated);
-      savedSignatureRef.current = signature;
+      savedSignatureRef.current = currentSignature;
       setSaveStatus("saved");
     } catch {
       setSaveStatus("error");
