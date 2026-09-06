@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useMemo } from "react";
+import { Fragment, useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useConfirm } from "@/components/confirm-provider";
 import Link from "next/link";
@@ -20,6 +20,7 @@ import {
   Calculator,
   Plus,
   Save,
+  Check,
   FileText,
   Trash2,
   Clock,
@@ -224,6 +225,11 @@ export function CalculationBuilderClient({
   const [saving, setSaving] = useState(false);
   const [converting, setConverting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Eén opslagmanier, gelijk aan de offerte-editor: de calculatie slaat zichzelf op.
+  const [saveStatus, setSaveStatus] = useState<"idle" | "unsaved" | "saving" | "saved" | "error">("idle");
+  const autosaveInFlight = useRef(false);
+  const firstAutosaveRender = useRef(true);
+  const savedSignatureRef = useRef("");
 
   // Set / Combi Selector Dialog
   const [setDialogOpen, setSetDialogOpen] = useState(false);
@@ -502,37 +508,101 @@ export function CalculationBuilderClient({
     }
   }
 
+  const savePayload = {
+    title,
+    description,
+    status,
+    notes,
+    customerId: customerId || null,
+    projectId: projectId || null,
+    role,
+    items,
+  };
+  const currentSignature = JSON.stringify(savePayload);
+
+  const savePayloadRef = useRef(savePayload);
+  savePayloadRef.current = savePayload;
+
+  // Stille opslag voor autosave: PUT zonder toast, met statusindicatie.
+  const silentSave = async () => {
+    if (autosaveInFlight.current) return;
+    const payload = savePayloadRef.current;
+    if (!payload.title.trim()) return;
+    const signature = JSON.stringify(payload);
+    autosaveInFlight.current = true;
+    setSaveStatus("saving");
+    try {
+      const res = await fetch(`/api/calculations/${calculation.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const updated = await res.json();
+      if (!res.ok) throw new Error(updated.error || "Opslaan mislukt");
+      setCalculation(updated);
+      savedSignatureRef.current = signature;
+      setSaveStatus("saved");
+    } catch {
+      setSaveStatus("error");
+    } finally {
+      autosaveInFlight.current = false;
+    }
+  };
+
+  // Debounce: 1,5s na de laatste wijziging automatisch opslaan.
+  useEffect(() => {
+    if (firstAutosaveRender.current) {
+      firstAutosaveRender.current = false;
+      savedSignatureRef.current = currentSignature;
+      return;
+    }
+    if (!title.trim()) return;
+    if (currentSignature === savedSignatureRef.current) return;
+    setSaveStatus("unsaved");
+    const timer = setTimeout(() => void silentSave(), 1500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSignature]);
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (saveStatus === "unsaved" || saveStatus === "saving") {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [saveStatus]);
+
+  // Directe opslag, gebruikt vóór het omzetten naar een offerte.
   async function handleSave() {
     if (!title.trim()) {
       toast.error("Titel is verplicht");
       return;
     }
-
+    while (autosaveInFlight.current) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    autosaveInFlight.current = true;
     setSaving(true);
+    setSaveStatus("saving");
     try {
       const res = await fetch(`/api/calculations/${calculation.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          description,
-          status,
-          notes,
-          customerId: customerId || null,
-          projectId: projectId || null,
-          role,
-          items,
-        }),
+        body: JSON.stringify(savePayload),
       });
-
       const updated = await res.json();
       if (!res.ok) throw new Error(updated.error || "Opslaan mislukt");
-
       setCalculation(updated);
-      toast.success("Calculatie opgeslagen");
+      savedSignatureRef.current = currentSignature;
+      setSaveStatus("saved");
     } catch (err) {
+      setSaveStatus("error");
       toast.error(err instanceof Error ? err.message : "Fout bij opslaan");
     } finally {
+      autosaveInFlight.current = false;
       setSaving(false);
     }
   }
@@ -594,10 +664,26 @@ export function CalculationBuilderClient({
               </Button>
             </Link>
 
-            <Button onClick={handleSave} disabled={saving} variant="secondary">
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Opslaan
-            </Button>
+            <div className="flex items-center gap-1.5 text-xs font-medium" aria-live="polite">
+              {saveStatus === "saving" && (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" /><span className="text-slate-500">Bezig met opslaan</span></>
+              )}
+              {saveStatus === "saved" && (
+                <><Check className="h-3.5 w-3.5 text-emerald-600" /><span className="text-emerald-600">Opgeslagen</span></>
+              )}
+              {saveStatus === "unsaved" && (
+                <span className="text-slate-500">Wijzigingen worden opgeslagen</span>
+              )}
+              {saveStatus === "idle" && (
+                <span className="text-slate-400">Slaat automatisch op</span>
+              )}
+            </div>
+            {saveStatus === "error" && (
+              <Button onClick={handleSave} disabled={saving} className="bg-red-600 hover:bg-red-700 text-white">
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Opnieuw opslaan
+              </Button>
+            )}
 
             <Button onClick={handleConvertToQuote} disabled={converting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
               {converting ? (

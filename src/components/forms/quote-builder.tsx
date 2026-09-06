@@ -867,12 +867,15 @@ export function QuoteBuilder({
   }
 
   // Stille opslag voor autosave: PUT zonder navigatie of toast, met statusindicatie.
+  // Autosave is de enige opslagmanier voor een bestaande offerte; er is geen losse
+  // opslaan-knop meer. Afbeeldingen gaan mee, behalve terwijl er nog een upload
+  // loopt — dan wacht autosave één cyclus zodat de lijst niet half wordt weggeschreven.
   async function silentSave() {
     if (!initialQuote?.id) return;
     if (autosaveInFlight.current) return;
+    if (uploadingAttachment || uploadingChoiceImageId) return;
     if (!canPersist()) return;
-    // Autosave laat afbeeldingen ongemoeid (includeAttachments = false).
-    const payload = buildPayload(false);
+    const payload = buildPayload(true);
     const signature = JSON.stringify(payload);
     autosaveInFlight.current = true;
     setSaveStatus("saving");
@@ -893,8 +896,7 @@ export function QuoteBuilder({
   }
 
   // Debounce: 1,5s na de laatste wijziging automatisch opslaan (alleen bestaande offertes).
-  // Afbeeldingen tellen niet mee: die worden via de handmatige opslag bewaard.
-  const currentSignature = JSON.stringify(buildPayload(false));
+  const currentSignature = JSON.stringify(buildPayload(true));
   useEffect(() => {
     if (!initialQuote?.id) return;
     if (firstAutosaveRender.current) {
@@ -2093,19 +2095,24 @@ export function QuoteBuilder({
             />
           </div>
 
-          {/* De offerte slaat zichzelf op. De knop is er alleen als vangnet bij een
-              fout, zodat "Verstuur offerte" de enige opvallende actie blijft. */}
-          <div className="flex items-center justify-end gap-1.5 text-xs font-medium" aria-live="polite">
-            {saveStatus === "saving" && (
-              <><Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" /><span className="text-slate-500">Bezig met opslaan</span></>
-            )}
-            {saveStatus === "saved" && (
-              <><Check className="h-3.5 w-3.5 text-emerald-600" /><span className="text-emerald-600">Opgeslagen</span></>
-            )}
-            {saveStatus === "unsaved" && (
-              <span className="text-slate-500">Wijzigingen worden opgeslagen</span>
-            )}
-          </div>
+          {/* Eén opslagmanier: een bestaande offerte slaat zichzelf op. Alleen bij
+              een nieuwe offerte of een fout is er een knop. */}
+          {initialQuote?.id && (
+            <div className="flex items-center justify-end gap-1.5 text-xs font-medium" aria-live="polite">
+              {saveStatus === "saving" && (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" /><span className="text-slate-500">Bezig met opslaan</span></>
+              )}
+              {saveStatus === "saved" && (
+                <><Check className="h-3.5 w-3.5 text-emerald-600" /><span className="text-emerald-600">Opgeslagen</span></>
+              )}
+              {saveStatus === "unsaved" && (
+                <span className="text-slate-500">Wijzigingen worden opgeslagen</span>
+              )}
+              {saveStatus === "idle" && (
+                <span className="text-slate-400">Slaat automatisch op</span>
+              )}
+            </div>
+          )}
 
           <div className="h-6 w-px bg-slate-200" />
 
@@ -2126,17 +2133,17 @@ export function QuoteBuilder({
             <SlidersHorizontal className="h-4 w-4 text-slate-400" />
           </button>
 
-          {saveStatus === "error" ? (
+          {!initialQuote?.id ? (
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Offerte opslaan
+            </Button>
+          ) : saveStatus === "error" ? (
             <Button onClick={handleSave} disabled={saving} className="bg-red-600 hover:bg-red-700">
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Opslaan mislukt, opnieuw
+              Opnieuw opslaan
             </Button>
-          ) : (
-            <Button variant="outline" size="sm" onClick={handleSave} disabled={saving} title="Nu opslaan">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              <span className="sr-only">Nu opslaan</span>
-            </Button>
-          )}
+          ) : null}
         </div>
       </header>
 
