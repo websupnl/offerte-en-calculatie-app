@@ -36,7 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     where: { id, companyId },
     include: {
       items: { orderBy: { sortOrder: "asc" } },
-      calculations: { select: { id: true, role: true, sortOrder: true } },
+      calculations: { where: { archivedAt: null }, select: { id: true, role: true, sortOrder: true } },
     },
   });
   if (!quote) return NextResponse.json({ error: "Offerte niet gevonden" }, { status: 404 });

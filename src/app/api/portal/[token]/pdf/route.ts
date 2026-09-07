@@ -28,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
           customer: true,
           items: { orderBy: { sortOrder: "asc" } },
           modules: { orderBy: { sortOrder: "asc" } },
-          calculations: { orderBy: { sortOrder: "asc" }, include: { items: { orderBy: { sortOrder: "asc" } } } },
+          calculations: { where: { archivedAt: null }, orderBy: { sortOrder: "asc" }, include: { items: { orderBy: { sortOrder: "asc" } } } },
           attachments: { orderBy: { sortOrder: "asc" } },
           company: true,
         },
