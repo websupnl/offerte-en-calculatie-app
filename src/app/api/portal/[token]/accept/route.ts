@@ -8,6 +8,8 @@ import {
   quoteOptionSchema,
   validateQuoteSelection,
 } from "@/lib/quote-selection";
+import { modulesToOptions } from "@/lib/quote-modules";
+import { applyCalculationPricing } from "@/lib/quote-with-pricing";
 
 const acceptSchema = z.object({
   message: z.string().trim().max(2000).optional().default(""),
@@ -23,19 +25,38 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: "Controleer uw naam en keuzes." }, { status: 400 });
   }
 
-  const share = await prisma.quoteShare.findUnique({
+  const gedeeld = await prisma.quoteShare.findUnique({
     where: { token },
     include: {
       quote: {
         include: {
           items: { orderBy: { sortOrder: "asc" } },
+          // Modules staan in hun eigen tabel. Zonder deze twee zou de klant zijn
+          // keuzes laten valideren tegen een lege lijst, en dan verdwijnt wat hij
+          // heeft aangevinkt stil uit de acceptatie.
+          modules: { orderBy: { sortOrder: "asc" } },
+          calculations: {
+            where: { archivedAt: null },
+            orderBy: { sortOrder: "asc" },
+            include: { items: { orderBy: { sortOrder: "asc" } } },
+          },
           customer: true,
           company: true,
         },
       },
     },
   });
-  if (!share) return NextResponse.json({ error: "Offerte niet gevonden." }, { status: 404 });
+  if (!gedeeld) return NextResponse.json({ error: "Offerte niet gevonden." }, { status: 404 });
+
+  // Precies dezelfde vertaling als het klantportaal doet, zodat wat de klant
+  // accepteert overeenkomt met wat hij op het scherm zag staan.
+  const share = {
+    ...gedeeld,
+    quote: applyCalculationPricing({
+      ...gedeeld.quote,
+      options: modulesToOptions(gedeeld.quote.modules),
+    }),
+  };
   if (share.acceptedAt || share.declinedAt) {
     return NextResponse.json({ error: "Deze offerte is al beantwoord." }, { status: 409 });
   }

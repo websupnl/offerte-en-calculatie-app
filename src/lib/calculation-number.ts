@@ -1,21 +1,25 @@
 import { prisma } from "@/lib/prisma";
 import { generateCalculationNumber } from "@/lib/format";
+import { volgendVolgnummer } from "@/lib/next-number";
 
 /**
  * Volgend calculatienummer binnen een bedrijf.
  *
  * Tellen op het aantal records gaf dubbele nummers zodra er een calculatie
  * verwijderd was. We tellen daarom door op het hoogste nummer dat er dit jaar
- * al staat. Varianten maken we straks veel vaker aan, dus dat zou snel misgaan.
+ * al staat. Varianten maken we vaker aan, dus dat zou snel misgaan.
  */
 export async function nextCalculationNumber(companyId: string, companySlug: string): Promise<string> {
   const prefix = generateCalculationNumber(companySlug, 0).replace(/\d+$/, "");
-  const laatste = await prisma.calculation.findFirst({
+  // Zelfde reden als bij nextQuoteNumber: sorteren op tekst pakt niet altijd
+  // het hoogste getal. Zie next-number.ts.
+  const bestaande = await prisma.calculation.findMany({
     where: { companyId, number: { startsWith: prefix } },
-    orderBy: { number: "desc" },
     select: { number: true },
   });
 
-  const hoogste = Number(laatste?.number.slice(prefix.length) ?? 0);
-  return generateCalculationNumber(companySlug, (Number.isFinite(hoogste) ? hoogste : 0) + 1);
+  return generateCalculationNumber(
+    companySlug,
+    volgendVolgnummer(bestaande.map((c) => c.number), prefix),
+  );
 }

@@ -107,6 +107,13 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
   serialized.quote.options = parsedOptions.success ? parsedOptions.data : [];
   // Nieuwe offertes: prijs, artikelen, varianten en extra’s komen uit de gekoppelde
   // calculaties. Oude offertes houden wat hierboven is opgebouwd.
+  //
+  // De ruwe calculatieregels moeten hier weg. Ze staan met leverancier,
+  // artikelnummer, inkoopprijs en marge in `serialized`, en alles wat je aan een
+  // clientcomponent meegeeft belandt leesbaar in de paginabron. Object.assign
+  // overschrijft alleen sleutels die de vervanger zelf heeft, dus deze moet er
+  // met de hand uit.
+  delete serialized.quote.calculations;
   Object.assign(serialized.quote, applyCalculationPricing(serialized.quote));
   // Expliciet meegeven, net als options: anders verschilt de client-render van de
   // server-render en telt de klant een pagina minder (hydration-mismatch).

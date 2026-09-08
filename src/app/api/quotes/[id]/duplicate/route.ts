@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { nextQuoteNumber } from "@/lib/quote-number";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
+import { nextCalculationNumber } from "@/lib/calculation-number";
+import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -16,6 +18,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     include: {
       items: { orderBy: { sortOrder: "asc" } },
       modules: { orderBy: { sortOrder: "asc" } },
+      contentBlocks: { orderBy: { sortOrder: "asc" } },
+      calculations: {
+        where: { archivedAt: null },
+        orderBy: { sortOrder: "asc" },
+        include: { items: { orderBy: { sortOrder: "asc" } } },
+      },
       attachments: { orderBy: { sortOrder: "asc" } },
     },
   });
@@ -85,6 +93,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             })),
           }
         : undefined,
+      contentBlocks: source.contentBlocks.length
+        ? {
+            create: source.contentBlocks.map((blok) => ({
+              type: blok.type, title: blok.title, body: blok.body,
+              items: blok.items as object, tone: blok.tone,
+              imageUrl: blok.imageUrl, caption: blok.caption, sortOrder: blok.sortOrder,
+            })),
+          }
+        : undefined,
       attachments: source.attachments.length
         ? {
             create: source.attachments.map((attachment) => ({
@@ -100,6 +117,50 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     },
     include: { customer: true, items: true, attachments: { orderBy: { sortOrder: "asc" } } },
   });
+
+  // Calculaties krijgen elk een eigen nummer, dus die kunnen niet als geneste
+  // create mee. Zonder deze kopie zou een gedupliceerde offerte op het nieuwe
+  // pad helemaal geen prijs hebben.
+  for (const bron of source.calculations) {
+    const calculatieNummer = await nextCalculationNumber(companyId, company?.slug ?? "xx");
+    await prisma.calculation.create({
+      data: {
+        companyId,
+        customerId: bron.customerId,
+        projectId: bron.projectId,
+        quoteId: duplicate.id,
+        number: calculatieNummer,
+        title: bron.title,
+        description: bron.description,
+        status: "DRAFT",
+        role: bron.role,
+        sortOrder: bron.sortOrder,
+        vatRate: bron.vatRate,
+        totalCostPrice: bron.totalCostPrice,
+        totalSalesPrice: bron.totalSalesPrice,
+        marginAmount: bron.marginAmount,
+        marginPercent: bron.marginPercent,
+        notes: bron.notes,
+        items: bron.items.length
+          ? {
+              create: bron.items.map((regel) => ({
+                productId: regel.productId, type: regel.type, supplier: regel.supplier,
+                sku: regel.sku, description: regel.description, qty: regel.qty, unit: regel.unit,
+                costPrice: regel.costPrice, markupPercent: regel.markupPercent,
+                unitPrice: regel.unitPrice, totalCostPrice: regel.totalCostPrice,
+                totalSalesPrice: regel.totalSalesPrice, vatRate: regel.vatRate,
+                optional: regel.optional, hiddenOnQuote: regel.hiddenOnQuote,
+                recurringInterval: regel.recurringInterval, quoteNote: regel.quoteNote,
+                sortOrder: regel.sortOrder,
+              })),
+            }
+          : undefined,
+      },
+    });
+  }
+  if (source.calculations.length) {
+    await syncQuoteTotalsFromCalculations(duplicate.id);
+  }
 
   const host = req.headers.get("host") ?? "localhost:3000";
   const cookie = req.headers.get("cookie") ?? "";

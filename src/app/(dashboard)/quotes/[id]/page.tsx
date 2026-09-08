@@ -74,7 +74,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
       attachments,
       choiceGroups,
       documents,
-    }),
+    }, { internal: true }),
     company,
     customers,
     products,

@@ -13,6 +13,7 @@ import { normalizeQuoteCopyValue } from "@/lib/quote-copy";
 import { getQuoteAttachmentStorageKey } from "@/lib/quote-attachments";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
 import { saveQuoteModules } from "@/lib/quote-modules";
+import { nextCalculationNumber } from "@/lib/calculation-number";
 
 const itemSchema = z.object({
   productId: z.string().optional(),
@@ -168,6 +169,26 @@ export async function POST(req: NextRequest) {
   // Modules staan in hun eigen tabel, dus na het aanmaken van de offerte wegschrijven.
   if (options?.length) {
     await saveQuoteModules(quote.id, options);
+  }
+
+  // Een offerte die leeg begint krijgt meteen een basiscalculatie. De calculatie
+  // is immers de bron van de prijs, dus je hoort er niet eerst zelf een te moeten
+  // aanmaken. Wordt de offerte mét regels aangemaakt (import, oude flow), dan
+  // laten we hem op het oude pad staan.
+  if (items.length === 0 && (choiceGroups?.length ?? 0) === 0) {
+    await prisma.calculation.create({
+      data: {
+        companyId,
+        customerId,
+        projectId: quote.projectId,
+        quoteId: quote.id,
+        number: await nextCalculationNumber(companyId, company?.slug ?? "xx"),
+        title: title ?? `Calculatie ${quote.number}`,
+        status: "DRAFT",
+        role: "BASE",
+        vatRate: quote.vatRate,
+      },
+    });
   }
 
   const host = req.headers.get("host") ?? "localhost:3000";

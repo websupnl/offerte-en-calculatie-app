@@ -243,6 +243,40 @@ async function insertCalculationItems(
   }
 }
 
+/**
+ * Een offerte met gekoppelde calculaties en geen losse regels haalt zijn prijs
+ * uit die calculaties (zie src/lib/quote-pricing.ts). Er dan toch een QuoteItem
+ * bij schrijven zet hem stil terug op het oude pad: de calculatieprijzen
+ * verdwijnen dan van de offerte zonder dat iemand het merkt.
+ *
+ * Geeft een uitlegtekst terug als de tool moet weigeren, anders null.
+ */
+async function weigerAlsCalculatieDePrijsBepaalt(quoteId: string): Promise<string | null> {
+  const telling = await queryOne<{ regels: string; calculaties: string }>(
+    `SELECT
+       (SELECT COUNT(*) FROM "QuoteItem" WHERE "quoteId" = $1) AS regels,
+       (SELECT COUNT(*) FROM "Calculation" WHERE "quoteId" = $1 AND "archivedAt" IS NULL) AS calculaties`,
+    [quoteId]
+  );
+  if (!telling) return null;
+  if (Number(telling.regels) > 0 || Number(telling.calculaties) === 0) return null;
+
+  return `Deze offerte haalt prijs en artikelen uit gekoppelde calculaties. Losse `
+    + `offerteregels toevoegen zou die prijzen van de offerte laten verdwijnen.
+
+`
+    + `Gebruik in plaats daarvan:
+`
+    + `- add_calculation_items om artikelen aan de basiscalculatie toe te voegen
+`
+    + `- een tweede calculatie met role VARIANT als de klant moet kiezen
+`
+    + `- optional: true op een calculatieregel voor aanvinkbaar meerwerk
+
+`
+    + `get_quote toont welke calculaties eraan hangen.`;
+}
+
 // Kostprijs volgt de app-conventie uit src/app/api/calculations/route.ts: eigen uren
 // (type LABOR) zijn geen inkoopkost en tellen dus niet mee in totalCostPrice.
 async function recalculateCalculationTotals(calculationId: string): Promise<void> {
@@ -693,6 +727,8 @@ function createMcpServer() {
         `SELECT id FROM "Quote" WHERE id = $1`, [quote_id]
       );
       if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+      const weigering = await weigerAlsCalculatieDePrijsBepaalt(quote_id);
+      if (weigering) return { content: [{ type: "text", text: weigering }] };
 
       const items = await query<{ productId: string; name: string; basePrice: string; costPrice: string; vatRate: string; unit: string; qty: string }>(
         `SELECT p.id AS "productId", p.name, p."basePrice", p."costPrice", p."vatRate", p.unit, psi.qty
@@ -931,7 +967,7 @@ function createMcpServer() {
 
   server.tool(
     "get_quote",
-    "Haal alle details van een offerte op, inclusief regels en klantgegevens",
+    "Haal alle details van een offerte op, inclusief regels, gekoppelde calculaties en klantgegevens. Let op `prijsbron`: staat daar 'calculaties', dan bepaalt de calculatie de prijs en werk je met de calculatietools, niet met add_quote_item.",
     { quote_id: z.string().describe("Quote ID") },
     async ({ quote_id }) => {
       const quote = await queryOne(
@@ -975,7 +1011,28 @@ function createMcpServer() {
           : [],
       });
 
-      const payload = JSON.stringify({ ...quote, options, items, attachments, share, layoutWarnings }, null, 2);
+      // Gekoppelde calculaties, plus in één woord waar de prijs vandaan komt.
+      // Zonder dat zou een AI `items: []` zien en denken dat de offerte leeg is.
+      const calculaties = await query(
+        `SELECT c.id, c.number, c.title, c.role, c."sortOrder", c."totalSalesPrice", c."marginPercent",
+                (SELECT COUNT(*) FROM "CalculationItem" ci
+                  WHERE ci."calculationId" = c.id AND ci.optional = false AND ci."hiddenOnQuote" = false) AS regels,
+                (SELECT COUNT(*) FROM "CalculationItem" ci
+                  WHERE ci."calculationId" = c.id AND ci.optional = true AND ci."hiddenOnQuote" = false) AS extras
+           FROM "Calculation" c
+          WHERE c."quoteId" = $1 AND c."archivedAt" IS NULL
+          ORDER BY c."sortOrder", c.number`,
+        [quote_id]
+      );
+      const prijsbron = calculaties.length > 0 && items.length === 0
+        ? "calculaties"
+        : "offerteregels";
+
+      const payload = JSON.stringify(
+        { ...quote, prijsbron, calculaties, options, items, attachments, share, layoutWarnings },
+        null,
+        2,
+      );
       const notice = layoutWarningText(layoutWarnings);
       return { content: [{ type: "text", text: notice ? `${notice}\n\n${payload}` : payload }] };
     }
@@ -1180,6 +1237,8 @@ function createMcpServer() {
     async ({ quote_id, description, qty, unit_price, cost_price, vat_rate, indent }) => {
       const quote = await queryOne<{ id: string }>(`SELECT id FROM "Quote" WHERE id = $1`, [quote_id]);
       if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+      const weigering = await weigerAlsCalculatieDePrijsBepaalt(quote_id);
+      if (weigering) return { content: [{ type: "text", text: weigering }] };
 
       const lineTotal = qty * unit_price;
       const lineVat = lineTotal * (vat_rate / 100);
@@ -1219,6 +1278,8 @@ function createMcpServer() {
     async ({ quote_id, items }) => {
       const quote = await queryOne<{ id: string }>(`SELECT id FROM "Quote" WHERE id = $1`, [quote_id]);
       if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+      const weigering = await weigerAlsCalculatieDePrijsBepaalt(quote_id);
+      if (weigering) return { content: [{ type: "text", text: weigering }] };
 
       const maxSort = await queryOne<{ max: number }>(
         `SELECT COALESCE(MAX("sortOrder"), -1) AS max FROM "QuoteItem" WHERE "quoteId" = $1`,

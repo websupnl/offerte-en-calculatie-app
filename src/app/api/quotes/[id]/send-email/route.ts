@@ -10,6 +10,7 @@ import { downloadObject, isStorageConfigured } from "@/lib/storage";
 import { defaultQuoteEmailMessage } from "@/lib/quote-email-copy";
 import { calculateQuotePriceSummary, quoteChoiceGroupSchema } from "@/lib/quote-selection";
 import { z } from "zod";
+import { applyCalculationPricing } from "@/lib/quote-with-pricing";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -37,16 +38,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  const quote = await prisma.quote.findFirst({
+  const geladen = await prisma.quote.findFirst({
     where: { id, companyId: session.user.activeCompanyId },
     include: {
       customer: true,
       company: true,
       documents: { include: { productDocument: true }, orderBy: { sortOrder: "asc" } },
       items: { orderBy: { sortOrder: "asc" } },
+      calculations: {
+        where: { archivedAt: null },
+        orderBy: { sortOrder: "asc" },
+        include: { items: { orderBy: { sortOrder: "asc" } } },
+      },
     },
   });
-  if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!geladen) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Zonder dit zou de mail "vanaf"-prijzen missen bij varianten, want die zitten
+  // in de calculaties en niet meer in choiceGroups.
+  const quote = applyCalculationPricing(geladen);
   if (!quote.customer.email) {
     return NextResponse.json({ error: "Deze klant heeft geen e-mailadres" }, { status: 422 });
   }
