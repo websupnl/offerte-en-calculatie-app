@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { portalAccessByToken } from "@/lib/portal";
@@ -93,15 +93,27 @@ export async function POST(req: NextRequest) {
   });
 
   const isMobile = Number(pin.viewport.split("x")[0]) < 768;
-  sendTelegramMessage(
-    `📍 <b>PIN OP DE SITE</b>\n👤 ${access.name ?? "Klant"}\n📝 ${title}\n🔗 ${pin.url}\n${isMobile ? "📱 Mobiel" : "💻 Desktop"} (${pin.viewport})`,
-  ).catch(console.error);
-  sendPushToUser(owner.userId, {
-    title: `${access.name ?? "Klant"} wees iets aan`,
-    body: title,
-    url: `/tasks?task=${task.id}`,
-    tag: `pin-${task.id}`,
-  }).catch(console.error);
+  // In after() en niet als losse aanroep ernaast: op Vercel wordt de functie
+  // bevroren zodra het antwoord verstuurd is, en dan wordt een lopende fetch
+  // afgekapt. Zo belandde een geaccepteerde offerte wel in de database, maar
+  // kwam de melding nooit op je telefoon aan.
+  after(async () => {
+    await sendTelegramMessage(
+      `📍 <b>PIN OP DE SITE</b>\n👤 ${access.name ?? "Klant"}\n📝 ${title}\n🔗 ${pin.url}\n${isMobile ? "📱 Mobiel" : "💻 Desktop"} (${pin.viewport})`,
+    );
+  });
+  // In after() en niet als losse aanroep ernaast: op Vercel wordt de functie
+  // bevroren zodra het antwoord verstuurd is, en dan wordt een lopende fetch
+  // afgekapt. Zo belandde een geaccepteerde offerte wel in de database, maar
+  // kwam de melding nooit op je telefoon aan.
+  after(async () => {
+    await sendPushToUser(owner.userId, {
+      title: `${access.name ?? "Klant"} wees iets aan`,
+      body: title,
+      url: `/tasks?task=${task.id}`,
+      tag: `pin-${task.id}`,
+    });
+  });
 
   return NextResponse.json(task, { status: 201, headers: CORS });
 }

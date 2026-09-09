@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isStorageConfigured, uploadObject } from "@/lib/storage";
@@ -64,9 +64,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     },
   });
 
-  sendTelegramMessage(
-    `✍️ <b>CONTRACT GETEKEND</b>\n📄 ${contract.number} — ${contract.title}\n👤 ${parsed.data.signedBy} (${contract.customer.name})`,
-  ).catch(console.error);
+  // In after() en niet als losse aanroep ernaast: op Vercel wordt de functie
+  // bevroren zodra het antwoord verstuurd is, en dan wordt een lopende fetch
+  // afgekapt. Zo belandde een geaccepteerde offerte wel in de database, maar
+  // kwam de melding nooit op je telefoon aan.
+  after(async () => {
+    await sendTelegramMessage(
+      `✍️ <b>CONTRACT GETEKEND</b>\n📄 ${contract.number} — ${contract.title}\n👤 ${parsed.data.signedBy} (${contract.customer.name})`,
+    );
+  });
 
   return NextResponse.json({ ok: true });
 }

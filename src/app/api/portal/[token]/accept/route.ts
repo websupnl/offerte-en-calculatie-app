@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendAcceptedNotification } from "@/lib/email";
 import { z } from "zod";
@@ -10,6 +10,7 @@ import {
 } from "@/lib/quote-selection";
 import { modulesToOptions } from "@/lib/quote-modules";
 import { applyCalculationPricing } from "@/lib/quote-with-pricing";
+import { bouwOpdrachtPayload, donnaBedrijf, meldOpdrachtBijDonna } from "@/lib/donna-opdrachten";
 
 const acceptSchema = z.object({
   message: z.string().trim().max(2000).optional().default(""),
@@ -184,7 +185,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   `.trim();
 
   const { sendTelegramMessage } = await import("@/lib/notifications");
-  sendTelegramMessage(telegramMsg).catch(console.error);
+  // In after() en niet als losse aanroep ernaast: op Vercel wordt de functie
+  // bevroren zodra het antwoord verstuurd is, en dan wordt een lopende fetch
+  // afgekapt. Zo belandde een geaccepteerde offerte wel in de database, maar
+  // kwam de melding nooit op je telefoon aan.
+  after(async () => {
+    await sendTelegramMessage(telegramMsg);
+  });
+
+  // Donna maakt van een akkoord een project met een taak. Dit staat bewust ná
+  // de statuswijziging en in after(): valt Donna uit, dan blijft het akkoord van
+  // de klant gewoon staan. Donna ontdubbelt op reference, dus opnieuw sturen kan.
+  after(async () => {
+    await meldOpdrachtBijDonna(
+      donnaBedrijf(share.quote.company.slug),
+      bouwOpdrachtPayload({
+        quoteId: share.quote.id,
+        quoteNumber: share.quote.number,
+        title: share.quote.title,
+        customerName: share.quote.customer.name,
+        customerId: share.quote.customerId,
+        totalIncVat: totals.totalIncVat,
+        acceptedAt,
+        regels: [
+          ...snapshot.baseItems.filter((regel) => !regel.hiddenOnQuote),
+          ...selectedChoices.map(({ choice }) => ({ description: choice.title })),
+          ...selectedOptions.map((optie) => ({ description: `Meerwerk: ${optie.t}` })),
+        ],
+        appUrl: process.env.NEXT_PUBLIC_APP_URL,
+      }),
+    );
+  });
 
   return NextResponse.json({ ok: true, totals, snapshot });
 }

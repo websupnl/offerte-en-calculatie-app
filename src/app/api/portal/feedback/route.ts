@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { portalSessionFromCookie } from "@/lib/portal";
@@ -54,13 +54,25 @@ export async function POST(req: NextRequest) {
   });
 
   const who = access.name ?? customer?.name ?? "Klant";
-  sendTelegramMessage(`💬 <b>NIEUWE FEEDBACK</b>\n👤 ${who}\n📝 ${parsed.data.title}`).catch(console.error);
-  sendPushToUser(owner.userId, {
-    title: `Feedback van ${who}`,
-    body: parsed.data.title,
-    url: `/tasks?task=${task.id}`,
-    tag: `feedback-${task.id}`,
-  }).catch(console.error);
+  // In after() en niet als losse aanroep ernaast: op Vercel wordt de functie
+  // bevroren zodra het antwoord verstuurd is, en dan wordt een lopende fetch
+  // afgekapt. Zo belandde een geaccepteerde offerte wel in de database, maar
+  // kwam de melding nooit op je telefoon aan.
+  after(async () => {
+    await sendTelegramMessage(`💬 <b>NIEUWE FEEDBACK</b>\n👤 ${who}\n📝 ${parsed.data.title}`);
+  });
+  // In after() en niet als losse aanroep ernaast: op Vercel wordt de functie
+  // bevroren zodra het antwoord verstuurd is, en dan wordt een lopende fetch
+  // afgekapt. Zo belandde een geaccepteerde offerte wel in de database, maar
+  // kwam de melding nooit op je telefoon aan.
+  after(async () => {
+    await sendPushToUser(owner.userId, {
+      title: `Feedback van ${who}`,
+      body: parsed.data.title,
+      url: `/tasks?task=${task.id}`,
+      tag: `feedback-${task.id}`,
+    });
+  });
 
   return NextResponse.json({ ...task, comments: [] }, { status: 201 });
 }

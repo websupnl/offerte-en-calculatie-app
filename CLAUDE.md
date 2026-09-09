@@ -1,14 +1,28 @@
 # Offerte App — WebsUp & Koolhaas Installaties
 gebruik .claude\commands\maak-offerte.md bij het maken van offertesm werkt dit bestand ook bij bij nieuwe mogelijkheden
 
+## Database: je werkt in de live database
+
+`.env.local` wijst naar dezelfde Neon-database als productie. Dat is bewust zo,
+want offertes maken vanaf de CLI werkt daardoor meteen tegen de echte klanten en
+artikelen. Het betekent wel dat er geen oefenomgeving is.
+
+- **Lezen mag altijd.** Alles opvragen, tellen, analyseren: prima.
+- **Schrijven alleen als Daan er expliciet om vraagt.** Dus geen testofferte,
+  geen seed, geen opruimscript, geen `UPDATE` of `DELETE` op eigen initiatief.
+- Dit geldt ook voor wat er indirect uit volgt: een offerte aanmaken of een
+  klantportaal openen stuurt echte Telegram-meldingen naar Daans telefoon.
+
+Twijfel je of iets schrijven is? Dan is het schrijven. Vraag het even.
+
 ## Stack
-- Next.js 14 (App Router), React, TypeScript, Tailwind CSS, shadcn/ui
+- Next.js 16 (App Router, Turbopack), React, TypeScript, Tailwind CSS, shadcn/ui
 - Database: PostgreSQL via Prisma ORM
 - Auth: NextAuth.js v5 (credentials, JWT)
 - AI: OpenAI GPT-4o
 - PDF: @react-pdf/renderer
 - Email: Resend
-- Deployment: Docker + Coolify op VPS
+- Deployment: Vercel (project `offerte-en-calculatie-app`), database op Neon
 
 ## Multi-tenant
 Eén app, twee bedrijven (company switcher bij login).
@@ -19,20 +33,29 @@ Eén app, twee bedrijven (company switcher bij login).
 ## Starten
 ```bash
 npm install
-cp .env.example .env  # Vul DATABASE_URL etc. in
-npm run db:push       # Maak tabellen aan
-npm run db:seed       # Seed bedrijven + admin user
-npm run dev
+npm run dev           # draait op :3001
 ```
+`.env.local` staat er al en wijst naar de live database, dus `db:push` en
+`db:seed` niet draaien. Zie de waarschuwing bij Migraties.
 
 Login: `info@websup.nl` / `Admin123!`
 
-## Deploy (Coolify)
-1. Push naar Git repo
-2. In Coolify: New Service → Dockerfile → koppel repo
-3. Stel env vars in (DATABASE_URL, NEXTAUTH_SECRET, OPENAI_API_KEY)
-4. Deploy
-5. Eerste keer: run `npm run db:seed` in de container
+## Deploy (Vercel)
+Pushen naar `master` rolt vanzelf uit naar productie.
+
+```bash
+npx vercel env ls production          # welke variabelen staan er
+npx vercel env add NAAM production    # variabele toevoegen
+npx vercel redeploy <deployment-url>  # zelfde code, nieuwe variabelen oppikken
+```
+
+Een nieuwe variabele werkt pas na een redeploy. Meldingen vielen maandenlang
+stil omdat `TELEGRAM_TOKEN` en `TELEGRAM_CHAT_ID` alleen lokaal stonden: de
+app logt dan `[Telegram] Missing ...` en stuurt niets. Controleer bij een
+"het werkt lokaal wel"-probleem dus eerst `vercel env ls production`.
+
+Ontbreekt nog steeds op productie: `VAPID_*` (web push werkt daardoor nergens),
+`AI_RELAY_KEY` en `CLI_API_KEY`.
 
 ## Sleutelbestanden
 - `src/lib/auth.ts` — NextAuth configuratie + JWT callbacks

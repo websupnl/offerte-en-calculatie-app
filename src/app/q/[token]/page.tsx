@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
+import { after } from "next/server";
+import { isEigenVerkeer } from "@/lib/portal-visitor";
 import { QuotePortalClient } from "./quote-portal-client";
 import { sendTelegramMessage } from "@/lib/notifications";
 import { quoteChoiceGroupSchema, quoteOptionSchema } from "@/lib/quote-selection";
@@ -41,9 +43,15 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
   if (!share) notFound();
 
   // Interne preview: als je ingelogd bent in het dashboard tel je niet mee als
-  // klantweergave — geen Telegram, geen view-log, geen statuswissel.
+  // klantweergave — geen Telegram, geen view-log, geen statuswissel. Datzelfde
+  // geldt voor verkeer vanaf de eigen machine of vanuit een hulpmiddel: dat
+  // heeft geen sessie en telde daardoor jarenlang mee als klant.
   const session = await auth();
-  const isInternalPreview = Boolean(session?.user);
+  const eigenVerkeer = isEigenVerkeer({
+    ip: headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+    userAgent: headerList.get("user-agent"),
+  });
+  const isInternalPreview = Boolean(session?.user) || eigenVerkeer;
 
   if (!isInternalPreview) {
     // "The Stalker" Logic: Send Telegram Notification
@@ -58,7 +66,12 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
 📍 <b>Locatie:</b> ${city}
 💻 <b>Apparaat:</b> ${isMobile}
     `.trim();
-    sendTelegramMessage(telegramMsg).catch(console.error);
+    // In after(): het renderen van de pagina is klaar zodra de klant zijn offerte
+    // ziet, en op Vercel wordt de functie dan bevroren. Een fetch die daar nog
+    // loopt wordt afgekapt, en dan mis je de melding dat er iemand kijkt.
+    after(async () => {
+      await sendTelegramMessage(telegramMsg);
+    });
 
     // Elke view loggen (niet alleen de eerste) zodat de tracker het volledige
     // bezoekpatroon laat zien.

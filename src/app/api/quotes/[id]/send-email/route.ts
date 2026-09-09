@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendQuoteEmail } from "@/lib/email";
@@ -153,15 +153,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   ]);
 
   const quoteLabel = quote.title || quote.number;
-  sendTelegramMessage(
-    [
-      "📤 <b>OFFERTE VERSTUURD</b>",
-      `👤 <b>Klant:</b> ${escapeTelegramHtml(quote.customer.name)}`,
-      `📄 <b>Offerte:</b> ${escapeTelegramHtml(quoteLabel)}`,
-      `✉️ <b>Naar:</b> ${escapeTelegramHtml(quote.customer.email)}`,
-      `🔗 <a href=\"${appUrl}/quotes/${quote.id}\">Open offerte in dashboard</a>`,
-    ].join("\n"),
-  ).catch(console.error);
+  const klantEmail = quote.customer.email;
+  // In after() en niet als losse aanroep ernaast: op Vercel wordt de functie
+  // bevroren zodra het antwoord verstuurd is, en dan wordt een lopende fetch
+  // afgekapt. Zo belandde een geaccepteerde offerte wel in de database, maar
+  // kwam de melding nooit op je telefoon aan.
+  after(async () => {
+    await sendTelegramMessage(
+      [
+        "📤 <b>OFFERTE VERSTUURD</b>",
+        `👤 <b>Klant:</b> ${escapeTelegramHtml(quote.customer.name)}`,
+        `📄 <b>Offerte:</b> ${escapeTelegramHtml(quoteLabel)}`,
+        `✉️ <b>Naar:</b> ${escapeTelegramHtml(klantEmail)}`,
+        `🔗 <a href=\"${appUrl}/quotes/${quote.id}\">Open offerte in dashboard</a>`,
+      ].join("\n"),
+    );
+  });
 
   return NextResponse.json({
     ok: true,
