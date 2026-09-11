@@ -114,15 +114,17 @@ model Company {
   calculations     Calculation[]
   productDocuments ProductDocument[]
 
-  taskLists    TaskList[]
-  tasks        Task[]
-  notes        Note[]
-  tags         Tag[]
-  attachments  Attachment[]
-  contracts    Contract[]
-  portalAccess PortalAccess[]
-  reviewBoards ReviewBoard[]
-  timeEntries  TimeEntry[]
+  taskLists     TaskList[]
+  tasks         Task[]
+  notes         Note[]
+  tags          Tag[]
+  attachments   Attachment[]
+  contracts     Contract[]
+  portalAccess  PortalAccess[]
+  reviewBoards  ReviewBoard[]
+  timeEntries   TimeEntry[]
+  agreementLogs AgreementLog[]
+  subscriptions Subscription[]
 }
 
 model CompanyUser {
@@ -166,6 +168,7 @@ model Customer {
   customerNotes Note[]
   contracts     Contract[]
   portalAccess  PortalAccess[]
+  subscriptions Subscription[]
 
   @@index([companyId])
 }
@@ -340,6 +343,8 @@ model Quote {
   tasks           Task[]
   contracts       Contract[]
   events          QuoteEvent[]
+  agreementLogs   AgreementLog[]
+  subscriptions   Subscription[]
 
   @@unique([companyId, number])
   @@index([companyId, updatedAt(sort: Desc)])
@@ -828,10 +833,14 @@ model CalculationItem {
   optional        Boolean             @default(false)
   /// true = alleen intern, verschijnt nooit op de offerte.
   hiddenOnQuote   Boolean             @default(false)
-  /// null = eenmalig. "maand" of "jaar" = abonnementsprijs, telt niet mee in het eenmalige totaal.
+  /// null = eenmalig. "maand", "kwartaal" of "jaar" = abonnementsprijs, telt niet mee in het eenmalige totaal.
   recurringInterval String?
   /// Toelichting die de klant op de offerte leest. Leeg = we leiden hem af uit aantal en eenheid.
   quoteNote         String?
+  /// ONE_OFF = eenmalig, RECURRING = abonnementsregel (wordt een Subscription bij akkoord).
+  lineType          QuoteLineType       @default(ONE_OFF)
+  /// Alleen bij RECURRING: MONTHLY | QUARTERLY | YEARLY. recurringInterval loopt mee voor de oude renderpaden.
+  billingCycle      BillingCycle?
   sortOrder       Int                 @default(0)
 
   calculation Calculation @relation(fields: [calculationId], references: [id], onDelete: Cascade)
@@ -1236,4 +1245,125 @@ model TimeEntry {
 
   @@index([companyId, startedAt])
   @@index([taskId])
+}
+
+// ─── Abonnementen & akkoorden ──────────────────────────────────────────────
+//
+// De offerte is de bron van een opdracht; de calculatie is de bron van de prijs.
+// Bij een akkoord ontstaan hier twee dingen:
+//   - één AgreementLog-rij (het juridische record, onveranderbaar)
+//   - per RECURRING calculatieregel één Subscription-rij (het facturatie-grootboek)
+//
+// Bedragen staan hier in hele centen (Int), altijd EXCL. btw. Zie src/lib/money.ts.
+// Alleen de UI formatteert naar euro's.
+
+enum QuoteLineType {
+  ONE_OFF
+  RECURRING
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum AgreementMethod {
+  /// Klant klikte akkoord in het portaal en vinkte de voorwaarden aan.
+  DIGITAL
+  /// Daan zette de offerte handmatig op akkoord na mondelinge bevestiging.
+  VERBAL_CONFIRMED
+  /// Fase 5 legacy: betaling van de eerste factuur geldt als akkoord.
+  EMAIL_ACCEPTANCE
+}
+
+/// Eén rij per akkoordmoment op een offerte. Alleen insert — dit is het
+/// juridische record, los van de bewerkbare QuoteEvent-tijdlijn.
+model AgreementLog {
+  id         String          @id @default(cuid())
+  quoteId    String
+  companyId  String
+  occurredAt DateTime        @default(now())
+  ip         String?
+  method     AgreementMethod
+  /// Versie van de algemene voorwaarden die de klant zag, bv. "2026-09".
+  avVersion  String?
+  /// Bevroren offerte op het akkoordmoment (regels, keuzes, totalen).
+  snapshot   Json
+
+  quote   Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+  @@index([companyId, occurredAt])
+}
+
+/// De bron voor "wat moet ik nu factureren". next_billing_date is de spil.
+model Subscription {
+  id           String       @id @default(cuid())
+  companyId    String
+  /// Donna-sleutel: "koolhaas-installaties" | "websup". Gedenormaliseerd naast companyId.
+  companyKey   String
+  customerId   String?
+  /// Gedenormaliseerd voor snelle lijstweergave; blijft staan als de klant verdwijnt.
+  clientName   String
+  serviceName  String
+  /// Per periode, EXCL. btw, in hele centen.
+  priceCents   Int
+  vatRate      Decimal            @default(21) @db.Decimal(5, 2)
+  currency     String             @default("EUR")
+  billingCycle BillingCycle
+  startDate       DateTime        @db.Date
+  /// De datum waarop de volgende factuurperiode ingaat. Schuift één cyclus door
+  /// zodra de periode gefactureerd is.
+  nextBillingDate DateTime        @db.Date
+  /// null = nog nooit gefactureerd.
+  lastInvoicedAt  DateTime?
+  status       SubscriptionStatus @default(ACTIVE)
+  /// Waar het uit ontstaan is. null = handmatig/legacy.
+  sourceQuoteId           String?
+  /// CalculationItem waaruit dit abonnement ontstond. Samen met sourceQuoteId de
+  /// ontdubbelsleutel: dezelfde offerte opnieuw accepteren maakt geen tweede rij.
+  sourceCalculationItemId String?
+  notes           String?  @db.Text
+  /// Fase 5: legacy-klant die nog de "Service Update"-mail moet krijgen.
+  migrationPending Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company  Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  quote    Quote?              @relation(fields: [sourceQuoteId], references: [id], onDelete: SetNull)
+  events   SubscriptionEvent[]
+
+  @@index([companyId, status])
+  @@index([companyKey, nextBillingDate])
+  @@index([sourceQuoteId])
+  @@index([customerId])
+}
+
+/// Historie onder een abonnement: aanmaak, elk facturatiemoment, prijs- en
+/// statuswijzigingen. Alleen insert.
+model SubscriptionEvent {
+  id             String    @id @default(cuid())
+  subscriptionId String
+  /// CREATED | INVOICED | PRICE_CHANGED | PAUSED | RESUMED | CANCELLED | NOTE
+  type           String
+  detail         String?   @db.Text
+  /// Bij INVOICED: het bedrag in centen en de periode die gefactureerd is.
+  amountCents    Int?
+  periodStart    DateTime? @db.Date
+  periodEnd      DateTime? @db.Date
+  actor          String?
+  occurredAt     DateTime  @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, occurredAt])
 }

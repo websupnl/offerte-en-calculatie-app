@@ -111,12 +111,63 @@ offertes worden nooit omgezet.
   van ze weg te gooien en opnieuw aan te maken.
 - Optionele regels in een `VARIANT` verschijnen niet op de offerte. Zet extra's
   in de basiscalculatie. `variantExtraWaarschuwing()` meldt dit in de editor.
+- Een calculatieregel is eenmalig of terugkerend. `recurringInterval`
+  (`maand` | `kwartaal` | `jaar`) is het veld dat je in de bouwer zet; de PUT
+  leidt daar `lineType` (`ONE_OFF` | `RECURRING`) en `billingCycle`
+  (`MONTHLY` | `QUARTERLY` | `YEARLY`) uit af. Nooit `lineType`/`billingCycle`
+  los wegschrijven.
+
+## Abonnementen, akkoorden & offerte verlengen
+
+De app is de source of truth voor hosting-/domein-/service-abonnementen.
+
+```
+Quote ──akkoord──> AgreementLog   (onveranderbaar juridisch record, methode + IP + av_version + snapshot)
+              └──> Subscription   (één per RECURRING calculatieregel die de klant accepteert)
+                     └──< SubscriptionEvent   (CREATED, INVOICED, PRICE_CHANGED, PAUSED/RESUMED/CANCELLED, NOTE)
+```
+
+- **Bedragen in `Subscription`/`SubscriptionEvent`: hele centen (Int), ex btw.**
+  Converteren gebeurt alleen in `src/lib/money.ts`; formatteren alleen in de UI.
+- **Akkoord (portaal én handmatig-mondeling)** schrijft een `AgreementLog` in
+  dezelfde transactie als de statuswissel, en maakt daarna de abonnementen aan.
+  Idempotent op `sourceQuoteId` + `sourceCalculationItemId`.
+- **"Te factureren"** = actieve abonnementen met `nextBillingDate` binnen 30 dagen
+  die voor die periode nog niet gefactureerd zijn. De knop "Gefactureerd" zet
+  `lastInvoicedAt` en schuift `nextBillingDate` één cyclus vooruit. Een tweede
+  klik binnen dezelfde cyclus doet niets.
+- **Offerte verlengen** (`POST /api/quotes/[id]/extend`): nieuwe `validUntil`,
+  status terug naar `SENT`, `QuoteEvent` "EXTENDED", en een mail naar de klant
+  met de portaallink. Voor een klant die "kom er op terug" zei en de offerte
+  liet verlopen.
+
+### Sleutelbestanden
+| Bestand | Wat |
+|---|---|
+| `src/lib/money.ts` | Euro ⇄ centen, de enige conversieplek |
+| `src/lib/subscriptions/cycle.ts` | Cyclus-rekenwerk (maandeinde-clamp, idempotentie) |
+| `src/lib/subscriptions/from-quote.ts` | Geaccepteerde offerte -> abonnementsrijen (puur + DB-laag) |
+| `src/lib/subscriptions/service.ts` | Gedeelde CRUD/invoiced-logica voor UI én Donna-gateway |
+| `src/lib/agreements.ts` | `AgreementLog` schrijven, av_version, IP uit headers |
+| `src/app/(dashboard)/subscriptions/` | De pagina "Abonnementen" + detail |
+| `docs/donna-subscriptions-gateway.md` | Het exacte contract van de nieuwe Donna-endpoints |
+
+### Donna-gateway (`/api/donna/v1`)
+`GET /subscriptions`, `GET /subscriptions/:id`, `POST /subscriptions`,
+`PATCH /subscriptions/:id`, `POST /subscriptions/:id/invoiced`,
+`GET /billing/due`, `GET /agreements/gaps`. Zelfde bearer-auth en
+`donnaResponse`/`DonnaError`-stijl. Details: `docs/donna-subscriptions-gateway.md`.
 
 ## Migraties
 `npm run db:push` is **verboden**: schema en database zijn uit elkaar gelopen
 (`QuoteTemplate` en `Quote.document` staan wel in de database, niet in het
 schema). Push zou die droppen. Altijd handgeschreven SQL met
 `ADD COLUMN IF NOT EXISTS`, daarna `npx prisma generate`.
+
+Genummerde migraties staan in `scripts/migrations/`. Draaien:
+`node scripts/run-migration.mjs scripts/migrations/<bestand>.sql` (draait de SQL
+in één transactie tegen `DATABASE_URL`). Rollback-notities staan bovenaan elk
+SQL-bestand.
 
 Na `prisma generate` moet de dev-server herstart worden. Hij houdt anders de
 oude client vast en geeft `PrismaClientValidationError` op nieuwe velden.

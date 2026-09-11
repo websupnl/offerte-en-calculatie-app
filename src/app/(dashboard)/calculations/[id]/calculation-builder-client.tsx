@@ -85,7 +85,7 @@ type CalculationItemState = {
   optional: boolean;
   hiddenOnQuote: boolean;
   /** null = eenmalig. Anders een abonnementsprijs per maand of per jaar. */
-  recurringInterval?: "maand" | "jaar" | null;
+  recurringInterval?: "maand" | "kwartaal" | "jaar" | null;
   /** Wat de klant bij een optionele regel leest. Leeg = aantal en eenheid. */
   quoteNote?: string | null;
 };

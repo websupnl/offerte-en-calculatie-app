@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
+import { intervalToCycle } from "@/lib/subscriptions/cycle";
 
 const calculationItemSchema = z.object({
   id: z.string().optional(),
@@ -19,8 +20,9 @@ const calculationItemSchema = z.object({
   vatRate: z.coerce.number().default(21),
   optional: z.boolean().default(false),
   hiddenOnQuote: z.boolean().default(false),
-  // null = eenmalig. "maand" of "jaar" = abonnement; telt niet mee in het eenmalige totaal.
-  recurringInterval: z.enum(["maand", "jaar"]).nullable().optional(),
+  // null = eenmalig. "maand" | "kwartaal" | "jaar" = abonnement; telt niet mee in het eenmalige totaal.
+  // lineType en billingCycle worden hier serverside uit afgeleid en meegeschreven.
+  recurringInterval: z.enum(["maand", "kwartaal", "jaar"]).nullable().optional(),
   // Toelichting die de klant op de offerte leest bij een optionele regel.
   quoteNote: z.string().trim().max(200).nullable().optional(),
 });
@@ -125,6 +127,8 @@ export async function PUT(
       optional: item.optional,
       hiddenOnQuote: item.hiddenOnQuote,
       recurringInterval: item.recurringInterval ?? null,
+      lineType: item.recurringInterval ? ("RECURRING" as const) : ("ONE_OFF" as const),
+      billingCycle: item.recurringInterval ? intervalToCycle(item.recurringInterval) : null,
       quoteNote: item.quoteNote || null,
       sortOrder: index,
     };

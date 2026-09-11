@@ -453,3 +453,79 @@ export async function sendDeclinedNotification(data: StatusEmailData) {
 
   return { sent: true };
 }
+
+// Bevestiging naar de klant nadat een offerte handmatig op akkoord is gezet
+// (mondelinge bevestiging). Bewust simpel gehouden.
+export async function sendVerbalConfirmationEmail(data: {
+  to: string;
+  companySlug: string;
+  customerName: string;
+  quoteNumber: string;
+  quoteTitle?: string | null;
+}) {
+  const smtp = getTransporter();
+  if (!smtp) return { sent: false, reason: "SMTP niet geconfigureerd" };
+  const identity = getCompanyEmailIdentity(data.companySlug);
+
+  const bodyHtml = `
+    <p style="margin:0 0 16px 0;">Hoi ${escapeHtml(data.customerName)},</p>
+    <p style="margin:0 0 16px 0;">Zoals besproken heb ik offerte <strong>${escapeHtml(data.quoteNumber)}</strong>${
+      data.quoteTitle ? ` (${escapeHtml(data.quoteTitle)})` : ""
+    } op akkoord gezet. Je hoeft verder niets te doen; ik neem contact op over de planning.</p>
+    <p style="margin:0;">Klopt er iets niet? Laat het me weten via een reply op deze mail.</p>
+  `;
+
+  await smtp.sendMail({
+    from: `"${identity.fromName}" <${identity.fromEmail}>`,
+    replyTo: identity.replyTo,
+    to: data.to,
+    subject: `Bevestiging: offerte ${data.quoteNumber} akkoord`,
+    html: renderEmailShell(identity, { bodyHtml }),
+  });
+
+  return { sent: true };
+}
+
+// Naar de klant als een verlopen of afgewezen offerte weer opengezet wordt.
+export async function sendQuoteExtendedEmail(data: {
+  to: string;
+  companySlug: string;
+  customerName: string;
+  quoteNumber: string;
+  quoteTitle?: string | null;
+  validUntil: Date;
+  portalUrl: string;
+  note?: string;
+}) {
+  const smtp = getTransporter();
+  if (!smtp) return { sent: false, reason: "SMTP niet geconfigureerd" };
+  const identity = getCompanyEmailIdentity(data.companySlug);
+
+  const geldig = data.validUntil.toLocaleDateString("nl-NL", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const bodyHtml = `
+    <p style="margin:0 0 16px 0;">Hoi ${escapeHtml(data.customerName)},</p>
+    <p style="margin:0 0 16px 0;">Ik heb offerte <strong>${escapeHtml(data.quoteNumber)}</strong>${
+      data.quoteTitle ? ` (${escapeHtml(data.quoteTitle)})` : ""
+    } weer opengezet. Hij is nu geldig tot <strong>${geldig}</strong>, zodat je er rustig naar kunt kijken.</p>
+    ${data.note ? `<p style="margin:0 0 16px 0;">${textToEmailHtml(data.note)}</p>` : ""}
+    <p style="margin:0 0 24px 0;">
+      <a href="${data.portalUrl}" style="display:inline-block; background:${identity.primaryColor}; color:#fff; text-decoration:none; padding:12px 22px; border-radius:8px; font-weight:700;">Offerte bekijken</a>
+    </p>
+    <p style="margin:0; color:#64748b; font-size:13px;">Vragen of wil je iets aanpassen? Reageer gewoon op deze mail.</p>
+  `;
+
+  await smtp.sendMail({
+    from: `"${identity.fromName}" <${identity.fromEmail}>`,
+    replyTo: identity.replyTo,
+    to: data.to,
+    subject: `Je offerte ${data.quoteNumber} is verlengd tot ${geldig}`,
+    html: renderEmailShell(identity, { bodyHtml }),
+  });
+
+  return { sent: true };
+}
