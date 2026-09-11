@@ -247,7 +247,13 @@ export function QuotePortalClient({
       const res = await fetch(`/api/portal/${share.token}/accept`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, signerName, selectedChoiceIds, selectedOptionIds }),
+        body: JSON.stringify({
+          message,
+          signerName,
+          agreedToTerms: agreed,
+          selectedChoiceIds,
+          selectedOptionIds,
+        }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Accepteren mislukt");
@@ -312,6 +318,12 @@ export function QuotePortalClient({
     recurringDisplayLines.push({
       interval: "per maand",
       amount: showExVat ? totals.recurring.perMonthExVat : totals.recurring.perMonthIncVat,
+    });
+  }
+  if (totals.recurring.perQuarterExVat > 0) {
+    recurringDisplayLines.push({
+      interval: "per kwartaal",
+      amount: showExVat ? totals.recurring.perQuarterExVat : totals.recurring.perQuarterIncVat,
     });
   }
   if (totals.recurring.perYearExVat > 0) {

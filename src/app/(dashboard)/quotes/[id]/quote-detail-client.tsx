@@ -23,6 +23,9 @@ import {
   MoreVertical,
   Archive,
   ArchiveRestore,
+  CheckCircle2,
+  CalendarClock,
+  Repeat,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -339,6 +342,59 @@ export function QuoteDetailClient({
     }
   }
 
+  async function handleVerbalAccept() {
+    const ok = await confirm({
+      title: "Op akkoord zetten?",
+      body: `De offerte gaat op akkoord namens ${quote.customer.name} (mondeling bevestigd). Dit legt een akkoord-record vast, maakt abonnementen aan voor terugkerende regels en stuurt de klant een bevestigingsmail.`,
+      confirmLabel: "Op akkoord zetten",
+    });
+    if (!ok) return;
+    setUpdatingStatus(true);
+    try {
+      const res = await fetch(`/api/quotes/${quote.id}/accept`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: "verbal_confirmed", signerName: quote.customer.name }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Mislukt");
+      toast.success("Offerte op akkoord gezet");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Er ging iets mis");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  }
+
+  async function handleExtend() {
+    const ok = await confirm({
+      title: "Offerte verlengen?",
+      body: `De offerte krijgt er 14 dagen bij, gaat terug naar "verstuurd" en ${
+        quote.customer.email
+          ? "de klant krijgt een mail met de portaallink."
+          : "— let op: er is geen e-mailadres bij deze klant, dus er gaat geen mail uit."
+      }`,
+      confirmLabel: "Verlengen",
+    });
+    if (!ok) return;
+    setUpdatingStatus(true);
+    try {
+      const res = await fetch(`/api/quotes/${quote.id}/extend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: 14 }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Mislukt");
+      toast.success(result.mailSent ? "Verlengd — klant heeft een mail gekregen" : "Offerte verlengd");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Er ging iets mis");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  }
+
   async function handleDuplicate() {
     setDuplicating(true);
     try {
@@ -433,7 +489,23 @@ export function QuoteDetailClient({
             >
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-56">
+              {quote.status !== "ACCEPTED" && (
+                <DropdownMenuItem onClick={handleVerbalAccept}>
+                  <CheckCircle2 className="h-4 w-4" /> Op akkoord (mondeling)
+                </DropdownMenuItem>
+              )}
+              {["SENT", "VIEWED", "EXPIRED", "DECLINED"].includes(quote.status) && (
+                <DropdownMenuItem onClick={handleExtend}>
+                  <CalendarClock className="h-4 w-4" /> Verleng offerte (+14 dagen)
+                </DropdownMenuItem>
+              )}
+              {quote.status === "ACCEPTED" && (
+                <DropdownMenuItem onClick={() => router.push("/subscriptions")}>
+                  <Repeat className="h-4 w-4" /> Bekijk abonnementen
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
               {quote.archivedAt ? (
                 <DropdownMenuItem onClick={() => handleArchive(false)}>
                   <ArchiveRestore className="h-4 w-4" /> Herstellen

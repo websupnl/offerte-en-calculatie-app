@@ -13,7 +13,9 @@
  * werken: zie `usesCalculationPricing()` voor de grens tussen oud en nieuw.
  */
 
-export type RecurringInterval = "maand" | "jaar";
+export type RecurringInterval = "maand" | "kwartaal" | "jaar";
+
+export type BillingCycle = "MONTHLY" | "QUARTERLY" | "YEARLY";
 
 export type PriceLine = {
   /** CalculationItem.id. Stabiel, dus bruikbaar als keuze in het klantportaal. */
@@ -29,6 +31,8 @@ export type PriceLine = {
   total: number;
   /** null = eenmalig. Anders telt de regel niet mee in het eenmalige totaal. */
   recurringInterval: RecurringInterval | null;
+  /** Zelfde als recurringInterval maar als enum; null = eenmalig. */
+  billingCycle: BillingCycle | null;
 };
 
 export type PriceBlock = {
@@ -72,6 +76,8 @@ type RawItem = {
   optional?: boolean | null;
   hiddenOnQuote?: boolean | null;
   recurringInterval?: string | null;
+  billingCycle?: string | null;
+  lineType?: string | null;
   type?: string | null;
   sortOrder?: number | null;
 };
@@ -96,7 +102,21 @@ const num = (value: unknown): number => {
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
 const asInterval = (value: string | null | undefined): RecurringInterval | null =>
-  value === "maand" || value === "jaar" ? value : null;
+  value === "maand" || value === "kwartaal" || value === "jaar" ? value : null;
+
+const cycleFromInterval: Record<RecurringInterval, BillingCycle> = {
+  maand: "MONTHLY",
+  kwartaal: "QUARTERLY",
+  jaar: "YEARLY",
+};
+const intervalFromCycle: Record<BillingCycle, RecurringInterval> = {
+  MONTHLY: "maand",
+  QUARTERLY: "kwartaal",
+  YEARLY: "jaar",
+};
+
+const asCycle = (value: string | null | undefined): BillingCycle | null =>
+  value === "MONTHLY" || value === "QUARTERLY" || value === "YEARLY" ? value : null;
 
 function toLine(item: RawItem): PriceLine {
   const qty = num(item.qty);
@@ -105,6 +125,15 @@ function toLine(item: RawItem): PriceLine {
   const total = item.totalSalesPrice !== undefined && item.totalSalesPrice !== null
     ? num(item.totalSalesPrice)
     : round2(qty * unitPrice);
+  // De enum billingCycle is leidend; oude regels hebben alleen de string recurringInterval.
+  const isRecurring =
+    item.lineType === "RECURRING" ||
+    asCycle(item.billingCycle) !== null ||
+    asInterval(item.recurringInterval) !== null;
+  const billingCycle = isRecurring
+    ? asCycle(item.billingCycle) ??
+      (asInterval(item.recurringInterval) ? cycleFromInterval[asInterval(item.recurringInterval)!] : "MONTHLY")
+    : null;
   return {
     id: item.id,
     description: item.description,
@@ -114,7 +143,8 @@ function toLine(item: RawItem): PriceLine {
     unitPrice,
     vatRate: num(item.vatRate) || 21,
     total: round2(total),
-    recurringInterval: asInterval(item.recurringInterval),
+    recurringInterval: billingCycle ? intervalFromCycle[billingCycle] : null,
+    billingCycle,
   };
 }
 
@@ -240,6 +270,7 @@ export type PricingTotals = {
   totalVat: number;
   totalIncVat: number;
   perMonthExVat: number;
+  perQuarterExVat: number;
   perYearExVat: number;
   /** Het blok dat de prijs bepaalt: de basis, of de gekozen variant. */
   activeBlock: PriceBlock | null;
@@ -279,16 +310,16 @@ export function resolvePricing(
     ...chosenExtras,
   ].filter((line) => line.recurringInterval !== null);
 
+  const perCycle = (cycle: BillingCycle) =>
+    round2(terugkerend.filter((l) => l.billingCycle === cycle).reduce((s, l) => s + l.total, 0));
+
   return {
     totalExVat,
     totalVat,
     totalIncVat: round2(totalExVat + totalVat),
-    perMonthExVat: round2(
-      terugkerend.filter((l) => l.recurringInterval === "maand").reduce((s, l) => s + l.total, 0),
-    ),
-    perYearExVat: round2(
-      terugkerend.filter((l) => l.recurringInterval === "jaar").reduce((s, l) => s + l.total, 0),
-    ),
+    perMonthExVat: perCycle("MONTHLY"),
+    perQuarterExVat: perCycle("QUARTERLY"),
+    perYearExVat: perCycle("YEARLY"),
     activeBlock,
     chosenExtras,
   };

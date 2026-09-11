@@ -493,6 +493,12 @@ export function QuoteSheetPreview({
       amount: showExVat ? totals.recurring.perMonthExVat : totals.recurring.perMonthIncVat,
     });
   }
+  if (totals.recurring.perQuarterExVat > 0) {
+    recurringTotalLines.push({
+      interval: "per kwartaal",
+      amount: showExVat ? totals.recurring.perQuarterExVat : totals.recurring.perQuarterIncVat,
+    });
+  }
   if (totals.recurring.perYearExVat > 0) {
     recurringTotalLines.push({
       interval: "per jaar",
@@ -1213,7 +1219,11 @@ export function QuoteSheetPreview({
                       value={o.recurringInterval ?? ""}
                       onChange={(event) =>
                         updateOption(idx, {
-                          recurringInterval: (event.target.value || null) as "maand" | "jaar" | null,
+                          recurringInterval: (event.target.value || null) as
+                            | "maand"
+                            | "kwartaal"
+                            | "jaar"
+                            | null,
                           ...(event.target.value ? {} : { recurringPrice: null }),
                         })
                       }
@@ -1222,6 +1232,7 @@ export function QuoteSheetPreview({
                     >
                       <option value="">geen abonnement</option>
                       <option value="maand">maand</option>
+                      <option value="kwartaal">kwartaal</option>
                       <option value="jaar">jaar</option>
                     </select>
                     {o.recurringInterval && (

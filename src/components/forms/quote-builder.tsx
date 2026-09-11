@@ -134,7 +134,7 @@ type QuoteOption = {
   tag: string;
   price: number | null; // null = "Op aanvraag" (geen eenmalige prijs)
   recurringPrice?: number | null; // abonnement/onderhoud per interval, excl. btw
-  recurringInterval?: "maand" | "jaar" | null;
+  recurringInterval?: "maand" | "kwartaal" | "jaar" | null;
   vatRate: number;
   required?: boolean;
   defaultSelected?: boolean; // standaard aangevinkt in het klantportaal

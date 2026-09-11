@@ -101,7 +101,12 @@ Vertaling van de oude begrippen:
 | `items` | gewone regels in de basiscalculatie |
 | `configurations` (keuze) | een tweede calculatie met `role: "VARIANT"` |
 | `optionalWork` / modules | regel in de calculatie met `optional: true` |
-| abonnement per maand | regel met `recurringInterval: "maand"` |
+| abonnement per maand | regel met `recurringInterval: "maand"` (of `"kwartaal"` / `"jaar"`) |
+
+Een regel met `recurringInterval` gezet wordt bij een akkoord automatisch een
+`Subscription` (zie het abonnementen-blok in `CLAUDE.md`). Zet dus alleen een
+interval als het echt terugkerend gefactureerd wordt, niet voor een eenmalige
+post die toevallig "per jaar" heet.
 
 Zet bij een optionele regel een `quoteNote`: dat is wat de klant erbij leest.
 Zonder die tekst toont de offerte alleen aantal en eenheid.

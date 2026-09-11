@@ -11,10 +11,16 @@ import {
 import { modulesToOptions } from "@/lib/quote-modules";
 import { applyCalculationPricing } from "@/lib/quote-with-pricing";
 import { bouwOpdrachtPayload, donnaBedrijf, meldOpdrachtBijDonna } from "@/lib/donna-opdrachten";
+import { avVersionFor, clientIpFromHeaders } from "@/lib/agreements";
+import { syncSubscriptionsForQuote } from "@/lib/subscriptions/from-quote";
+import type { Prisma } from "@/generated/prisma";
 
 const acceptSchema = z.object({
   message: z.string().trim().max(2000).optional().default(""),
   signerName: z.string().trim().min(2, "Vul uw volledige naam in").max(120),
+  // Verplicht: de klant moet de voorwaarden aanvinken. z.literal(true) weigert
+  // een ontbrekend of false vinkje.
+  agreedToTerms: z.literal(true, { message: "Ga akkoord met de voorwaarden om verder te gaan" }),
   selectedChoiceIds: z.record(z.string(), z.string()).optional().default({}),
   selectedOptionIds: z.array(z.string()).optional().default([]),
 });
@@ -23,7 +29,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   const { token } = await params;
   const parsedBody = acceptSchema.safeParse(await req.json().catch(() => null));
   if (!parsedBody.success) {
-    return NextResponse.json({ error: "Controleer uw naam en keuzes." }, { status: 400 });
+    const firstIssue = parsedBody.error.issues[0]?.message;
+    return NextResponse.json(
+      { error: firstIssue ?? "Controleer uw naam en keuzes." },
+      { status: 400 },
+    );
   }
 
   const gedeeld = await prisma.quoteShare.findUnique({
@@ -119,6 +129,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     totals,
   };
 
+  const clientIp = clientIpFromHeaders(req.headers);
+  const avVersion = avVersionFor(share.quote.company);
+
   await prisma.$transaction([
     prisma.quoteShare.update({
       where: { token },
@@ -150,9 +163,42 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
         type: "ACCEPTED",
         actor: parsedBody.data.signerName,
         detail: `Totaal € ${totals.totalIncVat.toFixed(2)} incl. btw`,
+        ip: clientIp ?? undefined,
+      },
+    }),
+    // Het onveranderbare juridische record. Staat in dezelfde transactie als de
+    // statuswissel: geen akkoord zonder akkoord-log.
+    prisma.agreementLog.create({
+      data: {
+        quoteId: share.quoteId,
+        companyId: share.quote.company.id,
+        method: "DIGITAL",
+        ip: clientIp ?? undefined,
+        avVersion,
+        snapshot: snapshot as unknown as Prisma.InputJsonValue,
       },
     }),
   ]);
+
+  // Elke terugkerende calculatieregel die de klant accepteerde wordt een
+  // abonnement. Idempotent, en buiten de transactie: een databasehik hier mag
+  // het akkoord van de klant niet terugdraaien.
+  try {
+    await syncSubscriptionsForQuote(prisma, share.quoteId, {
+      actor: parsedBody.data.signerName,
+    });
+  } catch (error) {
+    console.error("[ACCEPT] abonnementen niet automatisch aangemaakt", error);
+    await prisma.quoteEvent
+      .create({
+        data: {
+          quoteId: share.quoteId,
+          type: "NOTE",
+          detail: "Abonnementen niet automatisch aangemaakt — controleer via de offerte.",
+        },
+      })
+      .catch(() => {});
+  }
 
   const settings = (share.quote.company.settings ?? {}) as Record<string, unknown>;
   const notifyEmail = (settings.notifyEmail as string | undefined) ?? (settings.emailFrom as string | undefined);
