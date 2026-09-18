@@ -1,18 +1,44 @@
 import { notFound } from "next/navigation";
+import { Bricolage_Grotesque, Nunito, Sora } from "next/font/google";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PrintOnLoad } from "@/components/print-on-load";
-import { formatCurrency, formatDate, INVOICE_STATUS_LABELS } from "@/lib/format";
+import { InvoiceDocument, type InvoiceVariant } from "@/components/invoice/invoice-document";
+import { getInvoiceBrand, readInvoiceSettings } from "@/lib/invoice-company";
+import { invoiceVariant } from "@/lib/invoice-status";
+
+const bricolage = Bricolage_Grotesque({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--inv-bricolage" });
+const nunito = Nunito({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--inv-nunito" });
+const sora = Sora({ subsets: ["latin"], weight: ["400", "600", "700", "800"], variable: "--inv-sora" });
+
+export const dynamic = "force-dynamic";
+
+/** "18 sep 2026" */
+const shortDate = (d: Date) =>
+  new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Amsterdam" })
+    .format(d)
+    .replace(".", "");
+
+/** "3 aug t/m 16 sep 2026", jaar alleen aan het eind als het hetzelfde is. */
+function periodLabel(start: Date, end: Date): string {
+  const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
+  const from = sameYear
+    ? new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "short", timeZone: "UTC" }).format(start).replace(".", "")
+    : shortDate(start);
+  return `${from} t/m ${shortDate(end)}`;
+}
+
+const VARIANTS: InvoiceVariant[] = ["concept", "open", "herinnering", "betaald"];
 
 export default async function InvoicePrintPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ auto?: string }>;
+  searchParams: Promise<{ auto?: string; variant?: string }>;
 }) {
   const { id } = await params;
-  const { auto } = await searchParams;
+  const { auto, variant: variantParam } = await searchParams;
   const session = await auth();
   const companyId = session?.user?.activeCompanyId;
   if (!companyId) notFound();
@@ -23,130 +49,65 @@ export default async function InvoicePrintPage({
       lines: { orderBy: { sortOrder: "asc" } },
       company: true,
       customer: true,
-      project: { select: { number: true, title: true } },
+      quote: { select: { number: true } },
     },
   });
   if (!invoice) notFound();
 
-  // Btw groeperen per tarief voor de specificatie.
-  const vatGroups = new Map<number, { base: number; vat: number }>();
-  for (const l of invoice.lines) {
-    const rate = Number(l.vatRate);
-    const base = Number(l.qty) * Number(l.unitPrice);
-    const g = vatGroups.get(rate) ?? { base: 0, vat: 0 };
-    g.base += base;
-    g.vat += base * (rate / 100);
-    vatGroups.set(rate, g);
-  }
-  const c = invoice.customer;
+  const brand = getInvoiceBrand(invoice.company.slug);
+  const company = readInvoiceSettings(invoice.company.settings);
+
+  const termDays = invoice.dueDate
+    ? Math.max(0, Math.round((invoice.dueDate.getTime() - invoice.invoiceDate.getTime()) / 86_400_000))
+    : company.paymentTermDays;
+
+  const meta: [string, string][] = [["Factuurdatum", shortDate(invoice.invoiceDate)]];
+  if (invoice.dueDate) meta.push(["Vervaldatum", shortDate(invoice.dueDate)]);
+  if (invoice.periodStart && invoice.periodEnd) meta.push(["Periode", periodLabel(invoice.periodStart, invoice.periodEnd)]);
+  else if (invoice.periodEnd) meta.push(["Leverdatum", shortDate(invoice.periodEnd)]);
+  if (invoice.quote?.number) meta.push(["Offerte", invoice.quote.number]);
+  if (invoice.reference) meta.push([brand.informal ? "Jouw referentie" : "Uw referentie", invoice.reference]);
+
+  const variant =
+    variantParam && VARIANTS.includes(variantParam as InvoiceVariant)
+      ? (variantParam as InvoiceVariant)
+      : invoiceVariant(invoice);
 
   return (
-    <main className="inv-print">
+    <main>
       <PrintOnLoad enabled={auto === "1"} />
-      <style>{`
-        .inv-print { font-family: Arial, Helvetica, sans-serif; color: #111827; max-width: 800px; margin: 0 auto; padding: 40px; font-size: 13px; }
-        .inv-print h1 { font-size: 22px; margin: 0; }
-        .inv-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111827; padding-bottom: 16px; margin-bottom: 20px; }
-        .inv-meta { text-align: right; font-size: 12px; color: #374151; }
-        .inv-meta div { margin-bottom: 2px; }
-        .inv-grid { display: flex; justify-content: space-between; gap: 40px; margin-bottom: 24px; }
-        .inv-grid h3 { font-size: 11px; text-transform: uppercase; color: #6b7280; margin: 0 0 4px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-        th { text-align: left; font-size: 11px; text-transform: uppercase; color: #6b7280; border-bottom: 1px solid #d1d5db; padding: 6px 4px; }
-        td { padding: 6px 4px; border-bottom: 1px solid #f3f4f6; }
-        .num { text-align: right; white-space: nowrap; }
-        .inv-totals { display: flex; justify-content: flex-end; }
-        .inv-totals table { width: 280px; }
-        .inv-totals td { border: none; padding: 3px 4px; }
-        .inv-totals .grand { font-weight: bold; font-size: 15px; border-top: 2px solid #111827; padding-top: 8px; }
-        .inv-notes { margin-top: 24px; color: #374151; white-space: pre-wrap; }
-        @media print { .inv-print { padding: 20px; } }
-      `}</style>
-
-      <div className="inv-head">
-        <div>
-          <h1>Factuur</h1>
-          <p style={{ margin: "4px 0 0", color: "#374151" }}>{invoice.company.name}</p>
-        </div>
-        <div className="inv-meta">
-          <div><strong>{invoice.number}</strong></div>
-          <div>{INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}</div>
-          <div>Factuurdatum: {formatDate(invoice.invoiceDate)}</div>
-          {invoice.dueDate && <div>Vervaldatum: {formatDate(invoice.dueDate)}</div>}
-          {invoice.reference && <div>Referentie: {invoice.reference}</div>}
-        </div>
-      </div>
-
-      <div className="inv-grid">
-        <div>
-          <h3>Factuuradres</h3>
-          <div>{c?.name ?? "—"}</div>
-          {c?.address && <div>{c.address}</div>}
-          {(c?.zipCode || c?.city) && <div>{[c?.zipCode, c?.city].filter(Boolean).join(" ")}</div>}
-          {c?.vatNumber && <div>Btw: {c.vatNumber}</div>}
-        </div>
-        {invoice.project && (
-          <div style={{ textAlign: "right" }}>
-            <h3>Project</h3>
-            <div>{invoice.project.number}</div>
-            <div>{invoice.project.title}</div>
-          </div>
-        )}
-      </div>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Omschrijving</th>
-            <th className="num">Aantal</th>
-            <th className="num">Eenheid</th>
-            <th className="num">Prijs</th>
-            <th className="num">Btw</th>
-            <th className="num">Totaal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {invoice.lines.map((l) => (
-            <tr key={l.id}>
-              <td>{l.description}</td>
-              <td className="num">{Number(l.qty)}</td>
-              <td className="num">{l.unit ?? ""}</td>
-              <td className="num">{formatCurrency(Number(l.unitPrice))}</td>
-              <td className="num">{Number(l.vatRate)}%</td>
-              <td className="num">{formatCurrency(Number(l.qty) * Number(l.unitPrice))}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <div className="inv-totals">
-        <table>
-          <tbody>
-            <tr>
-              <td>Subtotaal (excl. btw)</td>
-              <td className="num">{formatCurrency(Number(invoice.totalExVat))}</td>
-            </tr>
-            {[...vatGroups.entries()].map(([rate, g]) => (
-              <tr key={rate}>
-                <td>Btw {rate}% over {formatCurrency(g.base)}</td>
-                <td className="num">{formatCurrency(g.vat)}</td>
-              </tr>
-            ))}
-            <tr className="grand">
-              <td>Te betalen</td>
-              <td className="num">{formatCurrency(Number(invoice.totalIncVat))}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {invoice.notes && <div className="inv-notes">{invoice.notes}</div>}
-      {invoice.dueDate && (
-        <p style={{ marginTop: 24, color: "#374151" }}>
-          Gelieve het bedrag voor {formatDate(invoice.dueDate)} over te maken onder vermelding
-          van factuurnummer {invoice.number}.
-        </p>
-      )}
+      <InvoiceDocument
+        fontClassName={`${bricolage.variable} ${nunito.variable} ${sora.variable}`}
+        data={{
+          number: invoice.number,
+          subject: invoice.subject,
+          variant,
+          brand,
+          company,
+          customer: {
+            name: invoice.customer.name,
+            address: invoice.customer.address,
+            zipCode: invoice.customer.zipCode,
+            city: invoice.customer.city,
+            vatNumber: invoice.customer.vatNumber,
+          },
+          meta,
+          intro: invoice.intro,
+          closing: invoice.notes,
+          termDays,
+          dueDateLabel: invoice.dueDate ? shortDate(invoice.dueDate) : null,
+          paidAtLabel: invoice.paidAt ? shortDate(invoice.paidAt) : null,
+          lines: invoice.lines.map((l) => ({
+            description: l.description,
+            detail: l.detail,
+            qty: Number(l.qty),
+            unit: l.unit,
+            unitPrice: Number(l.unitPrice),
+            vatRate: Number(l.vatRate),
+            groupLabel: l.groupLabel,
+          })),
+        }}
+      />
     </main>
   );
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateInvoiceNumber } from "@/lib/format";
+import { nextInvoiceNumber } from "@/lib/invoice-number";
 import { computeInvoiceTotals, InvoiceLineInput } from "@/lib/invoice-totals";
 
 const lineSchema = z.object({
@@ -103,8 +103,7 @@ export async function POST(
     where: { id: companyId },
     select: { slug: true },
   });
-  const count = await prisma.salesInvoice.count({ where: { companyId } });
-  const number = generateInvoiceNumber(company?.slug ?? "xx", count + 1);
+  const number = await nextInvoiceNumber(companyId, company?.slug ?? "xx");
   const totals = computeInvoiceTotals(lines);
 
   const invoiceDate = new Date();

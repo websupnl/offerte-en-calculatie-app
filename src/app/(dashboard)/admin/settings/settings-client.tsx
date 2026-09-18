@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Loader2, Save, Settings, Palette, Bot, Key, FileText, ExternalLink, Upload, Trash2 } from "lucide-react";
+import { missingInvoiceSettings, type InvoiceSettings } from "@/lib/invoice-company";
 
 type TravelPricingTier = {
   maxKm: number | null;
@@ -28,7 +29,20 @@ type CompanySettings = {
   aiSystemPrompts: Record<string, string>;
   homeBaseZipCode: string;
   travelPricingTiers: TravelPricingTier[];
+  invoice: InvoiceSettings;
 };
+
+const INVOICE_FIELDS: { key: keyof InvoiceSettings; label: string; placeholder?: string; wide?: boolean }[] = [
+  { key: "ownerName", label: "Naam eigenaar" },
+  { key: "address", label: "Straat en huisnummer" },
+  { key: "zipCode", label: "Postcode", placeholder: "9145 AB" },
+  { key: "city", label: "Plaats" },
+  { key: "kvk", label: "KvK-nummer" },
+  { key: "vatNumber", label: "Btw-id", placeholder: "NL000000000B00" },
+  { key: "iban", label: "IBAN", placeholder: "NL00 BANK 0000 0000 00" },
+  { key: "accountName", label: "Tenaamstelling rekening", placeholder: "Leeg = handelsnaam" },
+  { key: "paymentTermDays", label: "Betaaltermijn (dagen)" },
+];
 
 type CompanyBranding = {
   primaryColor: string;
@@ -252,6 +266,43 @@ export function SettingsClient({
                   onChange={(e) => setSettings((s) => ({ ...s, paymentTerms: e.target.value }))}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Factuurgegevens</CardTitle>
+              <CardDescription>
+                Staan onderaan elke factuur. Adres, KvK en btw-id zijn wettelijk verplicht, het IBAN heeft de klant
+                nodig om te betalen.
+                {missingInvoiceSettings(settings.invoice).length > 0 && (
+                  <span className="mt-1 block font-medium text-amber-700">
+                    Nog leeg: {missingInvoiceSettings(settings.invoice).join(", ")}.
+                  </span>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              {INVOICE_FIELDS.map((field) => (
+                <div key={field.key} className={field.wide ? "space-y-2 sm:col-span-2" : "space-y-2"}>
+                  <Label htmlFor={`invoice-${field.key}`}>{field.label}</Label>
+                  <Input
+                    id={`invoice-${field.key}`}
+                    type={field.key === "paymentTermDays" ? "number" : "text"}
+                    placeholder={field.placeholder}
+                    value={String(settings.invoice[field.key] ?? "")}
+                    onChange={(e) =>
+                      setSettings((s) => ({
+                        ...s,
+                        invoice: {
+                          ...s.invoice,
+                          [field.key]: field.key === "paymentTermDays" ? Number(e.target.value) : e.target.value,
+                        },
+                      }))
+                    }
+                  />
+                </div>
+              ))}
             </CardContent>
           </Card>
 
