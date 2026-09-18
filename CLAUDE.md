@@ -158,6 +158,22 @@ Quote ──akkoord──> AgreementLog   (onveranderbaar juridisch record, meth
 `GET /billing/due`, `GET /agreements/gaps`. Zelfde bearer-auth en
 `donnaResponse`/`DonnaError`-stijl. Details: `docs/donna-subscriptions-gateway.md`.
 
+## Facturen
+
+- **PDF = printpagina door Chromium**, net als de offerte. `/print/invoices/[id]`
+  meet elke regel en verdeelt ze over A4-pagina's met `paginateInvoice()`
+  (`src/lib/invoice-layout.ts`, getest). Zet `data-invoice-ready` op `<html>` als
+  hij klaar is; `/api/invoices/[id]/pdf` wacht daarop.
+- **Alleen een concept is bewerkbaar.** Na "Verzonden" liggen inhoud en regels
+  vast (409 in de PATCH), en verwijderen kan alleen bij een concept. Corrigeren
+  gaat met een creditfactuur (nog niet gebouwd).
+- **Nummers doorlopend per jaar** via `nextInvoiceNumber()`, nooit tellen of
+  willekeurig. De MCP-tool `create_invoice` doet hetzelfde.
+- **Jouw gegevens op de factuur** (adres, KvK, btw-id, IBAN, betaaltermijn) staan
+  in `Company.settings.invoice`, via Instellingen. `readInvoiceSettings()` leest ze.
+- Groepen in de specificatie komen uit `InvoiceLine.groupLabel`; opeenvolgende
+  regels met hetzelfde label vormen één groep.
+
 ## Migraties
 `npm run db:push` is **verboden**: schema en database zijn uit elkaar gelopen
 (`QuoteTemplate` en `Quote.document` staan wel in de database, niet in het

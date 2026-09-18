@@ -2058,7 +2058,18 @@ function createMcpServer() {
       const id = crypto.randomUUID();
       const prefix = company_slug === "koolhaas" ? "KI" : "WU";
       const yy = new Date().getFullYear();
-      const seq = String(Math.floor(Math.random() * 9000) + 1000);
+      // Doorlopend per jaar, zelfde regel als src/lib/invoice-number.ts in de app.
+      // Een factuurreeks mag fiscaal geen gaten hebben, dus geen willekeurig nummer.
+      const bestaande = await query<{ number: string }>(
+        `SELECT number FROM "SalesInvoice" WHERE "companyId" = $1 AND number LIKE $2`,
+        [co.id, `${prefix}-${yy}-F%`]
+      );
+      let hoogste = 0;
+      for (const { number: n } of bestaande) {
+        const staart = n.slice(`${prefix}-${yy}-F`.length);
+        if (/^\d+$/.test(staart)) hoogste = Math.max(hoogste, Number(staart));
+      }
+      const seq = String(hoogste + 1).padStart(3, "0");
       const number = `${prefix}-${yy}-F${seq}`;
 
       await query(

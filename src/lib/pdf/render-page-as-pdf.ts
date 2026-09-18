@@ -65,14 +65,21 @@ async function launchBrowser() {
  * Renders a Next.js print page as PDF via headless Chromium.
  * @param url     Full URL of the print page (e.g. http://localhost:3001/print/portal/abc123)
  * @param cookie  Optional session cookie string for authenticated pages
+ * @param options.waitForSelector  Wacht hierop voor het printen, voor pagina's die
+ *   zichzelf nog opbouwen na het laden (de factuur verdeelt zijn regels over pagina's).
  */
-export async function renderPageAsPdf(url: string, cookie?: string): Promise<Buffer | null> {
+export async function renderPageAsPdf(
+  url: string,
+  cookie?: string,
+  options: { waitForSelector?: string } = {},
+): Promise<Buffer | null> {
   let browser: Awaited<ReturnType<typeof launchBrowser>> | null = null;
   try {
     browser = await launchBrowser();
     const page = await browser.newPage();
     if (cookie) await page.setExtraHTTPHeaders({ cookie });
     await page.goto(url, { waitUntil: "networkidle0", timeout: 30000 });
+    if (options.waitForSelector) await page.waitForSelector(options.waitForSelector, { timeout: 15000 });
     // Extra settle time for fonts / images
     await new Promise((r) => setTimeout(r, 800));
     const buffer = await page.pdf({
