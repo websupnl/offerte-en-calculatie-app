@@ -93,6 +93,7 @@ export default async function InvoicePrintPage({
         .inv-desc::first-line { color: var(--on); font-weight: 700; }
         .inv-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
         .inv-soft { color: var(--on-s); }
+        .inv-table th.inv-num { text-align: right; }
         .inv-table tfoot td { border: 0; padding-top: 6px; padding-bottom: 6px; font-variant-numeric: tabular-nums; }
         .inv-table tfoot .inv-first td { padding-top: 16px; }
         .inv-table tfoot .grand-total td { padding-top: 14px; padding-bottom: 14px; font: 800 20px/1 var(--display); background: var(--accent-bg); color: var(--on); }
