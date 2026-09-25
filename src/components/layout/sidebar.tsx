@@ -80,7 +80,7 @@ const navGroups: NavGroup[] = [
       // drager van klantfeedback (zie PLAN-werkplek.md fase 5/6).
       { href: "/projects", label: "Projecten", icon: FolderKanban },
       { href: "/workorders", label: "Werkbonnen", icon: ClipboardList, koolhaasOnly: true },
-      { href: "/invoices", label: "Facturen", icon: ReceiptText, koolhaasOnly: true },
+      { href: "/invoices", label: "Facturen", icon: ReceiptText },
     ],
   },
   {

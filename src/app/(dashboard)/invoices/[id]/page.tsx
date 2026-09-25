@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getInvoiceSettings } from "@/lib/branding";
 import { InvoiceDetailClient } from "./invoice-detail-client";
 
 export default async function InvoiceDetailPage({
@@ -19,9 +20,20 @@ export default async function InvoiceDetailPage({
       lines: { orderBy: { sortOrder: "asc" } },
       customer: true,
       project: { select: { id: true, number: true, title: true } },
+      quote: { select: { id: true, number: true } },
+      workOrder: { select: { id: true, number: true } },
+      company: { select: { settings: true } },
     },
   });
   if (!invoice) notFound();
 
-  return <InvoiceDetailClient invoice={JSON.parse(JSON.stringify(invoice))} />;
+  const s = getInvoiceSettings(invoice.company.settings);
+  const missing = [
+    !s.address && "bedrijfsadres",
+    !s.kvk && "KvK-nummer",
+    !s.vatNumber && "btw-id",
+    !s.iban && "IBAN",
+  ].filter(Boolean) as string[];
+
+  return <InvoiceDetailClient invoice={JSON.parse(JSON.stringify({ ...invoice, company: undefined }))} missingCompanyData={missing} />;
 }
