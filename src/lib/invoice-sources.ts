@@ -72,8 +72,11 @@ async function fromQuote(id: string, companyId: string): Promise<SourceResult | 
       .filter((l) => l.recurringInterval === null)
       .map(priceLineToInvoice);
   } else {
+    // Oude offertes zetten de prijs vaak op verborgen regels en tonen de klant
+    // alleen tekstregels van €0. Het geld zit dus in de verborgen regels: die
+    // moeten mee, anders klopt het factuurtotaal niet met de offerte.
     lines = quote.items
-      .filter((it) => !it.hiddenOnQuote)
+      .filter((it) => !it.hiddenOnQuote || Number(it.unitPrice) !== 0)
       .map((it) => ({
         description: it.description,
         qty: Number(it.qty),

@@ -25,6 +25,7 @@ import {
   Loader2,
   Save,
   Printer,
+  ReceiptText,
   PenLine,
   CheckCircle2,
 } from "lucide-react";
@@ -344,6 +345,11 @@ export function WorkOrderDetailClient({
             <Printer className="h-4 w-4 mr-1" /> PDF / print
           </Button>
         </a>
+        <Link href={`/invoices/new?source=workorder:${workOrder.id}`}>
+          <Button variant="outline">
+            <ReceiptText className="h-4 w-4 mr-1" /> Factuur maken
+          </Button>
+        </Link>
       </div>
 
       {/* Handtekening */}
