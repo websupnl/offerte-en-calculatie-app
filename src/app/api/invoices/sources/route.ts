@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const [quotes, calculations, workOrders, invoiced] = await Promise.all([
     prisma.quote.findMany({
       where: { companyId, customerId, archivedAt: null },
-      orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+      orderBy: { updatedAt: "desc" },
       take: 60,
       select: { id: true, number: true, title: true, status: true, totalIncVat: true, customerId: true, customer: { select: { name: true } } },
     }),
@@ -38,7 +38,8 @@ export async function GET(req: NextRequest) {
   const invoicedWo = new Map(invoiced.filter((i) => i.workOrderId).map((i) => [i.workOrderId!, i.number]));
 
   return NextResponse.json({
-    quotes: quotes.map((q) => ({
+    // Geaccepteerde offertes eerst: dat zijn degene die je factureert.
+    quotes: [...quotes].sort((a, b) => Number(b.status === "ACCEPTED") - Number(a.status === "ACCEPTED")).map((q) => ({
       id: q.id, number: q.number, title: q.title, status: q.status, amount: Number(q.totalIncVat),
       customerId: q.customerId, customerName: q.customer.name, invoicedAs: invoicedQuote.get(q.id) ?? null,
     })),
