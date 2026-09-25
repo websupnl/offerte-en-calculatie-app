@@ -11,4 +11,6 @@ export const invoiceLineSchema = z.object({
 export const invoiceSourceSchema = z.object({
   type: z.enum(["quote", "calculation", "workorder"]),
   id: z.string().min(1),
+  /** Offerte: alle regels i.p.v. één regel "volgens offerte". */
+  detailed: z.boolean().optional(),
 });

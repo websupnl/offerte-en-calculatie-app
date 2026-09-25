@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const parsed = invoiceSourceSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  const result = await linesFromSource(parsed.data, session.user.activeCompanyId);
+  const result = await linesFromSource(parsed.data, session.user.activeCompanyId, { detailed: parsed.data.detailed });
   if (!result) return NextResponse.json({ error: "Bron niet gevonden" }, { status: 404 });
   return NextResponse.json(result);
 }

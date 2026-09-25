@@ -37,7 +37,7 @@ const priceLineToInvoice = (l: PriceLine): InvoiceLineInput => ({
  * portaal maakte (variant + aangevinkte extra's). Abonnementsregels blijven
  * buiten de factuur; die lopen via Abonnementen.
  */
-async function fromQuote(id: string, companyId: string): Promise<SourceResult | null> {
+async function fromQuote(id: string, companyId: string, detailed = false): Promise<SourceResult | null> {
   const quote = await prisma.quote.findFirst({
     where: { id, companyId },
     include: {
@@ -88,6 +88,23 @@ async function fromQuote(id: string, companyId: string): Promise<SourceResult | 
     if (discount > 0) {
       lines.push({ description: "Korting", qty: 1, unit: "stuk", unitPrice: -discount, vatRate: Number(quote.vatRate) || 21 });
     }
+  }
+
+  // Standaard één regel "volgens offerte": de klant heeft de details al in de
+  // offerte gezien. Per btw-tarief één regel, anders klopt de btw niet.
+  if (!detailed && lines.length > 0) {
+    const perTarief = new Map<number, number>();
+    for (const l of lines) perTarief.set(l.vatRate, (perTarief.get(l.vatRate) ?? 0) + l.qty * l.unitPrice);
+    const omschrijving = `Werkzaamheden volgens offerte ${quote.number}${quote.title ? `\n${quote.title}` : ""}`;
+    lines = [...perTarief.entries()]
+      .filter(([, bedrag]) => Math.abs(bedrag) >= 0.005)
+      .map(([vatRate, bedrag]) => ({
+        description: perTarief.size > 1 ? `${omschrijving} (${vatRate}% btw)` : omschrijving,
+        qty: 1,
+        unit: "post",
+        unitPrice: Math.round(bedrag * 100) / 100,
+        vatRate,
+      }));
   }
 
   return {
@@ -143,8 +160,8 @@ async function fromWorkOrder(id: string, companyId: string): Promise<SourceResul
   };
 }
 
-export function linesFromSource(source: InvoiceSource, companyId: string) {
-  if (source.type === "quote") return fromQuote(source.id, companyId);
+export function linesFromSource(source: InvoiceSource, companyId: string, opts: { detailed?: boolean } = {}) {
+  if (source.type === "quote") return fromQuote(source.id, companyId, opts.detailed);
   if (source.type === "calculation") return fromCalculation(source.id, companyId);
   return fromWorkOrder(source.id, companyId);
 }

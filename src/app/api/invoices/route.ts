@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const data = parsed.data;
 
-  const fromSource = data.source ? await linesFromSource(data.source, companyId) : null;
+  const fromSource = data.source ? await linesFromSource(data.source, companyId, { detailed: data.source.detailed }) : null;
   if (data.source && !fromSource) return NextResponse.json({ error: "Bron niet gevonden" }, { status: 404 });
 
   const customerId = data.customerId ?? fromSource?.customerId;

@@ -60,6 +60,7 @@ export function NewInvoiceClient({
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
   const [creating, setCreating] = useState(false);
+  const [detailed, setDetailed] = useState(false);
 
   useEffect(() => {
     // Lijst leegmaken zodat je niet op bronnen van de vorige klant klikt.
@@ -71,17 +72,18 @@ export function NewInvoiceClient({
       .catch(() => setSources({ quotes: [], calculations: [], workOrders: [] }));
   }, [customerId]);
 
-  const pickSource = useCallback(async (type: SourceType, id: string) => {
+  const pickSource = useCallback(async (type: SourceType, id: string, detail = false) => {
     setLoadingSource(true);
     try {
       const res = await fetch("/api/invoices/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, id }),
+        body: JSON.stringify({ type, id, detailed: detail }),
       });
       if (!res.ok) throw new Error("Bron kon niet geladen worden");
       const data = await res.json();
       setSource({ type, id });
+      setDetailed(detail);
       setLines(toEditable(data.lines));
       setReference(data.reference ?? "");
       setProjectId(data.projectId ?? null);
@@ -241,6 +243,18 @@ export function NewInvoiceClient({
         {loadingSource && (
           <div className="absolute inset-0 z-10 grid place-items-center bg-white/70">
             <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+          </div>
+        )}
+        {source?.type === "quote" && (
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-2.5 text-sm sm:px-5">
+            <span className="text-slate-600">{detailed ? "Alle regels uit de offerte" : "Eén regel: werkzaamheden volgens offerte"}</span>
+            <button
+              type="button"
+              className="font-semibold text-[var(--ws-accent)] hover:underline"
+              onClick={() => pickSource("quote", source.id, !detailed)}
+            >
+              {detailed ? "Samenvatten tot één regel" : "Toon alle regels"}
+            </button>
           </div>
         )}
         <InvoiceLinesEditor lines={lines} onChange={setLines} />
