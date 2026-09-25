@@ -32,19 +32,39 @@ export default async function InvoicesPage() {
       })
     : [];
 
+  const today = new Date(new Date().toDateString());
+  const sum = (list: typeof invoices) => list.reduce((t, i) => t + Number(i.totalIncVat), 0);
+  const open = invoices.filter((i) => i.status === "VERZONDEN");
+  const overdue = open.filter((i) => i.dueDate && i.dueDate < today);
+  const concepts = invoices.filter((i) => i.status === "CONCEPT");
+  const stats = [
+    { label: "Openstaand", amount: sum(open), count: open.length, tone: "text-slate-950" },
+    { label: "Over de vervaldatum", amount: sum(overdue), count: overdue.length, tone: overdue.length ? "text-red-600" : "text-slate-950" },
+    { label: "Concepten", amount: sum(concepts), count: concepts.length, tone: "text-slate-500" },
+  ];
+
   return (
     <div>
       <PageHeader
         eyebrow="Financieel"
         title="Facturen"
-        description="Verkoopfacturen vanuit offertes, werkbonnen en projecten in een centraal overzicht."
+        description="Factureer vanuit een offerte, calculatie, werkbon of met losse artikelen en vrije regels."
         actions={
-          <Button nativeButton={false} render={<Link href="/quotes" />}>
-            <Plus className="h-4 w-4" /> Vanuit offerte
+          <Button nativeButton={false} render={<Link href="/invoices/new" />}>
+            <Plus className="h-4 w-4" /> Nieuwe factuur
           </Button>
         }
       />
-      <div className="p-4 sm:p-5 lg:p-8">
+      <div className="space-y-5 p-4 sm:p-5 lg:p-8">
+        <div className="grid gap-3 sm:grid-cols-3">
+          {stats.map((st) => (
+            <div key={st.label} className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{st.label}</p>
+              <p className={`mt-1 text-2xl font-bold tabular-nums ${st.tone}`}>{formatCurrency(st.amount)}</p>
+              <p className="text-xs text-slate-500">{st.count} {st.count === 1 ? "factuur" : "facturen"}</p>
+            </div>
+          ))}
+        </div>
         <section className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
           <div className="divide-y md:hidden">
             {invoices.map((invoice) => (
@@ -121,9 +141,9 @@ export default async function InvoicesPage() {
               <div>
                 <ReceiptText className="mx-auto mb-3 h-9 w-9 text-slate-300" />
                 <p className="font-semibold text-slate-800">Nog geen facturen</p>
-                <p className="mt-1">Maak eerst een offerte of project aan om te factureren.</p>
-                <Button nativeButton={false} variant="outline" className="mt-4" render={<Link href="/quotes" />}>
-                  <FileText className="h-4 w-4" /> Naar offertes
+                <p className="mt-1">Maak je eerste factuur vanuit een offerte, werkbon of met losse regels.</p>
+                <Button nativeButton={false} variant="outline" className="mt-4" render={<Link href="/invoices/new" />}>
+                  <FileText className="h-4 w-4" /> Nieuwe factuur
                 </Button>
               </div>
             </div>

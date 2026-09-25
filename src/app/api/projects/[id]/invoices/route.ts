@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateInvoiceNumber } from "@/lib/format";
+import { getInvoiceSettings } from "@/lib/branding";
+import { linesFromSource, nextInvoiceNumber } from "@/lib/invoice-sources";
 import { computeInvoiceTotals, InvoiceLineInput } from "@/lib/invoice-totals";
 
 const lineSchema = z.object({
@@ -64,52 +65,38 @@ export async function POST(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  // Regels bepalen: expliciet, of pre-invullen uit offerte/werkbon.
+  // Regels bepalen: expliciet, of pre-invullen uit offerte/werkbon (zelfde logica als /api/invoices).
   let lines: InvoiceLineInput[] = parsed.data.lines ?? [];
   let quoteId: string | null = null;
   let workOrderId: string | null = null;
+  let reference = parsed.data.reference ?? null;
 
-  if (parsed.data.fromQuoteId) {
-    const quote = await prisma.quote.findFirst({
-      where: { id: parsed.data.fromQuoteId, companyId, projectId: id },
-      include: { items: { orderBy: { sortOrder: "asc" } } },
-    });
-    if (!quote) return NextResponse.json({ error: "Offerte niet gevonden" }, { status: 404 });
-    quoteId = quote.id;
-    lines = quote.items.map((it) => ({
-      description: it.description,
-      qty: Number(it.qty),
-      unit: "stuk",
-      unitPrice: Number(it.unitPrice),
-      vatRate: Number(it.vatRate),
-    }));
-  } else if (parsed.data.fromWorkOrderId) {
-    const wo = await prisma.workOrder.findFirst({
-      where: { id: parsed.data.fromWorkOrderId, companyId, projectId: id },
-      include: { lines: { orderBy: { sortOrder: "asc" } } },
-    });
-    if (!wo) return NextResponse.json({ error: "Werkbon niet gevonden" }, { status: 404 });
-    workOrderId = wo.id;
-    lines = wo.lines.map((l) => ({
-      description: l.description,
-      qty: Number(l.qty),
-      unit: l.unit ?? "stuk",
-      unitPrice: Number(l.unitPrice),
-      vatRate: 21,
-    }));
+  const source = parsed.data.fromQuoteId
+    ? ({ type: "quote", id: parsed.data.fromQuoteId } as const)
+    : parsed.data.fromWorkOrderId
+      ? ({ type: "workorder", id: parsed.data.fromWorkOrderId } as const)
+      : null;
+  if (source) {
+    const result = await linesFromSource(source, companyId);
+    if (!result || result.projectId !== id) {
+      return NextResponse.json({ error: source.type === "quote" ? "Offerte niet gevonden" : "Werkbon niet gevonden" }, { status: 404 });
+    }
+    lines = result.lines;
+    quoteId = result.quoteId;
+    workOrderId = result.workOrderId;
+    reference = reference ?? result.reference;
   }
 
   const company = await prisma.company.findUnique({
     where: { id: companyId },
-    select: { slug: true },
+    select: { slug: true, settings: true },
   });
-  const count = await prisma.salesInvoice.count({ where: { companyId } });
-  const number = generateInvoiceNumber(company?.slug ?? "xx", count + 1);
+  const number = await nextInvoiceNumber(companyId, company?.slug ?? "xx");
   const totals = computeInvoiceTotals(lines);
 
   const invoiceDate = new Date();
   const dueDate = new Date(invoiceDate);
-  dueDate.setDate(dueDate.getDate() + 14); // standaard 14 dagen betaaltermijn
+  dueDate.setDate(dueDate.getDate() + (getInvoiceSettings(company?.settings).paymentDays || 14));
 
   const invoice = await prisma.salesInvoice.create({
     data: {
@@ -119,7 +106,7 @@ export async function POST(
       quoteId,
       workOrderId,
       number,
-      reference: parsed.data.reference,
+      reference,
       notes: parsed.data.notes,
       invoiceDate,
       dueDate,

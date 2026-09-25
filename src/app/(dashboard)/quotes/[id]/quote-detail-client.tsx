@@ -1,5 +1,6 @@
 "use client";
 
+import { ConvertMenu } from "@/components/convert/convert-menu";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -471,6 +472,7 @@ export function QuoteDetailClient({
             {sharing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
             Delen
           </Button>
+          <ConvertMenu type="quote" id={quote.id} />
           <Button variant="outline" size="sm" onClick={handleDuplicate} disabled={duplicating}>
             {duplicating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
             Dupliceren

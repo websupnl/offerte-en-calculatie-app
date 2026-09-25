@@ -1,5 +1,6 @@
 "use client";
 
+import { ConvertMenu } from "@/components/convert/convert-menu";
 import { Fragment, useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useConfirm } from "@/components/confirm-provider";
@@ -681,6 +682,8 @@ export function CalculationBuilderClient({
                 Opnieuw opslaan
               </Button>
             )}
+
+            <ConvertMenu type="calculation" id={calculation.id} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent disabled:opacity-50" />
 
             <Button onClick={handleConvertToQuote} disabled={converting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
               {converting ? (

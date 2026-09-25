@@ -24,7 +24,34 @@ export type CompanySettings = {
   aiSystemPrompts: Record<string, string>;
   homeBaseZipCode: string;
   travelPricingTiers: TravelPricingTier[];
+  invoice?: InvoiceSettings;
 };
+
+/** Gegevens die wettelijk op een factuur moeten (KvK, btw-id, IBAN) plus de betaaltermijn. */
+export type InvoiceSettings = {
+  address: string;
+  kvk: string;
+  vatNumber: string;
+  iban: string;
+  accountHolder: string;
+  paymentDays: number;
+  footer: string;
+};
+
+export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
+  address: "",
+  kvk: "95524061",
+  vatNumber: "",
+  iban: "",
+  accountHolder: "",
+  paymentDays: 14,
+  footer: "",
+};
+
+export function getInvoiceSettings(settings: unknown): InvoiceSettings {
+  const stored = ((settings ?? {}) as { invoice?: Partial<InvoiceSettings> }).invoice ?? {};
+  return { ...DEFAULT_INVOICE_SETTINGS, ...stored };
+}
 
 export const DEFAULT_BRANDING: Record<string, CompanyBranding> = {
   websup: {

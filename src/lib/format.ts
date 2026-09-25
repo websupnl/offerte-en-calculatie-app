@@ -98,9 +98,9 @@ export const WORKORDER_STATUS_COLORS: Record<string, string> = {
 
 export const WORKORDER_LINE_TYPES = ["MATERIAAL", "ARBEID"] as const;
 
-export function generateInvoiceNumber(companySlug: string, count: number): string {
+export function generateInvoiceNumber(companySlug: string, count: number, date = new Date()): string {
   const prefix = companySlug === "koolhaas" ? "KI" : "WU";
-  const year = new Date().getFullYear();
+  const year = date.getFullYear();
   return `${prefix}-${year}-F${String(count).padStart(3, "0")}`;
 }
 

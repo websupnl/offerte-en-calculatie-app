@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import type { InvoiceSettings } from "@/lib/branding";
 import { Loader2, Save, Settings, Palette, Bot, Key, FileText, ExternalLink, Upload, Trash2 } from "lucide-react";
 
 type TravelPricingTier = {
@@ -28,6 +29,7 @@ type CompanySettings = {
   aiSystemPrompts: Record<string, string>;
   homeBaseZipCode: string;
   travelPricingTiers: TravelPricingTier[];
+  invoice: InvoiceSettings;
 };
 
 type CompanyBranding = {
@@ -71,6 +73,8 @@ export function SettingsClient({
   const [branding, setBranding] = useState(initialBranding);
   const [legalDocuments, setLegalDocuments] = useState(initialLegalDocuments);
   const [saving, setSaving] = useState(false);
+  const setInvoice = (patch: Partial<InvoiceSettings>) =>
+    setSettings((s) => ({ ...s, invoice: { ...s.invoice, ...patch } }));
   const [uploadingLegal, setUploadingLegal] = useState<"terms" | "privacy" | null>(null);
 
   async function saveSettings() {
@@ -250,6 +254,57 @@ export function SettingsClient({
                   rows={2}
                   value={settings.paymentTerms}
                   onChange={(e) => setSettings((s) => ({ ...s, paymentTerms: e.target.value }))}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Factuurgegevens</CardTitle>
+              <CardDescription>
+                Deze gegevens komen onderaan elke factuur. KvK, btw-id en IBAN zijn wettelijk verplicht.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Bedrijfsadres</Label>
+                <Textarea
+                  rows={2}
+                  placeholder={"Straat 1\n1234 AB Plaats"}
+                  value={settings.invoice.address}
+                  onChange={(e) => setInvoice({ address: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>KvK-nummer</Label>
+                  <Input value={settings.invoice.kvk} onChange={(e) => setInvoice({ kvk: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Btw-id</Label>
+                  <Input placeholder="NL000000000B01" value={settings.invoice.vatNumber} onChange={(e) => setInvoice({ vatNumber: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>IBAN</Label>
+                  <Input placeholder="NL00 BANK 0000 0000 00" value={settings.invoice.iban} onChange={(e) => setInvoice({ iban: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Ten name van</Label>
+                  <Input placeholder={companyName} value={settings.invoice.accountHolder} onChange={(e) => setInvoice({ accountHolder: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Betaaltermijn (dagen)</Label>
+                  <Input type="number" value={settings.invoice.paymentDays} onChange={(e) => setInvoice({ paymentDays: Number(e.target.value) || 14 })} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Voettekst factuur (optioneel)</Label>
+                <Textarea
+                  rows={2}
+                  placeholder="Bijvoorbeeld: op al mijn werk zijn de algemene voorwaarden van toepassing."
+                  value={settings.invoice.footer}
+                  onChange={(e) => setInvoice({ footer: e.target.value })}
                 />
               </div>
             </CardContent>

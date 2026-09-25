@@ -3,20 +3,15 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computeInvoiceTotals } from "@/lib/invoice-totals";
+import { invoiceLineSchema as lineSchema } from "../lines-schema";
 
-const lineSchema = z.object({
-  description: z.string().min(1),
-  qty: z.coerce.number().min(0).default(1),
-  unit: z.string().optional(),
-  unitPrice: z.coerce.number().default(0),
-  vatRate: z.coerce.number().default(21),
-});
 
 const schema = z.object({
   status: z.enum(["CONCEPT", "VERZONDEN", "BETAALD", "VERVALLEN"]).optional(),
   reference: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
-  dueDate: z.string().datetime().nullable().optional().or(z.literal("")),
+  dueDate: z.string().nullable().optional(),
+  invoiceDate: z.string().optional(),
   lines: z.array(lineSchema).optional(),
 });
 
@@ -61,7 +56,7 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const { lines, dueDate, ...rest } = parsed.data;
+  const { lines, dueDate, invoiceDate, ...rest } = parsed.data;
 
   await prisma.$transaction(async (tx) => {
     await tx.salesInvoice.update({
@@ -71,6 +66,7 @@ export async function PATCH(
         ...(dueDate !== undefined
           ? { dueDate: dueDate ? new Date(dueDate) : null }
           : {}),
+        ...(invoiceDate ? { invoiceDate: new Date(invoiceDate) } : {}),
         // Totalen herberekenen wanneer regels meekomen.
         ...(lines ? computeInvoiceTotals(lines) : {}),
       },
@@ -104,8 +100,12 @@ export async function DELETE(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  await prisma.salesInvoice.deleteMany({
-    where: { id, companyId: session.user.activeCompanyId },
+  // Een verstuurde factuur hoort in de administratie te blijven; alleen concepten mogen weg.
+  const { count } = await prisma.salesInvoice.deleteMany({
+    where: { id, companyId: session.user.activeCompanyId, status: "CONCEPT" },
   });
+  if (count === 0) {
+    return NextResponse.json({ error: "Alleen concepten kunnen verwijderd worden" }, { status: 409 });
+  }
   return NextResponse.json({ ok: true });
 }

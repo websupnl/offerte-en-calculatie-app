@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SettingsClient } from "./settings-client";
-import { DEFAULT_SETTINGS, type TravelPricingTier } from "@/lib/branding";
+import { DEFAULT_SETTINGS, getInvoiceSettings, type TravelPricingTier } from "@/lib/branding";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -34,6 +34,7 @@ export default async function SettingsPage() {
         aiSystemPrompts: (settings.aiSystemPrompts as Record<string, string>) ?? DEFAULT_SETTINGS.aiSystemPrompts,
         homeBaseZipCode: (settings.homeBaseZipCode as string) ?? DEFAULT_SETTINGS.homeBaseZipCode,
         travelPricingTiers: (settings.travelPricingTiers as TravelPricingTier[]) ?? DEFAULT_SETTINGS.travelPricingTiers,
+        invoice: getInvoiceSettings(settings),
       }}
       branding={{
         primaryColor: (branding.primaryColor as string) ?? "",
