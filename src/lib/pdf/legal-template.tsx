@@ -1,59 +1,145 @@
-/* eslint-disable jsx-a11y/alt-text -- @react-pdf/renderer Image is geen DOM-afbeelding en ondersteunt geen alt-attribuut */
-import { Document, Image, Page, Text, View } from "@react-pdf/renderer";
-import { getBrand, type BrandConfig } from "@/lib/pdf/quote-template";
+import { Document, Page, StyleSheet, Text, View, Font } from "@react-pdf/renderer";
+import path from "node:path";
 
-// Zelfde letterhead, kleuren en typografie als de offerte-PDF (quote-template.tsx),
-// zodat een juridisch document niet als los bijlage-document aanvoelt.
+// ─── Fonts ───────────────────────────────────────────────────────────────────
 
-const PAD = 38;
-
-function PageHeader({ brand, tag }: { brand: BrandConfig; tag: string }) {
-  return (
-    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }} fixed>
-      {brand.key === "websup" && brand.logoColor ? (
-        <Image src={brand.logoColor} style={{ height: 32, width: 148, objectFit: "contain", objectPositionX: "0%" }} />
-      ) : brand.key === "websup" ? (
-        <View style={{ flexDirection: "row", alignItems: "baseline", gap: 1 }}>
-          <Text style={{ fontSize: 16, fontFamily: "Helvetica-Bold", color: brand.colors.primary }}>Webs</Text>
-          <Text style={{ fontSize: 16, fontFamily: "Helvetica-Bold", color: brand.colors.accent }}>Up.</Text>
-        </View>
-      ) : (
-        <Image src={brand.logoColor} style={{ height: 18, width: 64, objectFit: "contain", objectPositionX: "0%" }} />
-      )}
-      <Text style={{ fontSize: 8, color: brand.colors.muted }}>{tag} &nbsp;&middot;&nbsp; {brand.name}</Text>
-    </View>
-  );
+try {
+  const fontDir = path.join(process.cwd(), "public", "fonts");
+  Font.register({
+    family: "Inter",
+    fonts: [
+      { src: path.join(fontDir, "Inter-Regular.ttf"), fontWeight: 400 },
+      { src: path.join(fontDir, "Inter-Medium.ttf"), fontWeight: 500 },
+      { src: path.join(fontDir, "Inter-SemiBold.ttf"), fontWeight: 600 },
+      { src: path.join(fontDir, "Inter-Bold.ttf"), fontWeight: 700 },
+    ],
+  });
+} catch {
+  // fonts not available, falls back to Helvetica
 }
 
-function PageFooter({ tag, brand }: { tag: string; brand: BrandConfig }) {
-  return (
-    <>
-      <Text
-        fixed
-        style={{ position: "absolute", bottom: 22, left: PAD, fontSize: 7.5, color: "#94A3B8", fontFamily: "Helvetica-Bold", textTransform: "uppercase" }}
-      >
-        {tag} &nbsp;&middot;&nbsp; {brand.email}
-      </Text>
-      <Text
-        fixed
-        render={({ pageNumber, totalPages }) => `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`}
-        style={{ position: "absolute", bottom: 22, right: PAD, fontSize: 7.5, color: "#94A3B8", fontFamily: "Helvetica-Bold" }}
-      />
-    </>
-  );
-}
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
-function Eyebrow({ text, color }: { text: string; color: string }) {
-  return (
-    <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 1.2, color, marginBottom: 4 }}>
-      {text}
-    </Text>
-  );
-}
+const BRAND = {
+  websup: {
+    accent: "#f04f8f",
+    accentDark: "#30323a",
+    accent2: "#f04f8f",
+    accent3: "#9b78f2",
+    warm: "#ff6a1a",
+    light: "#f8fafc",
+    surface: "#f8fafc",
+    text: "#0f172a",
+    muted: "#64748b",
+    name: "WebsUp.nl",
+    descriptor: "Digitale voorwaarden bij jouw voorstel",
+  },
+  koolhaas: {
+    accent: "#1f9ba3",
+    accentDark: "#0e7490",
+    accent2: "#1f7295",
+    accent3: "#5bbfb0",
+    warm: "#1f9ba3",
+    light: "#ecfeff",
+    surface: "#f4f8f8",
+    text: "#0e2344",
+    muted: "#51637a",
+    name: "Koolhaas Installaties",
+    descriptor: "Heldere afspraken voor installatie en service",
+  },
+} as const;
 
-// ─── Markdown-achtige parser → PDF-elementen (in offerte-huisstijl) ──────────
+const styles = StyleSheet.create({
+  page: {
+    fontFamily: "Helvetica",
+    fontSize: 9.5,
+    color: "#1f2937",
+    backgroundColor: "#ffffff",
+    paddingTop: 34,
+    paddingBottom: 56,
+    paddingHorizontal: 46,
+    lineHeight: 1.5,
+  },
+  hero: {
+    paddingBottom: 20,
+    marginBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  heroStripe: {
+    flexDirection: "row",
+    height: 3,
+    overflow: "hidden",
+    marginBottom: 22,
+  },
+  heroTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 24,
+  },
+  brandName: { fontSize: 14, fontFamily: "Helvetica-Bold", color: "#0f172a" },
+  eyebrow: {
+    fontSize: 7.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: 1.1,
+    marginBottom: 8,
+  },
+  docTitle: { fontSize: 31, fontFamily: "Helvetica-Bold", color: "#0f172a", marginBottom: 8, lineHeight: 1.02 },
+  docSubtitle: { fontSize: 9.5, color: "#64748b", lineHeight: 1.55, maxWidth: 380 },
+  metaRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 16,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+    flexWrap: "wrap",
+  },
+  versionBadge: {
+    fontSize: 7.8,
+    fontFamily: "Helvetica-Bold",
+    color: "#334155",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  contentIntroSpace: {
+    height: 10,
+  },
+  section: {
+    marginTop: 13,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+  },
+  h1: { fontSize: 14, fontFamily: "Helvetica-Bold", color: "#0f172a", marginTop: 12, marginBottom: 7 },
+  h2: { fontSize: 11.5, fontFamily: "Helvetica-Bold", color: "#0f172a", marginBottom: 6 },
+  h3: { fontSize: 10, fontFamily: "Helvetica-Bold", color: "#334155", marginTop: 9, marginBottom: 4 },
+  p: { fontSize: 9.2, color: "#374151", marginBottom: 6, lineHeight: 1.58 },
+  li: { fontSize: 9.2, color: "#374151", marginBottom: 3, lineHeight: 1.48, flex: 1 },
+  liBullet: { width: 14, fontSize: 9.2, color: "#94a3b8" },
+  separator: { borderBottomWidth: 1, borderBottomColor: "#e2e8f0", marginVertical: 12 },
+  footer: {
+    position: "absolute",
+    bottom: 28,
+    left: 44,
+    right: 44,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+    paddingTop: 8,
+  },
+  footerText: { fontSize: 7.5, color: "#94a3b8" },
+  pageNum: { fontSize: 7.5, color: "#94a3b8" },
+});
 
-function parseContent(content: string, brand: BrandConfig) {
+// ─── Markdown-achtige parser → PDF-elementen ──────────────────────────────────
+
+function parseContent(content: string, accentColor: string) {
   const lines = content.split("\n");
   const elements: React.ReactNode[] = [];
   let i = 0;
@@ -64,46 +150,38 @@ function parseContent(content: string, brand: BrandConfig) {
 
     if (!trimmed) { i++; continue; }
 
-    if (trimmed.startsWith("## ")) {
+    if (trimmed.startsWith("# ")) {
+      elements.push(<Text key={i} style={styles.h1}>{trimmed.slice(2)}</Text>);
+    } else if (trimmed.startsWith("## ")) {
       elements.push(
-        <View key={i} style={{ marginTop: 16, marginBottom: 8 }}>
-          <Text style={{ fontSize: 12.5, fontFamily: "Helvetica-Bold", color: brand.colors.text, marginBottom: 4 }}>
-            {trimmed.slice(3)}
-          </Text>
-          <View style={{ width: 24, height: 2, borderRadius: 2, backgroundColor: brand.colors.accent }} />
+        <View key={i} style={styles.section}>
+          <Text style={[styles.h2, { color: "#0f172a" }]}>{trimmed.slice(3)}</Text>
+          <View style={{ width: 28, height: 2, borderRadius: 2, backgroundColor: accentColor, marginBottom: 8 }} />
         </View>
       );
     } else if (trimmed.startsWith("### ")) {
-      elements.push(
-        <Text key={i} style={{ fontSize: 9.8, fontFamily: "Helvetica-Bold", color: brand.colors.text, marginTop: 8, marginBottom: 4 }}>
-          {trimmed.slice(4)}
-        </Text>
-      );
+      elements.push(<Text key={i} style={styles.h3}>{trimmed.slice(4)}</Text>);
     } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
       elements.push(
-        <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, marginBottom: 3 }}>
-          <Text style={{ fontSize: 9.5, color: brand.colors.accent }}>•</Text>
-          <Text style={{ fontSize: 9.5, color: "#334155", lineHeight: 1.5, flex: 1 }}>{renderBold(trimmed.slice(2))}</Text>
+        <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 3 }}>
+          <Text style={[styles.liBullet, { color: accentColor }]}>•</Text>
+          <Text style={styles.li}>{trimmed.slice(2)}</Text>
         </View>
       );
     } else if (/^\d+\.\s/.test(trimmed)) {
       const numMatch = trimmed.match(/^(\d+)\.\s(.*)$/);
       if (numMatch) {
         elements.push(
-          <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, marginBottom: 3 }}>
-            <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", color: brand.colors.accent, width: 16 }}>{numMatch[1]}.</Text>
-            <Text style={{ fontSize: 9.5, color: "#334155", lineHeight: 1.5, flex: 1 }}>{renderBold(numMatch[2])}</Text>
+          <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 3 }}>
+            <Text style={[styles.liBullet, { color: accentColor, width: 18 }]}>{numMatch[1]}.</Text>
+            <Text style={styles.li}>{numMatch[2]}</Text>
           </View>
         );
       }
     } else if (trimmed === "---") {
-      elements.push(<View key={i} style={{ height: 1, backgroundColor: "#F1F5F9", marginVertical: 16 }} />);
+      elements.push(<View key={i} style={styles.separator} />);
     } else {
-      elements.push(
-        <Text key={i} style={{ fontSize: 9.5, color: "#334155", lineHeight: 1.5, marginBottom: 6 }}>
-          {renderBold(trimmed)}
-        </Text>
-      );
+      elements.push(<Text key={i} style={styles.p}>{trimmed}</Text>);
     }
 
     i++;
@@ -112,71 +190,84 @@ function parseContent(content: string, brand: BrandConfig) {
   return elements;
 }
 
-// Ondersteunt **vet** binnen een regel, zonder een volledige markdown-parser nodig te hebben.
-function renderBold(text: string): React.ReactNode {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
-  if (parts.length === 1) return text;
-  return parts.map((part, i) =>
-    part.startsWith("**") && part.endsWith("**") ? (
-      <Text key={i} style={{ fontFamily: "Helvetica-Bold" }}>{part.slice(2, -2)}</Text>
-    ) : (
-      <Text key={i}>{part}</Text>
-    )
-  );
-}
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export type LegalDocumentType = "terms" | "privacy";
 
 interface LegalPDFProps {
   companySlug: string;
+  companyName: string;
+  companyEmail: string;
+  companyWebsite: string;
+  companyAddress?: string;
   type: LegalDocumentType;
   content: string;
+  version?: string;
+  date?: string;
 }
 
-export function LegalPDF({ companySlug, type, content }: LegalPDFProps) {
-  const brand = getBrand(companySlug);
+export function LegalPDF({
+  companySlug,
+  companyName,
+  companyEmail,
+  companyWebsite,
+  type,
+  content,
+  version,
+  date,
+}: LegalPDFProps) {
+  const brand = companySlug === "koolhaas" ? BRAND.koolhaas : BRAND.websup;
   const docTitle = type === "terms" ? "Algemene Voorwaarden" : "Privacybeleid";
-  const tag = type === "terms" ? "Voorwaarden" : "Privacy";
-  const parsed = parseContent(content, brand);
+  const docKind = type === "terms" ? "Voorwaarden" : "Privacy";
+  const parsed = parseContent(content, brand.accent);
 
   return (
-    <Document title={`${docTitle} - ${brand.name}`} author={brand.name} language="nl">
-      <Page size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", padding: PAD, paddingTop: 30, paddingBottom: 50 }}>
-        <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} fixed />
-        <PageHeader brand={brand} tag={tag} />
-
-        <Eyebrow text="Juridisch document" color={brand.colors.accent} />
-        <Text style={{ fontSize: 26, fontFamily: "Helvetica-Bold", color: brand.colors.text, marginBottom: 8, lineHeight: 1.08 }}>
-          {docTitle}
-        </Text>
-        <Text style={{ fontSize: 9.5, color: brand.colors.muted, lineHeight: 1.5, maxWidth: 400, marginBottom: 16 }}>
-          Van toepassing op offertes, opdrachten en overeenkomsten van {brand.name}.
-        </Text>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            marginBottom: 18,
-            paddingBottom: 14,
-            borderBottomWidth: 1,
-            borderBottomColor: brand.colors.border,
-          }}
-        >
-          <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: brand.colors.accent }}>{brand.email}</Text>
-          <Text style={{ fontSize: 8, color: brand.colors.muted, marginLeft: 8 }}>{brand.website}</Text>
+    <Document
+      title={`${docTitle} - ${companyName}`}
+      author={companyName}
+      language="nl"
+    >
+      <Page size="A4" style={styles.page}>
+        <View style={[styles.hero, { borderBottomColor: brand.accent }]}>
+          <View style={styles.heroStripe}>
+            <View style={{ flex: 1, backgroundColor: brand.warm }} />
+            <View style={{ flex: 1, backgroundColor: brand.accent2 }} />
+            <View style={{ flex: 1, backgroundColor: brand.accent3 }} />
+          </View>
+          <View style={styles.heroTop}>
+            <View>
+              <Text style={[styles.brandName, { color: brand.text }]}>{companyName}</Text>
+              <Text style={{ fontSize: 8.5, color: brand.muted, marginTop: 2 }}>{companyWebsite}</Text>
+            </View>
+            <Text style={[styles.versionBadge, { color: brand.accentDark }]}>
+              {docKind}
+            </Text>
+          </View>
+          <Text style={[styles.eyebrow, { color: brand.accentDark }]}>{brand.descriptor}</Text>
+          <Text style={[styles.docTitle, { color: brand.text }]}>{docTitle}</Text>
+          <Text style={[styles.docSubtitle, { color: brand.muted }]}>
+            Heldere afspraken, compact vastgelegd voor offertes, opdrachten en communicatie via het offerteportaal.
+          </Text>
+          <View style={styles.metaRow}>
+            {version && <Text style={[styles.versionBadge, { color: brand.muted }]}>Versie {version}</Text>}
+            {date && <Text style={[styles.versionBadge, { color: brand.muted }]}>Bijgewerkt {date}</Text>}
+            <Text style={[styles.versionBadge, { color: brand.accentDark }]}>{companyEmail}</Text>
+          </View>
         </View>
 
+        <View style={styles.contentIntroSpace} />
         {parsed}
 
-        <PageFooter tag={tag} brand={brand} />
+        <View style={styles.footer} fixed>
+          <Text style={styles.footerText}>{companyName} - {companyEmail} - {companyWebsite}</Text>
+          <Text style={styles.pageNum} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
+        </View>
       </Page>
     </Document>
   );
 }
 
-// ─── Standaardtekst per bedrijf (gebruikt zolang er geen eigen tekst is vastgelegd) ──
+// ─── Default content ──────────────────────────────────────────────────────────
 
 export const DEFAULT_TERMS: Record<string, string> = {
   websup: `## Artikel 1 — Definities

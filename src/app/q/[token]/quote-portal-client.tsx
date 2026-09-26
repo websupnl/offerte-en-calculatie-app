@@ -86,6 +86,16 @@ type Share = {
   acceptedTotalIncVat?: string | number | null;
 };
 
+const LEGAL_PAGES = {
+  websup: { site: "https://websup.nl", terms: "/algemene-voorwaarden", privacy: "/privacybeleid" },
+  koolhaas: { site: "https://koolhaasinstallaties.nl", terms: "/algemene-voorwaarden", privacy: "/privacy" },
+} as const;
+
+function legalUrl(companySlug: string, type: "terms" | "privacy") {
+  const pages = companySlug === "koolhaas" ? LEGAL_PAGES.koolhaas : LEGAL_PAGES.websup;
+  return pages.site + pages[type];
+}
+
 function formatOptionPriceTag(tag: string) {
   return tag.replace(/€\s*([\d.,]+)/g, (_, rawAmount: string) => {
     const amount = Number(
@@ -765,7 +775,7 @@ export function QuotePortalClient({
                     <span>
                       Ik ga akkoord met deze offerte en de{" "}
                       <a
-                        href={`/api/legal/${quote.company.slug}/terms`}
+                        href={legalUrl(quote.company.slug, "terms")}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="underline underline-offset-2 hover:opacity-80"
@@ -774,7 +784,7 @@ export function QuotePortalClient({
                       </a>
                       {" "}en het{" "}
                       <a
-                        href={`/api/legal/${quote.company.slug}/privacy`}
+                        href={legalUrl(quote.company.slug, "privacy")}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="underline underline-offset-2 hover:opacity-80"
