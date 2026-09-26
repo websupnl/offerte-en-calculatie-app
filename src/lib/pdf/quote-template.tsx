@@ -14,7 +14,7 @@ import {
   getQuoteOptionRecurringPrice,
 } from "@/lib/quote-selection";
 
-type BrandKey = "websup" | "koolhaas";
+export type BrandKey = "websup" | "koolhaas";
 
 type QuoteItem = {
   description: string;
@@ -134,7 +134,7 @@ const stripPersonalSignOff = (value: string) =>
     )
     .trimEnd();
 
-type BrandConfig = {
+export type BrandConfig = {
   key: BrandKey;
   name: string;
   logoWhite: string;
@@ -318,7 +318,7 @@ const BRANDS: Record<BrandKey, BrandConfig> = {
   },
 };
 
-function getBrand(slug: string): BrandConfig {
+export function getBrand(slug: string): BrandConfig {
   return slug === "koolhaas" ? BRANDS.koolhaas : BRANDS.websup;
 }
 

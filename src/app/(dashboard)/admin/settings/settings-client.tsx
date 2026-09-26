@@ -173,14 +173,14 @@ export function SettingsClient({
     {
       type: "terms" as const,
       title: "Algemene voorwaarden",
-      description: "Deze PDF wordt geopend via de link algemene voorwaarden in het offerteportaal.",
-      uploadLabel: "Upload voorwaarden",
+      description: "Zonder upload wordt dit automatisch gegenereerd in de stijl van de offerte-PDF. Upload een eigen PDF om die te overschrijven.",
+      uploadLabel: "Upload eigen voorwaarden",
     },
     {
       type: "privacy" as const,
       title: "Privacyverklaring",
-      description: "Deze PDF wordt geopend via de privacy-link in het offerteportaal.",
-      uploadLabel: "Upload privacyverklaring",
+      description: "Zonder upload wordt dit automatisch gegenereerd in de stijl van de offerte-PDF. Upload een eigen PDF om die te overschrijven.",
+      uploadLabel: "Upload eigen privacyverklaring",
     },
   ];
 
@@ -565,7 +565,8 @@ export function SettingsClient({
         <TabsContent value="legal">
           <div className="space-y-6">
             <p className="text-sm text-muted-foreground">
-              Upload hier de definitieve PDF-bestanden. De links in het offerteportaal tonen exact deze bestanden.
+              De links in het offerteportaal werken altijd: zonder eigen upload genereert de app een PDF in de
+              huisstijl van de offerte. Upload hier alleen een eigen bestand als dat de standaardtekst moet vervangen.
             </p>
 
             <div className="grid gap-4 lg:grid-cols-2">
@@ -582,17 +583,15 @@ export function SettingsClient({
                           <CardTitle>{document.title}</CardTitle>
                           <CardDescription>{document.description}</CardDescription>
                         </div>
-                        {current.name && (
-                          <a
-                            href={`/api/legal/${companySlug}/${document.type}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            Bekijk PDF
-                          </a>
-                        )}
+                        <a
+                          href={`/api/legal/${companySlug}/${document.type}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Bekijk PDF
+                        </a>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -615,7 +614,7 @@ export function SettingsClient({
                             </Button>
                           </div>
                         ) : (
-                          <p className="text-sm text-muted-foreground">Nog geen PDF geupload.</p>
+                          <p className="text-sm text-muted-foreground">Geen eigen PDF — de gegenereerde versie is actief.</p>
                         )}
                       </div>
 

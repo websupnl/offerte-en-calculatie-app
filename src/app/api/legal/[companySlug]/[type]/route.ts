@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createElement } from "react";
+import { renderToBuffer } from "@react-pdf/renderer";
 import { prisma } from "@/lib/prisma";
 import { downloadObject, isStorageConfigured } from "@/lib/storage";
+import { LegalPDF, DEFAULT_TERMS, DEFAULT_PRIVACY } from "@/lib/pdf/legal-template";
+import { pdfFilename } from "@/lib/pdf/filename";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,23 +22,34 @@ export async function GET(
   const company = await prisma.company.findUnique({ where: { slug: companySlug } });
   if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
-  if (!isStorageConfigured()) {
-    return NextResponse.json({ error: "S3-opslag is niet geconfigureerd" }, { status: 503 });
+  const isTerms = type === "terms";
+  const key = isTerms ? company.termsPdfKey : company.privacyPdfKey;
+
+  // Een handmatig geüploade PDF (settings → Juridisch) is altijd de bron als hij er is.
+  if (key && isStorageConfigured()) {
+    const storedName = isTerms ? company.termsPdfName : company.privacyPdfName;
+    const filename =
+      storedName ??
+      (isTerms ? `algemene-voorwaarden-${companySlug}.pdf` : `privacybeleid-${companySlug}.pdf`);
+    const pdfBuffer = await downloadObject(key);
+    return new NextResponse(new Uint8Array(pdfBuffer), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="${filename}"`,
+      },
+    });
   }
 
-  const key = type === "terms" ? company.termsPdfKey : company.privacyPdfKey;
-  const storedName = type === "terms" ? company.termsPdfName : company.privacyPdfName;
-  if (!key) {
-    return NextResponse.json({ error: "Juridische PDF is nog niet geupload" }, { status: 404 });
-  }
+  // Zonder eigen upload: genereer 'm in de stijl van de offerte-PDF, met eigen
+  // tekst (Company.termsContent/privacyContent) of anders de standaardtekst.
+  const dbContent = (isTerms ? company.termsContent : company.privacyContent)?.trim();
+  const defaults = isTerms ? DEFAULT_TERMS : DEFAULT_PRIVACY;
+  const content = dbContent || defaults[companySlug] || defaults.websup;
 
-  const filename =
-    storedName ??
-    (type === "terms"
-      ? `algemene-voorwaarden-${companySlug}.pdf`
-      : `privacybeleid-${companySlug}.pdf`);
-
-  const pdfBuffer = await downloadObject(key);
+  const element = createElement(LegalPDF, { companySlug, type, content });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfBuffer: Buffer = await renderToBuffer(element as any);
+  const filename = pdfFilename(isTerms ? "Algemene-voorwaarden" : "Privacybeleid", company.name);
 
   return new NextResponse(new Uint8Array(pdfBuffer), {
     headers: {
