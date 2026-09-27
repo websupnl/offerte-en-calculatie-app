@@ -78,16 +78,13 @@ export default async function InvoicePrintPage({
         .inv-meta dt { color: var(--on-s); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 12px; align-self: center; }
         .inv-meta dd { margin: 0; color: var(--on); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 
-<<<<<<< Updated upstream
-        .inv-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-        .inv-party { background: var(--surface-in); border-radius: var(--r-lg); padding: 16px 18px; font-size: 14px; color: var(--on-m); line-height: 1.5; white-space: pre-line; }
-        .inv-party small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
-=======
         .inv-parties { margin-bottom: 24px; }
         .inv-party { width: min(100%, 390px); box-sizing: border-box; background: var(--surface-in); border-radius: var(--r-lg); padding: 16px 18px; font-size: 16px; color: var(--on-m); line-height: 1.5; white-space: pre-line; }
         .inv-party small { display: block; font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
->>>>>>> Stashed changes
         .inv-party b { display: block; font: 800 18px/1.2 var(--display); color: var(--on); margin-bottom: 4px; letter-spacing: -.01em; }
+        .inv-sheet .doc-foot-meta { margin-left: auto; max-width: 100%; }
+        .inv-sheet .doc-foot-meta-row { justify-content: flex-end; flex-wrap: wrap; }
+        .inv-sheet .doc-foot-meta-row span { white-space: normal; overflow-wrap: anywhere; }
 
         .inv-table { width: 100%; border-collapse: collapse; font-size: 14px; }
         .inv-table th { padding: 8px 10px; text-align: left; font: 800 11px/1 var(--text); letter-spacing: .1em; text-transform: uppercase; color: var(--on-m); border-bottom: 1px solid var(--border-str); }
@@ -250,7 +247,7 @@ export default async function InvoicePrintPage({
               <div className="doc-foot">
                 <div className="doc-foot-meta">
                   <div className="doc-foot-meta-row">
-                    <span>{s.address ? s.address.replace(/\s+/g, " ").trim() : missing}</span>
+                    <span>{s.address ? s.address.replace(/\s+/g, " ").trim() : <span className="inv-warn">Bedrijfsadres ontbreekt</span>}</span>
                   </div>
                   <div className="doc-foot-meta-row">
                     {!isKoolhaas && <span>{brand.website}</span>}
