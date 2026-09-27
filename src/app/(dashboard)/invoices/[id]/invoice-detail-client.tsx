@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, CreditCard, Eye, Loader2, Printer, Save, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CreditCard, Eye, Loader2, Save, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { INVOICE_STATUS_LABELS, formatCurrency, formatDate } from "@/lib/format";
 import { computeInvoiceTotals } from "@/lib/invoice-totals";
 import { InvoiceLinesEditor, stripKeys, toEditable, type EditableLine } from "@/components/invoices/invoice-lines-editor";
+import { InvoicePdfDownload } from "@/components/invoices/invoice-pdf-download";
 
 type Invoice = {
   id: string;
@@ -178,9 +179,7 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
           <a href={`/print/invoices/${invoice.id}`} target="_blank" rel="noopener noreferrer">
             <Button size="sm" variant="secondary"><Eye className="h-4 w-4" /> Bekijken</Button>
           </a>
-          <a href={`/print/invoices/${invoice.id}?auto=1`} target="_blank" rel="noopener noreferrer">
-            <Button size="sm" variant="secondary"><Printer className="h-4 w-4" /> PDF / print</Button>
-          </a>
+          <InvoicePdfDownload invoiceId={invoice.id} />
           {status === "CONCEPT" && (
             <Button size="sm" variant="ghost" onClick={remove} className="ml-auto text-white/60 hover:bg-white/10 hover:text-white">
               <Trash2 className="h-4 w-4" /> Verwijderen

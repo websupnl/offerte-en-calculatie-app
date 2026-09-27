@@ -2,7 +2,7 @@ import "@/app/q/[token]/portal.css";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { PrintOnLoad } from "@/components/print-on-load";
+import { InvoicePdfDownload } from "@/components/invoices/invoice-pdf-download";
 import { getInvoiceSettings } from "@/lib/branding";
 import { formatCurrency, formatDate } from "@/lib/format";
 
@@ -18,13 +18,10 @@ const BRAND = {
 
 export default async function InvoicePrintPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ auto?: string }>;
 }) {
   const { id } = await params;
-  const { auto } = await searchParams;
   const session = await auth();
   const companyId = session?.user?.activeCompanyId;
   if (!companyId) notFound();
@@ -61,10 +58,9 @@ export default async function InvoicePrintPage({
 
   return (
     <main className="print-document-page">
-      <PrintOnLoad enabled={auto === "1"} />
       <style>{`
         .inv-toolbar { width: 210mm; margin: 20px auto 16px; display: flex; justify-content: flex-end; gap: 8px; font-family: var(--font-body), system-ui, sans-serif; }
-        .inv-toolbar a, .inv-toolbar button { border: 0; border-radius: 9999px; padding: 10px 18px; font-weight: 700; font-size: 14px; cursor: pointer; text-decoration: none; background: #fff; color: #0b1526; box-shadow: inset 0 0 0 1px rgba(11,21,38,.14); }
+        .inv-toolbar a, .inv-toolbar button { border: 0; border-radius: 9999px; padding: 10px 18px; font-weight: 700; font-size: 16px; cursor: pointer; text-decoration: none; background: #fff; color: #0b1526; box-shadow: inset 0 0 0 1px rgba(11,21,38,.14); display: inline-flex; align-items: center; gap: 8px; }
         .inv-toolbar button { background: #0b1526; color: #fff; box-shadow: none; }
 
         .sheet.inv-sheet { height: auto; min-height: 297mm; overflow: visible; }
@@ -72,11 +68,12 @@ export default async function InvoicePrintPage({
         .inv-sheet .bar { height: 6px; }
 
         .inv-hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin: 18px 0 22px; }
+        .inv-hero > :first-child { min-width: 0; }
         .inv-h1 { font: 800 64px/.9 var(--display); letter-spacing: -.04em; margin: 8px 0 0; padding-bottom: 4px;
           background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .inv-meta { margin: 0; display: grid; grid-template-columns: auto auto; gap: 4px 16px; font-size: 14px; padding-left: 16px; border-left: 1px solid var(--border-str); }
-        .inv-meta dt { color: var(--on-s); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 12px; align-self: center; }
-        .inv-meta dd { margin: 0; color: var(--on); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+        .inv-meta { margin: 0; display: grid; grid-template-columns: auto max-content; gap: 4px 16px; font-size: 16px; padding-left: 16px; border-left: 1px solid var(--border-str); flex: none; }
+        .inv-meta dt { color: var(--on-s); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 13px; align-self: center; }
+        .inv-meta dd { margin: 0; color: var(--on); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
         .inv-parties { margin-bottom: 24px; }
         .inv-party { width: min(100%, 390px); box-sizing: border-box; background: var(--surface-in); border-radius: var(--r-lg); padding: 16px 18px; font-size: 16px; color: var(--on-m); line-height: 1.5; white-space: pre-line; }
@@ -86,8 +83,8 @@ export default async function InvoicePrintPage({
         .inv-sheet .doc-foot-meta-row { justify-content: flex-end; flex-wrap: wrap; }
         .inv-sheet .doc-foot-meta-row span { white-space: normal; overflow-wrap: anywhere; }
 
-        .inv-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        .inv-table th { padding: 8px 10px; text-align: left; font: 800 11px/1 var(--text); letter-spacing: .1em; text-transform: uppercase; color: var(--on-m); border-bottom: 1px solid var(--border-str); }
+        .inv-table { width: 100%; border-collapse: collapse; font-size: 16px; }
+        .inv-table th { padding: 8px 10px; text-align: left; font: 800 13px/1 var(--text); letter-spacing: .1em; text-transform: uppercase; color: var(--on-m); border-bottom: 1px solid var(--border-str); }
         .inv-table td { padding: 11px 10px; border-bottom: 1px solid var(--border); color: var(--on); line-height: 1.4; vertical-align: top; }
         .inv-table th:first-child, .inv-table td:first-child { padding-left: 16px; }
         .inv-table th:last-child, .inv-table td:last-child { padding-right: 16px; }
@@ -103,30 +100,33 @@ export default async function InvoicePrintPage({
 
         .inv-pay { margin-top: 22px; display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center;
           background: var(--grad-soft); border-radius: var(--r-lg); padding: 18px 20px; break-inside: avoid; }
-        .inv-pay p { margin: 8px 0 0; font-size: 14px; color: var(--on-m); line-height: 1.5; }
-        .inv-pay dl { margin: 0; display: grid; grid-template-columns: auto auto; gap: 3px 14px; font-size: 14px; }
+        .inv-pay p { margin: 8px 0 0; font-size: 16px; color: var(--on-m); line-height: 1.5; }
+        .inv-pay dl { margin: 0; display: grid; grid-template-columns: auto auto; gap: 3px 14px; font-size: 16px; }
         .inv-pay dt { color: var(--on-s); }
         .inv-pay dd { margin: 0; font-weight: 700; color: var(--on); }
-        .inv-notes { margin-top: 18px; font-size: 14px; color: var(--on-m); white-space: pre-line; line-height: 1.55; }
-        .inv-custom { margin-top: auto; padding: 18px 0 10px; font-size: 12px; color: var(--on-s); white-space: pre-line; }
+        .inv-notes { margin-top: 18px; font-size: 16px; color: var(--on-m); white-space: pre-line; line-height: 1.55; }
+        .inv-custom { margin-top: auto; padding: 18px 0 10px; font-size: 14px; color: var(--on-s); white-space: pre-line; }
         .inv-stamp { position: absolute; top: 150px; right: 64px; transform: rotate(-8deg); border: 3px solid #12b76a; color: #12b76a;
           font: 800 28px/1 var(--display); letter-spacing: .14em; padding: 8px 18px; border-radius: 10px; opacity: .85; }
         .inv-warn { color: #d92d20; font-weight: 700; }
         @media screen and (max-width: 820px) { .inv-toolbar { width: auto; margin: 12px; } }
         @media print {
           .inv-toolbar { display: none; }
-          .sheet.inv-sheet { height: auto !important; min-height: 297mm; }
+          .print-document-page .portal-container,
+          .print-document-page .doc-viewer { width: 210mm !important; min-width: 210mm !important; max-width: none !important; overflow: visible !important; }
+          .print-document-page .sheet.inv-sheet { width: 210mm !important; min-width: 210mm !important; max-width: none !important; height: auto !important; min-height: 297mm !important; margin: 0 !important; break-after: auto !important; }
+          .print-document-page .inv-sheet .pad { width: 210mm !important; max-width: none !important; min-height: 297mm !important; height: auto !important; padding: 15mm 16mm 12mm !important; box-sizing: border-box; }
           .inv-sheet * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
 
       <div className="inv-toolbar">
         <a href={`/invoices/${invoice.id}`}>Terug naar bewerken</a>
-        <button type="button" data-print>Opslaan als PDF</button>
+        <InvoicePdfDownload invoiceId={invoice.id} toolbar />
       </div>
       <script
         dangerouslySetInnerHTML={{
-          __html: `document.querySelector('[data-print]')?.addEventListener('click',()=>window.print());document.title=${JSON.stringify(`Factuur ${invoice.number} - ${c?.name ?? ""}`)};`,
+          __html: `document.title=${JSON.stringify(`Factuur ${invoice.number} - ${c?.name ?? ""}`)};`,
         }}
       />
 
@@ -173,7 +173,7 @@ export default async function InvoicePrintPage({
               </div>
 
               {invoice.reference && (
-                <p style={{ margin: "0 0 14px", fontSize: 14, color: "var(--on-m)" }}>
+                <p style={{ margin: "0 0 14px", fontSize: 16, color: "var(--on-m)" }}>
                   <b style={{ color: "var(--on)" }}>Betreft:</b> {invoice.reference}
                 </p>
               )}
