@@ -80,7 +80,13 @@ export async function renderPageAsPdf(url: string, cookie?: string, expectedSele
     if (cookie) await page.setExtraHTTPHeaders({ cookie });
     const response = await page.goto(url, { waitUntil: "networkidle0", timeout: 30000 });
     if (!response?.ok() || new URL(page.url()).pathname !== new URL(url).pathname) {
-      throw new Error("Print page is unavailable or redirected");
+      const requested = new URL(url);
+      const landed = new URL(page.url());
+      // Geen querystring of cookies loggen: print-URL's kunnen geheime tokens bevatten.
+      throw new Error(
+        `Print page is unavailable or redirected (HTTP ${response?.status() ?? "no response"}; ` +
+        `${requested.host}${requested.pathname} -> ${landed.host}${landed.pathname})`,
+      );
     }
     if (expectedSelector) await page.waitForSelector(expectedSelector, { timeout: 5000 });
     await page.evaluate(() => document.fonts.ready);

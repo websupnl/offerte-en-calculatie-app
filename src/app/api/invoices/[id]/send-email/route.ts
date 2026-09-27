@@ -42,8 +42,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Klantenmail vereist een live Mollie-betaallink op productie" }, { status: 409 });
   }
   if (!invoiceEmailConfigured()) return NextResponse.json({ error: "E-mail is nog niet ingesteld" }, { status: 503 });
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
-  if (!appUrl?.startsWith("https://")) {
+  // Gebruik het domein waarop de gebruiker is ingelogd. Een ingestelde app-URL
+  // kan naar een Vercel-alias of een ander project wijzen en dan redirect de
+  // interne Chromium-aanvraag voordat de factuur kan worden gerenderd.
+  const printOrigin = req.nextUrl.origin;
+  if (!printOrigin.startsWith("https://")) {
     return NextResponse.json({ error: "Een publieke HTTPS-app-URL is nodig" }, { status: 503 });
   }
 
@@ -59,7 +62,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const payment = await ensureInvoicePaymentLink(invoice);
     if (payment.mode !== "live") throw new Error("De betaallink staat niet in live-modus");
 
-    const printUrl = `${appUrl}/print/invoices/${id}`;
+    const printUrl = `${printOrigin}/print/invoices/${encodeURIComponent(id)}`;
     const pdf = await renderPageAsPdf(printUrl, req.headers.get("cookie") ?? "", ".inv-sheet");
     if (!pdf) throw new Error("De factuur-PDF kon niet worden gemaakt. Er is geen e-mail verstuurd.");
 
