@@ -56,6 +56,8 @@ export default async function InvoicePrintPage({
   }
   const c = invoice.customer;
   const paid = invoice.status === "BETAALD";
+  const livePaymentUrl = !paid && invoice.molliePaymentMode === "live" ? invoice.molliePaymentUrl : null;
+  const showBankDetails = !paid && !livePaymentUrl;
   const qty = (n: number) => n.toLocaleString("nl-NL", { maximumFractionDigits: 2 });
   const missing = <span className="inv-warn">ontbreekt</span>;
 
@@ -72,11 +74,12 @@ export default async function InvoicePrintPage({
         .inv-sheet .bar { height: 6px; }
 
         .inv-hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin: 18px 0 22px; }
+        .inv-hero > :first-child { min-width: 0; }
         .inv-h1 { font: 800 64px/.9 var(--display); letter-spacing: -.04em; margin: 8px 0 0; padding-bottom: 4px;
           background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .inv-meta { margin: 0; display: grid; grid-template-columns: auto auto; gap: 4px 16px; font-size: 14px; padding-left: 16px; border-left: 1px solid var(--border-str); }
+        .inv-meta { margin: 0; display: grid; grid-template-columns: auto max-content; gap: 4px 16px; font-size: 14px; padding-left: 16px; border-left: 1px solid var(--border-str); flex: none; }
         .inv-meta dt { color: var(--on-s); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 12px; align-self: center; }
-        .inv-meta dd { margin: 0; color: var(--on); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+        .inv-meta dd { margin: 0; color: var(--on); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
         .inv-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
         .inv-party { background: var(--surface-in); border-radius: var(--r-lg); padding: 16px 18px; font-size: 14px; color: var(--on-m); line-height: 1.5; white-space: pre-line; }
@@ -104,6 +107,11 @@ export default async function InvoicePrintPage({
         .inv-pay dl { margin: 0; display: grid; grid-template-columns: auto auto; gap: 3px 14px; font-size: 14px; }
         .inv-pay dt { color: var(--on-s); }
         .inv-pay dd { margin: 0; font-weight: 700; color: var(--on); }
+        .inv-pay-online { grid-template-columns: 1fr auto; }
+        .inv-pay-online p { font-size: 16px; }
+        .inv-pay-link { display: inline-block; border-radius: 9999px; padding: 13px 20px; background: var(--on); color: #fff !important;
+          font: 800 16px/1.2 var(--text); text-decoration: none; white-space: nowrap; }
+        .inv-pay-url { display: block; margin-top: 9px; font-size: 12px; color: var(--on-m); overflow-wrap: anywhere; }
         .inv-notes { margin-top: 18px; font-size: 14px; color: var(--on-m); white-space: pre-line; line-height: 1.55; }
         .inv-custom { margin-top: auto; padding: 18px 0 10px; font-size: 12px; color: var(--on-s); white-space: pre-line; }
         .inv-stamp { position: absolute; top: 150px; right: 64px; transform: rotate(-8deg); border: 3px solid #12b76a; color: #12b76a;
@@ -112,7 +120,32 @@ export default async function InvoicePrintPage({
         @media screen and (max-width: 820px) { .inv-toolbar { width: auto; margin: 12px; } }
         @media print {
           .inv-toolbar { display: none; }
-          .sheet.inv-sheet { height: auto !important; min-height: 297mm; }
+          /* De gedeelde offerte-styles bevatten later ook mobiele regels.
+             Print altijd op de echte A4-breedte, ongeacht de viewport. */
+          .print-document-page .portal-container,
+          .print-document-page .doc-viewer {
+            width: 210mm !important;
+            min-width: 210mm !important;
+            max-width: none !important;
+            overflow: visible !important;
+          }
+          .print-document-page .sheet.inv-sheet {
+            width: 210mm !important;
+            min-width: 210mm !important;
+            max-width: none !important;
+            height: auto !important;
+            min-height: 296mm !important;
+            margin: 0 !important;
+            break-after: auto !important;
+          }
+          .print-document-page .inv-sheet .pad {
+            width: 210mm !important;
+            max-width: none !important;
+            min-height: 296mm !important;
+            height: auto !important;
+            padding: 15mm 16mm 12mm !important;
+            box-sizing: border-box;
+          }
           .inv-sheet * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
@@ -220,28 +253,30 @@ export default async function InvoicePrintPage({
                 </tfoot>
               </table>
 
-              <div className="inv-pay">
+              <div className={`inv-pay${livePaymentUrl ? " inv-pay-online" : ""}`}>
                 <div>
                   <span className="eyebrow">{paid ? "Betaald" : "Betalen"}</span>
                   {paid ? (
                     <p>Deze factuur is betaald. Bedankt!</p>
+                  ) : livePaymentUrl ? (
+                    <>
+                      <p>Betaal deze factuur via Mollie{invoice.dueDate ? <> vóór <b>{formatDate(invoice.dueDate)}</b></> : ` binnen ${s.paymentDays} dagen`}.</p>
+                      <span className="inv-pay-url">{livePaymentUrl}</span>
+                    </>
                   ) : (
                     <p>
                       Maak het bedrag {invoice.dueDate ? <>vóór <b>{formatDate(invoice.dueDate)}</b></> : `binnen ${s.paymentDays} dagen`} over
                       onder vermelding van het factuurnummer.
-                      {invoice.molliePaymentUrl && (
-                        <> Of <a href={invoice.molliePaymentUrl} style={{ color: "inherit", fontWeight: 700, textDecoration: "underline" }}>
-                          {invoice.molliePaymentMode === "test" ? "doe een testbetaling" : "betaal online"}
-                        </a>.</>
-                      )}
+                      {invoice.molliePaymentMode === "test" && <><br /><b>Let op: online betalen staat nog in testmodus.</b></>}
                     </p>
                   )}
                 </div>
-                <dl>
+                {livePaymentUrl && <a className="inv-pay-link" href={livePaymentUrl}>Betaal online</a>}
+                {showBankDetails && <dl>
                   <dt>IBAN</dt><dd>{s.iban || missing}</dd>
                   <dt>T.n.v.</dt><dd>{s.accountHolder || invoice.company.name}</dd>
                   <dt>Kenmerk</dt><dd>{invoice.number}</dd>
-                </dl>
+                </dl>}
               </div>
 
               {invoice.notes && <div className="inv-notes">{invoice.notes}</div>}
@@ -264,7 +299,7 @@ export default async function InvoicePrintPage({
                   <div className="doc-foot-meta-row">
                     <span>KVK {s.kvk || missing}</span>
                     <span>Btw-id {s.vatNumber || missing}</span>
-                    <span>IBAN {s.iban || missing}</span>
+                    {showBankDetails && <span>IBAN {s.iban || missing}</span>}
                   </div>
                 </div>
               </div>
