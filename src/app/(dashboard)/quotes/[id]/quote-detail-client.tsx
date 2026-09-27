@@ -548,7 +548,7 @@ export function QuoteDetailClient({
               <DropdownMenuTrigger className={buttonVariants({ variant: "outline", size: "sm" })}>
                 <Calculator className="h-4 w-4" /> Calculaties <ChevronDown className="h-4 w-4" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-72 max-w-[calc(100vw-2rem)]">
                 {quote.calculations.map((calculation) => (
                   <DropdownMenuItem key={calculation.id} render={<Link href={`/calculations/${calculation.id}`} />}>
                     {calculation.role === "VARIANT" ? "Variant" : "Basis"}: {calculation.number} · {calculation.title}
