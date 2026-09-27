@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { todayDateField } from "@/lib/business-date";
 
 /**
  * Zet verstuurde/bekeken offertes waarvan `validUntil` verstreken is op EXPIRED.
@@ -15,7 +16,7 @@ export async function markExpiredQuotes(companyId?: string): Promise<number> {
       ...(companyId ? { companyId } : {}),
       status: { in: ["SENT", "VIEWED"] },
       archivedAt: null,
-      validUntil: { not: null, lt: new Date() },
+      validUntil: { not: null, lt: todayDateField() },
     },
     data: { status: "EXPIRED" },
   });

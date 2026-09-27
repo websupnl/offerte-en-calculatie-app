@@ -5,6 +5,7 @@ import { getInvoiceSettings } from "@/lib/branding";
 import { InvoiceDetailClient } from "./invoice-detail-client";
 import { invoiceMollieKey, invoiceMollieMode } from "@/lib/mollie-invoices";
 import { invoiceEmailConfigured } from "@/lib/email";
+import { markOverdueInvoices } from "@/lib/invoice-overdue";
 
 export default async function InvoiceDetailPage({
   params,
@@ -15,6 +16,8 @@ export default async function InvoiceDetailPage({
   const session = await auth();
   const companyId = session?.user?.activeCompanyId;
   if (!companyId) notFound();
+
+  await markOverdueInvoices(companyId, id);
 
   const invoice = await prisma.salesInvoice.findFirst({
     where: { id, companyId },

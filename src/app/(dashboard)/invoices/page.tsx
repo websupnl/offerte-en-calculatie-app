@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { markOverdueInvoices } from "@/lib/invoice-overdue";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   CONCEPT: "secondary",
@@ -17,32 +18,42 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
   VERVALLEN: "destructive",
 };
 
-export default async function InvoicesPage() {
+export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
   const session = await auth();
   const companyId = session?.user?.activeCompanyId;
+  const requestedView = (await searchParams).view;
+  const view = requestedView === "overdue" || requestedView === "ready" ? requestedView : "all";
 
-  const invoices = companyId
-    ? await prisma.salesInvoice.findMany({
-        where: { companyId },
-        orderBy: [{ invoiceDate: "desc" }, { updatedAt: "desc" }],
+  if (companyId) await markOverdueInvoices(companyId);
+
+  const [invoices, invoiceStats] = companyId
+    ? await Promise.all([
+      prisma.salesInvoice.findMany({
+        where: { companyId, ...(view === "overdue" ? { status: "VERVALLEN" } : view === "ready" ? { status: "GEREED" } : {}) },
+        orderBy: view === "overdue" ? [{ dueDate: "asc" }] : [{ invoiceDate: "desc" }, { updatedAt: "desc" }],
         include: {
           customer: { select: { name: true } },
           project: { select: { id: true, number: true, title: true } },
           _count: { select: { lines: true } },
         },
         take: 200,
-      })
-    : [];
+      }),
+      prisma.salesInvoice.groupBy({
+        by: ["status"],
+        where: { companyId },
+        _count: true,
+        _sum: { totalIncVat: true },
+      }),
+    ])
+    : [[], []];
 
-  const today = new Date(new Date().toDateString());
-  const sum = (list: typeof invoices) => list.reduce((t, i) => t + Number(i.totalIncVat), 0);
-  const open = invoices.filter((i) => i.status === "VERZONDEN");
-  const overdue = open.filter((i) => i.dueDate && i.dueDate < today);
-  const concepts = invoices.filter((i) => ["CONCEPT", "GEREED", "VERZENDEN"].includes(i.status));
+  const invoiceStat = (status: string) => invoiceStats.find((row) => row.status === status);
+  const count = (status: string) => invoiceStat(status)?._count ?? 0;
+  const amount = (status: string) => Number(invoiceStat(status)?._sum.totalIncVat ?? 0);
   const stats = [
-    { label: "Openstaand", amount: sum(open), count: open.length, tone: "text-slate-950" },
-    { label: "Over de vervaldatum", amount: sum(overdue), count: overdue.length, tone: overdue.length ? "text-red-600" : "text-slate-950" },
-    { label: "Nog te versturen", amount: sum(concepts), count: concepts.length, tone: "text-slate-500" },
+    { label: "Openstaand", amount: amount("VERZONDEN") + amount("VERVALLEN"), count: count("VERZONDEN") + count("VERVALLEN"), tone: "text-foreground" },
+    { label: "Vervallen", amount: amount("VERVALLEN"), count: count("VERVALLEN"), tone: "text-red-600 dark:text-red-400" },
+    { label: "Klaar om te versturen", amount: amount("GEREED"), count: count("GEREED"), tone: "text-foreground" },
   ];
 
   return (
@@ -67,6 +78,18 @@ export default async function InvoicesPage() {
             </div>
           ))}
         </div>
+        <nav aria-label="Facturen filteren" className="flex flex-wrap gap-2 text-base">
+          {([
+            { value: "all", label: "Alle facturen", href: "/invoices" },
+            { value: "overdue", label: `Vervallen (${count("VERVALLEN")})`, href: "/invoices?view=overdue" },
+            { value: "ready", label: `Klaar om te versturen (${count("GEREED")})`, href: "/invoices?view=ready" },
+          ] as const).map((filter) => (
+            <Link key={filter.value} href={filter.href} aria-current={view === filter.value ? "page" : undefined}
+              className={`rounded-lg border px-3 py-1.5 font-medium transition-colors ${view === filter.value ? "border-[var(--ws-accent)] bg-[var(--ws-accent-soft)] text-foreground" : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
+              {filter.label}
+            </Link>
+          ))}
+        </nav>
         <section className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="divide-y md:hidden">
             {invoices.map((invoice) => (
@@ -82,7 +105,9 @@ export default async function InvoicesPage() {
                 </div>
                 <div className="mt-3 flex items-end justify-between gap-3 text-sm">
                   <div className="min-w-0 text-slate-500">
-                    <p>{formatDate(invoice.invoiceDate)}</p>
+                    <p className={invoice.status === "VERVALLEN" ? "font-semibold text-red-600 dark:text-red-400" : ""}>
+                      {invoice.dueDate ? `Vervalt ${formatDate(invoice.dueDate)}` : formatDate(invoice.invoiceDate)}
+                    </p>
                     <p className="truncate text-xs">{invoice.project?.number ?? "Geen project"}</p>
                   </div>
                   <p className="text-right font-bold tabular-nums">{formatCurrency(Number(invoice.totalIncVat))}</p>
@@ -96,9 +121,9 @@ export default async function InvoicesPage() {
               <TableRow>
                 <TableHead className="pl-4">Factuur</TableHead>
                 <TableHead>Klant</TableHead>
-                <TableHead>Project</TableHead>
+                <TableHead className="hidden lg:table-cell">Project</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Datum</TableHead>
+                <TableHead>Vervaldatum</TableHead>
                 <TableHead className="text-right">Totaal</TableHead>
               </TableRow>
             </TableHeader>
@@ -112,7 +137,7 @@ export default async function InvoicesPage() {
                     {invoice.reference && <p className="max-w-72 truncate text-xs text-slate-500">{invoice.reference}</p>}
                   </TableCell>
                   <TableCell>{invoice.customer.name}</TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     {invoice.project ? (
                       <>
                         <Link href={`/projects/${invoice.project.id}`} className="font-medium hover:text-[var(--ws-accent)]">
@@ -129,7 +154,9 @@ export default async function InvoicesPage() {
                       {INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{formatDate(invoice.invoiceDate)}</TableCell>
+                  <TableCell className={invoice.status === "VERVALLEN" ? "font-semibold text-red-600 dark:text-red-400" : ""}>
+                    {invoice.dueDate ? formatDate(invoice.dueDate) : "-"}
+                  </TableCell>
                   <TableCell className="text-right font-bold tabular-nums">
                     {formatCurrency(Number(invoice.totalIncVat))}
                   </TableCell>
@@ -142,8 +169,8 @@ export default async function InvoicesPage() {
             <div className="grid min-h-64 place-items-center px-6 text-center text-sm text-slate-500">
               <div>
                 <ReceiptText className="mx-auto mb-3 h-9 w-9 text-slate-300" />
-                <p className="font-semibold text-slate-800">Nog geen facturen</p>
-                <p className="mt-1">Maak je eerste factuur vanuit een offerte, werkbon of met losse regels.</p>
+                <p className="font-semibold text-foreground">{view === "overdue" ? "Geen vervallen facturen" : view === "ready" ? "Geen facturen klaar voor verzending" : "Nog geen facturen"}</p>
+                <p className="mt-1">{view === "all" ? "Maak je eerste factuur vanuit een offerte, werkbon of met losse regels." : "Kies Alle facturen om de rest te bekijken."}</p>
                 <Button nativeButton={false} variant="outline" className="mt-4" render={<Link href="/invoices/new" />}>
                   <FileText className="h-4 w-4" /> Nieuwe factuur
                 </Button>

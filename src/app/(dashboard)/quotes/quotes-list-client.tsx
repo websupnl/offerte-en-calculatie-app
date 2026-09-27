@@ -25,6 +25,7 @@ type Quote = {
   number: string;
   title: string | null;
   status: string;
+  validUntil: string | null;
   totalIncVat: string | number;
   createdAt: string;
   sentAt: string | null;
@@ -47,10 +48,10 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
   VIEWED: "outline",
   ACCEPTED: "default",
   DECLINED: "destructive",
-  EXPIRED: "secondary",
+  EXPIRED: "destructive",
 };
 
-const statuses = ["all", "DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED"] as const;
+const statuses = ["all", "DRAFT", "SENT", "VIEWED", "EXPIRED", "ACCEPTED", "DECLINED"] as const;
 
 const SENT_STATES = ["SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"];
 
@@ -77,9 +78,11 @@ function quoteAmount(quote: Quote) {
 export function QuotesListClient({
   initialQuotes,
   showArchived = false,
+  initialStatusFilter = "all",
 }: {
   initialQuotes: Quote[];
   showArchived?: boolean;
+  initialStatusFilter?: (typeof statuses)[number];
 }) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -88,7 +91,7 @@ export function QuotesListClient({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<(typeof statuses)[number]>("all");
+  const [statusFilter, setStatusFilter] = useState<(typeof statuses)[number]>(initialStatusFilter);
 
   function toggleOne(id: string) {
     setSelected((prev) => {
@@ -240,7 +243,7 @@ export function QuotesListClient({
   }, [initialQuotes, search, statusFilter]);
 
   const openPricing = initialQuotes
-    .filter((quote) => ["DRAFT", "SENT", "VIEWED"].includes(quote.status))
+    .filter((quote) => ["SENT", "VIEWED"].includes(quote.status))
     .reduce(
       (totals, quote) => ({
         minimum: totals.minimum + quote.pricing.minimum.totalIncVat,
@@ -258,11 +261,11 @@ export function QuotesListClient({
       <PageHeader
         eyebrow="Verkoop"
         title="Offertes"
-        description={
-          showArchived
-            ? `${initialQuotes.length} gearchiveerde offertes`
-            : `${initialQuotes.length} offertes · ${openValueLabel} openstaand`
-        }
+        description={showArchived
+          ? `${initialQuotes.length} gearchiveerde offertes`
+          : initialStatusFilter === "EXPIRED"
+            ? `${initialQuotes.length} verlopen offertes getoond`
+            : `${initialQuotes.length} offertes getoond · ${openValueLabel} open bij de klant`}
         actions={
           <Button nativeButton={false} render={<Link href="/quotes/new" />}>
             <Plus className="h-4 w-4" />
@@ -289,7 +292,13 @@ export function QuotesListClient({
                 variant={statusFilter === status ? "default" : "ghost"}
                 size="sm"
                 disabled={showArchived}
-                onClick={() => setStatusFilter(status)}
+                onClick={() => {
+                  if (initialStatusFilter === "EXPIRED" && status !== "EXPIRED") {
+                    router.push(status === "all" ? "/quotes" : `/quotes?status=${status}`);
+                    return;
+                  }
+                  setStatusFilter(status);
+                }}
                 className={`shrink-0 rounded-full ${statusFilter === status ? "bg-[var(--ws-accent)] hover:bg-[var(--ws-accent-hover)]" : ""}`}
               >
                 {status === "all" ? "Alle" : QUOTE_STATUS_LABELS[status]}
@@ -387,7 +396,9 @@ export function QuotesListClient({
                     </div>
                     <div className="mt-3 flex items-end justify-between gap-3 text-sm">
                       <div className="min-w-0 text-slate-500">
-                        <p>{formatDate(quote.createdAt)}</p>
+                        <p className={quote.status === "EXPIRED" ? "font-semibold text-red-600 dark:text-red-400" : ""}>
+                          {quote.validUntil ? `${quote.status === "EXPIRED" ? "Verlopen" : "Geldig tot"} ${formatDate(quote.validUntil)}` : formatDate(quote.createdAt)}
+                        </p>
                         <p className="truncate text-xs">
                           {quote._count.items} regels
                           {quote.choiceGroupCount > 0 ? ` · ${quote.choiceGroupCount} keuzes` : ""}
@@ -427,7 +438,7 @@ export function QuotesListClient({
                       <TableHead>Offerte</TableHead>
                       <TableHead>Klant</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Datum</TableHead>
+                      <TableHead>Geldig tot</TableHead>
                       <TableHead className="text-right">Bedrag incl.</TableHead>
                       <TableHead className="w-12" />
                     </TableRow>
@@ -476,7 +487,9 @@ export function QuotesListClient({
                           </Badge>
                           <SentMarker quote={quote} />
                         </TableCell>
-                        <TableCell className="text-slate-500">{formatDate(quote.createdAt)}</TableCell>
+                        <TableCell className={quote.status === "EXPIRED" ? "font-semibold text-red-600 dark:text-red-400" : "text-muted-foreground"}>
+                          {quote.validUntil ? formatDate(quote.validUntil) : "-"}
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {quote.status === "ACCEPTED" || !quote.pricing.hasChoices ? (
                             <span className="font-bold">{formatCurrency(Number(quote.totalIncVat))}</span>

@@ -9,17 +9,22 @@ import { applyCalculationPricing } from "@/lib/quote-with-pricing";
 export default async function QuotesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ archived?: string }>;
+  searchParams: Promise<{ archived?: string; status?: string }>;
 }) {
   const session = await auth();
   const companyId = session?.user?.activeCompanyId;
-  const showArchived = (await searchParams).archived === "1";
+  const filters = await searchParams;
+  const showArchived = filters.archived === "1";
 
   if (companyId) await markExpiredQuotes(companyId);
 
   const quotes = companyId
     ? await prisma.quote.findMany({
-        where: { companyId, archivedAt: showArchived ? { not: null } : null },
+        where: {
+          companyId,
+          archivedAt: showArchived ? { not: null } : null,
+          ...(!showArchived && filters.status === "EXPIRED" ? { status: "EXPIRED" as const } : {}),
+        },
         orderBy: { createdAt: "desc" },
         include: {
           customer: { select: { id: true, name: true, email: true } },
@@ -59,5 +64,7 @@ export default async function QuotesPage({
     };
   });
 
-  return <QuotesListClient initialQuotes={quotesWithPricing} showArchived={showArchived} />;
+  const initialStatusFilter = (["DRAFT", "SENT", "VIEWED", "EXPIRED", "ACCEPTED", "DECLINED"] as const)
+    .find((status) => status === filters.status) ?? "all";
+  return <QuotesListClient key={`${showArchived}-${initialStatusFilter}`} initialQuotes={quotesWithPricing} showArchived={showArchived} initialStatusFilter={initialStatusFilter} />;
 }
