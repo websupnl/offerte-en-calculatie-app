@@ -42,8 +42,9 @@ import { AdviceDocumentForm } from "@/components/forms/advice-document-form";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
 import { SheetScaler } from "@/components/sheet-scaler";
 import { filenameFromResponse } from "@/lib/download-filename";
-import { defaultQuoteEmailMessage } from "@/lib/quote-email-copy";
+import { defaultQuoteEmailMessage, defaultQuoteExtensionMessage, defaultQuoteExtensionSubject } from "@/lib/quote-email-copy";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -200,6 +201,10 @@ export function QuoteDetailClient({
   const [openingMail, setOpeningMail] = useState(false);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [emailMessage, setEmailMessage] = useState(() => defaultQuoteEmailMessage(companySlug));
+  const [extendDialogOpen, setExtendDialogOpen] = useState(false);
+  const [extendSubject, setExtendSubject] = useState(() => defaultQuoteExtensionSubject(companySlug, quote.number));
+  const [extendMessage, setExtendMessage] = useState(() => defaultQuoteExtensionMessage(companySlug));
+  const [notifyOnExtend, setNotifyOnExtend] = useState(Boolean(quote.customer.email));
   const [shareUrl, setShareUrl] = useState("");
   const [pdfGenerated, setPdfGenerated] = useState(false);
   const pdfReady = Boolean(quote.pdfUrl) || pdfGenerated;
@@ -367,27 +372,39 @@ export function QuoteDetailClient({
     }
   }
 
-  async function handleExtend() {
-    const ok = await confirm({
-      title: "Offerte verlengen?",
-      body: `De offerte krijgt er 14 dagen bij, gaat terug naar "verstuurd" en ${
-        quote.customer.email
-          ? "de klant krijgt een mail met de portaallink."
-          : "— let op: er is geen e-mailadres bij deze klant, dus er gaat geen mail uit."
-      }`,
-      confirmLabel: "Verlengen",
-    });
-    if (!ok) return;
+  function handleExtend() {
+    setExtendSubject(defaultQuoteExtensionSubject(companySlug, quote.number));
+    setExtendMessage(defaultQuoteExtensionMessage(companySlug));
+    setNotifyOnExtend(Boolean(quote.customer.email));
+    setExtendDialogOpen(true);
+  }
+
+  async function handleConfirmExtend() {
+    if (notifyOnExtend && (!extendSubject.trim() || !extendMessage.trim())) {
+      toast.error("Vul een onderwerp en e-mailtekst in");
+      return;
+    }
     setUpdatingStatus(true);
     try {
       const res = await fetch(`/api/quotes/${quote.id}/extend`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ days: 14 }),
+        body: JSON.stringify({
+          days: 14,
+          notifyCustomer: notifyOnExtend,
+          ...(notifyOnExtend ? { emailSubject: extendSubject.trim(), emailMessage: extendMessage.trim() } : {}),
+        }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Mislukt");
-      toast.success(result.mailSent ? "Verlengd — klant heeft een mail gekregen" : "Offerte verlengd");
+      setExtendDialogOpen(false);
+      if (result.mailSent) {
+        toast.success("Offerte verlengd en klant gemaild");
+      } else if (notifyOnExtend) {
+        toast.warning(`Offerte verlengd, maar mail niet verstuurd: ${result.mailError ?? "onbekende fout"}`);
+      } else {
+        toast.success("Offerte verlengd zonder e-mail");
+      }
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Er ging iets mis");
@@ -569,6 +586,71 @@ export function QuoteDetailClient({
             <Button onClick={handleSendQuoteEmail} disabled={openingMail || !emailMessage.trim()}>
               {openingMail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
               {openingMail ? "Bezig met versturen..." : "Nu versturen"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={extendDialogOpen} onOpenChange={(open) => !updatingStatus && setExtendDialogOpen(open)}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Offerte verlengen</DialogTitle>
+            <DialogDescription className="text-base">
+              Offerte {quote.number} wordt 14 dagen langer geldig.
+              {quote.customer.email ? " Pas de mail aan voordat je verlengt." : " Er wordt geen mail verstuurd."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {quote.customer.email ? (
+              <label className="flex items-start gap-3 text-base">
+                <input
+                  type="checkbox"
+                  checked={notifyOnExtend}
+                  onChange={(event) => setNotifyOnExtend(event.target.checked)}
+                  disabled={updatingStatus}
+                  className="mt-1 h-5 w-5 shrink-0 accent-primary"
+                />
+                <span className="min-w-0">Mail sturen naar {quote.customer.name} (<span className="break-all">{quote.customer.email}</span>)</span>
+              </label>
+            ) : (
+              <p className="text-base text-muted-foreground">Deze klant heeft geen e-mailadres. De offerte wordt zonder mail verlengd.</p>
+            )}
+            {notifyOnExtend && quote.customer.email && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="quote-extend-subject" className="text-base">Onderwerp</Label>
+                  <Input
+                    id="quote-extend-subject"
+                    value={extendSubject}
+                    onChange={(event) => setExtendSubject(event.target.value)}
+                    maxLength={180}
+                    disabled={updatingStatus}
+                    className="text-base"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="quote-extend-message" className="text-base">Persoonlijke e-mailtekst</Label>
+                  <Textarea
+                    id="quote-extend-message"
+                    value={extendMessage}
+                    onChange={(event) => setExtendMessage(event.target.value)}
+                    maxLength={2000}
+                    rows={5}
+                    disabled={updatingStatus}
+                    className="min-h-32 resize-y text-base"
+                  />
+                  <p className="text-base text-muted-foreground">
+                    Aanhef, offertenummer, nieuwe geldigheidsdatum, knop en ondertekening worden automatisch toegevoegd.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExtendDialogOpen(false)} disabled={updatingStatus} className="text-base">Annuleren</Button>
+            <Button onClick={handleConfirmExtend} disabled={updatingStatus || (notifyOnExtend && (!extendSubject.trim() || !extendMessage.trim()))} className="text-base">
+              {updatingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarClock className="mr-2 h-4 w-4" />}
+              {updatingStatus ? "Bezig..." : notifyOnExtend ? "Verlengen en mailen" : "Zonder mail verlengen"}
             </Button>
           </DialogFooter>
         </DialogContent>

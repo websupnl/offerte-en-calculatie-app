@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendQuoteExtendedEmail } from "@/lib/email";
+import { quoteExtensionDate } from "@/lib/quote-extension";
 
 /**
  * Een verlopen of afgewezen offerte weer opengezet: nieuwe geldigheidsdatum,
@@ -17,6 +18,8 @@ const bodySchema = z.object({
   days: z.number().int().min(1).max(180).optional(),
   validUntil: z.string().datetime().optional(),
   note: z.string().trim().max(2000).optional(),
+  emailSubject: z.string().trim().min(1).max(180).refine((value) => !/[\r\n]/.test(value)).optional(),
+  emailMessage: z.string().trim().min(1).max(2000).optional(),
   // Standaard sturen we de klant een mail. Uit te zetten voor een stille verlenging.
   notifyCustomer: z.boolean().optional().default(true),
 });
@@ -29,24 +32,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
 
   const parsed = bodySchema.safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Ongeldige aanvraag" }, { status: 400 });
 
   const quote = await prisma.quote.findFirst({
     where: { id, companyId: session.user.activeCompanyId },
     include: { customer: true, company: true, share: true },
   });
   if (!quote) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });
-  if (quote.status === "ACCEPTED") {
-    return NextResponse.json({ error: "Een geaccepteerde offerte verleng je niet." }, { status: 409 });
+  if (!["SENT", "VIEWED", "EXPIRED", "DECLINED"].includes(quote.status)) {
+    return NextResponse.json({ error: "Deze offerte kan niet worden verlengd." }, { status: 409 });
+  }
+  if (parsed.data.notifyCustomer && !quote.customer.email) {
+    return NextResponse.json({ error: "Deze klant heeft geen e-mailadres. Kies stil verlengen." }, { status: 422 });
   }
 
+  const now = new Date();
   const newValidUntil = parsed.data.validUntil
     ? new Date(parsed.data.validUntil)
-    : (() => {
-        const base = new Date();
-        base.setDate(base.getDate() + (parsed.data.days ?? 14));
-        return base;
-      })();
+    : quoteExtensionDate(now, quote.validUntil, parsed.data.days ?? 14);
+  if (newValidUntil <= (quote.validUntil && quote.validUntil > now ? quote.validUntil : now)) {
+    return NextResponse.json({ error: "De nieuwe geldigheidsdatum moet later zijn dan de huidige." }, { status: 422 });
+  }
 
   // Token aanmaken als die er nog niet is, zodat de mail meteen een link heeft.
   const share = await prisma.quoteShare.upsert({
@@ -79,9 +85,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }),
   ]);
 
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001").replace(/\/$/, "");
+  const appUrl = req.nextUrl.origin;
   const portalUrl = `${appUrl}/q/${share.token}`;
   let mailSent = false;
+  let mailError: string | null = null;
 
   if (parsed.data.notifyCustomer && quote.customer.email) {
     const result = await sendQuoteExtendedEmail({
@@ -93,11 +100,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       validUntil: newValidUntil,
       portalUrl,
       note: parsed.data.note,
+      subject: parsed.data.emailSubject,
+      message: parsed.data.emailMessage,
     }).catch((error) => {
       console.error("[QUOTE EXTEND] mail mislukt", error);
-      return { sent: false as const };
+      return { sent: false as const, reason: "E-mail verzenden mislukt" };
     });
     mailSent = result.sent === true;
+    if (!mailSent) mailError = result.reason ?? "E-mail verzenden mislukt";
     if (mailSent) {
       after(async () => {
         const { sendTelegramMessage } = await import("@/lib/notifications");
@@ -113,5 +123,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     validUntil: newValidUntil.toISOString(),
     portalUrl,
     mailSent,
+    mailError,
   });
 }

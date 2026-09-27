@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { DEFAULT_BRANDING } from "@/lib/branding";
+import { defaultQuoteExtensionMessage, defaultQuoteExtensionSubject } from "@/lib/quote-email-copy";
 
 type CompanyEmailIdentity = {
   fromName: string;
@@ -395,8 +396,7 @@ export async function sendVerbalConfirmationEmail(data: {
   return { sent: true };
 }
 
-// Naar de klant als een verlopen of afgewezen offerte weer opengezet wordt.
-export async function sendQuoteExtendedEmail(data: {
+type QuoteExtendedEmailData = {
   to: string;
   companySlug: string;
   customerName: string;
@@ -405,9 +405,12 @@ export async function sendQuoteExtendedEmail(data: {
   validUntil: Date;
   portalUrl: string;
   note?: string;
-}) {
-  const smtp = getTransporter();
-  if (!smtp) return { sent: false, reason: "SMTP niet geconfigureerd" };
+  subject?: string;
+  message?: string;
+};
+
+// Pure opbouw: dezelfde bewerkte tekst verschijnt in HTML en platte tekst.
+export function buildQuoteExtendedEmailContent(data: QuoteExtendedEmailData) {
   const identity = getCompanyEmailIdentity(data.companySlug);
   const formal = data.companySlug === "koolhaas";
 
@@ -416,12 +419,15 @@ export async function sendQuoteExtendedEmail(data: {
     month: "long",
     year: "numeric",
   });
+  const message = data.message?.trim() || defaultQuoteExtensionMessage(data.companySlug);
+  const subject = data.subject?.trim() || defaultQuoteExtensionSubject(data.companySlug, data.quoteNumber);
 
   const bodyHtml = `
     <p style="margin:0 0 16px 0;">${formal ? "Beste" : "Hoi"} ${escapeHtml(data.customerName)},</p>
-    <p style="margin:0 0 16px 0;">Ik heb offerte <strong>${escapeHtml(data.quoteNumber)}</strong>${
+    <p style="margin:0 0 16px 0;">${textToEmailHtml(message)}</p>
+    <p style="margin:0 0 16px 0;">Offerte <strong>${escapeHtml(data.quoteNumber)}</strong>${
       data.quoteTitle ? ` (${escapeHtml(data.quoteTitle)})` : ""
-    } weer opengezet. De offerte is nu geldig tot <strong>${geldig}</strong>, zodat ${formal ? "u" : "je"} er rustig naar kunt kijken.</p>
+    } is geldig tot <strong>${geldig}</strong>.</p>
     ${data.note ? `<p style="margin:0 0 16px 0;">${textToEmailHtml(data.note)}</p>` : ""}
     <p style="margin:0 0 24px 0;">
       <a class="email-button" href="${escapeHtml(data.portalUrl)}" style="display:inline-block; background:${identity.primaryColor}; color:#fff; text-decoration:none; padding:13px 26px; border-radius:10px; font-size:16px; font-weight:700;">Offerte bekijken</a>
@@ -429,13 +435,23 @@ export async function sendQuoteExtendedEmail(data: {
     <p style="margin:0; color:#475569; font-size:16px;">${formal ? "Heeft u vragen of wilt u iets aanpassen?" : "Heb je vragen of wil je iets aanpassen?"} Reageer gerust op deze mail.</p>
   `;
 
+  return {
+    subject,
+    html: renderEmailShell(identity, { preheader: `Offerte ${data.quoteNumber} is geldig tot ${geldig}`, bodyHtml }),
+    text: `${formal ? "Beste" : "Hoi"} ${data.customerName},\n\n${message}\n\nOfferte ${data.quoteNumber}${data.quoteTitle ? ` (${data.quoteTitle})` : ""} is geldig tot ${geldig}.${data.note ? `\n\n${data.note}` : ""}\n\nOfferte bekijken: ${data.portalUrl}\n\nVragen? Reageer op deze mail.`,
+  };
+}
+
+// Naar de klant als een verlopen of afgewezen offerte weer opengezet wordt.
+export async function sendQuoteExtendedEmail(data: QuoteExtendedEmailData) {
+  const smtp = getTransporter();
+  if (!smtp) return { sent: false, reason: "SMTP niet geconfigureerd" };
+  const identity = getCompanyEmailIdentity(data.companySlug);
   await smtp.sendMail({
     from: `"${identity.fromName}" <${identity.fromEmail}>`,
     replyTo: identity.replyTo,
     to: data.to,
-    subject: `${formal ? "Uw" : "Je"} offerte ${data.quoteNumber} is verlengd tot ${geldig}`,
-    html: renderEmailShell(identity, { preheader: `Offerte ${data.quoteNumber} is geldig tot ${geldig}`, bodyHtml }),
-    text: `${formal ? "Beste" : "Hoi"} ${data.customerName},\n\nIk heb offerte ${data.quoteNumber}${data.quoteTitle ? ` (${data.quoteTitle})` : ""} weer opengezet. De offerte is geldig tot ${geldig}.${data.note ? `\n\n${data.note}` : ""}\n\nOfferte bekijken: ${data.portalUrl}\n\nVragen? Reageer op deze mail.`,
+    ...buildQuoteExtendedEmailContent(data),
   });
 
   return { sent: true };
