@@ -123,7 +123,7 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
   const c = invoice.customer;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 p-4 sm:p-5 lg:p-8">
+    <div className="mx-auto max-w-7xl space-y-5 p-4 sm:p-5 lg:p-8">
       <Link
         href={invoice.project ? `/projects/${invoice.project.id}` : "/invoices"}
         className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900"
@@ -213,8 +213,8 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_18rem]">
-        <section className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <section className="min-w-0 overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
           <InvoiceLinesEditor lines={lines} onChange={touch(setLines)} readOnly={locked} />
         </section>
 

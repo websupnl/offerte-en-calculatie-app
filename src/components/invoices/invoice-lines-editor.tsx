@@ -148,6 +148,9 @@ export function InvoiceLinesEditor({
 }) {
   const totals = computeInvoiceTotals(lines);
   const vat = vatBreakdown(lines);
+  const wideColumns = readOnly
+    ? "xl:grid-cols-[minmax(0,1fr)_5rem_5rem_7rem_4.5rem_7rem]"
+    : "xl:grid-cols-[minmax(0,1fr)_5rem_5rem_7rem_4.5rem_7rem_4.5rem]";
 
   const update = (key: string, patch: Partial<EditableLine>) =>
     onChange(lines.map((l) => (l.key === key ? { ...l, ...patch } : l)));
@@ -194,68 +197,60 @@ export function InvoiceLinesEditor({
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
-          <div className="hidden grid-cols-[1fr_5rem_5rem_7rem_4.5rem_7rem_4.5rem] gap-2 px-5 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 md:grid">
+          <div className={`hidden ${wideColumns} gap-2 px-5 py-2 text-sm font-semibold uppercase tracking-wider text-slate-500 xl:grid`}>
             <span>Omschrijving</span>
             <span className="text-right">Aantal</span>
             <span>Eenheid</span>
             <span className="text-right">Prijs</span>
             <span className="text-right">Btw</span>
             <span className="text-right">Totaal</span>
-            <span />
+            {!readOnly && <span />}
           </div>
           {lines.map((l, i) => (
             <div
               key={l.key}
-              className="group grid grid-cols-2 gap-2 px-4 py-3 sm:px-5 md:grid-cols-[1fr_5rem_5rem_7rem_4.5rem_7rem_4.5rem] md:items-start"
+              className={`group grid grid-cols-2 gap-3 px-4 py-4 sm:px-5 xl:items-start ${wideColumns}`}
             >
-              <Textarea
-                aria-label="Omschrijving"
-                rows={Math.min(4, Math.max(1, l.description.split("\n").length))}
-                className="col-span-2 min-h-9 resize-y md:col-span-1"
-                placeholder="Omschrijving"
-                value={l.description}
-                readOnly={readOnly}
-                onChange={(e) => update(l.key, { description: e.target.value })}
-              />
-              <Input
-                aria-label="Aantal"
-                inputMode="decimal"
-                className="text-right tabular-nums"
-                defaultValue={String(l.qty).replace(".", ",")}
-                readOnly={readOnly}
-                onChange={(e) => update(l.key, { qty: num(e.target.value) })}
-              />
-              <Input
-                aria-label="Eenheid"
-                value={l.unit}
-                readOnly={readOnly}
-                onChange={(e) => update(l.key, { unit: e.target.value })}
-              />
-              <Input
-                aria-label="Prijs per eenheid"
-                inputMode="decimal"
-                className="text-right tabular-nums"
-                defaultValue={String(l.unitPrice).replace(".", ",")}
-                readOnly={readOnly}
-                onChange={(e) => update(l.key, { unitPrice: num(e.target.value) })}
-              />
-              <select
-                aria-label="Btw-tarief"
-                className="h-9 rounded-md border border-input bg-transparent px-2 text-right text-sm tabular-nums"
-                value={l.vatRate}
-                disabled={readOnly}
-                onChange={(e) => update(l.key, { vatRate: Number(e.target.value) })}
-              >
-                {[21, 9, 0].map((r) => (
-                  <option key={r} value={r}>{r}%</option>
-                ))}
-                {![21, 9, 0].includes(l.vatRate) && <option value={l.vatRate}>{l.vatRate}%</option>}
-              </select>
-              <p className="flex h-9 items-center justify-end text-sm font-semibold tabular-nums text-slate-900">
-                {formatCurrency(l.qty * l.unitPrice)}
-              </p>
+              <div className="col-span-2 min-w-0 xl:col-span-1">
+                <label className="mb-1 block text-sm font-semibold text-slate-600 xl:hidden">Omschrijving</label>
+                {readOnly ? (
+                  <p className="min-h-9 whitespace-pre-wrap break-words rounded-md bg-slate-50 px-3 py-2 text-base leading-6 text-slate-900">{l.description}</p>
+                ) : (
+                  <Textarea
+                    aria-label="Omschrijving"
+                    rows={Math.min(4, Math.max(1, l.description.split("\n").length))}
+                    className="min-h-9 w-full resize-y text-base"
+                    placeholder="Omschrijving"
+                    value={l.description}
+                    onChange={(e) => update(l.key, { description: e.target.value })}
+                  />
+                )}
+              </div>
+              <div className="min-w-0">
+                <label className="mb-1 block text-sm font-semibold text-slate-600 xl:hidden">Aantal</label>
+                <Input aria-label="Aantal" inputMode="decimal" className="w-full text-right tabular-nums" defaultValue={String(l.qty).replace(".", ",")} readOnly={readOnly} onChange={(e) => update(l.key, { qty: num(e.target.value) })} />
+              </div>
+              <div className="min-w-0">
+                <label className="mb-1 block text-sm font-semibold text-slate-600 xl:hidden">Eenheid</label>
+                <Input aria-label="Eenheid" className="w-full" value={l.unit} readOnly={readOnly} onChange={(e) => update(l.key, { unit: e.target.value })} />
+              </div>
+              <div className="min-w-0">
+                <label className="mb-1 block text-sm font-semibold text-slate-600 xl:hidden">Prijs</label>
+                <Input aria-label="Prijs per eenheid" inputMode="decimal" className="w-full text-right tabular-nums" defaultValue={String(l.unitPrice).replace(".", ",")} readOnly={readOnly} onChange={(e) => update(l.key, { unitPrice: num(e.target.value) })} />
+              </div>
+              <div className="min-w-0">
+                <label className="mb-1 block text-sm font-semibold text-slate-600 xl:hidden">Btw</label>
+                <select aria-label="Btw-tarief" className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-right text-base tabular-nums" value={l.vatRate} disabled={readOnly} onChange={(e) => update(l.key, { vatRate: Number(e.target.value) })}>
+                  {[21, 9, 0].map((r) => <option key={r} value={r}>{r}%</option>)}
+                  {![21, 9, 0].includes(l.vatRate) && <option value={l.vatRate}>{l.vatRate}%</option>}
+                </select>
+              </div>
+              <div className="col-span-2 flex items-center justify-between border-t border-slate-100 pt-2 xl:col-span-1 xl:block xl:border-0 xl:pt-0">
+                <span className="text-sm font-semibold text-slate-600 xl:hidden">Totaal</span>
+                <p className="flex h-9 items-center justify-end text-base font-semibold tabular-nums text-slate-900">{formatCurrency(l.qty * l.unitPrice)}</p>
+              </div>
               {!readOnly && (
-                <div className="col-span-2 flex h-9 items-center justify-end gap-0.5 md:col-span-1">
+                <div className="col-span-2 flex h-9 items-center justify-end gap-0.5 xl:col-span-1">
                   <button type="button" aria-label="Omhoog" onClick={() => move(i, -1)} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30" disabled={i === 0}>
                     <ArrowUp className="h-3.5 w-3.5" />
                   </button>

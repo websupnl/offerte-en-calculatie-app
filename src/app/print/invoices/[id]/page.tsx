@@ -78,9 +78,15 @@ export default async function InvoicePrintPage({
         .inv-meta dt { color: var(--on-s); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 12px; align-self: center; }
         .inv-meta dd { margin: 0; color: var(--on); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 
+<<<<<<< Updated upstream
         .inv-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
         .inv-party { background: var(--surface-in); border-radius: var(--r-lg); padding: 16px 18px; font-size: 14px; color: var(--on-m); line-height: 1.5; white-space: pre-line; }
         .inv-party small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+=======
+        .inv-parties { margin-bottom: 24px; }
+        .inv-party { width: min(100%, 390px); box-sizing: border-box; background: var(--surface-in); border-radius: var(--r-lg); padding: 16px 18px; font-size: 16px; color: var(--on-m); line-height: 1.5; white-space: pre-line; }
+        .inv-party small { display: block; font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+>>>>>>> Stashed changes
         .inv-party b { display: block; font: 800 18px/1.2 var(--display); color: var(--on); margin-bottom: 4px; letter-spacing: -.01em; }
 
         .inv-table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -167,12 +173,6 @@ export default async function InvoicePrintPage({
                   {c?.kvk ? `\nKvK ${c.kvk}` : ""}
                   {c?.vatNumber ? `\nBtw-id ${c.vatNumber}` : ""}
                 </div>
-                <div className="inv-party">
-                  <small>Van</small>
-                  <b>{invoice.company.name}</b>
-                  {s.address || <span className="inv-warn">Bedrijfsadres ontbreekt</span>}
-                  {`\n${brand.email} · ${brand.phone}`}
-                </div>
               </div>
 
               {invoice.reference && (
@@ -248,14 +248,10 @@ export default async function InvoicePrintPage({
               <div className="inv-custom">{s.footer}</div>
 
               <div className="doc-foot">
-                {isKoolhaas ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout, zelfde als de offerte
-                  <img src="/logos/koolhaas-logo-tight.png" alt="Koolhaas Installaties" className="brand-logo doc-foot-brand-logo" />
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout, zelfde als de offerte
-                  <img src="/logos/websup-icon.png" alt="WebsUp" className="doc-foot-icon" />
-                )}
                 <div className="doc-foot-meta">
+                  <div className="doc-foot-meta-row">
+                    <span>{s.address ? s.address.replace(/\s+/g, " ").trim() : missing}</span>
+                  </div>
                   <div className="doc-foot-meta-row">
                     {!isKoolhaas && <span>{brand.website}</span>}
                     <span>{brand.email}</span>
