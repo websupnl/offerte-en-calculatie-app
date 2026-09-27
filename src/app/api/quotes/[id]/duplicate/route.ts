@@ -5,6 +5,8 @@ import { nextQuoteNumber } from "@/lib/quote-number";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
 import { nextCalculationNumber } from "@/lib/calculation-number";
 import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
+import { remapChoiceCalculationIds } from "@/lib/quote-revision";
+import type { Prisma } from "@/generated/prisma/client";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -121,9 +123,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Calculaties krijgen elk een eigen nummer, dus die kunnen niet als geneste
   // create mee. Zonder deze kopie zou een gedupliceerde offerte op het nieuwe
   // pad helemaal geen prijs hebben.
+  const calculationIdMap = new Map<string, string>();
   for (const bron of source.calculations) {
     const calculatieNummer = await nextCalculationNumber(companyId, company?.slug ?? "xx");
-    await prisma.calculation.create({
+    const copiedCalculation = await prisma.calculation.create({
       data: {
         companyId,
         customerId: bron.customerId,
@@ -156,6 +159,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             }
           : undefined,
       },
+    });
+    calculationIdMap.set(bron.id, copiedCalculation.id);
+  }
+  if (calculationIdMap.size > 0 && source.choiceGroups) {
+    const remappedChoices = remapChoiceCalculationIds(source.choiceGroups, calculationIdMap);
+    await prisma.quote.update({
+      where: { id: duplicate.id },
+      data: { choiceGroups: remappedChoices as Prisma.InputJsonValue },
     });
   }
   if (source.calculations.length) {

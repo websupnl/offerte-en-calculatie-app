@@ -3,8 +3,9 @@
 import { ConvertMenu } from "@/components/convert/convert-menu";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -27,6 +28,7 @@ import {
   CheckCircle2,
   CalendarClock,
   Repeat,
+  RefreshCw,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -37,8 +39,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/components/confirm-provider";
 import { formatCurrency, formatDate, formatDateTime, QUOTE_STATUS_LABELS } from "@/lib/format";
-import { QuoteBuilder } from "@/components/forms/quote-builder";
-import { AdviceDocumentForm } from "@/components/forms/advice-document-form";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
 import { SheetScaler } from "@/components/sheet-scaler";
 import { filenameFromResponse } from "@/lib/download-filename";
@@ -46,6 +46,7 @@ import { defaultQuoteEmailMessage, defaultQuoteExtensionMessage, defaultQuoteExt
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { PriceAuditLine, PriceAuditIssue } from "@/lib/quote-price-audit";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +55,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+const QuoteBuilder = dynamic(() => import("@/components/forms/quote-builder").then((module) => module.QuoteBuilder), {
+  loading: () => <p className="p-6 text-base text-muted-foreground">Editor laden...</p>,
+});
+const AdviceDocumentForm = dynamic(() => import("@/components/forms/advice-document-form").then((module) => module.AdviceDocumentForm), {
+  loading: () => <p className="p-6 text-base text-muted-foreground">Advies laden...</p>,
+});
 
 type QuoteItem = {
   id: string;
@@ -159,6 +167,7 @@ type Quote = {
       selectedOptions?: Array<{ t: string }>;
     } | null;
   } | null;
+  calculations: { id: string; number: string; title: string; role: string }[];
 };
 
 const EVENT_LABELS: Record<string, string> = {
@@ -172,6 +181,14 @@ const EVENT_LABELS: Record<string, string> = {
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   DRAFT: "secondary", SENT: "outline", VIEWED: "outline",
   ACCEPTED: "default", DECLINED: "destructive", EXPIRED: "secondary",
+};
+
+const PRICE_ISSUE_LABELS: Record<PriceAuditIssue, string> = {
+  changed: "Inkoopprijs gewijzigd",
+  inactive: "Artikel niet meer actief",
+  unlinked: "Geen artikelkoppeling",
+  "no-price": "Geen actuele inkoopprijs",
+  stale: "Prijs ouder dan 90 dagen of zonder prijsdatum",
 };
 
 export function QuoteDetailClient({
@@ -210,6 +227,24 @@ export function QuoteDetailClient({
   const pdfReady = Boolean(quote.pdfUrl) || pdfGenerated;
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+  const [priceAuditOpen, setPriceAuditOpen] = useState(false);
+  const [priceAuditLoading, setPriceAuditLoading] = useState(false);
+  const [priceAuditLines, setPriceAuditLines] = useState<PriceAuditLine[] | null>(null);
+
+  async function openPriceAudit() {
+    setPriceAuditOpen(true);
+    setPriceAuditLoading(true);
+    try {
+      const response = await fetch(`/api/quotes/${quote.id}/price-audit`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Prijscontrole kon niet worden geladen");
+      const data: { lines: PriceAuditLine[] } = await response.json();
+      setPriceAuditLines(data.lines);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Prijscontrole mislukt");
+    } finally {
+      setPriceAuditLoading(false);
+    }
+  }
 
   // Poll for PDF readiness while generating
   useEffect(() => {
@@ -238,12 +273,26 @@ export function QuoteDetailClient({
     }
   }, [quote.share]);
 
-  // Auto-refresh when quote is awaiting customer response, so acceptance shows without manual reload
+  // Check only a small status payload. A full refresh reloads the entire editor,
+  // product catalogue and preview, so do that only when customer activity changed.
   useEffect(() => {
     if (quote.status !== "SENT" && quote.status !== "VIEWED") return;
-    const interval = setInterval(() => router.refresh(), 20_000);
+    const interval = setInterval(async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const response = await fetch(`/api/quotes/${quote.id}/activity-status`, { cache: "no-store" });
+        if (!response.ok) return;
+        const activity: { status: string; viewCount: number; acceptedAt: string | null; declinedAt: string | null } = await response.json();
+        if (
+          activity.status !== quote.status ||
+          activity.viewCount !== (quote.share?.viewCount ?? 0) ||
+          activity.acceptedAt !== (quote.share?.acceptedAt ?? null) ||
+          activity.declinedAt !== (quote.share?.declinedAt ?? null)
+        ) router.refresh();
+      } catch { /* Keep the current view if the check fails. */ }
+    }, 60_000);
     return () => clearInterval(interval);
-  }, [quote.status, router]);
+  }, [quote.id, quote.status, quote.share?.viewCount, quote.share?.acceptedAt, quote.share?.declinedAt, router]);
 
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [timelineOpen, setTimelineOpen] = useState(false);
@@ -475,6 +524,10 @@ export function QuoteDetailClient({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 pl-12 md:pl-0">
+          <Button variant="outline" size="sm" onClick={openPriceAudit} disabled={priceAuditLoading}>
+            {priceAuditLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Check prijzen
+          </Button>
           <Button variant="outline" size="sm" onClick={handlePrint} disabled={pdfDownloading} className="no-print">
             {pdfDownloading
               ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />PDF wordt gemaakt...</>
@@ -485,21 +538,25 @@ export function QuoteDetailClient({
             {openingMail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
             Verstuur offerte
           </Button>
-          <Button variant="outline" size="sm" onClick={handleShare} disabled={sharing}>
-            {sharing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
-            Delen
-          </Button>
           <ConvertMenu type="quote" id={quote.id} />
-          <Button variant="outline" size="sm" onClick={handleDuplicate} disabled={duplicating}>
-            {duplicating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
-            Dupliceren
-          </Button>
-          <Link href={`/quotes/${quote.id}/calculatie`}>
-            <Button variant="outline" size="sm">
-              <Calculator className="mr-2 h-4 w-4" />
-              Calculatie
-            </Button>
-          </Link>
+          {quote.calculations.length === 1 ? (
+            <Link href={`/calculations/${quote.calculations[0].id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <Calculator className="h-4 w-4" /> Open calculatie
+            </Link>
+          ) : quote.calculations.length > 1 ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger className={buttonVariants({ variant: "outline", size: "sm" })}>
+                <Calculator className="h-4 w-4" /> Calculaties <ChevronDown className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {quote.calculations.map((calculation) => (
+                  <DropdownMenuItem key={calculation.id} render={<Link href={`/calculations/${calculation.id}`} />}>
+                    {calculation.role === "VARIANT" ? "Variant" : "Basis"}: {calculation.number} · {calculation.title}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Meer acties"
@@ -509,6 +566,16 @@ export function QuoteDetailClient({
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={handleShare} disabled={sharing}>
+                <Share2 className="h-4 w-4" /> Deel klantlink
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDuplicate} disabled={duplicating}>
+                <Copy className="h-4 w-4" /> Dupliceer als concept
+              </DropdownMenuItem>
+              <DropdownMenuItem render={<Link href={`/quotes/${quote.id}/calculatie`} />}>
+                <FileText className="h-4 w-4" /> Prijsoverzicht (print)
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               {quote.status !== "ACCEPTED" && (
                 <DropdownMenuItem onClick={handleVerbalAccept}>
                   <CheckCircle2 className="h-4 w-4" /> Op akkoord (mondeling)
@@ -542,6 +609,68 @@ export function QuoteDetailClient({
           </DropdownMenu>
         </div>
       </div>
+
+      <Dialog open={priceAuditOpen} onOpenChange={setPriceAuditOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Prijscontrole: {quote.number}</DialogTitle>
+            <DialogDescription>
+              Vergelijk de offerte met de huidige artikelprijzen. Er wordt niets aangepast.
+            </DialogDescription>
+          </DialogHeader>
+          {priceAuditLoading ? (
+            <p className="py-6 text-base text-muted-foreground">Prijzen controleren...</p>
+          ) : priceAuditLines ? (
+            <div className="space-y-4">
+              <p className="text-base font-medium">
+                {priceAuditLines.filter((line) => line.issues.length > 0).length} van {priceAuditLines.length} materiaalregels vragen aandacht
+              </p>
+              {quote.calculations.length === 0 && (
+                <p className="rounded-lg border border-border bg-muted p-3 text-base text-foreground">
+                  Deze offerte heeft nog geen live calculatie. Dupliceer hem als concept en maak daar een basiscalculatie om de prijzen en opbouw te herzien.
+                </p>
+              )}
+              {priceAuditLines.length === 0 && (
+                <p className="text-base text-muted-foreground">Geen materiaalregels gevonden. Controleer eventuele losse keuzeopties handmatig.</p>
+              )}
+              <div className="space-y-2">
+                {priceAuditLines.map((line, index) => (
+                  <div key={`${line.calculationId ?? "quote"}-${index}`} className="rounded-lg border border-border bg-card p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-base font-medium text-foreground">{line.description}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {line.calculationNumber ?? "Oude offerteregel"} · {line.qty} × inkoop {line.quotedCost === null ? "onbekend" : formatCurrency(line.quotedCost)}
+                          {line.currentCost !== null ? ` → ${formatCurrency(line.currentCost)}` : ""}
+                        </p>
+                      </div>
+                      <span className={`rounded-md px-2 py-1 text-sm font-medium ${line.issues.length ? "bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-100" : "bg-emerald-100 text-emerald-950 dark:bg-emerald-950 dark:text-emerald-100"}`}>
+                        {line.issues.length ? "Controleren" : "Actueel"}
+                      </span>
+                    </div>
+                    {line.issues.length > 0 && (
+                      <p className="mt-2 text-sm text-foreground">{line.issues.map((issue) => PRICE_ISSUE_LABELS[issue]).join(" · ")}</p>
+                    )}
+                    {line.issues.includes("changed") && line.suggestedSale !== null && (
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Verkoop per stuk: {formatCurrency(line.quotedSale)}. Met dezelfde opslag: {formatCurrency(line.suggestedSale)}. Nog niet toegepast.
+                      </p>
+                    )}
+                    {line.calculationId && line.issues.length > 0 && (
+                      <Link href={`/calculations/${line.calculationId}`} className="mt-2 inline-block text-sm font-medium text-primary underline underline-offset-2">
+                        Open live calculatie
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Let op: vervangende systemen, compatibiliteit, arbeidsuren en losse keuzeopties vergen een inhoudelijke controle. Werk bij een verstuurde offerte in een nieuwe conceptversie.
+              </p>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {quote.archivedAt && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
