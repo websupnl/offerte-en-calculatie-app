@@ -86,53 +86,57 @@ export function ArticlePickerDialog({
       </span>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="flex h-[min(760px,calc(100dvh-2rem))] w-[min(960px,calc(100vw-2rem))] max-w-none flex-col gap-4 p-5 sm:max-w-none sm:p-6">
+          <DialogHeader className="pr-10">
             <DialogTitle className="flex items-center gap-2">
-              <Search className="h-4 w-4 text-slate-500" />
+              <Search className="h-5 w-5 text-muted-foreground" />
               {title}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex gap-2 shrink-0">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <div className="flex shrink-0 flex-col gap-2 md:flex-row">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 autoFocus
+                aria-label="Zoek artikelen"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Zoek op naam, omschrijving, EAN, artikelcode of leverancier..."
-                className="pl-8"
+                placeholder="Zoek op naam, EAN, artikelcode of leverancier"
+                className="h-10 pl-10 text-base md:text-base"
               />
             </div>
-            {suppliers.length > 0 && (
-              <Select value={supplierFilter} onValueChange={(v) => setSupplierFilter(v || "all")}>
-                <SelectTrigger className="w-[170px] shrink-0">
-                  <Truck className="mr-1.5 h-3.5 w-3.5 text-slate-400" />
-                  <SelectValue placeholder="Leverancier" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Alle leveranciers</SelectItem>
-                  {suppliers.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            {onCreateNew && (
-              <Button type="button" variant="secondary" className="shrink-0" onClick={handleCreateNew}>
-                <Plus className="mr-1.5 h-4 w-4" />
-                Nieuw artikel
-              </Button>
-            )}
+            <div className="flex min-w-0 gap-2">
+              {suppliers.length > 0 && (
+                <Select value={supplierFilter} onValueChange={(v) => setSupplierFilter(v || "all")}>
+                  <SelectTrigger className="h-10 min-w-0 flex-1 text-base md:w-[190px] md:flex-none md:text-base">
+                    <Truck className="h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="Leverancier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle leveranciers</SelectItem>
+                    {suppliers.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {onCreateNew && (
+                <Button type="button" variant="secondary" className="h-10 shrink-0 text-base" onClick={handleCreateNew}>
+                  <Plus className="h-4 w-4 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Nieuw artikel</span>
+                  <span className="sr-only sm:hidden">Nieuw artikel</span>
+                </Button>
+              )}
+            </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto min-h-[300px] -mx-6 px-6 border-t mt-1 pt-1">
+          <div className="-mx-5 min-h-0 flex-1 overflow-y-auto border-y px-5 sm:-mx-6 sm:px-6">
             {filtered.length === 0 ? (
-              <div className="py-16 text-center text-slate-500">
-                <Package className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-                <p className="font-semibold text-slate-700 text-sm">Geen artikelen gevonden</p>
-                <p className="text-xs text-slate-400 mt-1">Pas je zoekterm of leverancier-filter aan.</p>
+              <div className="py-16 text-center text-muted-foreground">
+                <Package className="mx-auto mb-2 h-10 w-10" />
+                <p className="text-base font-semibold text-foreground">Geen artikelen gevonden</p>
+                <p className="mt-1 text-base">Pas je zoekterm of leverancier aan.</p>
                 {onCreateNew && (
                   <Button type="button" size="sm" className="mt-4" onClick={handleCreateNew}>
                     <Plus className="mr-1.5 h-4 w-4" />
@@ -141,43 +145,43 @@ export function ArticlePickerDialog({
                 )}
               </div>
             ) : (
-              <div className="divide-y">
+              <div className="divide-y divide-border">
                 {filtered.map((p) => (
                   <button
                     key={p.id}
                     type="button"
                     onClick={() => handleSelect(p)}
-                    className="w-full flex items-center justify-between gap-4 py-2.5 px-2 -mx-2 rounded-md text-left hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none transition-colors"
+                    className="flex w-full items-start justify-between gap-4 rounded-md px-2 py-3 text-left transition-colors hover:bg-muted/70 focus-visible:bg-muted focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring sm:items-center"
                   >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-sm text-slate-900 truncate">{p.name}</p>
-                        <Badge variant="outline" className="text-[10px] py-0 px-1 font-normal shrink-0">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="min-w-0 text-base font-medium text-foreground">{p.name}</span>
+                        <Badge variant="outline" className="shrink-0 font-normal">
                           {p.category}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                         {p.supplier && (
-                          <Badge className="text-[10px] py-0 px-1.5 font-normal bg-slate-100 text-slate-600 hover:bg-slate-100">
-                            <Truck className="mr-1 h-2.5 w-2.5" />
+                          <span className="inline-flex items-center gap-1">
+                            <Truck className="h-3.5 w-3.5" />
                             {p.supplier}
-                          </Badge>
+                          </span>
                         )}
-                        {p.sku && <span className="text-[10px] text-slate-400 font-mono">Art# {p.sku}</span>}
-                        {p.ean && <span className="text-[10px] text-slate-400 font-mono">EAN {p.ean}</span>}
+                        {p.sku && <span>Art. {p.sku}</span>}
+                        {p.ean && <span>EAN {p.ean}</span>}
                         {p.priceUpdatedAt && (
-                          <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
-                            <Clock className="h-2.5 w-2.5" />
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5" />
                             prijs {formatRelativeDate(p.priceUpdatedAt)}
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold tabular-nums text-slate-900">
+                    <div className="shrink-0 text-right">
+                      <p className="text-base font-semibold tabular-nums text-foreground">
                         {formatCurrency(p.costPrice != null ? p.costPrice : p.basePrice)}
                       </p>
-                      <p className="text-[10px] text-slate-400">
+                      <p className="text-sm text-muted-foreground">
                         {p.costPrice != null ? "netto inkoop" : "verkoop"} · per {p.unit}
                       </p>
                     </div>
@@ -187,7 +191,7 @@ export function ArticlePickerDialog({
             )}
           </div>
 
-          <div className="shrink-0 pt-1 text-[11px] text-slate-400">
+          <div className="shrink-0 text-sm text-muted-foreground">
             {filtered.length} van {products.length} artikelen
           </div>
         </DialogContent>
