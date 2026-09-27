@@ -5,6 +5,7 @@ import { SessionProvider } from "next-auth/react";
 import { CompanyProvider } from "@/lib/company-context";
 import { Toaster } from "@/components/ui/sonner";
 import { PwaRegister } from "@/components/pwa-register";
+import { ThemeProvider } from "next-themes";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -68,10 +69,12 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
 
-        <SessionProvider>
-          <CompanyProvider>{children}</CompanyProvider>
-        </SessionProvider>
-        <Toaster richColors position="bottom-right" />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <SessionProvider>
+            <CompanyProvider>{children}</CompanyProvider>
+          </SessionProvider>
+          <Toaster richColors position="bottom-right" />
+        </ThemeProvider>
         <PwaRegister />
       </body>
     </html>

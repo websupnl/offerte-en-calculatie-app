@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ChevronRight, Menu, Plus, Search } from "lucide-react";
+import { CalendarDays, ChevronRight, Menu, Moon, Plus, Search, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 import { AiStatusBadge } from "@/components/ai-status-badge";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -33,6 +34,8 @@ const routeLabels: Record<string, string> = {
   new: "Nieuw",
 };
 
+const subscribeToHydration = () => () => {};
+
 export function WorkspaceShell({
   children,
   userName,
@@ -42,6 +45,8 @@ export function WorkspaceShell({
 }) {
   const pathname = usePathname();
   const { activeCompany } = useCompany();
+  const { resolvedTheme, setTheme } = useTheme();
+  const themeReady = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const [collapsed, setCollapsed] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -90,7 +95,7 @@ export function WorkspaceShell({
     .toUpperCase();
 
   return (
-    <div className="flex min-h-screen bg-[var(--ws-bg)] text-foreground">
+    <div className="workspace-shell flex min-h-screen bg-[var(--ws-bg)] text-foreground">
       <Sidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -153,6 +158,15 @@ export function WorkspaceShell({
             Planning
           </Link>
           <AiStatusBadge className="hidden lg:inline-flex" />
+          <button
+            type="button"
+            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border bg-card text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={themeReady && resolvedTheme === "dark" ? "Lichte modus inschakelen" : "Donkere modus inschakelen"}
+            title={themeReady && resolvedTheme === "dark" ? "Lichte modus" : "Donkere modus"}
+          >
+            {themeReady && resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
           <Link
             href="/quotes/new"
             className="hidden h-9 items-center rounded-lg bg-[var(--ws-accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--ws-accent-hover)] sm:flex"

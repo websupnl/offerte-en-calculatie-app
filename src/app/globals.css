@@ -166,6 +166,72 @@
   --ws-accent-soft: #d9edee;
 }
 
+.dark[data-company="websup"],
+.dark[data-company="koolhaas"],
+.dark {
+  --ws-bg: #11161c;
+  --ws-sidebar: #0c1117;
+  --ws-sidebar-fg: #aebbc8;
+  --ws-accent-soft: #20333a;
+  --background: #11161c;
+  --foreground: #eaf0f4;
+  --card: #192129;
+  --card-foreground: #eaf0f4;
+  --popover: #202a33;
+  --popover-foreground: #eaf0f4;
+  --muted: #26313b;
+  --muted-foreground: #a9b7c5;
+  --secondary: #26313b;
+  --secondary-foreground: #eaf0f4;
+  --border: #34414c;
+  --input: #34414c;
+}
+
+.dark[data-company="websup"] {
+  --primary: #f97316;
+  --primary-foreground: #17110d;
+  --ws-accent: #f97316;
+  --ws-accent-hover: #ea580c;
+  --ws-accent-soft: #3a2419;
+}
+
+.dark[data-company="koolhaas"] {
+  --primary: #58c2bf;
+  --primary-foreground: #0d2226;
+  --ws-accent: #58c2bf;
+  --ws-accent-hover: #42aaa7;
+  --ws-accent-soft: #173b3d;
+}
+
+.dark .workspace-shell {
+  color-scheme: dark;
+}
+
+/* Legacy dashboard utilities stay legible in dark mode. Customer-facing
+   document previews keep their paper colors. */
+.dark .workspace-shell main .bg-white:not(.portal-container *),
+.dark .workspace-shell main .bg-slate-50:not(.portal-container *),
+.dark .workspace-shell main .bg-slate-100:not(.portal-container *) {
+  background-color: var(--card);
+}
+.dark .workspace-shell .text-slate-950:not(.portal-container *),
+.dark .workspace-shell .text-slate-900:not(.portal-container *),
+.dark .workspace-shell .text-slate-800:not(.portal-container *),
+.dark .workspace-shell .text-slate-700:not(.portal-container *) {
+  color: var(--foreground);
+}
+.dark .workspace-shell .text-slate-600:not(.portal-container *),
+.dark .workspace-shell .text-slate-500:not(.portal-container *),
+.dark .workspace-shell .text-slate-400:not(.portal-container *),
+.dark .workspace-shell .text-slate-300:not(.portal-container *) {
+  color: var(--muted-foreground);
+}
+.dark .workspace-shell .border-slate-100:not(.portal-container *),
+.dark .workspace-shell .border-slate-200:not(.portal-container *),
+.dark .workspace-shell .border-slate-300:not(.portal-container *) {
+  border-color: var(--border);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

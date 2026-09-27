@@ -197,22 +197,35 @@ export function QuoteDetailClient({
   companySlug,
   homeBaseZipCode,
   travelPricingTiers,
-  customers,
-  products,
-  productSets,
 }: {
   quote: Quote;
   company: { name: string; branding: Record<string, string> } | null;
   companySlug: string;
   homeBaseZipCode?: string;
   travelPricingTiers?: { maxKm: number | null; price: number }[];
-  customers: { id: string; name: string; email: string | null; address?: string | null; city?: string | null; zipCode?: string | null }[];
-  products: { id: string; category: string; name: string; basePrice: string | number; vatRate: string | number; unit: string }[];
-  productSets: { id: string; name: string; items: { productId: string; qty: string | number; product: { id: string; name: string; basePrice: string | number; vatRate: string | number; category: string; unit: string } }[] }[];
 }) {
   const router = useRouter();
   const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState("view");
+  const [editorData, setEditorData] = useState<{
+    customers: { id: string; name: string; email: string | null; address?: string | null; city?: string | null; zipCode?: string | null }[];
+    products: { id: string; category: string; name: string; basePrice: string | number; vatRate: string | number; unit: string }[];
+    productSets: { id: string; name: string; items: { productId: string; qty: string | number; product: { id: string; name: string; basePrice: string | number; vatRate: string | number; category: string; unit: string } }[] }[];
+  } | null>(null);
+  const [editorError, setEditorError] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === "view" || editorData || editorError) return;
+    let cancelled = false;
+    fetch(`/api/quotes/${quote.id}/editor-data`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Bewerkgegevens konden niet worden geladen");
+        return response.json();
+      })
+      .then((data) => { if (!cancelled) setEditorData(data); })
+      .catch(() => { if (!cancelled) setEditorError(true); });
+    return () => { cancelled = true; };
+  }, [activeTab, editorData, editorError, quote.id]);
   const [archiving, setArchiving] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [openingMail, setOpeningMail] = useState(false);
@@ -245,24 +258,6 @@ export function QuoteDetailClient({
       setPriceAuditLoading(false);
     }
   }
-
-  // Poll for PDF readiness while generating
-  useEffect(() => {
-    if (pdfReady) return;
-    let attempts = 0;
-    const interval = setInterval(async () => {
-      attempts++;
-      if (attempts > 15) { clearInterval(interval); return; }
-      try {
-        const res = await fetch(`/api/quotes/${quote.id}/pdf/status`);
-        if (res.ok) {
-          const { pdfReady: ready } = await res.json();
-          if (ready) { setPdfGenerated(true); clearInterval(interval); }
-        }
-      } catch { /* ignore */ }
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [pdfReady, quote.id]);
 
   useEffect(() => {
     if (quote.share) {
@@ -356,14 +351,20 @@ export function QuoteDetailClient({
 
   async function handleStatusChange(status: string) {
     setUpdatingStatus(true);
-    await fetch(`/api/quotes/${quote.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    setUpdatingStatus(false);
-    toast.success("Status bijgewerkt");
-    router.refresh();
+    try {
+      const response = await fetch(`/api/quotes/${quote.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!response.ok) throw new Error("Status wijzigen mislukt");
+      toast.success("Status bijgewerkt");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Status wijzigen mislukt");
+    } finally {
+      setUpdatingStatus(false);
+    }
   }
 
   async function handleDelete() {
@@ -502,9 +503,9 @@ export function QuoteDetailClient({
   }
 
   return (
-    <div className="w-full max-w-[1800px] mx-auto space-y-5 p-4 sm:p-5 lg:p-8 2xl:px-10">
+    <div className="mx-auto w-full max-w-[1800px] space-y-3 p-4 sm:p-5 lg:px-8 lg:py-5 2xl:px-10">
       {/* Header */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 border-b border-border pb-3 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <Link href="/quotes">
             <Button variant="ghost" size="icon">
@@ -555,7 +556,7 @@ export function QuoteDetailClient({
             <DropdownMenuTrigger
               aria-label="Meer acties"
               disabled={archiving}
-              className="grid h-9 w-9 place-items-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+              className="grid h-9 w-9 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
             >
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
@@ -577,6 +578,16 @@ export function QuoteDetailClient({
               {quote.status !== "ACCEPTED" && (
                 <DropdownMenuItem onClick={handleVerbalAccept}>
                   <CheckCircle2 className="h-4 w-4" /> Op akkoord (mondeling)
+                </DropdownMenuItem>
+              )}
+              {quote.status !== "ACCEPTED" && quote.status !== "DRAFT" && (
+                <DropdownMenuItem onClick={() => handleStatusChange("DRAFT")} disabled={updatingStatus}>
+                  Markeer als concept
+                </DropdownMenuItem>
+              )}
+              {quote.status !== "ACCEPTED" && quote.status !== "DECLINED" && (
+                <DropdownMenuItem onClick={() => handleStatusChange("DECLINED")} disabled={updatingStatus}>
+                  Markeer als afgewezen
                 </DropdownMenuItem>
               )}
               {["SENT", "VIEWED", "EXPIRED", "DECLINED"].includes(quote.status) && (
@@ -785,7 +796,7 @@ export function QuoteDetailClient({
 
       {/* Share URL display */}
       {shareUrl && (
-        <div className="flex items-center gap-2 bg-muted rounded-lg p-3 text-sm">
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm">
           <Share2 className="h-4 w-4 text-muted-foreground shrink-0" />
           <span className="flex-1 truncate">{shareUrl}</span>
           <Button
@@ -820,15 +831,14 @@ export function QuoteDetailClient({
       )}
 
       {quote.sentAt && (
-        <Card>
-          <CardContent className="pt-4">
+        <div className="rounded-lg border border-border bg-card px-3 py-2">
             <button
               type="button"
               onClick={() => setTimelineOpen((open) => !open)}
               aria-expanded={timelineOpen}
               className="flex w-full flex-wrap items-center justify-between gap-2 text-left"
             >
-              <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                 <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${timelineOpen ? "" : "-rotate-90"}`} />
                 Tijdlijn
               </span>
@@ -842,9 +852,9 @@ export function QuoteDetailClient({
               quote.events.length > 0 ? (
                 <ol className="mt-3 space-y-2 text-sm">
                   {quote.events.map((event) => (
-                    <li key={event.id} className="flex items-start justify-between gap-3 border-t border-slate-100 pt-2 first:border-0 first:pt-0">
+                    <li key={event.id} className="flex items-start justify-between gap-3 border-t border-border pt-2 first:border-0 first:pt-0">
                       <div className="min-w-0">
-                        <p className="font-medium text-slate-800">{EVENT_LABELS[event.type] ?? event.type}</p>
+                        <p className="font-medium text-foreground">{EVENT_LABELS[event.type] ?? event.type}</p>
                         {event.detail && <p className="truncate text-xs text-slate-400">{event.detail}</p>}
                       </div>
                       <span className="shrink-0 text-xs text-slate-400">{formatDateTime(event.createdAt)}</span>
@@ -855,12 +865,12 @@ export function QuoteDetailClient({
                 <p className="mt-2 text-xs text-slate-400">Nog geen activiteit geregistreerd.</p>
               )
             )}
-          </CardContent>
-        </Card>
+        </div>
       )}
 
-      <div className="space-y-4">
-        <nav aria-label="Offerteweergave" className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1">
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+        <nav aria-label="Offerteweergave" className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1">
               <button
                 type="button"
                 onClick={() => setActiveTab("view")}
@@ -896,36 +906,11 @@ export function QuoteDetailClient({
                 </button>
               )}
         </nav>
+        </div>
 
         <section className="min-w-0">
         {activeTab === "view" && (
           <div className="space-y-4">
-          {/* Quick status update */}
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium text-muted-foreground">Status:</span>
-                {(quote.status === "ACCEPTED" ? ["ACCEPTED"] : ["DRAFT", "DECLINED"]).map((s) => (
-                  <Button
-                    key={s}
-                    variant={quote.status === s ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleStatusChange(s)}
-                    disabled={updatingStatus}
-                  >
-                    {QUOTE_STATUS_LABELS[s]}
-                  </Button>
-                ))}
-                {["SENT", "VIEWED"].includes(quote.status) && (
-                  <Badge variant="outline">{QUOTE_STATUS_LABELS[quote.status]}</Badge>
-                )}
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                &ldquo;Verstuurd&rdquo; wordt automatisch gezet zodra je de offerte via &ldquo;Verstuur offerte&rdquo; mailt.
-              </p>
-            </CardContent>
-          </Card>
-
           {quote.share?.acceptedAt && (
             <Card className="border-emerald-200 bg-emerald-50/50">
               <CardContent className="grid gap-3 pt-4 text-sm md:grid-cols-[1fr_auto]">
@@ -960,11 +945,22 @@ export function QuoteDetailClient({
           </div>
         )}
 
-        {activeTab === "edit" && (
+        {activeTab !== "view" && !editorData && (
+          <div className="rounded-xl border border-border bg-card p-5 text-base text-foreground">
+            {editorError ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <span>Bewerkgegevens konden niet worden geladen.</span>
+                <Button variant="outline" size="sm" onClick={() => setEditorError(false)}>Opnieuw proberen</Button>
+              </div>
+            ) : "Bewerkgegevens laden..."}
+          </div>
+        )}
+
+        {activeTab === "edit" && editorData && (
           <QuoteBuilder
-            customers={customers}
-            products={products}
-            productSets={productSets}
+            customers={editorData.customers}
+            products={editorData.products}
+            productSets={editorData.productSets}
             companySlug={companySlug}
             companyName={company?.name ?? ""}
             homeBaseZipCode={homeBaseZipCode}
@@ -973,10 +969,10 @@ export function QuoteDetailClient({
           />
         )}
 
-        {activeTab === "advice" && companySlug === "koolhaas" && (
+        {activeTab === "advice" && companySlug === "koolhaas" && editorData && (
             <AdviceDocumentForm
               quoteId={quote.id}
-              products={products}
+              products={editorData.products}
               existingDocs={quote.adviceDocuments}
             />
         )}

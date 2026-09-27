@@ -57,17 +57,17 @@ export default async function InvoicesPage() {
           </Button>
         }
       />
-      <div className="space-y-5 p-4 sm:p-5 lg:p-8">
-        <div className="grid gap-3 sm:grid-cols-3">
+      <div className="space-y-3 p-4 sm:p-5 lg:px-8 lg:py-5">
+        <div className="flex flex-wrap gap-x-6 gap-y-2 rounded-xl border border-border bg-card px-4 py-3">
           {stats.map((st) => (
-            <div key={st.label} className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{st.label}</p>
-              <p className={`mt-1 text-2xl font-bold tabular-nums ${st.tone}`}>{formatCurrency(st.amount)}</p>
-              <p className="text-xs text-slate-500">{st.count} {st.count === 1 ? "factuur" : "facturen"}</p>
+            <div key={st.label} className="flex items-baseline gap-2 text-base">
+              <span className="text-muted-foreground">{st.label}</span>
+              <strong className={`tabular-nums ${st.tone}`}>{formatCurrency(st.amount)}</strong>
+              <span className="text-sm text-muted-foreground">({st.count})</span>
             </div>
           ))}
         </div>
-        <section className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+        <section className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="divide-y md:hidden">
             {invoices.map((invoice) => (
               <Link key={invoice.id} href={`/invoices/${invoice.id}`} className="block p-4 active:bg-slate-50">
@@ -92,7 +92,7 @@ export default async function InvoicesPage() {
           </div>
           <div className="hidden md:block">
           <Table>
-            <TableHeader className="bg-slate-50">
+            <TableHeader className="bg-muted/40">
               <TableRow>
                 <TableHead className="pl-4">Factuur</TableHead>
                 <TableHead>Klant</TableHead>

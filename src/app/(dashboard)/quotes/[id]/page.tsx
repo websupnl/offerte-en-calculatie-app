@@ -14,7 +14,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
   const companyId = session?.user?.activeCompanyId;
   if (!companyId) notFound();
 
-  const [quote, company, products, productSets] = await Promise.all([
+  const [quote, company] = await Promise.all([
     prisma.quote.findFirst({
       where: { id, companyId },
       include: {
@@ -31,11 +31,6 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
       },
     }),
     prisma.company.findUnique({ where: { id: companyId } }),
-    prisma.product.findMany({ where: { companyId, active: true }, orderBy: [{ category: "asc" }, { name: "asc" }], take: 500 }),
-    prisma.productSet.findMany({
-      where: { companyId, active: true },
-      include: { items: { include: { product: true }, orderBy: { sortOrder: "asc" } } },
-    }),
   ]);
 
   if (!quote) notFound();
@@ -44,7 +39,6 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
   const companySettings = (company?.settings ?? {}) as Record<string, unknown>;
   const homeBaseZipCode = (companySettings.homeBaseZipCode as string) ?? DEFAULT_SETTINGS.homeBaseZipCode;
   const travelPricingTiers = (companySettings.travelPricingTiers as TravelPricingTier[]) ?? DEFAULT_SETTINGS.travelPricingTiers;
-  const customers = await prisma.customer.findMany({ where: { companyId }, orderBy: { name: "asc" }, take: 500 });
   const attachments = await resolveQuoteAttachmentImages(quote.attachments, {
     expiresIn: 21600,
     includeStorageRef: true,
@@ -76,9 +70,6 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
       documents,
     }, { internal: true }),
     company,
-    customers,
-    products,
-    productSets,
   }));
 
   return (
@@ -88,9 +79,6 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
       companySlug={companySlug}
       homeBaseZipCode={homeBaseZipCode}
       travelPricingTiers={travelPricingTiers}
-      customers={serialized.customers}
-      products={serialized.products}
-      productSets={serialized.productSets}
     />
   );
 }

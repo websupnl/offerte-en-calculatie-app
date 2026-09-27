@@ -25,7 +25,6 @@ import {
   Plus,
   Search,
   FileText,
-  TrendingUp,
   FolderKanban,
   User,
   ArrowUpRight,
@@ -59,7 +58,6 @@ type CalculationSummary = {
   customer: { id: string; name: string; email: string | null } | null;
   project: { id: string; number: string; title: string } | null;
   quote: { id: string; number: string; status: string } | null;
-  items: { id: string }[];
 };
 
 type OptionItem = { id: string; name?: string; title?: string; number?: string };
@@ -240,70 +238,23 @@ export function CalculationsClient({
         }
       />
 
-      <div className="space-y-6 p-5 lg:p-8">
-        {/* KPI Stats */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-          <Card className="bg-white shadow-sm">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-                <span>Calculaties</span>
-                <Calculator className="h-4 w-4 text-slate-400" />
-              </div>
-              <p className="mt-2 text-2xl font-bold">{calculations.length}</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white shadow-sm">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-                <span>Totale Netto Inkoop</span>
-                <span className="text-slate-400 text-xs">Excl. BTW</span>
-              </div>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-slate-700">
-                {formatCurrency(totalCostSum)}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white shadow-sm">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-                <span>Totale Verkoopprijs</span>
-                <span className="text-slate-400 text-xs">Excl. BTW</span>
-              </div>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-700">
-                {formatCurrency(totalSalesSum)}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white shadow-sm">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-                <span>Totale Brutowinst</span>
-                <TrendingUp className="h-4 w-4 text-emerald-500" />
-              </div>
-              <div className="mt-2 flex items-baseline justify-between">
-                <p className="text-2xl font-bold tabular-nums text-emerald-600">
-                  {formatCurrency(totalMarginSum)}
-                </p>
-                <span className="text-xs font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">
-                  {avgMarginPercent.toFixed(1)}% marge
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+      <div className="space-y-4 p-4 sm:p-5 lg:px-8 lg:py-5">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border bg-card px-4 py-3 text-base" aria-label="Calculatieoverzicht">
+          <span><strong className="tabular-nums">{calculations.length}</strong> <span className="text-muted-foreground">calculaties</span></span>
+          <span><span className="text-muted-foreground">Inkoop</span> <strong className="tabular-nums">{formatCurrency(totalCostSum)}</strong></span>
+          <span><span className="text-muted-foreground">Verkoop</span> <strong className="tabular-nums">{formatCurrency(totalSalesSum)}</strong></span>
+          <span><span className="text-muted-foreground">Brutowinst</span> <strong className="tabular-nums">{formatCurrency(totalMarginSum)}</strong> <span className="text-muted-foreground">({avgMarginPercent.toFixed(1)}%)</span></span>
         </div>
 
         {/* Filter controls */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Zoek op titel, nummer, klant of project..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-white"
+              className="pl-9 bg-card"
             />
           </div>
 
@@ -313,7 +264,7 @@ export function CalculationsClient({
               onValueChange={(val) => setStatusFilter(val || "ALL")}
               disabled={showArchived}
             >
-              <SelectTrigger className="w-[180px] bg-white">
+              <SelectTrigger className="w-[180px] bg-card">
                 <SelectValue placeholder="Filter op status" />
               </SelectTrigger>
               <SelectContent>
@@ -376,7 +327,7 @@ export function CalculationsClient({
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <Calculator className="h-12 w-12 text-slate-300 mb-3" />
-              <p className="text-base font-semibold text-slate-800">Geen calculaties gevonden</p>
+              <p className="text-base font-semibold text-foreground">Geen calculaties gevonden</p>
               <p className="text-sm text-slate-500 max-w-sm mt-1 mb-4">
                 {search || statusFilter !== "ALL"
                   ? "Geen resultaten gevonden voor je huidige zoekfilters."
@@ -389,18 +340,14 @@ export function CalculationsClient({
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <div className="overflow-hidden rounded-xl border border-border bg-card divide-y divide-border">
             {filteredCalculations.map((calc) => (
-              <Link key={calc.id} href={`/calculations/${calc.id}`} className="block group">
-                <Card
-                  className={`transition-all hover:border-slate-300 hover:shadow-md ${selected.has(calc.id) ? "border-[var(--ws-accent)] bg-[var(--ws-accent-soft)]" : ""}`}
-                >
-                  <CardContent className="p-5">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div key={calc.id} className={`group px-3 py-3 transition-colors hover:bg-muted/50 sm:px-4 ${selected.has(calc.id) ? "bg-[var(--ws-accent-soft)]" : ""}`}>
+                    <div className="grid grid-cols-[16px_minmax(0,1fr)] items-start gap-x-3 gap-y-2 md:flex md:items-center md:justify-between md:gap-4">
                       <input
                         type="checkbox"
                         aria-label={`Selecteer ${calc.number}`}
-                        className="mt-1 h-4 w-4 shrink-0 cursor-pointer self-start accent-[var(--ws-accent)] md:self-center"
+                        className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-[var(--ws-accent)] md:mt-0"
                         checked={selected.has(calc.id)}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => {
@@ -410,20 +357,18 @@ export function CalculationsClient({
                         }}
                       />
                       {/* Left: Info */}
-                      <div className="space-y-1.5 flex-1 min-w-0">
+                      <div className="space-y-1 flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                          <span className="rounded bg-muted px-2 py-0.5 font-mono text-sm font-bold text-muted-foreground">
                             {calc.number}
                           </span>
-                          <h3 className="font-semibold text-slate-900 group-hover:text-[var(--ws-accent)] transition-colors truncate">
-                            {calc.title}
-                          </h3>
+                          <Link href={`/calculations/${calc.id}`} className="min-w-0 truncate font-semibold text-foreground hover:text-[var(--ws-accent)] hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{calc.title}</Link>
                           <Badge variant={CALCULATION_STATUS_COLORS[calc.status] as "default" | "secondary"}>
                             {CALCULATION_STATUS_LABELS[calc.status] ?? calc.status}
                           </Badge>
                         </div>
 
-                        <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                           {calc.customer && (
                             <span className="flex items-center gap-1">
                               <User className="h-3.5 w-3.5 text-slate-400" />
@@ -447,24 +392,24 @@ export function CalculationsClient({
                       </div>
 
                       {/* Right: Margins & Financials */}
-                      <div className="flex items-center gap-6 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-slate-100 justify-between md:justify-end">
+                      <div className="col-start-2 flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-border pt-2 md:justify-end md:gap-5 md:border-t-0 md:pt-0">
                         <div className="text-right">
-                          <p className="text-xs text-slate-500">Netto Inkoop</p>
+                          <p className="text-sm text-muted-foreground">Netto inkoop</p>
                           <p className="text-sm font-semibold tabular-nums text-slate-700">
                             {formatCurrency(calc.totalCostPrice)}
                           </p>
                         </div>
 
                         <div className="text-right">
-                          <p className="text-xs text-slate-500">Verkoop (ex)</p>
+                          <p className="text-sm text-muted-foreground">Verkoop excl.</p>
                           <p className="text-sm font-bold tabular-nums text-slate-900">
                             {formatCurrency(calc.totalSalesPrice)}
                           </p>
                         </div>
 
-                        <div className="text-right pl-3 border-l border-slate-200">
-                          <p className="text-xs text-emerald-600 font-semibold">Brutowinst</p>
-                          <p className="text-sm font-bold tabular-nums text-emerald-600">
+                        <div className="border-l border-border pl-3 text-right">
+                          <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Brutowinst</p>
+                          <p className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
                             {formatCurrency(calc.marginAmount)}
                           </p>
                           <p className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded inline-block mt-0.5">
@@ -513,9 +458,7 @@ export function CalculationsClient({
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </Link>
+              </div>
             ))}
           </div>
         )}

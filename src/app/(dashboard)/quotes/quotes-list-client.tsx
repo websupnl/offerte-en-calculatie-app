@@ -271,13 +271,13 @@ export function QuotesListClient({
         }
       />
 
-      <div className="space-y-4 p-4 sm:p-5 lg:p-8">
-        <div className="flex flex-col gap-3 rounded-2xl bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06] sm:flex-row sm:items-center">
+      <div className="space-y-3 p-4 sm:p-5 lg:px-8 lg:py-5">
+        <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-2 sm:flex-row sm:items-center">
           <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               placeholder="Zoek op nummer, titel of klant..."
-              className="h-9 rounded-full border-slate-200 bg-slate-50 pl-9"
+              className="h-9 rounded-lg border-border bg-background pl-9"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -337,7 +337,7 @@ export function QuotesListClient({
           </div>
         )}
 
-        <div className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
           {filtered.length === 0 ? (
             <div className="grid min-h-72 place-items-center p-8 text-center">
               <div>
@@ -401,7 +401,7 @@ export function QuotesListClient({
 
               <div className="hidden md:block">
                 <Table>
-                  <TableHeader className="bg-slate-50">
+                  <TableHeader className="bg-muted/40">
                     <TableRow>
                       <TableHead className="w-10 pl-4">
                         <input

@@ -25,7 +25,6 @@ export default async function CalculationsPage({
         customer: { select: { id: true, name: true, email: true } },
         project: { select: { id: true, number: true, title: true } },
         quote: { select: { id: true, number: true, status: true } },
-        items: { select: { id: true } },
       },
       orderBy: { updatedAt: "desc" },
       take: 200,
