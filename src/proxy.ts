@@ -18,6 +18,7 @@ const PUBLIC_PATHS = [
   "/api/donna/",
   // Server-to-server webhook vanaf de publieke websites; eigen secret per site.
   "/api/webhooks/website-lead",
+  "/api/webhooks/mollie-invoices/",
   // Werkplek: klant heeft geen account, alleen een geheim token.
   "/portal/", // klantomgeving
   "/c/", // contract ondertekenen

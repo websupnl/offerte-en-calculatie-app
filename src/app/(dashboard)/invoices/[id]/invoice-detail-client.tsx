@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Eye, Loader2, Printer, Save, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CreditCard, Eye, Loader2, Printer, Save, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,9 @@ type Invoice = {
   notes: string | null;
   invoiceDate: string;
   dueDate: string | null;
+  molliePaymentUrl: string | null;
+  molliePaymentMode: string | null;
+  molliePaidAt: string | null;
   lines: { id: string; description: string; qty: string | number; unit: string | null; unitPrice: string | number; vatRate: string | number }[];
   customer: { name: string; email: string | null; address: string | null; city: string | null; zipCode: string | null } | null;
   project: { id: string; number: string; title: string } | null;
@@ -39,7 +42,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 const toDateInput = (iso: string | null) => (iso ? iso.slice(0, 10) : "");
 
-export function InvoiceDetailClient({ invoice, missingCompanyData }: { invoice: Invoice; missingCompanyData: string[] }) {
+export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigured }: { invoice: Invoice; missingCompanyData: string[]; mollieConfigured: boolean }) {
   const router = useRouter();
   const [status, setStatus] = useState(invoice.status);
   const [reference, setReference] = useState(invoice.reference ?? "");
@@ -49,6 +52,9 @@ export function InvoiceDetailClient({ invoice, missingCompanyData }: { invoice: 
   const [lines, setLines] = useState<EditableLine[]>(() => toEditable(invoice.lines));
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState(invoice.molliePaymentUrl);
+  const [paymentMode, setPaymentMode] = useState(invoice.molliePaymentMode);
+  const [creatingLink, setCreatingLink] = useState(false);
 
   const locked = status !== "CONCEPT";
   const totals = computeInvoiceTotals(lines);
@@ -65,7 +71,7 @@ export function InvoiceDetailClient({ invoice, missingCompanyData }: { invoice: 
       const res = await fetch(`/api/invoices/${invoice.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify(locked && nextStatus ? { status: nextStatus } : {
           status: nextStatus ?? status,
           reference,
           notes,
@@ -74,7 +80,10 @@ export function InvoiceDetailClient({ invoice, missingCompanyData }: { invoice: 
           lines: stripKeys(lines),
         }),
       });
-      if (!res.ok) throw new Error("Opslaan mislukt");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(typeof body?.error === "string" ? body.error : "Opslaan mislukt");
+      }
       if (nextStatus) setStatus(nextStatus);
       setDirty(false);
       toast.success(nextStatus ? `Gemarkeerd als ${INVOICE_STATUS_LABELS[nextStatus].toLowerCase()}` : "Factuur opgeslagen");
@@ -83,6 +92,23 @@ export function InvoiceDetailClient({ invoice, missingCompanyData }: { invoice: 
       toast.error(e instanceof Error ? e.message : "Er ging iets mis");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function createPaymentLink() {
+    setCreatingLink(true);
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}/payment-link`, { method: "POST" });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Betaallink maken mislukt");
+      setPaymentUrl(body.url);
+      setPaymentMode(body.mode);
+      toast.success("Betaallink toegevoegd aan de factuur");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Betaallink maken mislukt");
+    } finally {
+      setCreatingLink(false);
     }
   }
 
@@ -135,8 +161,19 @@ export function InvoiceDetailClient({ invoice, missingCompanyData }: { invoice: 
           )}
           {(status === "VERZONDEN" || status === "VERVALLEN") && (
             <Button size="sm" onClick={() => save("BETAALD")} disabled={saving} className="bg-emerald-500 text-white hover:bg-emerald-600">
-              <CheckCircle2 className="h-4 w-4" /> Betaald
+              <CheckCircle2 className="h-4 w-4" /> Handmatig betaald
             </Button>
+          )}
+          {(status === "VERZONDEN" || status === "VERVALLEN") && !paymentUrl && mollieConfigured && (
+            <Button size="sm" variant="secondary" onClick={createPaymentLink} disabled={creatingLink || dirty}>
+              {creatingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+              Betaallink maken
+            </Button>
+          )}
+          {paymentUrl && status !== "BETAALD" && (
+            <a href={paymentUrl} target="_blank" rel="noopener noreferrer">
+              <Button size="sm" variant="secondary"><CreditCard className="h-4 w-4" /> {paymentMode === "test" ? "Testbetaallink" : "Betaallink"}</Button>
+            </a>
           )}
           <a href={`/print/invoices/${invoice.id}`} target="_blank" rel="noopener noreferrer">
             <Button size="sm" variant="secondary"><Eye className="h-4 w-4" /> Bekijken</Button>
@@ -159,10 +196,20 @@ export function InvoiceDetailClient({ invoice, missingCompanyData }: { invoice: 
         </div>
       )}
 
+      {!mollieConfigured && status !== "BETAALD" && (
+        <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700 ring-1 ring-slate-200">
+          Online betalen is voor dit bedrijf nog niet ingesteld. Voeg de bijbehorende Mollie-key toe aan de serverconfiguratie.
+        </div>
+      )}
+      {paymentMode === "test" && invoice.molliePaidAt && (
+        <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700 ring-1 ring-slate-200">
+          Testbetaling gelukt. Deze factuur blijft open totdat er een echte betaling is ontvangen.
+        </div>
+      )}
+
       {locked && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-sky-50 px-4 py-3 text-sm text-sky-900 ring-1 ring-sky-200">
           <span>Deze factuur is {INVOICE_STATUS_LABELS[status].toLowerCase()}. De regels zijn vergrendeld zodat hij gelijk blijft aan wat de klant heeft.</span>
-          <Button size="sm" variant="outline" onClick={() => { setStatus("CONCEPT"); setDirty(true); }}>Terug naar concept</Button>
         </div>
       )}
 
@@ -180,6 +227,7 @@ export function InvoiceDetailClient({ invoice, missingCompanyData }: { invoice: 
                   <button
                     key={s}
                     type="button"
+                    disabled={locked || (s !== "CONCEPT" && s !== "VERZONDEN")}
                     onClick={() => { setStatus(s); setDirty(true); }}
                     className={cn("rounded-lg px-2 py-1.5 text-xs font-semibold ring-1", status === s ? `${STATUS_STYLE[s]} ring-transparent` : "text-slate-500 ring-slate-200 hover:ring-slate-300")}
                   >
@@ -194,15 +242,15 @@ export function InvoiceDetailClient({ invoice, missingCompanyData }: { invoice: 
             </div>
             <div className="space-y-1.5">
               <Label>Vervaldatum</Label>
-              <Input type="date" value={dueDate} onChange={(e) => touch(setDueDate)(e.target.value)} />
+              <Input type="date" value={dueDate} disabled={locked} onChange={(e) => touch(setDueDate)(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label>Referentie</Label>
-              <Input value={reference} onChange={(e) => touch(setReference)(e.target.value)} />
+              <Input value={reference} disabled={locked} onChange={(e) => touch(setReference)(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label>Opmerking op factuur</Label>
-              <Textarea rows={3} value={notes} onChange={(e) => touch(setNotes)(e.target.value)} placeholder="Optioneel" />
+              <Textarea rows={3} value={notes} disabled={locked} onChange={(e) => touch(setNotes)(e.target.value)} placeholder="Optioneel" />
             </div>
           </section>
 

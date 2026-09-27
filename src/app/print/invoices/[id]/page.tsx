@@ -229,6 +229,11 @@ export default async function InvoicePrintPage({
                     <p>
                       Maak het bedrag {invoice.dueDate ? <>vóór <b>{formatDate(invoice.dueDate)}</b></> : `binnen ${s.paymentDays} dagen`} over
                       onder vermelding van het factuurnummer.
+                      {invoice.molliePaymentUrl && (
+                        <> Of <a href={invoice.molliePaymentUrl} style={{ color: "inherit", fontWeight: 700, textDecoration: "underline" }}>
+                          {invoice.molliePaymentMode === "test" ? "doe een testbetaling" : "betaal online"}
+                        </a>.</>
+                      )}
                     </p>
                   )}
                 </div>

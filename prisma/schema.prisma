@@ -462,6 +462,11 @@ model SalesInvoice {
   totalVat    Decimal @default(0) @db.Decimal(10, 2)
   totalIncVat Decimal @default(0) @db.Decimal(10, 2)
 
+  molliePaymentLinkId  String?   @unique
+  molliePaymentUrl     String?   @db.Text
+  molliePaymentMode    String?   // test | live
+  molliePaidAt         DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
