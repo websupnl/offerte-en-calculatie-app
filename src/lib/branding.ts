@@ -27,7 +27,7 @@ export type CompanySettings = {
   invoice?: InvoiceSettings;
 };
 
-/** Gegevens die wettelijk op een factuur moeten (KvK, btw-id, IBAN) plus de betaaltermijn. */
+/** Bedrijfs- en betaalgegevens voor facturen. IBAN is een betaaloptie, geen algemene factuureis. */
 export type InvoiceSettings = {
   address: string;
   kvk: string;

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { PrintOnLoad } from "@/components/print-on-load";
 import { getInvoiceSettings } from "@/lib/branding";
 import { formatCurrency, formatDate } from "@/lib/format";
+import * as QRCode from "qrcode";
 
 /**
  * Factuur in dezelfde huisstijl als de offerte: dezelfde portal.css, dezelfde
@@ -57,6 +58,9 @@ export default async function InvoicePrintPage({
   const c = invoice.customer;
   const paid = invoice.status === "BETAALD";
   const livePaymentUrl = !paid && invoice.molliePaymentMode === "live" ? invoice.molliePaymentUrl : null;
+  const paymentQr = livePaymentUrl
+    ? await QRCode.toDataURL(livePaymentUrl, { errorCorrectionLevel: "M", margin: 3, width: 360 })
+    : null;
   const showBankDetails = !paid && !livePaymentUrl;
   const qty = (n: number) => n.toLocaleString("nl-NL", { maximumFractionDigits: 2 });
   const missing = <span className="inv-warn">ontbreekt</span>;
@@ -77,17 +81,17 @@ export default async function InvoicePrintPage({
         .inv-hero > :first-child { min-width: 0; }
         .inv-h1 { font: 800 64px/.9 var(--display); letter-spacing: -.04em; margin: 8px 0 0; padding-bottom: 4px;
           background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .inv-meta { margin: 0; display: grid; grid-template-columns: auto max-content; gap: 4px 16px; font-size: 14px; padding-left: 16px; border-left: 1px solid var(--border-str); flex: none; }
-        .inv-meta dt { color: var(--on-s); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 12px; align-self: center; }
+        .inv-meta { margin: 0; display: grid; grid-template-columns: auto max-content; gap: 4px 16px; font-size: 16px; padding-left: 16px; border-left: 1px solid var(--border-str); flex: none; }
+        .inv-meta dt { color: var(--on-s); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 13px; align-self: center; }
         .inv-meta dd { margin: 0; color: var(--on); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
         .inv-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-        .inv-party { background: var(--surface-in); border-radius: var(--r-lg); padding: 16px 18px; font-size: 14px; color: var(--on-m); line-height: 1.5; white-space: pre-line; }
-        .inv-party small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+        .inv-party { background: var(--surface-in); border-radius: var(--r-lg); padding: 16px 18px; font-size: 16px; color: var(--on-m); line-height: 1.5; white-space: pre-line; }
+        .inv-party small { display: block; font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
         .inv-party b { display: block; font: 800 18px/1.2 var(--display); color: var(--on); margin-bottom: 4px; letter-spacing: -.01em; }
 
-        .inv-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        .inv-table th { padding: 8px 10px; text-align: left; font: 800 11px/1 var(--text); letter-spacing: .1em; text-transform: uppercase; color: var(--on-m); border-bottom: 1px solid var(--border-str); }
+        .inv-table { width: 100%; border-collapse: collapse; font-size: 16px; }
+        .inv-table th { padding: 8px 10px; text-align: left; font: 800 13px/1 var(--text); letter-spacing: .1em; text-transform: uppercase; color: var(--on-m); border-bottom: 1px solid var(--border-str); }
         .inv-table td { padding: 11px 10px; border-bottom: 1px solid var(--border); color: var(--on); line-height: 1.4; vertical-align: top; }
         .inv-table th:first-child, .inv-table td:first-child { padding-left: 16px; }
         .inv-table th:last-child, .inv-table td:last-child { padding-right: 16px; }
@@ -103,17 +107,21 @@ export default async function InvoicePrintPage({
 
         .inv-pay { margin-top: 22px; display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center;
           background: var(--grad-soft); border-radius: var(--r-lg); padding: 18px 20px; break-inside: avoid; }
-        .inv-pay p { margin: 8px 0 0; font-size: 14px; color: var(--on-m); line-height: 1.5; }
-        .inv-pay dl { margin: 0; display: grid; grid-template-columns: auto auto; gap: 3px 14px; font-size: 14px; }
+        .inv-pay p { margin: 8px 0 0; font-size: 16px; color: var(--on-m); line-height: 1.5; }
+        .inv-pay dl { margin: 0; display: grid; grid-template-columns: auto auto; gap: 3px 14px; font-size: 16px; }
         .inv-pay dt { color: var(--on-s); }
         .inv-pay dd { margin: 0; font-weight: 700; color: var(--on); }
-        .inv-pay-online { grid-template-columns: 1fr auto; }
+        .inv-pay-online { grid-template-columns: minmax(0, 1fr) auto; }
         .inv-pay-online p { font-size: 16px; }
-        .inv-pay-link { display: inline-block; border-radius: 9999px; padding: 13px 20px; background: var(--on); color: #fff !important;
+        .inv-pay-link { display: inline-block; margin-top: 12px; border-radius: 9999px; padding: 13px 20px; background: var(--on); color: #fff !important;
           font: 800 16px/1.2 var(--text); text-decoration: none; white-space: nowrap; }
-        .inv-pay-url { display: block; margin-top: 9px; font-size: 12px; color: var(--on-m); overflow-wrap: anywhere; }
-        .inv-notes { margin-top: 18px; font-size: 14px; color: var(--on-m); white-space: pre-line; line-height: 1.55; }
-        .inv-custom { margin-top: auto; padding: 18px 0 10px; font-size: 12px; color: var(--on-s); white-space: pre-line; }
+        .inv-pay-url { display: block; margin-top: 9px; font-size: 14px; color: var(--on-m); overflow-wrap: anywhere; }
+        .inv-pay-qr-wrap { margin: 0; text-align: center; }
+        .inv-pay-qr { width: 108px; height: 108px; background: #fff; border-radius: 8px; flex: none; }
+        .inv-pay-qr-wrap figcaption { margin-top: 4px; font-size: 14px; color: var(--on-m); white-space: nowrap; }
+        .inv-notes { margin-top: 18px; font-size: 16px; color: var(--on-m); white-space: pre-line; line-height: 1.55; }
+        .inv-custom { margin-top: auto; padding: 18px 0 10px; font-size: 14px; color: var(--on-s); white-space: pre-line; }
+        .inv-sheet .doc-foot-meta { font-size: 14px; }
         .inv-stamp { position: absolute; top: 150px; right: 64px; transform: rotate(-8deg); border: 3px solid #12b76a; color: #12b76a;
           font: 800 28px/1 var(--display); letter-spacing: .14em; padding: 8px 18px; border-radius: 10px; opacity: .85; }
         .inv-warn { color: #d92d20; font-weight: 700; }
@@ -209,7 +217,7 @@ export default async function InvoicePrintPage({
               </div>
 
               {invoice.reference && (
-                <p style={{ margin: "0 0 14px", fontSize: 14, color: "var(--on-m)" }}>
+                <p style={{ margin: "0 0 14px", fontSize: 16, color: "var(--on-m)" }}>
                   <b style={{ color: "var(--on)" }}>Betreft:</b> {invoice.reference}
                 </p>
               )}
@@ -261,6 +269,7 @@ export default async function InvoicePrintPage({
                   ) : livePaymentUrl ? (
                     <>
                       <p>Betaal deze factuur via Mollie{invoice.dueDate ? <> vóór <b>{formatDate(invoice.dueDate)}</b></> : ` binnen ${s.paymentDays} dagen`}.</p>
+                      <a className="inv-pay-link" href={livePaymentUrl}>Betaal online</a>
                       <span className="inv-pay-url">{livePaymentUrl}</span>
                     </>
                   ) : (
@@ -271,7 +280,13 @@ export default async function InvoicePrintPage({
                     </p>
                   )}
                 </div>
-                {livePaymentUrl && <a className="inv-pay-link" href={livePaymentUrl}>Betaal online</a>}
+                {paymentQr && (
+                  <figure className="inv-pay-qr-wrap">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- QR-data-URL moet exact in de PDF worden afgedrukt */}
+                    <img className="inv-pay-qr" src={paymentQr} alt="QR-code om deze factuur via Mollie te betalen" />
+                    <figcaption>Scan om te betalen</figcaption>
+                  </figure>
+                )}
                 {showBankDetails && <dl>
                   <dt>IBAN</dt><dd>{s.iban || missing}</dd>
                   <dt>T.n.v.</dt><dd>{s.accountHolder || invoice.company.name}</dd>

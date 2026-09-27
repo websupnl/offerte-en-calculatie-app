@@ -400,6 +400,61 @@ export async function sendQuoteEmail(data: QuoteEmailData) {
   return { sent: true };
 }
 
+export function invoiceEmailConfigured() {
+  return Boolean(getTransporter());
+}
+
+export async function sendInvoiceEmail(data: {
+  to: string;
+  customerName: string;
+  companySlug: string;
+  invoiceNumber: string;
+  amount: string;
+  dueDate: string | null;
+  paymentUrl: string;
+  pdf: Buffer;
+  filename: string;
+}) {
+  const smtp = getTransporter();
+  if (!smtp) throw new Error("E-mail is nog niet ingesteld");
+  const identity = getCompanyEmailIdentity(data.companySlug);
+  const formal = data.companySlug === "koolhaas";
+  const greeting = formal ? `Beste ${escapeHtml(data.customerName)},` : `Hoi ${escapeHtml(data.customerName)},`;
+  const intro = formal
+    ? `Bijgevoegd vindt u factuur <strong>${escapeHtml(data.invoiceNumber)}</strong> van ${escapeHtml(identity.fromName)}.`
+    : `Bijgevoegd vind je factuur <strong>${escapeHtml(data.invoiceNumber)}</strong> van ${escapeHtml(identity.fromName)}.`;
+  const due = data.dueDate ? `Betaal uiterlijk ${escapeHtml(data.dueDate)}.` : "";
+  const bodyHtml = `
+    <p style="margin:0 0 16px;font-size:16px;color:#1e293b;">${greeting}</p>
+    <p style="margin:0 0 16px;font-size:16px;color:#1e293b;">${intro}</p>
+    <p style="margin:0 0 24px;font-size:16px;color:#1e293b;"><strong>Te betalen: ${escapeHtml(data.amount)}</strong>${due ? `<br />${due}` : ""}</p>
+    <p style="margin:0 0 24px;"><a href="${escapeHtml(data.paymentUrl)}" style="display:inline-block;background:${identity.primaryColor};color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:10px;font-size:16px;font-weight:700;">Betaal factuur online</a></p>
+    <p style="margin:0 0 16px;font-size:16px;color:#475569;">De factuur met QR-code zit als PDF bij deze mail.</p>
+    <p style="margin:0;font-size:14px;color:#475569;overflow-wrap:anywhere;">Werkt de knop niet? Open deze link: <a href="${escapeHtml(data.paymentUrl)}" style="color:${identity.primaryColor};">${escapeHtml(data.paymentUrl)}</a></p>
+  `;
+  const result = await smtp.sendMail({
+    from: `"${identity.fromName}" <${identity.fromEmail}>`,
+    replyTo: identity.replyTo,
+    to: data.to,
+    subject: `Factuur ${data.invoiceNumber} van ${identity.fromName}`,
+    html: renderEmailShell(identity, { preheader: `Factuur ${data.invoiceNumber}: ${data.amount}`, bodyHtml }),
+    text: [
+      formal ? `Beste ${data.customerName},` : `Hoi ${data.customerName},`,
+      formal
+        ? `Bijgevoegd vindt u factuur ${data.invoiceNumber} van ${identity.fromName}.`
+        : `Bijgevoegd vind je factuur ${data.invoiceNumber} van ${identity.fromName}.`,
+      `Te betalen: ${data.amount}. ${due}`,
+      `Betaal online: ${data.paymentUrl}`,
+      "De factuur met QR-code is als PDF bijgevoegd.",
+    ].join("\n\n"),
+    attachments: [{ filename: data.filename, content: data.pdf, contentType: "application/pdf" }],
+  });
+  if (!result.accepted.some((address) => (typeof address === "string" ? address : address.address).toLowerCase() === data.to.toLowerCase())) {
+    throw new Error("De mailserver heeft het klantadres niet geaccepteerd");
+  }
+  return result.messageId;
+}
+
 type StatusEmailData = {
   to: string;
   companySlug: string;
