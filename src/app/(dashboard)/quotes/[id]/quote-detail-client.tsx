@@ -523,29 +523,23 @@ export function QuoteDetailClient({
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 pl-12 md:pl-0">
-          <Button variant="outline" size="sm" onClick={openPriceAudit} disabled={priceAuditLoading}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={openPriceAudit} disabled={priceAuditLoading} className="h-9 text-base">
             {priceAuditLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Check prijzen
           </Button>
-          <Button variant="outline" size="sm" onClick={handlePrint} disabled={pdfDownloading} className="no-print">
-            {pdfDownloading
-              ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />PDF wordt gemaakt...</>
-              : <><Printer className="mr-2 h-4 w-4" />Print / PDF{pdfReady ? "" : " maken"}</>
-            }
-          </Button>
-          <Button size="sm" onClick={openSendQuoteDialog} disabled={openingMail}>
+          <Button size="sm" onClick={openSendQuoteDialog} disabled={openingMail} className="h-9 text-base">
             {openingMail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
             Verstuur offerte
           </Button>
           <ConvertMenu type="quote" id={quote.id} />
           {quote.calculations.length === 1 ? (
-            <Link href={`/calculations/${quote.calculations[0].id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+            <Link href={`/calculations/${quote.calculations[0].id}`} className={buttonVariants({ variant: "outline", size: "sm", className: "h-9 text-base" })}>
               <Calculator className="h-4 w-4" /> Open calculatie
             </Link>
           ) : quote.calculations.length > 1 ? (
             <DropdownMenu>
-              <DropdownMenuTrigger className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <DropdownMenuTrigger className={buttonVariants({ variant: "outline", size: "sm", className: "h-9 text-base" })}>
                 <Calculator className="h-4 w-4" /> Calculaties <ChevronDown className="h-4 w-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-72 max-w-[calc(100vw-2rem)]">
@@ -566,6 +560,10 @@ export function QuoteDetailClient({
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={handlePrint} disabled={pdfDownloading}>
+                {pdfDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+                {pdfDownloading ? "PDF maken..." : pdfReady ? "Download offerte-PDF" : "Maak offerte-PDF"}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleShare} disabled={sharing}>
                 <Share2 className="h-4 w-4" /> Deel klantlink
               </DropdownMenuItem>
@@ -861,65 +859,43 @@ export function QuoteDetailClient({
         </Card>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[230px_minmax(0,1fr)]">
-        <aside className="lg:sticky lg:top-6 lg:self-start">
-          <div className="rounded-lg border bg-card p-2 shadow-sm">
-            <p className="px-2 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Offerte editor
-            </p>
-            <div className="grid gap-1">
+      <div className="space-y-4">
+        <nav aria-label="Offerteweergave" className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1">
               <button
                 type="button"
                 onClick={() => setActiveTab("view")}
-                className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
+                aria-current={activeTab === "view" ? "page" : undefined}
+                className={`flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   activeTab === "view" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
-                <FileText className="h-4 w-4 shrink-0" />
-                <span className="min-w-0">
-                  <span className="block font-medium">Preview</span>
-                  <span className={`block text-xs ${activeTab === "view" ? "text-primary-foreground/75" : "text-muted-foreground"}`}>
-                    Bekijk klantversie
-                  </span>
-                </span>
+                <FileText className="h-4 w-4" /> Klantversie
               </button>
               {quote.status !== "ACCEPTED" && (
                 <button
                   type="button"
                   onClick={() => setActiveTab("edit")}
-                  className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
+                  aria-current={activeTab === "edit" ? "page" : undefined}
+                  className={`flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                     activeTab === "edit" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
-                  <Pencil className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0">
-                    <span className="block font-medium">Bewerken</span>
-                    <span className={`block text-xs ${activeTab === "edit" ? "text-primary-foreground/75" : "text-muted-foreground"}`}>
-                      Inhoud, prijzen, opties
-                    </span>
-                  </span>
+                  <Pencil className="h-4 w-4" /> Bewerken
                 </button>
               )}
               {companySlug === "koolhaas" && (
                 <button
                   type="button"
                   onClick={() => setActiveTab("advice")}
-                  className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
+                  aria-current={activeTab === "advice" ? "page" : undefined}
+                  className={`flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                     activeTab === "advice" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
-                  <Zap className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0">
-                    <span className="block font-medium">AI advies</span>
-                    <span className={`block text-xs ${activeTab === "advice" ? "text-primary-foreground/75" : "text-muted-foreground"}`}>
-                      {quote.adviceDocuments.length} document(en)
-                    </span>
-                  </span>
+                  <Zap className="h-4 w-4" /> Advies
                 </button>
               )}
-            </div>
-          </div>
-        </aside>
+        </nav>
 
         <section className="min-w-0">
         {activeTab === "view" && (

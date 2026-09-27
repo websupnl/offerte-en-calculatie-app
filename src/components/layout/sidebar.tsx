@@ -56,35 +56,28 @@ const navGroups: NavGroup[] = [
     label: null,
     items: [
       { href: "/dashboard", label: "Start", icon: LayoutDashboard },
-      { href: "/tasks", label: "Taken", icon: ListTodo },
-      { href: "/agenda", label: "Agenda", icon: CalendarDays },
-      { href: "/notes", label: "Notities", icon: StickyNote },
-    ],
-  },
-  {
-    label: "CRM",
-    items: [
       { href: "/customers", label: "Klanten", icon: Users },
-      { href: "/calculations", label: "Calculaties", icon: Calculator },
       { href: "/quotes", label: "Offertes", icon: FileText },
-      { href: "/quotes/tracker", label: "Verzendtracker", icon: Eye },
-      { href: "/contracts", label: "Contracten", icon: FileSignature },
-      { href: "/subscriptions", label: "Abonnementen", icon: Repeat },
-      { href: "/advice", label: "Adviesdocumenten", icon: ShieldCheck },
-    ],
-  },
-  {
-    label: "Operatie",
-    items: [
-      // Projecten staan bewust voor beide bedrijven aan: bij WebsUp zijn ze de
-      // drager van klantfeedback (zie PLAN-werkplek.md fase 5/6).
+      { href: "/calculations", label: "Calculaties", icon: Calculator },
       { href: "/projects", label: "Projecten", icon: FolderKanban },
-      { href: "/workorders", label: "Werkbonnen", icon: ClipboardList, koolhaasOnly: true },
       { href: "/invoices", label: "Facturen", icon: ReceiptText },
     ],
   },
   {
-    label: "ERP",
+    label: "Werk",
+    items: [
+      { href: "/tasks", label: "Taken", icon: ListTodo },
+      { href: "/agenda", label: "Agenda", icon: CalendarDays },
+      { href: "/notes", label: "Notities", icon: StickyNote },
+      { href: "/workorders", label: "Werkbonnen", icon: ClipboardList, koolhaasOnly: true },
+      { href: "/contracts", label: "Contracten", icon: FileSignature },
+      { href: "/subscriptions", label: "Abonnementen", icon: Repeat },
+      { href: "/advice", label: "Adviesdocumenten", icon: ShieldCheck },
+      { href: "/quotes/tracker", label: "Verzendtracker", icon: Eye },
+    ],
+  },
+  {
+    label: "Beheer",
     items: [
       { href: "/admin/products", label: "Artikelen", icon: Package },
       { href: "/knowledge", label: "Kennisbank", icon: Brain },
@@ -125,27 +118,27 @@ export function Sidebar({
       )}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col rounded-r-2xl bg-[var(--ws-sidebar)] text-slate-200 shadow-xl transition-[width,transform] duration-200",
-          "lg:sticky lg:top-4 lg:z-30 lg:my-4 lg:ml-4 lg:h-[calc(100vh-32px)] lg:translate-x-0 lg:rounded-2xl",
-          collapsed ? "lg:w-[78px]" : "lg:w-[276px]",
+          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-white/8 bg-[var(--ws-sidebar)] text-white shadow-xl transition-[width,transform] duration-200",
+          "lg:sticky lg:top-3 lg:z-30 lg:my-3 lg:ml-3 lg:h-[calc(100vh-24px)] lg:translate-x-0 lg:rounded-xl lg:border",
+          collapsed ? "lg:w-[68px]" : "lg:w-[248px]",
           mobileOpen ? "w-[292px] translate-x-0" : "w-[292px] -translate-x-full",
         )}
       >
-        <div className="flex h-[72px] items-center gap-3 border-b border-white/10 px-3">
+        <div className="flex h-16 items-center gap-3 border-b border-white/10 px-2">
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label={`Bedrijf wisselen: ${activeCompany?.name ?? "selecteer bedrijf"}`}
               className={cn(
-                "flex min-w-0 flex-1 items-center gap-3 rounded-md border border-transparent bg-transparent p-2 text-left hover:border-white/10 hover:bg-white/6",
+                "flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-transparent bg-transparent p-2 text-left hover:border-white/10 hover:bg-white/6",
                 collapsed && "lg:justify-center",
               )}
             >
-              <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-md bg-white p-1 shadow-sm">
+              <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-white p-1">
                 <Image src={logoSrc} alt="" width={64} height={64} className="h-full w-full object-contain" />
               </div>
               <div className={cn("min-w-0 flex-1", collapsed && "lg:hidden")}>
                 <p className="truncate text-sm font-bold text-white">{activeCompany?.name ?? "Bedrijf"}</p>
-                <p className="truncate text-[11px] text-white/50">ERP & CRM werkplek</p>
+                <p className="truncate text-xs text-white/55">Werkplek</p>
               </div>
               <ChevronDown className={cn("h-4 w-4 shrink-0 text-white/45", collapsed && "lg:hidden")} />
             </DropdownMenuTrigger>
@@ -177,26 +170,17 @@ export function Sidebar({
           </button>
         </div>
 
-        <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+        <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3" aria-label="Hoofdnavigatie">
           {navGroups.map((group) => {
             const visibleItems = group.items.filter(
               (item) => !item.koolhaasOnly || activeCompany?.slug === "koolhaas",
             );
             if (visibleItems.length === 0) return null;
-            return (
-              <div key={group.label ?? "__home"} className="mb-5">
-                {group.label && (
-                  <p
-                    className={cn(
-                      "mb-1.5 px-4 text-[11px] font-bold uppercase tracking-[0.14em] text-white/40",
-                      collapsed && "lg:px-0 lg:text-center",
-                    )}
-                  >
-                    <span className={cn(collapsed && "lg:hidden")}>{group.label}</span>
-                    <span className={cn("hidden", collapsed && "lg:inline")}>-</span>
-                  </p>
-                )}
-                <div className="space-y-1">
+            const groupActive = visibleItems.some((item) =>
+              pathname === item.href || pathname.startsWith(`${item.href}/`),
+            );
+            const links = (
+              <div className="space-y-0.5">
                   {visibleItems.map((item) => {
                     const isActive =
                       pathname === item.href ||
@@ -210,11 +194,11 @@ export function Sidebar({
                         title={collapsed ? item.label : undefined}
                         onClick={onMobileClose}
                         className={cn(
-                          "group flex h-10 items-center gap-3 rounded-full px-4 text-sm font-medium transition-colors",
+                          "group flex h-9 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
                           isActive
-                            ? "bg-[var(--ws-pill)] font-semibold text-[var(--ws-pill-fg)] shadow-sm"
+                            ? "bg-white/12 font-semibold text-white"
                             : "text-[var(--ws-sidebar-fg)] hover:bg-white/8 hover:text-white",
-                          collapsed && "lg:justify-center lg:rounded-xl lg:px-0",
+                          collapsed && "lg:justify-center lg:px-0",
                         )}
                       >
                         <item.icon className="h-[18px] w-[18px] shrink-0" />
@@ -222,8 +206,20 @@ export function Sidebar({
                       </Link>
                     );
                   })}
-                </div>
               </div>
+            );
+            if (!group.label) return <div key="__home" className="mb-3">{links}</div>;
+            return (
+              <details key={`${group.label}-${collapsed}-${groupActive}`} open={collapsed || groupActive} className="group/section mb-2">
+                <summary className={cn(
+                  "flex h-9 cursor-pointer list-none items-center justify-between rounded-lg px-3 text-sm font-semibold text-white/65 hover:bg-white/8 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 [&::-webkit-details-marker]:hidden",
+                  collapsed && "lg:hidden",
+                )}>
+                  {group.label}
+                  <ChevronDown className="h-4 w-4 transition-transform group-open/section:rotate-180" />
+                </summary>
+                {links}
+              </details>
             );
           })}
         </nav>
@@ -233,7 +229,7 @@ export function Sidebar({
             type="button"
             onClick={() => signOut({ callbackUrl: "/login" })}
             className={cn(
-              "flex h-10 w-full items-center gap-3 rounded-full px-4 text-sm font-medium text-white/50 hover:bg-red-500/15 hover:text-red-200",
+              "flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-white/60 hover:bg-red-500/15 hover:text-red-200",
               collapsed && "lg:justify-center lg:rounded-xl lg:px-0",
             )}
           >
@@ -243,7 +239,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={onToggle}
-            className="mt-2 hidden h-9 w-full items-center justify-center rounded-full border border-white/10 text-white/50 hover:bg-white/8 hover:text-white lg:flex"
+            className="mt-2 hidden h-9 w-full items-center justify-center rounded-lg border border-white/10 text-white/60 hover:bg-white/8 hover:text-white lg:flex"
             aria-label={collapsed ? "Navigatie uitklappen" : "Navigatie inklappen"}
           >
             {collapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}

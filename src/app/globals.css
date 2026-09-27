@@ -120,9 +120,9 @@
 /* Company branding themes + workspace (admin UI) tokens.
    --ws-* stuurt de app-schil: achtergrond, sidebar, actieve pill en accentkleur. */
 :root {
-  --ws-bg: #edf2f1;
-  --ws-sidebar: #0d3b41;
-  --ws-sidebar-fg: rgba(255, 255, 255, 0.62);
+  --ws-bg: #f5f6f7;
+  --ws-sidebar: #1c1e22;
+  --ws-sidebar-fg: #afb4bd;
   --ws-pill: #99f6e4;
   --ws-pill-fg: #0f3f3a;
   --ws-accent: #116b73;
@@ -138,9 +138,9 @@
   --brand-primary: #0F172A;
   --brand-accent: #f97316;
 
-  --ws-bg: #f2f0f3;
-  --ws-sidebar: #0d0916;
-  --ws-sidebar-fg: rgba(255, 255, 255, 0.6);
+  --ws-bg: #f5f6f7;
+  --ws-sidebar: #1c1e22;
+  --ws-sidebar-fg: #afb4bd;
   --ws-pill: #fed7aa;
   --ws-pill-fg: #7c2d12;
   --ws-accent: #c2410c;
@@ -156,9 +156,9 @@
   --brand-primary: #0d3b41;
   --brand-accent: #167f88;
 
-  --ws-bg: #edf2f1;
-  --ws-sidebar: #0d3b41;
-  --ws-sidebar-fg: rgba(255, 255, 255, 0.62);
+  --ws-bg: #f5f6f7;
+  --ws-sidebar: #1c1e22;
+  --ws-sidebar-fg: #afb4bd;
   --ws-pill: #99f6e4;
   --ws-pill-fg: #0f3f3a;
   --ws-accent: #116b73;
