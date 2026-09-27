@@ -106,6 +106,8 @@ export function generateInvoiceNumber(companySlug: string, count: number, date =
 
 export const INVOICE_STATUS_LABELS: Record<string, string> = {
   CONCEPT: "Concept",
+  GEREED: "Definitief, niet verzonden",
+  VERZENDEN: "Wordt verzonden",
   VERZONDEN: "Verzonden",
   BETAALD: "Betaald",
   VERVALLEN: "Vervallen",
@@ -113,6 +115,8 @@ export const INVOICE_STATUS_LABELS: Record<string, string> = {
 
 export const INVOICE_STATUS_COLORS: Record<string, string> = {
   CONCEPT: "secondary",
+  GEREED: "secondary",
+  VERZENDEN: "secondary",
   VERZONDEN: "default",
   BETAALD: "default",
   VERVALLEN: "destructive",

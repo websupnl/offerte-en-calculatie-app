@@ -10,6 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   CONCEPT: "secondary",
+  GEREED: "secondary",
+  VERZENDEN: "secondary",
   VERZONDEN: "outline",
   BETAALD: "default",
   VERVALLEN: "destructive",
@@ -36,11 +38,11 @@ export default async function InvoicesPage() {
   const sum = (list: typeof invoices) => list.reduce((t, i) => t + Number(i.totalIncVat), 0);
   const open = invoices.filter((i) => i.status === "VERZONDEN");
   const overdue = open.filter((i) => i.dueDate && i.dueDate < today);
-  const concepts = invoices.filter((i) => i.status === "CONCEPT");
+  const concepts = invoices.filter((i) => ["CONCEPT", "GEREED", "VERZENDEN"].includes(i.status));
   const stats = [
     { label: "Openstaand", amount: sum(open), count: open.length, tone: "text-slate-950" },
     { label: "Over de vervaldatum", amount: sum(overdue), count: overdue.length, tone: overdue.length ? "text-red-600" : "text-slate-950" },
-    { label: "Concepten", amount: sum(concepts), count: concepts.length, tone: "text-slate-500" },
+    { label: "Nog te versturen", amount: sum(concepts), count: concepts.length, tone: "text-slate-500" },
   ];
 
   return (

@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         console.warn("Mollie-betaling ontvangen voor een al handmatig betaalde factuur:", invoice.number);
       }
       await prisma.salesInvoice.updateMany({
-        where: { id, molliePaymentLinkId: link.id, status: { in: ["VERZONDEN", "VERVALLEN", "BETAALD"] } },
+        where: { id, molliePaymentLinkId: link.id, status: { in: ["GEREED", "VERZENDEN", "VERZONDEN", "VERVALLEN", "BETAALD"] } },
         data: { status: "BETAALD", molliePaidAt: new Date(link.paidAt) },
       });
     }

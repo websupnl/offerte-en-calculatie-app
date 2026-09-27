@@ -8,7 +8,7 @@ import { invoiceAmountMatches, invoiceMollieKey, mollieInvoiceRequest } from "@/
 
 
 const schema = z.object({
-  status: z.enum(["CONCEPT", "VERZONDEN", "BETAALD", "VERVALLEN"]).optional(),
+  status: z.enum(["CONCEPT", "GEREED", "BETAALD", "VERVALLEN"]).optional(),
   reference: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   dueDate: z.string().nullable().optional(),
@@ -66,13 +66,18 @@ export async function PATCH(
   }
   if (owned.status !== "CONCEPT") {
     const onlyStatus = Object.keys(parsed.data).length === 1 && parsed.data.status;
-    const validTransition = (owned.status === "VERZONDEN" || owned.status === "VERVALLEN")
-      && (parsed.data.status === "BETAALD" || parsed.data.status === "VERVALLEN");
+    const validTransition = ((owned.status === "VERZONDEN" || owned.status === "VERVALLEN")
+      && (parsed.data.status === "BETAALD" || parsed.data.status === "VERVALLEN"))
+      || (owned.status === "GEREED" && !owned.molliePaymentLinkId && parsed.data.status === "CONCEPT");
     if (!onlyStatus || !validTransition) {
       return NextResponse.json({ error: "Een definitieve factuur kan niet worden aangepast" }, { status: 409 });
     }
-  } else if (parsed.data.status && !["CONCEPT", "VERZONDEN"].includes(parsed.data.status)) {
+  } else if (parsed.data.status && !["CONCEPT", "GEREED"].includes(parsed.data.status)) {
     return NextResponse.json({ error: "Maak de factuur eerst definitief" }, { status: 409 });
+  }
+  if (parsed.data.status === "GEREED") {
+    const amount = parsed.data.lines ? computeInvoiceTotals(parsed.data.lines).totalIncVat : owned.totalIncVat;
+    if (Number(amount) <= 0) return NextResponse.json({ error: "Een definitieve factuur moet een positief bedrag hebben" }, { status: 422 });
   }
   let molliePaidAt: Date | null = null;
   if (parsed.data.status === "BETAALD" && owned.molliePaymentLinkId) {

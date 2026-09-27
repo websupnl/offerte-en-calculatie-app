@@ -3,7 +3,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getInvoiceSettings } from "@/lib/branding";
 import { InvoiceDetailClient } from "./invoice-detail-client";
-import { invoiceMollieKey } from "@/lib/mollie-invoices";
+import { invoiceMollieKey, invoiceMollieMode } from "@/lib/mollie-invoices";
+import { invoiceEmailConfigured } from "@/lib/email";
 
 export default async function InvoiceDetailPage({
   params,
@@ -33,8 +34,10 @@ export default async function InvoiceDetailPage({
     !s.address && "bedrijfsadres",
     !s.kvk && "KvK-nummer",
     !s.vatNumber && "btw-id",
-    !s.iban && "IBAN",
   ].filter(Boolean) as string[];
 
-  return <InvoiceDetailClient invoice={JSON.parse(JSON.stringify({ ...invoice, company: undefined }))} missingCompanyData={missing} mollieConfigured={Boolean(invoiceMollieKey(invoice.company.slug))} />;
+  const key = invoiceMollieKey(invoice.company.slug);
+  let mollieLive = false;
+  try { mollieLive = Boolean(key && invoiceMollieMode(key) === "live"); } catch { /* ongeldige key */ }
+  return <InvoiceDetailClient invoice={JSON.parse(JSON.stringify({ ...invoice, company: undefined }))} missingCompanyData={missing} mollieConfigured={Boolean(key)} mollieLive={mollieLive} emailConfigured={invoiceEmailConfigured()} />;
 }

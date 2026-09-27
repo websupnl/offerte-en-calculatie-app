@@ -27,15 +27,16 @@ type Invoice = {
   molliePaymentMode: string | null;
   molliePaidAt: string | null;
   lines: { id: string; description: string; qty: string | number; unit: string | null; unitPrice: string | number; vatRate: string | number }[];
-  customer: { name: string; email: string | null; address: string | null; city: string | null; zipCode: string | null } | null;
+  customer: { id: string; name: string; email: string | null; address: string | null; city: string | null; zipCode: string | null } | null;
   project: { id: string; number: string; title: string } | null;
   quote: { id: string; number: string } | null;
   workOrder: { id: string; number: string } | null;
 };
 
-const STATUSES = ["CONCEPT", "VERZONDEN", "BETAALD", "VERVALLEN"] as const;
 const STATUS_STYLE: Record<string, string> = {
   CONCEPT: "bg-slate-100 text-slate-700",
+  GEREED: "bg-amber-100 text-amber-900",
+  VERZENDEN: "bg-amber-100 text-amber-900",
   VERZONDEN: "bg-sky-100 text-sky-800",
   BETAALD: "bg-emerald-100 text-emerald-800",
   VERVALLEN: "bg-red-100 text-red-700",
@@ -43,7 +44,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 const toDateInput = (iso: string | null) => (iso ? iso.slice(0, 10) : "");
 
-export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigured }: { invoice: Invoice; missingCompanyData: string[]; mollieConfigured: boolean }) {
+export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigured, mollieLive, emailConfigured }: { invoice: Invoice; missingCompanyData: string[]; mollieConfigured: boolean; mollieLive: boolean; emailConfigured: boolean }) {
   const router = useRouter();
   const [status, setStatus] = useState(invoice.status);
   const [reference, setReference] = useState(invoice.reference ?? "");
@@ -56,6 +57,7 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
   const [paymentUrl, setPaymentUrl] = useState(invoice.molliePaymentUrl);
   const [paymentMode, setPaymentMode] = useState(invoice.molliePaymentMode);
   const [creatingLink, setCreatingLink] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const locked = status !== "CONCEPT";
   const totals = computeInvoiceTotals(lines);
@@ -113,6 +115,34 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
     }
   }
 
+  async function sendInvoice() {
+    if (dirty) return toast.error("Sla de factuur eerst op voordat je hem verstuurt");
+    if (!c?.email) return toast.error("Vul eerst een e-mailadres bij de klant in");
+    if (!confirm(`Factuur ${invoice.number} naar ${c.email} versturen?`)) return;
+    setSending(true);
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}/send-email`, { method: "POST" });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Factuur versturen mislukt");
+      setStatus("VERZONDEN");
+      setPaymentUrl(body.paymentUrl);
+      setPaymentMode("live");
+      toast.success(`Factuur met PDF en betaallink verstuurd naar ${body.to}`);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Factuur versturen mislukt");
+      const current = await fetch(`/api/invoices/${invoice.id}`).then((res) => res.ok ? res.json() : null).catch(() => null);
+      if (current) {
+        setStatus(current.status);
+        setPaymentUrl(current.molliePaymentUrl);
+        setPaymentMode(current.molliePaymentMode);
+      }
+      router.refresh();
+    } finally {
+      setSending(false);
+    }
+  }
+
   async function remove() {
     if (!confirm(`Concept ${invoice.number} verwijderen?`)) return;
     const res = await fetch(`/api/invoices/${invoice.id}`, { method: "DELETE" });
@@ -155,9 +185,15 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
           </div>
         </div>
         <div className="flex flex-wrap gap-2 border-t border-white/10 bg-white/[0.03] px-5 py-3 sm:px-6">
+          {["CONCEPT", "GEREED", "VERZONDEN"].includes(status) && (
+            <Button size="sm" onClick={sendInvoice} disabled={saving || sending || dirty || !mollieLive || !emailConfigured || !c?.email || missingCompanyData.length > 0} className="bg-[var(--ws-accent)] text-white hover:opacity-90">
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {sending ? "Factuur wordt verstuurd" : status === "VERZONDEN" ? "Factuur mailen" : "Verstuur factuur"}
+            </Button>
+          )}
           {status === "CONCEPT" && (
-            <Button size="sm" onClick={() => save("VERZONDEN")} disabled={saving} className="bg-[var(--ws-accent)] text-white hover:opacity-90">
-              <Send className="h-4 w-4" /> Markeer als verzonden
+            <Button size="sm" variant="secondary" onClick={() => save("GEREED")} disabled={saving || sending}>
+              Maak definitief
             </Button>
           )}
           {(status === "VERZONDEN" || status === "VERVALLEN") && (
@@ -165,21 +201,24 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
               <CheckCircle2 className="h-4 w-4" /> Handmatig betaald
             </Button>
           )}
-          {(status === "VERZONDEN" || status === "VERVALLEN") && !paymentUrl && mollieConfigured && (
+          {["GEREED", "VERZONDEN", "VERVALLEN"].includes(status) && paymentMode !== "live" && mollieLive && (
             <Button size="sm" variant="secondary" onClick={createPaymentLink} disabled={creatingLink || dirty}>
               {creatingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
               Betaallink maken
             </Button>
           )}
-          {paymentUrl && status !== "BETAALD" && (
+          {paymentUrl && paymentMode === "live" && status !== "BETAALD" && (
             <a href={paymentUrl} target="_blank" rel="noopener noreferrer">
-              <Button size="sm" variant="secondary"><CreditCard className="h-4 w-4" /> {paymentMode === "test" ? "Testbetaallink" : "Betaallink"}</Button>
+              <Button size="sm" variant="secondary"><CreditCard className="h-4 w-4" /> Betaallink</Button>
             </a>
           )}
           <a href={`/print/invoices/${invoice.id}`} target="_blank" rel="noopener noreferrer">
             <Button size="sm" variant="secondary"><Eye className="h-4 w-4" /> Bekijken</Button>
           </a>
           <InvoicePdfDownload invoiceId={invoice.id} />
+          {status === "GEREED" && !paymentUrl && (
+            <Button size="sm" variant="ghost" onClick={() => save("CONCEPT")} disabled={saving || sending}>Terug naar concept</Button>
+          )}
           {status === "CONCEPT" && (
             <Button size="sm" variant="ghost" onClick={remove} className="ml-auto text-white/60 hover:bg-white/10 hover:text-white">
               <Trash2 className="h-4 w-4" /> Verwijderen
@@ -198,6 +237,32 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
       {!mollieConfigured && status !== "BETAALD" && (
         <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700 ring-1 ring-slate-200">
           Online betalen is voor dit bedrijf nog niet ingesteld. Voeg de bijbehorende Mollie-key toe aan de serverconfiguratie.
+        </div>
+      )}
+      {mollieConfigured && !mollieLive && status !== "BETAALD" && (
+        <div className="rounded-xl bg-amber-50 px-4 py-3 text-base text-amber-950 ring-1 ring-amber-200">
+          Facturen mailen kan pas met een live Mollie-key voor dit bedrijf. Testbetalingen gaan niet naar klanten.
+        </div>
+      )}
+      {!emailConfigured && status !== "BETAALD" && (
+        <div className="rounded-xl bg-amber-50 px-4 py-3 text-base text-amber-950 ring-1 ring-amber-200">
+          Facturen mailen kan pas nadat de mailserver is ingesteld. Controleer de Brevo SMTP-instellingen op Vercel.
+        </div>
+      )}
+      {!c?.email && status !== "BETAALD" && (
+        <div className="rounded-xl bg-amber-50 px-4 py-3 text-base text-amber-950 ring-1 ring-amber-200">
+          Deze klant heeft nog geen e-mailadres. {c && <Link href={`/customers/${c.id}`} className="font-semibold underline">Vul het e-mailadres in</Link>}
+        </div>
+      )}
+      {paymentMode === "test" && status !== "BETAALD" && (
+        <div className="rounded-xl bg-amber-50 px-4 py-3 text-base text-amber-950 ring-1 ring-amber-200">
+          Er staat nog een oude testbetaallink op deze factuur. Bij versturen wordt die vervangen door een live Mollie-link.
+        </div>
+      )}
+      {dirty && <p className="text-base text-slate-700">Sla je wijzigingen op voordat je de factuur verstuurt.</p>}
+      {status === "VERZENDEN" && (
+        <div className="rounded-xl bg-amber-50 px-4 py-3 text-base text-amber-950 ring-1 ring-amber-200">
+          De verzending wordt verwerkt. Blijft dit staan? Controleer dan eerst in Brevo of de mail is verzonden.
         </div>
       )}
       {paymentMode === "test" && invoice.molliePaidAt && (
@@ -221,19 +286,7 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
           <section className="space-y-3 rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
             <div className="space-y-1.5">
               <Label>Status</Label>
-              <div className="grid grid-cols-2 gap-1">
-                {STATUSES.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    disabled={locked || (s !== "CONCEPT" && s !== "VERZONDEN")}
-                    onClick={() => { setStatus(s); setDirty(true); }}
-                    className={cn("rounded-lg px-2 py-1.5 text-xs font-semibold ring-1", status === s ? `${STATUS_STYLE[s]} ring-transparent` : "text-slate-500 ring-slate-200 hover:ring-slate-300")}
-                  >
-                    {INVOICE_STATUS_LABELS[s]}
-                  </button>
-                ))}
-              </div>
+              <p className="text-base font-semibold text-slate-800">{INVOICE_STATUS_LABELS[status] ?? status}</p>
             </div>
             <div className="space-y-1.5">
               <Label>Factuurdatum</Label>

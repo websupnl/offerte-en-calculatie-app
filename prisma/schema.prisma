@@ -452,7 +452,7 @@ model SalesInvoice {
   quoteId     String? // gegenereerd vanuit offerte
   workOrderId String? // of vanuit werkbon
   number      String // bijv. KI-2026-F001
-  status      String    @default("CONCEPT") // CONCEPT | VERZONDEN | BETAALD | VERVALLEN
+  status      String    @default("CONCEPT") // CONCEPT | GEREED | VERZENDEN | VERZONDEN | BETAALD | VERVALLEN
   invoiceDate DateTime  @default(now())
   dueDate     DateTime?
   notes       String?   @db.Text

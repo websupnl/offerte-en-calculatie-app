@@ -32,6 +32,12 @@ npm run dev
 
 Login: `info@websup.nl` / `Admin123!`
 
+## Facturen via Mollie
+
+Facturen gebruiken uitsluitend een live Mollie-betaallink voor klantbetalingen. De PDF toont dan een betaalknop en QR-code, zonder IBAN. Een testlink wordt nooit op de klantfactuur getoond en de app verstuurt geen factuurmail zonder live link.
+
+Zet in de productieomgeving `MOLLIE_API_KEY_WEBSUP` en `MOLLIE_API_KEY_KOOLHAAS` op de live API-key van het juiste bedrijf. Voor mail zijn `BREVO_SMTP_HOST`, `BREVO_SMTP_PORT`, `BREVO_SMTP_LOGIN` en `BREVO_SMTP_KEY` nodig. `NEXT_PUBLIC_APP_URL` moet de publieke HTTPS-URL van de app zijn. Voeg sleutels toe aan de hostingomgeving, niet aan de repository.
+
 ## MCP Server
 
 De MCP server draait als aparte service en stelt Claude in staat offertes te maken via natuurlijke taal.
