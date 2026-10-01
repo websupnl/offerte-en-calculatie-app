@@ -57,7 +57,7 @@ type CalculationSummary = {
   archivedAt: string | null;
   customer: { id: string; name: string; email: string | null } | null;
   project: { id: string; number: string; title: string } | null;
-  quote: { id: string; number: string; status: string } | null;
+  quote: { id: string; number: string | null; status: string } | null;
 };
 
 type OptionItem = { id: string; name?: string; title?: string; number?: string };
@@ -384,7 +384,7 @@ export function CalculationsClient({
                           {calc.quote && (
                             <span className="flex items-center gap-1 font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
                               <FileText className="h-3.5 w-3.5 text-emerald-600" />
-                              Offerte {calc.quote.number}
+                              Offerte {calc.quote.number ?? "zonder nummer"}
                             </span>
                           )}
                           <span>Gewijzigd {formatDate(calc.updatedAt)}</span>

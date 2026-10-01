@@ -22,7 +22,7 @@ import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
 
 type Quote = {
   id: string;
-  number: string;
+  number: string | null;
   title: string | null;
   status: string;
   validUntil: string | null;
@@ -173,7 +173,7 @@ export function QuotesListClient({
   async function deleteQuote(quote: Quote) {
     const ok = await confirm({
       title: "Offerte verwijderen?",
-      body: `${quote.title || quote.number} wordt definitief verwijderd, inclusief regels en deellinks. Archiveren houdt hem bewaard.`,
+      body: `${quote.title || quote.number || "Conceptofferte"} wordt definitief verwijderd, inclusief regels en deellinks. Archiveren houdt hem bewaard.`,
       confirmLabel: "Verwijderen",
       destructive: true,
     });
@@ -235,7 +235,7 @@ export function QuotesListClient({
     return initialQuotes.filter((quote) => {
       const matchesQuery =
         !query ||
-        quote.number.toLowerCase().includes(query) ||
+        (quote.number ?? "concept").toLowerCase().includes(query) ||
         quote.title?.toLowerCase().includes(query) ||
         quote.customer.name.toLowerCase().includes(query);
       return matchesQuery && (statusFilter === "all" || quote.status === statusFilter);
@@ -368,7 +368,7 @@ export function QuotesListClient({
                       <div className="flex min-w-0 items-start gap-2.5">
                         <input
                           type="checkbox"
-                          aria-label={`Selecteer ${quote.title || quote.number}`}
+                          aria-label={`Selecteer ${quote.title || quote.number || "concept"}`}
                           className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-[var(--ws-accent)]"
                           checked={selected.has(quote.id)}
                           onClick={(e) => e.stopPropagation()}
@@ -378,9 +378,9 @@ export function QuotesListClient({
                           }}
                         />
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-950">{quote.title || quote.number}</p>
+                          <p className="truncate font-semibold text-slate-950">{quote.title || quote.number || "Conceptofferte"}</p>
                           <p className="mt-1 truncate text-xs text-slate-500">
-                            {quote.number} · {quote.customer.name}
+                            {quote.number ?? "Concept zonder nummer"} · {quote.customer.name}
                           </p>
                         </div>
                       </div>
@@ -449,7 +449,7 @@ export function QuotesListClient({
                         key={quote.id}
                         tabIndex={0}
                         role="link"
-                        aria-label={`Open offerte ${quote.title || quote.number}`}
+                        aria-label={`Open offerte ${quote.title || quote.number || "concept"}`}
                         onClick={() => router.push(`/quotes/${quote.id}`)}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
@@ -462,7 +462,7 @@ export function QuotesListClient({
                         <TableCell className="w-10 pl-4" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
-                            aria-label={`Selecteer ${quote.title || quote.number}`}
+                            aria-label={`Selecteer ${quote.title || quote.number || "concept"}`}
                             className="h-4 w-4 cursor-pointer accent-[var(--ws-accent)] align-middle"
                             checked={selected.has(quote.id)}
                             onChange={() => toggleOne(quote.id)}
@@ -470,9 +470,9 @@ export function QuotesListClient({
                         </TableCell>
                         <TableCell>
                           <Link href={`/quotes/${quote.id}`} className="block" onClick={(event) => event.stopPropagation()}>
-                            <p className="max-w-80 truncate font-semibold text-slate-900">{quote.title || quote.number}</p>
+                            <p className="max-w-80 truncate font-semibold text-slate-900">{quote.title || quote.number || "Conceptofferte"}</p>
                             <p className="text-xs text-slate-400">
-                              {quote.number} · {quote._count.items} vaste regels
+                              {quote.number ?? "Concept zonder nummer"} · {quote._count.items} vaste regels
                               {quote.choiceGroupCount > 0 ? ` · ${quote.choiceGroupCount} keuze${quote.choiceGroupCount === 1 ? "" : "s"}` : ""}
                             </p>
                           </Link>

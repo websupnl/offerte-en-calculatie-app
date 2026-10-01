@@ -11,6 +11,7 @@ import { defaultQuoteEmailMessage } from "@/lib/quote-email-copy";
 import { calculateQuotePriceSummary, quoteChoiceGroupSchema } from "@/lib/quote-selection";
 import { z } from "zod";
 import { applyCalculationPricing } from "@/lib/quote-with-pricing";
+import { nextQuoteNumber } from "@/lib/quote-number";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -55,10 +56,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!geladen) return NextResponse.json({ error: "Not found" }, { status: 404 });
   // Zonder dit zou de mail "vanaf"-prijzen missen bij varianten, want die zitten
   // in de calculaties en niet meer in choiceGroups.
-  const quote = applyCalculationPricing(geladen);
+  let quote = applyCalculationPricing(geladen);
   if (!quote.customer.email) {
     return NextResponse.json({ error: "Deze klant heeft geen e-mailadres" }, { status: 422 });
   }
+  const customerEmail = quote.customer.email;
+
+  // Een concept krijgt pas een officieel nummer wanneer je het echt verstuurt.
+  const quoteNumber = quote.number ?? await nextQuoteNumber(quote.companyId, quote.company.slug);
+  if (!quote.number) await prisma.quote.update({ where: { id }, data: { number: quoteNumber } });
+  quote = { ...quote, number: quoteNumber };
 
   const share = await prisma.quoteShare.upsert({
     where: { quoteId: id },
@@ -115,10 +122,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const result = await sendQuoteEmail({
-    to: quote.customer.email,
+    to: customerEmail,
     customerName: quote.customer.name,
     companySlug: quote.company.slug,
-    quoteNumber: quote.number,
+    quoteNumber,
     quoteTitle: quote.title ?? undefined,
     quoteUrl,
     totalIncVat: totalLabel,
@@ -147,13 +154,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         quoteId: id,
         type: "SENT",
         actor: session.user.name ?? session.user.email ?? undefined,
-        detail: `Verstuurd naar ${quote.customer.email}${customMessage ? " met eigen bericht" : ""}`,
+        detail: `Verstuurd naar ${customerEmail}${customMessage ? " met eigen bericht" : ""}`,
       },
     }),
   ]);
 
-  const quoteLabel = quote.title || quote.number;
-  const klantEmail = quote.customer.email;
+  const quoteLabel = quote.title || quoteNumber;
+  const klantEmail = customerEmail;
   // In after() en niet als losse aanroep ernaast: op Vercel wordt de functie
   // bevroren zodra het antwoord verstuurd is, en dan wordt een lopende fetch
   // afgekapt. Zo belandde een geaccepteerde offerte wel in de database, maar
@@ -163,7 +170,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       [
         "📤 <b>OFFERTE VERSTUURD</b>",
         `👤 <b>Klant:</b> ${escapeTelegramHtml(quote.customer.name)}`,
-        `📄 <b>Offerte:</b> ${escapeTelegramHtml(quoteLabel)}`,
+        `📄 <b>Offerte:</b> ${escapeTelegramHtml(quoteLabel)} (${escapeTelegramHtml(quoteNumber)})`,
         `✉️ <b>Naar:</b> ${escapeTelegramHtml(klantEmail)}`,
         `🔗 <a href=\"${appUrl}/quotes/${quote.id}\">Open offerte in dashboard</a>`,
       ].join("\n"),

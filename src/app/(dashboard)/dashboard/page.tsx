@@ -120,8 +120,8 @@ export default async function DashboardPage() {
       id: `quote-${quote.id}`,
       href: `/quotes/${quote.id}`,
       kind: "Verlopen offerte" as const,
-      title: quote.title || quote.number,
-      customer: `${quote.number} · ${quote.customer.name}`,
+      title: quote.title || quote.number || "Conceptofferte",
+      customer: `${quote.number ?? "Concept"} · ${quote.customer.name}`,
       date: quote.validUntil,
       tone: "urgent" as const,
     })),
@@ -216,12 +216,12 @@ export default async function DashboardPage() {
                 {recentQuotes.map((quote) => (
                   <Link key={quote.id} href={`/quotes/${quote.id}`} className="block px-4 py-3 hover:bg-muted/50 sm:px-5">
                     <span className="flex items-start justify-between gap-2">
-                      <span className="min-w-0 truncate text-base font-semibold text-foreground">{quote.title || quote.number}</span>
+                      <span className="min-w-0 truncate text-base font-semibold text-foreground">{quote.title || quote.number || "Conceptofferte"}</span>
                       <Badge variant={quote.status === "EXPIRED" || quote.status === "DECLINED" ? "destructive" : "outline"} className="shrink-0">
                         {QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
                       </Badge>
                     </span>
-                    <span className="mt-1 block truncate text-sm text-muted-foreground">{quote.number} · {quote.customer.name} · {formatDate(quote.updatedAt)}</span>
+                    <span className="mt-1 block truncate text-sm text-muted-foreground">{quote.number ?? "Concept zonder nummer"} · {quote.customer.name} · {formatDate(quote.updatedAt)}</span>
                   </Link>
                 ))}
               </div>

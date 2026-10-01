@@ -2,7 +2,6 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { nextQuoteNumber } from "@/lib/quote-number";
 import {
   calculateQuotePriceSummary,
   quoteChoiceGroupSchema,
@@ -112,7 +111,6 @@ export async function POST(req: NextRequest) {
   }
 
   const company = await prisma.company.findUnique({ where: { id: companyId } });
-  const number = await nextQuoteNumber(companyId, company?.slug ?? "xx");
 
   const totals = choiceGroups?.length
     ? calculateQuotePriceSummary(items, choiceGroups).recommended
@@ -126,7 +124,6 @@ export async function POST(req: NextRequest) {
       companyId,
       customerId,
       createdById: session.user.id,
-      number,
       title,
       category,
       tagline,
@@ -183,7 +180,7 @@ export async function POST(req: NextRequest) {
         projectId: quote.projectId,
         quoteId: quote.id,
         number: await nextCalculationNumber(companyId, company?.slug ?? "xx"),
-        title: title ?? `Calculatie ${quote.number}`,
+        title: title ?? `Calculatie ${quote.number ?? "concept"}`,
         status: "DRAFT",
         role: "BASE",
         vatRate: quote.vatRate,

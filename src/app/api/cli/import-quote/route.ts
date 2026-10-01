@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { saveQuoteModules } from "@/lib/quote-modules";
 import { prisma } from "@/lib/prisma";
 import { validateQuoteImportInput } from "@/lib/quote-import";
-import { nextQuoteNumber } from "@/lib/quote-number";
 import { z } from "zod";
 import { calculateLine, calculateTotals } from "@/lib/calculation";
 import { calculateQuotePriceSummary } from "@/lib/quote-selection";
@@ -91,9 +90,6 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Offertenummer genereren
-  const number = await nextQuoteNumber(company.id, company.slug);
-
   // validUntil berekenen
   const validDays = data.validDays ?? 30;
   const validUntil = new Date(Date.now() + validDays * 86_400_000);
@@ -110,7 +106,6 @@ export async function POST(req: NextRequest) {
       companyId: company.id,
       customerId: customer.id,
       createdById: companyUser.userId,
-      number,
       title: data.title ?? null,
       category: data.category ?? null,
       tagline: data.tagline ?? null,

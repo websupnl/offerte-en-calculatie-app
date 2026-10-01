@@ -95,7 +95,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       to: quote.customer.email,
       companySlug: quote.company.slug,
       customerName: quote.customer.name,
-      quoteNumber: quote.number,
+      quoteNumber: quote.number ?? "Concept",
       quoteTitle: quote.title,
       validUntil: newValidUntil,
       portalUrl,
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       after(async () => {
         const { sendTelegramMessage } = await import("@/lib/notifications");
         await sendTelegramMessage(
-          `📤 <b>Offerte verlengd</b>\n📄 ${quote.number} — ${quote.customer.name}\n📅 Geldig tot ${newValidUntil.toLocaleDateString("nl-NL")}\nKlant heeft een mail met de link gekregen.`,
+          `📤 <b>Offerte verlengd</b>\n📄 ${quote.number ?? "Concept"} — ${quote.customer.name}\n📅 Geldig tot ${newValidUntil.toLocaleDateString("nl-NL")}\nKlant heeft een mail met de link gekregen.`,
         );
       });
     }

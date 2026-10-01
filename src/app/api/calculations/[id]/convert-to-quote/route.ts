@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse, after } from "next/server";
-import { saveQuoteModules } from "@/lib/quote-modules";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { nextQuoteNumber } from "@/lib/quote-number";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
+import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
 
 export async function POST(
   req: NextRequest,
@@ -34,73 +33,19 @@ export async function POST(
     );
   }
 
-  const company = await prisma.company.findUnique({ where: { id: companyId } });
-  const quoteNumber = await nextQuoteNumber(companyId, company?.slug ?? "xx");
-
-  // Verplichte regels worden gewone QuoteItems; optionele regels worden offerte-opties
-  // (Quote.options), zodat ze als losse meerprijs zichtbaar zijn en niet meetellen in het totaal.
-  const mainItems = calculation.items.filter((item) => !item.optional);
-  const optionalItems = calculation.items.filter((item) => item.optional && !item.hiddenOnQuote);
-
-  const quoteItemsData = mainItems.map((item, index) => {
-    const total = Number(item.totalSalesPrice);
-    return {
-      productId: item.productId,
-      description: item.description,
-      qty: item.qty,
-      unitPrice: item.unitPrice,
-      costPrice: item.costPrice,
-      vatRate: item.vatRate,
-      total,
-      sortOrder: index,
-      indent: 0,
-      type: "main",
-      hiddenOnQuote: item.hiddenOnQuote,
-    };
-  });
-
-  const quoteOptions = optionalItems.map((item) => ({
-    id: item.id,
-    t: item.description,
-    d: `${item.qty} × ${item.unit ?? "stuk"}`,
-    tag: "Optioneel",
-    price: Number(item.unitPrice) * Number(item.qty),
-    vatRate: Number(item.vatRate),
-    required: false,
-    details: [],
-  }));
-
-  const totalExVat = Number(calculation.totalSalesPrice);
-  const totalVat = Math.round(totalExVat * (Number(calculation.vatRate) / 100) * 100) / 100;
-  const totalIncVat = totalExVat + totalVat;
 
   const quote = await prisma.quote.create({
     data: {
       companyId,
       customerId: calculation.customerId,
       createdById: session.user.id,
-      number: quoteNumber,
       title: calculation.title,
       notes: calculation.notes,
       vatRate: calculation.vatRate,
-      totalExVat,
-      totalVat,
-      totalIncVat,
       projectId: calculation.projectId,
-      items: {
-        create: quoteItemsData,
-      },
     },
-    include: {
-      customer: true,
-      items: true,
-    },
+    include: { customer: true },
   });
-
-  // Optionele regels uit de calculatie worden modules, in hun eigen tabel.
-  if (quoteOptions.length) {
-    await saveQuoteModules(quote.id, quoteOptions);
-  }
 
   // Link Quote to Calculation and update status to QUOTED
   await prisma.calculation.update({
@@ -110,6 +55,8 @@ export async function POST(
       status: "QUOTED",
     },
   });
+
+  await syncQuoteTotalsFromCalculations(quote.id);
 
   const host = req.headers.get("host") ?? "localhost:3000";
   const cookie = req.headers.get("cookie") ?? "";

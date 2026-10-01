@@ -207,7 +207,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       to: notifyEmail,
       companySlug: share.quote.company.slug,
       customerName: share.quote.customer.name,
-      quoteNumber: share.quote.number,
+      quoteNumber: share.quote.number ?? "Concept",
       message: [
         parsedBody.data.message,
         ...selectedChoices.map(({ groupTitle, choice }) => `${groupTitle}: ${choice.title}`),
@@ -224,7 +224,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
 ✅ <b>OFFERTE GEACCEPTEERD!</b>
 👤 <b>Klant:</b> ${share.quote.customer.name}
 ✍️ <b>Ondertekend door:</b> ${parsedBody.data.signerName}
-📄 <b>Offerte:</b> ${share.quote.number}
+📄 <b>Offerte:</b> ${share.quote.number ?? "Concept"}
 🧩 <b>Samenstelling:</b> ${selectionSummary}
 💶 <b>Totaal:</b> € ${totals.totalIncVat.toFixed(2)} incl. btw
 💬 <b>Bericht:</b> ${parsedBody.data.message || "Geen bericht"}
@@ -247,7 +247,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       donnaBedrijf(share.quote.company.slug),
       bouwOpdrachtPayload({
         quoteId: share.quote.id,
-        quoteNumber: share.quote.number,
+        quoteNumber: share.quote.number ?? "Concept",
         title: share.quote.title,
         customerName: share.quote.customer.name,
         customerId: share.quote.customerId,

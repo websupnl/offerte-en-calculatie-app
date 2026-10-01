@@ -74,8 +74,8 @@ export async function GET(request: NextRequest) {
       ...quotes.map((quote) => ({
         id: quote.id,
         type: "quote",
-        title: quote.title || quote.number,
-        subtitle: `${quote.number} · ${quote.customer.name}`,
+        title: quote.title || quote.number || "Conceptofferte",
+        subtitle: `${quote.number ?? "Concept zonder nummer"} · ${quote.customer.name}`,
         href: `/quotes/${quote.id}`,
       })),
       ...projects.map((project) => ({

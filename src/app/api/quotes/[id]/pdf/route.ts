@@ -108,7 +108,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     companyName: quote.company.name,
     companySlug,
     companyTagline: branding.tagline,
-    quoteNumber: quote.number,
+    quoteNumber: quote.number ?? "CONCEPT",
     quoteDate: formatDate(quote.createdAt),
     validUntil: quote.validUntil ? formatDate(quote.validUntil) : undefined,
     customerName: quote.customer.name,

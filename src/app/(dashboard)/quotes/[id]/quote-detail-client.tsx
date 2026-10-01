@@ -128,7 +128,7 @@ type AdviceDocument = {
 
 type Quote = {
   id: string;
-  number: string;
+  number: string | null;
   title: string | null;
   status: string;
   pdfUrl: string | null;
@@ -232,7 +232,7 @@ export function QuoteDetailClient({
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [emailMessage, setEmailMessage] = useState(() => defaultQuoteEmailMessage(companySlug));
   const [extendDialogOpen, setExtendDialogOpen] = useState(false);
-  const [extendSubject, setExtendSubject] = useState(() => defaultQuoteExtensionSubject(companySlug, quote.number));
+  const [extendSubject, setExtendSubject] = useState(() => defaultQuoteExtensionSubject(companySlug, quote.number ?? "concept"));
   const [extendMessage, setExtendMessage] = useState(() => defaultQuoteExtensionMessage(companySlug));
   const [notifyOnExtend, setNotifyOnExtend] = useState(Boolean(quote.customer.email));
   const [shareUrl, setShareUrl] = useState("");
@@ -423,7 +423,7 @@ export function QuoteDetailClient({
   }
 
   function handleExtend() {
-    setExtendSubject(defaultQuoteExtensionSubject(companySlug, quote.number));
+    setExtendSubject(defaultQuoteExtensionSubject(companySlug, quote.number ?? "concept"));
     setExtendMessage(defaultQuoteExtensionMessage(companySlug));
     setNotifyOnExtend(Boolean(quote.customer.email));
     setExtendDialogOpen(true);
@@ -469,7 +469,7 @@ export function QuoteDetailClient({
       const res = await fetch(`/api/quotes/${quote.id}/duplicate`, { method: "POST" });
       if (!res.ok) throw new Error("Dupliceren mislukt");
       const created = await res.json();
-      toast.success(`Offerte gedupliceerd als ${created.number}`);
+      toast.success("Offerte als nieuw concept gekopieerd");
       router.push(`/quotes/${created.id}`);
     } catch {
       toast.error("Dupliceren mislukt");
@@ -514,13 +514,13 @@ export function QuoteDetailClient({
           </Link>
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <h1 className="min-w-0 truncate text-xl font-bold sm:text-2xl">{quote.title || quote.number}</h1>
+              <h1 className="min-w-0 truncate text-xl font-bold sm:text-2xl">{quote.title || quote.number || "Conceptofferte"}</h1>
               <Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>
                 {QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
               </Badge>
             </div>
             <p className="mt-1 truncate text-sm text-muted-foreground">
-              {quote.number} · {quote.customer.name} · {formatDate(quote.createdAt)}
+              {quote.number ?? "Nog geen offertenummer"} · {quote.customer.name} · {formatDate(quote.createdAt)}
             </p>
           </div>
         </div>
@@ -622,7 +622,7 @@ export function QuoteDetailClient({
       <Dialog open={priceAuditOpen} onOpenChange={setPriceAuditOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Prijscontrole: {quote.number}</DialogTitle>
+            <DialogTitle>Prijscontrole: {quote.number ?? "Concept"}</DialogTitle>
             <DialogDescription>
               Vergelijk de offerte met de huidige artikelprijzen. Er wordt niets aangepast.
             </DialogDescription>
@@ -734,7 +734,7 @@ export function QuoteDetailClient({
           <DialogHeader>
             <DialogTitle className="text-xl">Offerte verlengen</DialogTitle>
             <DialogDescription className="text-base">
-              Offerte {quote.number} wordt 14 dagen langer geldig.
+              Offerte {quote.number ?? "Concept"} wordt 14 dagen langer geldig.
               {quote.customer.email ? " Pas de mail aan voordat je verlengt." : " Er wordt geen mail verstuurd."}
             </DialogDescription>
           </DialogHeader>
@@ -965,7 +965,7 @@ export function QuoteDetailClient({
             companyName={company?.name ?? ""}
             homeBaseZipCode={homeBaseZipCode}
             travelPricingTiers={travelPricingTiers}
-            initialQuote={quote}
+            initialQuote={{ ...quote, number: quote.number ?? "CONCEPT" }}
           />
         )}
 

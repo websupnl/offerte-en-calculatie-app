@@ -129,7 +129,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         to: customerEmail,
         companySlug: quote.company.slug,
         customerName: quote.customer.name,
-        quoteNumber: quote.number,
+        quoteNumber: quote.number ?? "Concept",
         quoteTitle: quote.title,
       }).catch((error) => console.error("[QUOTE ACCEPT] bevestigingsmail mislukt", error));
     }
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   after(async () => {
     const { sendTelegramMessage } = await import("@/lib/notifications");
     await sendTelegramMessage(
-      `✅ <b>OFFERTE HANDMATIG OP AKKOORD</b>\n👤 <b>Klant:</b> ${quote.customer.name}\n📄 <b>Offerte:</b> ${quote.number}\n💶 <b>Totaal:</b> € ${totals.totalIncVat.toFixed(2)} incl. btw\n✍️ <b>Bevestigd door:</b> ${parsed.data.signerName} (mondeling)`,
+      `✅ <b>OFFERTE HANDMATIG OP AKKOORD</b>\n👤 <b>Klant:</b> ${quote.customer.name}\n📄 <b>Offerte:</b> ${quote.number ?? "Concept"}\n💶 <b>Totaal:</b> € ${totals.totalIncVat.toFixed(2)} incl. btw\n✍️ <b>Bevestigd door:</b> ${parsed.data.signerName} (mondeling)`,
     );
   });
 
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       donnaBedrijf(quote.company.slug),
       bouwOpdrachtPayload({
         quoteId: quote.id,
-        quoteNumber: quote.number,
+        quoteNumber: quote.number ?? "Concept",
         title: quote.title,
         customerName: quote.customer.name,
         customerId: quote.customerId,

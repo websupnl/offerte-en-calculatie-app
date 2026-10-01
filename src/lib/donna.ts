@@ -1,7 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { calculateLine, calculateTotals } from "@/lib/calculation";
-import { nextQuoteNumber } from "@/lib/quote-number";
 import { computeSalesPrice } from "@/lib/pricing";
 
 export const DONNA_SCHEMA_VERSION = "1.0.0";
@@ -94,9 +93,8 @@ export async function createDonnaDraft(input: { company: "koolhaas-installaties"
   }
   const companyUser = await prisma.companyUser.findFirst({ where: { companyId: company.id }, orderBy: { id: "asc" } });
   if (!companyUser) throw new DonnaError("COMPANY_USER_NOT_FOUND", 409, "Company has no user to own the draft");
-  const number = await nextQuoteNumber(company.id, company.slug);
   const notes = [input.brief, input.sourceContext ? `Broncontext: ${input.sourceContext}` : "", marker ?? ""].filter(Boolean).join("\n\n");
-  return prisma.quote.create({ data: { companyId: company.id, customerId: customer.id, createdById: companyUser.userId, number, title: input.title, notes, status: "DRAFT" } });
+  return prisma.quote.create({ data: { companyId: company.id, customerId: customer.id, createdById: companyUser.userId, title: input.title, notes, status: "DRAFT" } });
 }
 
 export async function loadDonnaQuote(ref: string) {

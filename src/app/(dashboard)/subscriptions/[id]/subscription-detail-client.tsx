@@ -76,7 +76,7 @@ export function SubscriptionDetailClient({
 }: {
   subscription: Subscription;
   history: HistoryEvent[];
-  quote: { id: string; number: string; title: string | null } | null;
+  quote: { id: string; number: string | null; title: string | null } | null;
   customer: { id: string; name: string; email: string | null } | null;
   agreementLogs: { occurredAt: string; method: string; avVersion: string | null; ip: string | null }[];
 }) {
@@ -277,7 +277,7 @@ export function SubscriptionDetailClient({
               <p>
                 Offerte:{" "}
                 <Link href={`/quotes/${quote.id}`} className="underline">
-                  {quote.number}
+                  {quote.number ?? "Concept"}
                 </Link>
               </p>
             ) : (

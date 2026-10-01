@@ -45,7 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       to: notifyEmail,
       companySlug: share.quote.company.slug,
       customerName: share.quote.customer.name,
-      quoteNumber: share.quote.number,
+      quoteNumber: share.quote.number ?? "Concept",
       message: message || undefined,
     }).catch(() => {});
   }
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   const telegramMsg = `
 ❌ <b>OFFERTE AFGEWEZEN</b>
 👤 <b>Klant:</b> ${share.quote.customer.name}
-📄 <b>Offerte:</b> ${share.quote.number}
+📄 <b>Offerte:</b> ${share.quote.number ?? "Concept"}
 💬 <b>Reden:</b> ${message || "Geen reden opgegeven"}
   `.trim();
   

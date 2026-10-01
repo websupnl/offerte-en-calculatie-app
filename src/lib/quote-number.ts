@@ -22,5 +22,5 @@ export async function nextQuoteNumber(companyId: string, companySlug: string): P
     select: { number: true },
   });
 
-  return generateQuoteNumber(companySlug, volgendVolgnummer(bestaande.map((q) => q.number), prefix));
+  return generateQuoteNumber(companySlug, volgendVolgnummer(bestaande.flatMap((q) => q.number ? [q.number] : []), prefix));
 }

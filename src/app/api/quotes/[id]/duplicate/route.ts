@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { nextQuoteNumber } from "@/lib/quote-number";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
 import { nextCalculationNumber } from "@/lib/calculation-number";
 import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
@@ -32,14 +31,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!source) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const company = await prisma.company.findUnique({ where: { id: companyId } });
-  const number = await nextQuoteNumber(companyId, company?.slug ?? "xx");
 
   const duplicate = await prisma.quote.create({
     data: {
       companyId,
       customerId: source.customerId,
       createdById: session.user.id,
-      number,
       title: source.title,
       category: source.category,
       tagline: source.tagline,

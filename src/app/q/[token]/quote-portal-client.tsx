@@ -47,7 +47,7 @@ type QuoteAttachment = { id: string; title: string | null; imageUrl: string; liv
 
 type Quote = {
   id: string;
-  number: string;
+  number: string | null;
   title: string | null;
   category: string | null;
   tagline: string | null;
@@ -479,7 +479,7 @@ export function QuotePortalClient({
       <main className="portal-shell">
         <section className="portal-overview no-print" aria-label="Offerte overzicht">
           <div className="portal-overview-copy">
-            <p className="portal-kicker">{quote.number}</p>
+            <p className="portal-kicker">{quote.number ?? "Concept"}</p>
             <h1>{quote.title || quote.category || "Offerte"}</h1>
             <p>{quote.customer.name} · {portalBrand.name}</p>
           </div>
@@ -529,7 +529,7 @@ export function QuotePortalClient({
         <div className={`portal-layout${submitted === "accepted" ? " portal-layout--full" : ""}`}>
           <div className="doc-viewer" id="offerte" ref={documentRef}>
               <QuoteSheetPreview
-              quote={quote} 
+              quote={{ ...quote, number: quote.number ?? "CONCEPT" }}
               companySlug={quote.company.slug} 
               selectedChoiceIds={selectedChoiceIds}
               selectedOptionIds={selectedOptionIds}
@@ -541,7 +541,7 @@ export function QuotePortalClient({
               <div className="portal-card portal-identity-card">
                 <div className="portal-meta-list">
                   {[
-                    { icon: <FileText />, label: "Offertenummer", value: quote.number },
+                    { icon: <FileText />, label: "Offertenummer", value: quote.number ?? "Concept" },
                     { icon: <Calendar />, label: "Datum", value: formatDate(today) },
                     ...(quote.validUntil
                       ? [{ icon: <Clock />, label: isExpired ? "Verlopen op" : "Geldig tot", value: formatDate(quote.validUntil) }]

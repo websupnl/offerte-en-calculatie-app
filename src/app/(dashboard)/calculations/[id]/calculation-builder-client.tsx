@@ -35,6 +35,8 @@ import {
   EyeOff,
   GitBranch,
   Repeat,
+  GripVertical,
+  RefreshCw,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { estimateTravelDistanceKm, getTravelPrice, type TravelPricingTier } from "@/lib/travel";
@@ -111,7 +113,7 @@ type CalculationDetail = {
   sortOrder?: number;
   customer: { id: string; name: string } | null;
   project: { id: string; number: string; title: string } | null;
-  quote: { id: string; number: string; status: string } | null;
+  quote: { id: string; number: string | null; status: string } | null;
   items: CalculationItemState[];
 };
 
@@ -139,6 +141,7 @@ export function CalculationBuilderClient({
   const confirm = useConfirm();
   const [calculation, setCalculation] = useState<CalculationDetail>(initialCalculation);
   const [items, setItems] = useState<CalculationItemState[]>(initialCalculation.items);
+  const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
   const [role, setRole] = useState<"BASE" | "VARIANT">(initialCalculation.role ?? "BASE");
   const [variantBezig, setVariantBezig] = useState(false);
   const [products, setProducts] = useState<ProductOption[]>(initialProducts);
@@ -224,6 +227,7 @@ export function CalculationBuilderClient({
   const status = initialCalculation.status;
 
   const [saving, setSaving] = useState(false);
+  const [updatingQuote, setUpdatingQuote] = useState(false);
   const [converting, setConverting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   // Eén opslagmanier, gelijk aan de offerte-editor: de calculatie slaat zichzelf op.
@@ -490,6 +494,16 @@ export function CalculationBuilderClient({
     setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
+  function moveItem(from: number, to: number) {
+    if (to < 0 || to >= items.length || from === to) return;
+    setItems((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  }
+
   async function handleAddVariant() {
     setVariantBezig(true);
     try {
@@ -574,10 +588,10 @@ export function CalculationBuilderClient({
   }, [saveStatus]);
 
   // Directe opslag, gebruikt vóór het omzetten naar een offerte.
-  async function handleSave() {
+  async function handleSave(): Promise<boolean> {
     if (!title.trim()) {
       toast.error("Titel is verplicht");
-      return;
+      return false;
     }
     while (autosaveInFlight.current) {
       await new Promise((r) => setTimeout(r, 100));
@@ -596,12 +610,31 @@ export function CalculationBuilderClient({
       setCalculation(updated);
       savedSignatureRef.current = currentSignature;
       setSaveStatus("saved");
+      return true;
     } catch (err) {
       setSaveStatus("error");
       toast.error(err instanceof Error ? err.message : "Fout bij opslaan");
+      return false;
     } finally {
       autosaveInFlight.current = false;
       setSaving(false);
+    }
+  }
+
+  async function handleUpdateDraftQuote() {
+    if (!calculation.quote) return;
+    setUpdatingQuote(true);
+    try {
+      if (!(await handleSave())) return;
+      const res = await fetch(`/api/calculations/${calculation.id}/refresh-quote`, { method: "POST" });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Conceptofferte bijwerken mislukt");
+      toast.success("Conceptofferte bijgewerkt met de nieuwste calculatie");
+      router.push(`/quotes/${result.quoteId}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Conceptofferte bijwerken mislukt");
+    } finally {
+      setUpdatingQuote(false);
     }
   }
 
@@ -614,7 +647,7 @@ export function CalculationBuilderClient({
     setConverting(true);
     try {
       // First save latest calculation state
-      await handleSave();
+      if (!(await handleSave())) return;
 
       const res = await fetch(`/api/calculations/${calculation.id}/convert-to-quote`, {
         method: "POST",
@@ -778,7 +811,7 @@ export function CalculationBuilderClient({
                 </span>
                 <p className="mt-1 text-base font-bold text-slate-900">
                   <Link href={`/quotes/${calculation.quote.id}`} className="hover:underline">
-                    {calculation.quote.number}
+                    {calculation.quote.number ?? "Concept zonder nummer"}
                   </Link>
                   {siblings.length > 0 && (
                     <span className="ml-2 text-sm font-medium text-slate-500">
@@ -800,6 +833,19 @@ export function CalculationBuilderClient({
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                {calculation.quote.status === "DRAFT" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleUpdateDraftQuote}
+                    disabled={updatingQuote || saving}
+                  >
+                    {updatingQuote
+                      ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      : <RefreshCw className="mr-2 h-4 w-4" />}
+                    Conceptofferte bijwerken
+                  </Button>
+                )}
                 <div className="flex rounded-lg border border-slate-200 p-0.5">
                   {([
                     ["BASE", "Basis", "Telt altijd mee in de prijs"],
@@ -886,7 +932,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
               <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2 font-semibold text-emerald-900">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  Deze calculatie is gekoppeld aan Offerte {calculation.quote.number}
+                  Deze calculatie is gekoppeld aan Offerte {calculation.quote.number ?? "zonder nummer"}
                 </span>
                 <Link href={`/quotes/${calculation.quote.id}`}>
                   <Button variant="outline" size="sm">Bekijk Offerte</Button>
@@ -961,7 +1007,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50 text-slate-600 font-semibold border-b">
-                    <th className="py-2.5 px-3 w-8">#</th>
+                    <th className="py-2.5 px-3 w-16">Volgorde</th>
                     <th className="py-2.5 px-3 w-16 text-center" title="Optionele regels tellen niet mee in het hoofdtotaal">Optie</th>
                     <th className="py-2.5 px-3 w-16 text-center" title="Regel wel laten meetellen, maar niet aan de klant tonen">Offerte</th>
                     <th className="py-2.5 px-3 min-w-[220px]">Omschrijving</th>
@@ -978,8 +1024,41 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                 <tbody className="divide-y">
                   {items.map((item, idx) => (
                     <Fragment key={idx}>
-                    <tr className={`hover:bg-slate-50/80 transition-colors ${item.optional ? "bg-amber-50/60" : ""}`}>
-                      <td className="py-2 px-3 text-slate-400 font-mono text-[11px]">{idx + 1}</td>
+                    <tr
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        if (draggedItemIndex !== null) moveItem(draggedItemIndex, idx);
+                        setDraggedItemIndex(null);
+                      }}
+                      onDragEnd={() => setDraggedItemIndex(null)}
+                      className={`hover:bg-slate-50/80 transition-colors ${item.optional ? "bg-amber-50/60" : ""} ${draggedItemIndex === idx ? "opacity-50" : ""}`}
+                    >
+                      <td className="py-2 px-2 text-slate-400 font-mono text-[11px]">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            draggable
+                            onDragStart={(event) => {
+                              event.dataTransfer.effectAllowed = "move";
+                              event.dataTransfer.setData("text/plain", String(idx));
+                              setDraggedItemIndex(idx);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+                                event.preventDefault();
+                                moveItem(idx, idx + (event.key === "ArrowUp" ? -1 : 1));
+                              }
+                            }}
+                            className="touch-none cursor-grab rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                            aria-label={`Regel ${idx + 1} verplaatsen. Gebruik Alt plus pijltje omhoog of omlaag om de volgorde aan te passen.`}
+                            title="Sleep om te verplaatsen, of gebruik Alt + ↑ / ↓"
+                          >
+                            <GripVertical className="h-4 w-4" />
+                          </button>
+                          <span>{idx + 1}</span>
+                        </div>
+                      </td>
 
                       {/* Optional toggle */}
                       <td className="py-2 px-3 text-center">

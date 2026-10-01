@@ -12,7 +12,7 @@ import { formatDate, formatDateTime, QUOTE_STATUS_LABELS } from "@/lib/format";
 
 type TrackedQuote = {
   id: string;
-  number: string;
+  number: string | null;
   title: string | null;
   status: string;
   sentAt: string;
@@ -133,9 +133,9 @@ export function TrackerClient({ initialQuotes }: { initialQuotes: TrackedQuote[]
                     <Link key={quote.id} href={`/quotes/${quote.id}`} className="block p-4 active:bg-slate-50">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-950">{quote.title || quote.number}</p>
+                          <p className="truncate font-semibold text-slate-950">{quote.title || quote.number || "Conceptofferte"}</p>
                           <p className="mt-1 truncate text-xs text-slate-500">
-                            {quote.number} · {quote.customer.name}
+                            {quote.number ?? "Concept zonder nummer"} · {quote.customer.name}
                           </p>
                         </div>
                         <Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>
@@ -177,7 +177,7 @@ export function TrackerClient({ initialQuotes }: { initialQuotes: TrackedQuote[]
                           key={quote.id}
                           tabIndex={0}
                           role="link"
-                          aria-label={`Open offerte ${quote.title || quote.number}`}
+                          aria-label={`Open offerte ${quote.title || quote.number || "concept"}`}
                           onClick={() => router.push(`/quotes/${quote.id}`)}
                           onKeyDown={(event) => {
                             if (event.key === "Enter" || event.key === " ") {
@@ -189,8 +189,8 @@ export function TrackerClient({ initialQuotes }: { initialQuotes: TrackedQuote[]
                         >
                           <TableCell className="pl-4">
                             <Link href={`/quotes/${quote.id}`} className="block" onClick={(event) => event.stopPropagation()}>
-                              <p className="max-w-72 truncate font-semibold text-slate-900">{quote.title || quote.number}</p>
-                              <p className="text-xs text-slate-400">{quote.number}</p>
+                              <p className="max-w-72 truncate font-semibold text-slate-900">{quote.title || quote.number || "Conceptofferte"}</p>
+                              <p className="text-xs text-slate-400">{quote.number ?? "Concept zonder nummer"}</p>
                             </Link>
                           </TableCell>
                           <TableCell>

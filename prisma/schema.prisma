@@ -284,7 +284,8 @@ model Quote {
   companyId                String
   customerId               String
   createdById              String
-  number                   String
+  /// Null zolang de offerte concept is. Het officiële nummer wordt toegekend bij de eerste verzending.
+  number                   String?
   title                    String?     @default("Persoonlijk voorstel")
   category                 String?     @default("Maatwerk project")
   tagline                  String?     @default("Ontwerp · Bouw · Plaatsing")

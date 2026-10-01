@@ -162,8 +162,8 @@ export default async function CustomerDetailPage({
                 <Link key={quote.id} href={`/quotes/${quote.id}`} className="group flex items-center gap-4 border-b px-4 py-3 last:border-0 hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none">
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-teal-50 text-teal-700"><FileText className="h-4 w-4" /></div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{quote.title || quote.number}</p>
-                    <p className="text-xs text-slate-400">{quote.number} · {formatDate(quote.updatedAt)}</p>
+                    <p className="truncate font-semibold">{quote.title || quote.number || "Conceptofferte"}</p>
+                    <p className="text-xs text-slate-400">{quote.number ?? "Concept zonder nummer"} · {formatDate(quote.updatedAt)}</p>
                   </div>
                   <Badge variant="outline">{QUOTE_STATUS_LABELS[quote.status] ?? quote.status}</Badge>
                   <strong className="w-28 text-right text-sm tabular-nums">{formatCurrency(Number(quote.totalIncVat))}</strong>

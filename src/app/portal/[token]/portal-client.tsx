@@ -191,8 +191,8 @@ export function PortalClient({
                   <span className="flex min-w-0 items-center gap-2.5">
                     <FileText className="h-4 w-4 shrink-0 text-slate-400" />
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-slate-900">{quote.title || quote.number}</span>
-                      <span className="block text-xs text-slate-400">Offerte {quote.number}</span>
+                      <span className="block truncate text-sm font-semibold text-slate-900">{quote.title || quote.number || "Conceptofferte"}</span>
+                      <span className="block text-xs text-slate-400">Offerte {quote.number ?? "Concept zonder nummer"}</span>
                     </span>
                   </span>
                   <span className="shrink-0 text-sm font-bold tabular-nums">{formatCurrency(Number(quote.totalIncVat))}</span>
