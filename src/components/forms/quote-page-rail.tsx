@@ -77,9 +77,9 @@ export function QuotePageRail({
   return (
     <nav
       aria-label="Pagina's in deze offerte"
-      className="sticky top-[132px] hidden w-[132px] shrink-0 self-start xl:block"
+      className="sticky top-[132px] hidden w-[132px] shrink-0 self-start 2xl:block"
     >
-      <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+      <p className="mb-2 px-1 text-sm font-bold uppercase tracking-wider text-muted-foreground">
         {pages.length} pagina&apos;s
       </p>
 
@@ -93,19 +93,19 @@ export function QuotePageRail({
                 onClick={() => springNaar(index)}
                 className={`flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors ${
                   isActief
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    ? "border-primary/30 bg-primary/10 text-foreground"
+                    : "border-border bg-card text-foreground hover:bg-muted/40"
                 }`}
               >
                 {/* Een miniatuur van een A4 als houvast: staand blokje met het nummer. */}
                 <span
-                  className={`flex h-7 w-[21px] shrink-0 items-center justify-center rounded-[3px] border text-[10px] font-bold tabular-nums ${
-                    isActief ? "border-white/30 bg-white/10 text-white" : "border-slate-200 bg-slate-50 text-slate-400"
+                  className={`flex h-7 w-[21px] shrink-0 items-center justify-center rounded-[3px] border text-sm font-bold tabular-nums ${
+                    isActief ? "border-primary/30 bg-card text-foreground" : "border-border bg-muted/40 text-muted-foreground"
                   }`}
                 >
                   {page.nr}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-xs font-semibold">{page.label}</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold">{page.label}</span>
               </button>
 
               {page.section && (
@@ -114,7 +114,7 @@ export function QuotePageRail({
                   onClick={() => onToggleSection(page.section)}
                   title={`${SECTIE_NAAM.get(page.section) ?? page.section} verbergen`}
                   aria-label={`${SECTIE_NAAM.get(page.section) ?? page.section} verbergen`}
-                  className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded p-1 text-slate-400 hover:bg-white hover:text-slate-900 group-hover:block"
+                  className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-card hover:text-foreground group-hover:block group-focus-within:block"
                 >
                   <Eye className="h-3.5 w-3.5" />
                 </button>
@@ -125,8 +125,8 @@ export function QuotePageRail({
       </ol>
 
       {uitgezet.length > 0 && (
-        <div className="mt-3 border-t border-slate-200 pt-2">
-          <p className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">Uit</p>
+        <div className="mt-3 border-t border-border pt-2">
+          <p className="mb-1 px-1 text-sm font-bold uppercase tracking-wider text-muted-foreground">Uit</p>
           <ul className="space-y-1">
             {uitgezet.map((sectie) => (
               <li key={sectie.key}>
@@ -134,7 +134,7 @@ export function QuotePageRail({
                   type="button"
                   onClick={() => onToggleSection(sectie.key)}
                   title="Weer aanzetten"
-                  className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <EyeOff className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{sectie.naam}</span>

@@ -67,19 +67,21 @@ export function CalculationsClient({
   customers,
   projects,
   showArchived = false,
+  initialCreateOpen = false,
 }: {
   initialCalculations: CalculationSummary[];
   customers: OptionItem[];
   projects: OptionItem[];
   companySlug: string;
   showArchived?: boolean;
+  initialCreateOpen?: boolean;
 }) {
   const router = useRouter();
   const confirm = useConfirm();
   const [calculations, setCalculations] = useState<CalculationSummary[]>(initialCalculations);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [newDialogOpen, setNewDialogOpen] = useState(false);
+  const [newDialogOpen, setNewDialogOpen] = useState(initialCreateOpen);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
 
@@ -285,7 +287,7 @@ export function CalculationsClient({
         </div>
 
         {selected.size > 0 && (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-sm text-white">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl bg-foreground px-3 py-2 text-sm text-background">
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -313,7 +315,7 @@ export function CalculationsClient({
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-white hover:bg-white/10 hover:text-white"
+                className="text-white hover:bg-card/10 hover:text-white"
                 onClick={() => setSelected(new Set())}
               >
                 Annuleren
@@ -326,9 +328,9 @@ export function CalculationsClient({
         {filteredCalculations.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <Calculator className="h-12 w-12 text-slate-300 mb-3" />
+              <Calculator className="h-12 w-12 text-muted-foreground mb-3" />
               <p className="text-base font-semibold text-foreground">Geen calculaties gevonden</p>
-              <p className="text-sm text-slate-500 max-w-sm mt-1 mb-4">
+              <p className="text-sm text-muted-foreground max-w-sm mt-1 mb-4">
                 {search || statusFilter !== "ALL"
                   ? "Geen resultaten gevonden voor je huidige zoekfilters."
                   : "Maak een eerste calculatie aan om inkoop- en verkoopmarge vooraf te berekenen."}
@@ -371,13 +373,13 @@ export function CalculationsClient({
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                           {calc.customer && (
                             <span className="flex items-center gap-1">
-                              <User className="h-3.5 w-3.5 text-slate-400" />
+                              <User className="h-3.5 w-3.5 text-muted-foreground" />
                               {calc.customer.name}
                             </span>
                           )}
                           {calc.project && (
-                            <span className="flex items-center gap-1 font-medium text-slate-700">
-                              <FolderKanban className="h-3.5 w-3.5 text-slate-400" />
+                            <span className="flex items-center gap-1 font-medium text-foreground">
+                              <FolderKanban className="h-3.5 w-3.5 text-muted-foreground" />
                               {calc.project.number} — {calc.project.title}
                             </span>
                           )}
@@ -395,14 +397,14 @@ export function CalculationsClient({
                       <div className="col-start-2 flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-border pt-2 md:justify-end md:gap-5 md:border-t-0 md:pt-0">
                         <div className="text-right">
                           <p className="text-sm text-muted-foreground">Netto inkoop</p>
-                          <p className="text-sm font-semibold tabular-nums text-slate-700">
+                          <p className="text-sm font-semibold tabular-nums text-foreground">
                             {formatCurrency(calc.totalCostPrice)}
                           </p>
                         </div>
 
                         <div className="text-right">
                           <p className="text-sm text-muted-foreground">Verkoop excl.</p>
-                          <p className="text-sm font-bold tabular-nums text-slate-900">
+                          <p className="text-sm font-bold tabular-nums text-foreground">
                             {formatCurrency(calc.totalSalesPrice)}
                           </p>
                         </div>
@@ -412,7 +414,7 @@ export function CalculationsClient({
                           <p className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
                             {formatCurrency(calc.marginAmount)}
                           </p>
-                          <p className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded inline-block mt-0.5">
+                          <p className="text-sm font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded inline-block mt-0.5">
                             {calc.marginPercent.toFixed(1)}% marge
                           </p>
                         </div>
@@ -425,7 +427,7 @@ export function CalculationsClient({
                                 e.stopPropagation();
                                 e.preventDefault();
                               }}
-                              className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                              className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                             >
                               <MoreVertical className="h-4 w-4" />
                             </DropdownMenuTrigger>

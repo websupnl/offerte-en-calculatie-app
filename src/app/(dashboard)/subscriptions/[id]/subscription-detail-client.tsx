@@ -245,11 +245,11 @@ export function SubscriptionDetailClient({
                     </p>
                     {event.detail && <p className="text-muted-foreground">{event.detail}</p>}
                     {event.periodStart && event.periodEnd && (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         Periode {formatDate(event.periodStart)} – {formatDate(event.periodEnd)}
                       </p>
                     )}
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       {formatDateTime(event.occurredAt)}
                       {event.actor && ` · ${event.actor}`}
                     </p>

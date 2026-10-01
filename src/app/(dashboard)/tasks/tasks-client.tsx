@@ -243,14 +243,14 @@ export function TasksClient({
             : "Alles wat open staat binnen het actieve bedrijf."
         }
         actions={
-          <div className="flex items-center gap-1 rounded-full bg-slate-100 p-1">
+          <div className="flex items-center gap-1 rounded-full bg-muted p-1">
             <button
               type="button"
               onClick={() => setScope("business")}
               disabled={!hasCompany}
               className={cn(
-                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold transition disabled:opacity-40",
-                scope === "business" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-900",
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold transition disabled:opacity-40",
+                scope === "business" ? "bg-card text-foreground shadow-none" : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Briefcase className="h-3.5 w-3.5" /> Zakelijk
@@ -259,8 +259,8 @@ export function TasksClient({
               type="button"
               onClick={() => setScope("private")}
               className={cn(
-                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold transition",
-                scope === "private" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-900",
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold transition",
+                scope === "private" ? "bg-card text-foreground shadow-none" : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Lock className="h-3.5 w-3.5" /> Privé
@@ -271,9 +271,9 @@ export function TasksClient({
 
       <div className="space-y-5 p-5 lg:p-8">
         {/* Quick-add */}
-        <div className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+        <div className="rounded-xl bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
           <div className="flex items-center gap-2">
-            <Plus className="h-4 w-4 shrink-0 text-slate-400" />
+            <Plus className="h-4 w-4 shrink-0 text-muted-foreground" />
             <Input
               ref={quickRef}
               value={quick}
@@ -292,10 +292,10 @@ export function TasksClient({
               {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : "Toevoegen"}
             </Button>
           </div>
-          <p className="mt-2 pl-6 text-xs text-slate-400">
+          <p className="mt-2 pl-6 text-sm text-muted-foreground">
             {preview ? (
-              <span className="text-slate-600">
-                <strong className="font-semibold text-slate-900">{preview.title}</strong>
+              <span className="text-muted-foreground">
+                <strong className="font-semibold text-foreground">{preview.title}</strong>
                 {preview.dueAt && (
                   <> · {preview.dueAt.toLocaleDateString("nl-NL", {
                     weekday: "short", day: "numeric", month: "short",
@@ -318,11 +318,11 @@ export function TasksClient({
               onClick={() => setActiveListId(null)}
               className={cn(
                 "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold transition",
-                activeListId === null ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100",
+                activeListId === null ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted",
               )}
             >
               <span className="flex items-center gap-2"><Inbox className="h-4 w-4" /> Alles</span>
-              <span className="text-xs tabular-nums opacity-70">{openCount}</span>
+              <span className="text-sm tabular-nums opacity-70">{openCount}</span>
             </button>
             {lists.map((list) => (
               <button
@@ -331,20 +331,20 @@ export function TasksClient({
                 onClick={() => setActiveListId(list.id)}
                 className={cn(
                   "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold transition",
-                  activeListId === list.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100",
+                  activeListId === list.id ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted",
                 )}
               >
                 <span className="flex min-w-0 items-center gap-2">
                   {list.kind === "SHOPPING" ? <ShoppingCart className="h-4 w-4 shrink-0" /> : <ListTodo className="h-4 w-4 shrink-0" />}
                   <span className="truncate">{list.name}</span>
                 </span>
-                <span className="text-xs tabular-nums opacity-70">{list._count.tasks}</span>
+                <span className="text-sm tabular-nums opacity-70">{list._count.tasks}</span>
               </button>
             ))}
             <button
               type="button"
               onClick={() => setListDialogOpen(true)}
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-muted-foreground"
             >
               <Plus className="h-4 w-4" /> Nieuwe lijst
             </button>
@@ -354,7 +354,7 @@ export function TasksClient({
           <section className="min-w-0 space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative min-w-48 flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
@@ -369,11 +369,11 @@ export function TasksClient({
             </div>
 
             {loading ? (
-              <div className="grid min-h-40 place-items-center rounded-2xl bg-white ring-1 ring-slate-950/[0.06]">
-                <Loader2 className="h-5 w-5 animate-spin text-slate-300" />
+              <div className="grid min-h-40 place-items-center rounded-xl bg-card ring-1 ring-border">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : grouped.length === 0 ? (
-              <div className="grid min-h-40 place-items-center rounded-2xl bg-white text-center text-sm text-slate-400 ring-1 ring-slate-950/[0.06]">
+              <div className="grid min-h-40 place-items-center rounded-xl bg-card text-center text-sm text-muted-foreground ring-1 ring-border">
                 <div>
                   <ListTodo className="mx-auto mb-2 h-8 w-8" />
                   {search ? "Niets gevonden." : "Niets open. Typ hierboven om iets toe te voegen."}
@@ -383,18 +383,18 @@ export function TasksClient({
               grouped.map(([bucket, items]) => (
                 <div key={bucket}>
                   <h2 className={cn(
-                    "mb-1.5 px-1 text-[11px] font-bold uppercase tracking-[0.14em]",
-                    bucket === "Te laat" ? "text-red-600" : "text-slate-400",
+                    "mb-1.5 px-1 text-sm font-bold uppercase tracking-[0.14em]",
+                    bucket === "Te laat" ? "text-red-600" : "text-muted-foreground",
                   )}>
                     {bucket} <span className="opacity-60">{items.length}</span>
                   </h2>
-                  <div className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+                  <div className="overflow-hidden rounded-xl bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
                     {items.map((task, index) => (
                       <div
                         key={task.id}
                         className={cn(
-                          "flex items-start gap-3 px-3 py-2.5 transition hover:bg-slate-50",
-                          index > 0 && "border-t border-slate-100",
+                          "flex items-start gap-3 px-3 py-2.5 transition hover:bg-muted/40",
+                          index > 0 && "border-t border-border",
                         )}
                       >
                         <button
@@ -405,7 +405,7 @@ export function TasksClient({
                             "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border transition",
                             task.status === "DONE"
                               ? "border-emerald-600 bg-emerald-600 text-white"
-                              : "border-slate-300 hover:border-slate-500",
+                              : "border-border hover:border-slate-500",
                           )}
                         >
                           {task.status === "DONE" && <Check className="h-3.5 w-3.5" />}
@@ -416,8 +416,8 @@ export function TasksClient({
                           className="min-w-0 flex-1 text-left"
                         >
                           <p className={cn(
-                            "truncate text-[15px] font-medium text-slate-900",
-                            task.status === "DONE" && "text-slate-400 line-through",
+                            "truncate text-[15px] font-medium text-foreground",
+                            task.status === "DONE" && "text-muted-foreground line-through",
                           )}>
                             {task.priority > 0 && (
                               <span
@@ -427,7 +427,7 @@ export function TasksClient({
                             )}
                             {task.title}
                           </p>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
                             {task.dueAt && (
                               <span className={cn(bucket === "Te laat" && "font-semibold text-red-600")}>
                                 {formatDue(task)}
@@ -442,7 +442,7 @@ export function TasksClient({
                             )}
                           </div>
                         </button>
-                        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-300" />
+                        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
                       </div>
                     ))}
                   </div>
@@ -634,7 +634,7 @@ function TaskSheet({
           {task.project && (
             <Link
               href={`/projects/${task.project.id}`}
-              className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2 text-sm font-semibold text-foreground hover:bg-muted"
             >
               <span className="truncate">{task.project.number} · {task.project.title}</span>
               <ChevronRight className="h-4 w-4 shrink-0" />
@@ -644,12 +644,12 @@ function TaskSheet({
           <div className="space-y-2">
             <Label>Aantekeningen</Label>
             {loadingComments ? (
-              <Loader2 className="h-4 w-4 animate-spin text-slate-300" />
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             ) : (
               comments.map((comment) => (
-                <div key={comment.id} className="rounded-xl bg-slate-50 px-3 py-2">
-                  <p className="whitespace-pre-wrap text-sm text-slate-700">{comment.body}</p>
-                  <p className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-400">
+                <div key={comment.id} className="rounded-xl bg-muted/40 px-3 py-2">
+                  <p className="whitespace-pre-wrap text-sm text-foreground">{comment.body}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                     {comment.authorName} · {new Date(comment.createdAt).toLocaleString("nl-NL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                     {comment.visibility === "SHARED" && <Badge variant="outline" className="ml-1">Klant ziet dit</Badge>}
                   </p>

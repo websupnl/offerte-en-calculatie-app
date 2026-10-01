@@ -7,6 +7,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { QuotePDF } from "@/lib/pdf/quote-template";
 import { modulesToOptions } from "@/lib/quote-modules";
 import { applyCalculationPricing } from "@/lib/quote-with-pricing";
+import { publicQuoteItems } from "@/lib/public-quote-items";
 import { formatDate } from "@/lib/format";
 import { createElement } from "react";
 import { getBranding } from "@/lib/branding";
@@ -39,7 +40,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
 
   if (!share) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const quote = applyCalculationPricing(share.quote);
+  const pricedQuote = applyCalculationPricing(share.quote);
+  const quote = { ...pricedQuote, items: publicQuoteItems(pricedQuote) };
   const filename = pdfFilename("Offerte", quote.number || token, quote.customer?.name);
   const host = req.headers.get("host") ?? "localhost:3001";
 

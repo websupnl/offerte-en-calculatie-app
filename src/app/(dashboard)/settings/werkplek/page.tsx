@@ -78,14 +78,14 @@ export default async function WerkplekSettingsPage() {
       <div className="grid gap-4 p-5 lg:grid-cols-2 lg:p-8">
         <div className="space-y-3">
           {rows.map((row) => (
-            <div key={row.title} className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+            <div key={row.title} className="rounded-xl bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
               <div className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                  <row.icon className="h-4 w-4 text-slate-400" /> {row.title}
+                <span className="flex items-center gap-2 text-sm font-bold text-foreground">
+                  <row.icon className="h-4 w-4 text-muted-foreground" /> {row.title}
                 </span>
                 <Badge variant={row.ok ? "default" : "secondary"}>{row.value}</Badge>
               </div>
-              <p className="mt-1.5 text-[13px] leading-6 text-slate-500">{row.detail}</p>
+              <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{row.detail}</p>
             </div>
           ))}
         </div>
@@ -93,26 +93,26 @@ export default async function WerkplekSettingsPage() {
         <div className="space-y-3">
           <PushToggle />
 
-          <div className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
-            <p className="text-sm font-bold text-slate-900">Review-widget op een klantsite</p>
-            <p className="mt-1 text-[13px] leading-6 text-slate-500">
+          <div className="rounded-xl bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
+            <p className="text-sm font-bold text-foreground">Review-widget op een klantsite</p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
               Zet dit op een site die je laat reviewen. Het widget doet niets tot iemand de
               reviewlink gebruikt, dus gewone bezoekers merken er niets van.
             </p>
-            <pre className="mt-3 overflow-x-auto rounded-xl bg-slate-900 p-3 text-[11px] leading-5 text-slate-100">
+            <pre className="mt-3 overflow-x-auto rounded-xl bg-slate-900 p-3 text-sm leading-5 text-slate-100">
 {`<script defer
   src="${process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? ""}/review.js">
 </script>`}
             </pre>
           </div>
 
-          <div className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
-            <p className="text-sm font-bold text-slate-900">Snel naar</p>
+          <div className="rounded-xl bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
+            <p className="text-sm font-bold text-foreground">Snel naar</p>
             <div className="mt-2 grid gap-1.5 text-sm">
-              <Link href="/agenda" className="rounded-lg px-2 py-1.5 font-semibold text-slate-600 hover:bg-slate-50">Agenda en koppelingen</Link>
-              <Link href="/tasks" className="rounded-lg px-2 py-1.5 font-semibold text-slate-600 hover:bg-slate-50">Taken</Link>
-              <Link href="/contracts" className="rounded-lg px-2 py-1.5 font-semibold text-slate-600 hover:bg-slate-50">Contracten</Link>
-              <Link href="/admin/settings" className="rounded-lg px-2 py-1.5 font-semibold text-slate-600 hover:bg-slate-50">Bedrijfsinstellingen</Link>
+              <Link href="/agenda" className="rounded-lg px-2 py-1.5 font-semibold text-muted-foreground hover:bg-muted/40">Agenda en koppelingen</Link>
+              <Link href="/tasks" className="rounded-lg px-2 py-1.5 font-semibold text-muted-foreground hover:bg-muted/40">Taken</Link>
+              <Link href="/contracts" className="rounded-lg px-2 py-1.5 font-semibold text-muted-foreground hover:bg-muted/40">Contracten</Link>
+              <Link href="/admin/settings" className="rounded-lg px-2 py-1.5 font-semibold text-muted-foreground hover:bg-muted/40">Bedrijfsinstellingen</Link>
             </div>
           </div>
         </div>

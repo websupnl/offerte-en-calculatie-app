@@ -7,7 +7,7 @@ import { markOverdueInvoices } from "@/lib/invoice-overdue";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, FileText, Plus, ReceiptText } from "lucide-react";
+import { ArrowRight, Calculator, FileText, Plus, ReceiptText } from "lucide-react";
 
 type AttentionItem = {
   id: string;
@@ -144,13 +144,22 @@ export default async function DashboardPage() {
         title="Werkoverzicht"
         description="Wat aandacht vraagt, met bedragen en vervaldatums uit je administratie."
         actions={
-          <Button nativeButton={false} render={<Link href="/quotes/new" />}>
-            <Plus className="h-4 w-4" /> Nieuwe offerte
+          <Button nativeButton={false} render={<Link href="/calculations?create=1" />}>
+            <Plus className="h-4 w-4" /> Nieuwe calculatie
           </Button>
         }
       />
 
       <div className="space-y-5 p-4 sm:p-5 lg:px-8 lg:py-5">
+        <section aria-label="Van calculatie naar klantakkoord" className="grid gap-px overflow-hidden rounded-xl border border-border bg-border md:grid-cols-3">
+          {[
+            { href: "/calculations", icon: Calculator, label: "Calculeren", detail: "Materialen, arbeid en alternatieven" },
+            { href: "/quotes?status=DRAFT", icon: FileText, label: "Concept beoordelen", detail: "Tekst, media en prijs samenbrengen" },
+            { href: "/quotes/tracker", icon: ArrowRight, label: "Opvolgen", detail: "Bekijk verzending en klantreacties" },
+          ].map(step => <Link key={step.href} href={step.href} className="group flex items-center gap-3 bg-card px-5 py-4 transition-colors hover:bg-muted">
+            <step.icon className="size-5 shrink-0 text-primary" /><span className="min-w-0 flex-1"><span className="block text-base font-semibold">{step.label}</span><span className="block text-sm text-muted-foreground">{step.detail}</span></span><ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+          </Link>)}
+        </section>
         <section aria-label="Kerncijfers" className="grid overflow-hidden rounded-xl border border-border bg-card sm:grid-cols-2 xl:grid-cols-4">
           {metrics.map((metric) => (
             <Link key={metric.label} href={metric.href} className="group min-w-0 border-b border-border p-4 transition-colors hover:bg-muted/50 sm:border-r sm:p-5 xl:border-b-0">

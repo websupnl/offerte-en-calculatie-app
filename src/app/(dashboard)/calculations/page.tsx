@@ -6,7 +6,7 @@ import { CalculationsClient } from "./calculations-client";
 export default async function CalculationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ archived?: string }>;
+  searchParams: Promise<{ archived?: string; create?: string }>;
 }) {
   const session = await auth();
   if (!session) redirect("/login");
@@ -55,7 +55,8 @@ export default async function CalculationsPage({
 
   return (
     <CalculationsClient
-      key={showArchived ? "archived" : "active"}
+      key={`${showArchived ? "archived" : "active"}-${(await searchParams).create ?? ""}`}
+      initialCreateOpen={(await searchParams).create === "1"}
       initialCalculations={serializedCalculations}
       customers={customers}
       projects={projects}

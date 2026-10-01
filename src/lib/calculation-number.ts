@@ -9,11 +9,11 @@ import { volgendVolgnummer } from "@/lib/next-number";
  * verwijderd was. We tellen daarom door op het hoogste nummer dat er dit jaar
  * al staat. Varianten maken we vaker aan, dus dat zou snel misgaan.
  */
-export async function nextCalculationNumber(companyId: string, companySlug: string): Promise<string> {
+export async function nextCalculationNumber(companyId: string, companySlug: string, client: Pick<typeof prisma, "calculation"> = prisma): Promise<string> {
   const prefix = generateCalculationNumber(companySlug, 0).replace(/\d+$/, "");
   // Zelfde reden als bij nextQuoteNumber: sorteren op tekst pakt niet altijd
   // het hoogste getal. Zie next-number.ts.
-  const bestaande = await prisma.calculation.findMany({
+  const bestaande = await client.calculation.findMany({
     where: { companyId, number: { startsWith: prefix } },
     select: { number: true },
   });

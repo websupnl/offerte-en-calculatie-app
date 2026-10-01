@@ -70,7 +70,7 @@ export function ReviewBoardClient({ board, imageUrl }: { board: Board; imageUrl:
 
       <div className="grid gap-5 p-5 lg:grid-cols-[1fr_340px] lg:p-8">
         {/* Weergave */}
-        <div className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+        <div className="overflow-hidden rounded-xl bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
           {board.kind === "IMAGE" && imageUrl ? (
             <div className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -84,7 +84,7 @@ export function ReviewBoardClient({ board, imageUrl }: { board: Board; imageUrl:
                     onClick={() => setActive(pin.id)}
                     style={{ left: `${pin.pin.xPct * 100}%`, top: `${pin.pin.yPct * 100}%` }}
                     className={cn(
-                      "absolute -ml-3 -mt-3 grid h-6 w-6 place-items-center rounded-full border-2 border-white text-[11px] font-bold text-white shadow-md transition",
+                      "absolute -ml-3 -mt-3 grid h-6 w-6 place-items-center rounded-full border-2 border-white text-sm font-bold text-white shadow-none transition",
                       pin.status === "DONE" ? "bg-emerald-600" : "bg-rose-500",
                       active === pin.id && "scale-125 ring-2 ring-rose-300",
                     )}
@@ -102,14 +102,14 @@ export function ReviewBoardClient({ board, imageUrl }: { board: Board; imageUrl:
                 className="h-[70vh] w-full border-0"
                 sandbox="allow-scripts allow-same-origin allow-forms"
               />
-              <p className="border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-500">
+              <p className="border-t border-border bg-muted/40 px-4 py-2 text-sm text-muted-foreground">
                 <MonitorSmartphone className="mr-1 inline h-3 w-3" />
                 Pinnen doe je op de site zelf met de reviewlink — niet hier. Een iframe van
                 een andere site is afgeschermd, dus klikken erin kan ik niet vastleggen.
               </p>
             </div>
           ) : (
-            <div className="grid min-h-72 place-items-center text-center text-sm text-slate-400">
+            <div className="grid min-h-72 place-items-center text-center text-sm text-muted-foreground">
               <div><ImageIcon className="mx-auto mb-2 h-8 w-8" />Geen weergave beschikbaar.</div>
             </div>
           )}
@@ -118,7 +118,7 @@ export function ReviewBoardClient({ board, imageUrl }: { board: Board; imageUrl:
         {/* Punten */}
         <aside className="space-y-2">
           {pins.length === 0 && (
-            <div className="rounded-2xl bg-white p-6 text-center text-sm text-slate-400 ring-1 ring-slate-950/[0.06]">
+            <div className="rounded-xl bg-card p-6 text-center text-sm text-muted-foreground ring-1 ring-border">
               Nog geen feedback op dit board.
             </div>
           )}
@@ -128,28 +128,28 @@ export function ReviewBoardClient({ board, imageUrl }: { board: Board; imageUrl:
               onMouseEnter={() => setActive(pin.id)}
               onMouseLeave={() => setActive(null)}
               className={cn(
-                "rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 transition",
-                active === pin.id ? "ring-rose-300" : "ring-slate-950/[0.06]",
+                "rounded-xl bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 transition",
+                active === pin.id ? "ring-rose-300" : "ring-border",
               )}
             >
               <div className="flex items-start gap-2.5">
                 <span className={cn(
-                  "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white",
+                  "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-sm font-bold text-white",
                   pin.status === "DONE" ? "bg-emerald-600" : "bg-rose-500",
                 )}>
                   {index + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className={cn("text-sm font-semibold text-slate-900", pin.status === "DONE" && "text-slate-400 line-through")}>
+                  <p className={cn("text-sm font-semibold text-foreground", pin.status === "DONE" && "text-muted-foreground line-through")}>
                     {pin.title}
                   </p>
                   {pin.pin?.viewport && (
-                    <p className="mt-1 text-[11px] text-slate-400">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {Number(pin.pin.viewport.split("x")[0]) < 768 ? "📱 mobiel" : "💻 desktop"} · {pin.pin.viewport}
                     </p>
                   )}
                   {pin.pin?.selector && (
-                    <code className="mt-1 block truncate text-[11px] text-slate-400">{pin.pin.selector}</code>
+                    <code className="mt-1 block truncate text-sm text-muted-foreground">{pin.pin.selector}</code>
                   )}
                 </div>
               </div>

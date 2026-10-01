@@ -72,7 +72,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -173,22 +173,22 @@
 .dark[data-company="websup"],
 .dark[data-company="koolhaas"],
 .dark {
-  --ws-bg: #11161c;
-  --ws-sidebar: #0c1117;
+  --ws-bg: #141415;
+  --ws-sidebar: #19191b;
   --ws-sidebar-fg: #aebbc8;
   --ws-accent-soft: #20333a;
-  --background: #11161c;
-  --foreground: #eaf0f4;
-  --card: #192129;
-  --card-foreground: #eaf0f4;
-  --popover: #202a33;
-  --popover-foreground: #eaf0f4;
-  --muted: #26313b;
-  --muted-foreground: #a9b7c5;
-  --secondary: #26313b;
-  --secondary-foreground: #eaf0f4;
-  --border: #34414c;
-  --input: #34414c;
+  --background: #141415;
+  --foreground: #ededee;
+  --card: #1c1c1e;
+  --card-foreground: #ededee;
+  --popover: #222225;
+  --popover-foreground: #ededee;
+  --muted: #29292c;
+  --muted-foreground: #aaaab2;
+  --secondary: #29292c;
+  --secondary-foreground: #ededee;
+  --border: #36363b;
+  --input: #36363b;
 }
 
 .dark[data-company="websup"] {
@@ -215,29 +215,16 @@
   font-family: var(--brand-font, var(--font-sans)), system-ui, sans-serif;
 }
 
-/* Legacy dashboard utilities stay legible in dark mode. Customer-facing
-   document previews keep their paper colors. */
-.dark .workspace-shell main .bg-white:not(.portal-container *),
-.dark .workspace-shell main .bg-slate-50:not(.portal-container *),
-.dark .workspace-shell main .bg-slate-100:not(.portal-container *) {
-  background-color: var(--card);
-}
-.dark .workspace-shell .text-slate-950:not(.portal-container *),
-.dark .workspace-shell .text-slate-900:not(.portal-container *),
-.dark .workspace-shell .text-slate-800:not(.portal-container *),
-.dark .workspace-shell .text-slate-700:not(.portal-container *) {
-  color: var(--foreground);
-}
-.dark .workspace-shell .text-slate-600:not(.portal-container *),
-.dark .workspace-shell .text-slate-500:not(.portal-container *),
-.dark .workspace-shell .text-slate-400:not(.portal-container *),
-.dark .workspace-shell .text-slate-300:not(.portal-container *) {
-  color: var(--muted-foreground);
-}
-.dark .workspace-shell .border-slate-100:not(.portal-container *),
-.dark .workspace-shell .border-slate-200:not(.portal-container *),
-.dark .workspace-shell .border-slate-300:not(.portal-container *) {
-  border-color: var(--border);
+/* Shared workbench language. Paper previews retain their own document styles. */
+.workspace-shell { font-size: 16px; line-height: 1.5; }
+.workspace-sidebar { scrollbar-width: thin; }
+.workspace-title { animation: workspace-title-reveal 240ms cubic-bezier(.22,1,.36,1) both; }
+.workspace-tab-panel { animation: workspace-panel-enter 160ms ease-out both; }
+@keyframes workspace-title-reveal { from { transform: translateY(105%); } to { transform: translateY(0); } }
+@keyframes workspace-panel-enter { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .workspace-title, .workspace-tab-panel { animation: none; }
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
 @layer base {

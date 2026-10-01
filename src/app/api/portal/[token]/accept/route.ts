@@ -10,6 +10,7 @@ import {
 } from "@/lib/quote-selection";
 import { modulesToOptions } from "@/lib/quote-modules";
 import { applyCalculationPricing } from "@/lib/quote-with-pricing";
+import { publicQuoteItems } from "@/lib/public-quote-items";
 import { bouwOpdrachtPayload, donnaBedrijf, meldOpdrachtBijDonna } from "@/lib/donna-opdrachten";
 import { avVersionFor, clientIpFromHeaders } from "@/lib/agreements";
 import { syncSubscriptionsForQuote } from "@/lib/subscriptions/from-quote";
@@ -91,16 +92,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: selectionErrors[0], errors: selectionErrors }, { status: 422 });
   }
 
+  const acceptanceItems = publicQuoteItems({
+    ...share.quote,
+    choiceGroups: choiceGroupsResult.data,
+    options: selectableOptions,
+  });
+
   const totals = calculateQuoteSelectionTotals(
-    share.quote.items.map((item) => ({
-      id: item.id,
-      description: item.description,
-      qty: Number(item.qty),
-      unitPrice: Number(item.unitPrice),
-      vatRate: Number(item.vatRate),
-      total: Number(item.total),
-      hiddenOnQuote: item.hiddenOnQuote,
-    })),
+    acceptanceItems,
     choiceGroupsResult.data,
     selectableOptions,
     selection,
@@ -116,13 +115,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     version: 1,
     acceptedAt: acceptedAt.toISOString(),
     signerName: parsedBody.data.signerName,
-    baseItems: share.quote.items.map((item) => ({
+    baseItems: acceptanceItems.map((item) => ({
       description: item.description,
       qty: Number(item.qty),
       unitPrice: Number(item.unitPrice),
       vatRate: Number(item.vatRate),
       total: Number(item.total),
-      hiddenOnQuote: item.hiddenOnQuote,
+      hiddenOnQuote: false,
     })),
     selectedChoices,
     selectedOptions,

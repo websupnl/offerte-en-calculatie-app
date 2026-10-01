@@ -99,15 +99,15 @@ export function AdviceBuilder({
   }
 
   return (
-    <div className="min-h-[calc(100vh-72px)] bg-slate-50 pb-20">
+    <div className="min-h-[calc(100vh-72px)] bg-muted/40 pb-20">
       {/* ─── Header ─── */}
-      <header className="sticky top-[72px] z-20 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm">
+      <header className="sticky top-[72px] z-20 bg-card border-b border-border px-6 py-4 flex items-center justify-between shadow-none">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => router.back()}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Terug
           </Button>
           <div className="h-6 w-px bg-slate-200" />
-          <h1 className="font-bold text-slate-900 text-lg">
+          <h1 className="font-bold text-foreground text-lg">
             {initialAdvice ? "Adviesrapport aanpassen" : "Nieuw Energie-advies opstellen"}
           </h1>
         </div>
@@ -121,7 +121,7 @@ export function AdviceBuilder({
               </Button>
             } />
             <PopoverContent align="end" className="w-[300px] p-0">
-              <div className="p-2 border-b border-slate-100">
+              <div className="p-2 border-b border-border">
                 <Input
                   autoFocus
                   value={customerSearch}
@@ -132,7 +132,7 @@ export function AdviceBuilder({
               </div>
               <div className="max-h-64 overflow-y-auto p-1">
                 {filteredCustomers.length === 0 ? (
-                  <p className="text-xs text-slate-400 p-4 text-center">Geen klant gevonden</p>
+                  <p className="text-sm text-muted-foreground p-4 text-center">Geen klant gevonden</p>
                 ) : (
                   filteredCustomers.map((c) => (
                     <button
@@ -141,7 +141,7 @@ export function AdviceBuilder({
                         setCustomerId(c.id);
                         setCustomerPickerOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-2 rounded-md text-sm hover:bg-slate-100 ${
+                      className={`w-full text-left px-3 py-2 rounded-md text-sm hover:bg-muted ${
                         c.id === customerId ? "bg-blue-50 text-blue-700 font-bold" : ""
                       }`}
                     >
@@ -162,7 +162,7 @@ export function AdviceBuilder({
       <main className="max-w-6xl mx-auto p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* ─── Left Column: Intake & Controls ─── */}
         <div className="lg:col-span-5 space-y-6">
-          <Card className="border-blue-100 shadow-md">
+          <Card className="border-blue-100 shadow-none">
             <CardHeader className="bg-blue-50/50">
               <CardTitle className="text-sm font-black uppercase tracking-widest text-blue-900 flex items-center gap-2">
                 <Sparkles className="h-4 w-4" /> Intake Gegevens
@@ -170,7 +170,7 @@ export function AdviceBuilder({
             </CardHeader>
             <CardContent className="pt-6 space-y-4">
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-slate-500 uppercase">Input / Gesprek / P1 Data</Label>
+                <Label className="text-sm font-bold text-muted-foreground uppercase">Input / Gesprek / P1 Data</Label>
                 <Textarea 
                   placeholder="Plak hier het gesprek met de klant, de P1 verbruiksgegevens of je eigen opname-notities..." 
                   className="min-h-[300px] resize-none focus:ring-blue-500"
@@ -190,18 +190,18 @@ export function AdviceBuilder({
           </Card>
 
           {adviceData && (
-            <Card className="bg-slate-900 text-white border-none shadow-xl overflow-hidden">
+            <Card className="bg-foreground text-background border-none shadow-xl overflow-hidden">
               <div className="absolute top-0 right-0 p-8 opacity-10">
                 <CheckCircle2 className="h-24 w-24" />
               </div>
               <CardContent className="p-6 relative z-10 space-y-4">
                 <div className="space-y-1">
                   <h3 className="font-black text-xl text-blue-400">Advies Gereed</h3>
-                  <p className="text-slate-400 text-sm">Zet dit advies nu om naar een officiële offerte.</p>
+                  <p className="text-muted-foreground text-sm">Zet dit advies nu om naar een officiële offerte.</p>
                 </div>
                 <Button 
                   onClick={handleConvertToQuote}
-                  className="w-full bg-white text-slate-900 hover:bg-blue-50 font-black h-12"
+                  className="w-full bg-card text-foreground hover:bg-blue-50 font-black h-12"
                 >
                   <TrendingUp className="mr-2 h-5 w-5 text-blue-600" />
                   Genereer Offerte
@@ -214,11 +214,11 @@ export function AdviceBuilder({
         {/* ─── Right Column: The Report Preview ─── */}
         <div className="lg:col-span-7">
           {!adviceData ? (
-            <div className="h-full min-h-[600px] border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-400 p-12 text-center bg-white/50">
-              <div className="bg-slate-100 p-4 rounded-full mb-4">
-                <FileText className="h-12 w-12 text-slate-300" />
+            <div className="h-full min-h-[600px] border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground p-12 text-center bg-card/50">
+              <div className="bg-muted p-4 rounded-full mb-4">
+                <FileText className="h-12 w-12 text-muted-foreground" />
               </div>
-              <h2 className="text-xl font-bold text-slate-600 mb-2">Nog geen advies gegenereerd</h2>
+              <h2 className="text-xl font-bold text-muted-foreground mb-2">Nog geen advies gegenereerd</h2>
               <p className="max-w-xs text-sm">
                 Plak links de intake-gegevens en klik op &quot;Genereer&quot; om de AI het technisch rapport te laten opstellen.
               </p>
@@ -226,15 +226,15 @@ export function AdviceBuilder({
           ) : (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {/* Report Header */}
-              <div className="bg-white border rounded-2xl shadow-xl p-8 space-y-6">
+              <div className="bg-card border rounded-xl shadow-xl p-8 space-y-6">
                 <div className="flex justify-between items-start border-b pb-6">
                   <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">Energie-advies rapport</span>
-                    <h2 className="text-3xl font-black text-slate-900">{adviceData.title}</h2>
-                    <p className="text-slate-500 font-medium">{customer?.name}</p>
+                    <span className="text-sm font-black uppercase tracking-[0.2em] text-blue-600">Energie-advies rapport</span>
+                    <h2 className="text-3xl font-black text-foreground">{adviceData.title}</h2>
+                    <p className="text-muted-foreground font-medium">{customer?.name}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs font-bold text-slate-400 uppercase">Gecontroleerd op</p>
+                    <p className="text-sm font-bold text-muted-foreground uppercase">Gecontroleerd op</p>
                     <p className="font-bold">{new Date().toLocaleDateString('nl-NL')}</p>
                   </div>
                 </div>
@@ -251,21 +251,21 @@ export function AdviceBuilder({
 
                 {/* Situation Grid */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Jaarverbruik</p>
-                    <p className="font-black text-lg text-slate-900">{adviceData.consumption?.annualKwh} kWh</p>
+                  <div className="bg-muted/40 rounded-xl p-4 border border-border">
+                    <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-1">Jaarverbruik</p>
+                    <p className="font-black text-lg text-foreground">{adviceData.consumption?.annualKwh} kWh</p>
                   </div>
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nachtverbruik (gem)</p>
-                    <p className="font-black text-lg text-slate-900">{adviceData.consumption?.nightKwh} kWh</p>
+                  <div className="bg-muted/40 rounded-xl p-4 border border-border">
+                    <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-1">Nachtverbruik (gem)</p>
+                    <p className="font-black text-lg text-foreground">{adviceData.consumption?.nightKwh} kWh</p>
                   </div>
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Zonnepanelen (Wp)</p>
-                    <p className="font-black text-lg text-slate-900">{adviceData.consumption?.solarWp} Wp</p>
+                  <div className="bg-muted/40 rounded-xl p-4 border border-border">
+                    <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-1">Zonnepanelen (Wp)</p>
+                    <p className="font-black text-lg text-foreground">{adviceData.consumption?.solarWp} Wp</p>
                   </div>
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Teruglevering</p>
-                    <p className="font-black text-lg text-slate-900">{adviceData.consumption?.exportedKwh} kWh</p>
+                  <div className="bg-muted/40 rounded-xl p-4 border border-border">
+                    <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-1">Teruglevering</p>
+                    <p className="font-black text-lg text-foreground">{adviceData.consumption?.exportedKwh} kWh</p>
                   </div>
                 </div>
 
@@ -278,7 +278,7 @@ export function AdviceBuilder({
                   </h3>
                   <div className="border rounded-xl overflow-hidden">
                     <table className="w-full text-left border-collapse">
-                      <thead className="bg-slate-50 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                      <thead className="bg-muted/40 text-muted-foreground text-sm font-bold uppercase tracking-wider">
                         <tr>
                           <th className="px-4 py-3 border-b">Scenario</th>
                           <th className="px-4 py-3 border-b">Capaciteit</th>
@@ -290,7 +290,7 @@ export function AdviceBuilder({
                           <tr key={i} className={i === 1 ? "bg-blue-50/50" : ""}>
                             <td className="px-4 py-3 font-bold">{scenario.name} {i === 1 && "✨"}</td>
                             <td className="px-4 py-3 font-medium">{scenario.capacityKwh} kWh</td>
-                            <td className="px-4 py-3 text-slate-500">{scenario.goal}</td>
+                            <td className="px-4 py-3 text-muted-foreground">{scenario.goal}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -300,17 +300,17 @@ export function AdviceBuilder({
 
                 {/* Analysis Block */}
                 <div className="space-y-4">
-                  <h3 className="font-bold text-lg flex items-center gap-2 text-slate-900">
-                    <ShieldCheck className="h-5 w-5 text-slate-400" /> Technische Onderbouwing
+                  <h3 className="font-bold text-lg flex items-center gap-2 text-foreground">
+                    <ShieldCheck className="h-5 w-5 text-muted-foreground" /> Technische Onderbouwing
                   </h3>
-                  <div className="prose prose-slate prose-sm max-w-none text-slate-600 leading-relaxed whitespace-pre-wrap">
+                  <div className="prose prose-slate prose-sm max-w-none text-muted-foreground leading-relaxed whitespace-pre-wrap">
                     {adviceData.analysis}
                   </div>
                 </div>
 
                 {/* Calculation Steps */}
-                <div className="bg-slate-900 text-white rounded-xl p-6 space-y-4">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dimensionering berekening</p>
+                <div className="bg-foreground text-background rounded-xl p-6 space-y-4">
+                  <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Dimensionering berekening</p>
                   <div className="space-y-2">
                     {adviceData.calculation?.steps?.map((step: string, i: number) => (
                       <div key={i} className="flex gap-3 text-sm">
@@ -331,20 +331,20 @@ export function AdviceBuilder({
                     <p className="font-bold text-sm flex items-center gap-2">
                       <Zap className="h-4 w-4 text-orange-500" /> Slimme Sturing (EMS)
                     </p>
-                    <p className="text-xs text-slate-500 leading-relaxed">{adviceData.ems?.explanation}</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{adviceData.ems?.explanation}</p>
                   </div>
                   <div className="p-4 border rounded-xl space-y-2">
                     <p className="font-bold text-sm flex items-center gap-2">
                       <ShieldCheck className="h-4 w-4 text-green-500" /> Noodstroom (Back-up)
                     </p>
-                    <p className="text-xs text-slate-500 leading-relaxed">{adviceData.backup?.explanation}</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{adviceData.backup?.explanation}</p>
                   </div>
                 </div>
 
                 {/* Recommendation */}
                 <div className="pt-6 border-t">
-                  <h3 className="font-bold text-slate-900 mb-2">Waarom dit advies?</h3>
-                  <p className="text-sm text-slate-600 italic">
+                  <h3 className="font-bold text-foreground mb-2">Waarom dit advies?</h3>
+                  <p className="text-sm text-muted-foreground italic">
                     {adviceData.recommendation}
                   </p>
                 </div>

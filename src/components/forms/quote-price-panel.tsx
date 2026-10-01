@@ -105,9 +105,9 @@ export function QuotePricePanel({
           )}
         </div>
       ) : calculations.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center">
-          <p className="text-sm font-bold text-slate-800">Nog geen prijs</p>
-          <p className="mx-auto mt-1 max-w-xs text-sm leading-relaxed text-slate-500">
+        <div className="rounded-xl border border-dashed border-border p-6 text-center">
+          <p className="text-sm font-bold text-foreground">Nog geen prijs</p>
+          <p className="mx-auto mt-1 max-w-xs text-sm leading-relaxed text-muted-foreground">
             Een offerte krijgt zijn prijs uit een calculatie. Daarin zet je de artikelen met
             inkoopprijs, zodat je meteen ziet wat je eraan overhoudt.
           </p>
@@ -125,12 +125,12 @@ export function QuotePricePanel({
         </div>
       ) : (
         <>
-          <div className="rounded-xl bg-slate-900 p-4 text-white">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="rounded-lg border border-border bg-muted/40 p-4 text-foreground">
+            <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
               Prijs op de offerte
             </p>
             <p className="mt-1 text-2xl font-black tabular-nums">{formatCurrency(totaal)}</p>
-            <p className="text-xs text-slate-400">
+            <p className="text-sm text-muted-foreground">
               excl. btw{varianten.length > 0 ? ", plus de variant die de klant kiest" : ""}
             </p>
           </div>
@@ -143,30 +143,30 @@ export function QuotePricePanel({
             if (rijen.length === 0) return null;
             return (
               <div key={kop as string}>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                   {kop as string}
                 </p>
-                <p className="mb-2 text-xs text-slate-500">{uitleg as string}</p>
+                <p className="mb-2 text-sm text-muted-foreground">{uitleg as string}</p>
                 <ul className="space-y-2">
                   {rijen.map((calculatie) => (
                     <li key={calculatie.id}>
                       <Link
                         href={`/calculations/${calculatie.id}`}
-                        className="block rounded-lg border border-slate-200 bg-white p-3 transition-colors hover:bg-slate-50"
+                        className="block rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted/40"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-slate-900">{calculatie.title}</p>
-                            <p className="mt-0.5 text-xs text-slate-500">
+                            <p className="truncate text-sm font-bold text-foreground">{calculatie.title}</p>
+                            <p className="mt-0.5 text-sm text-muted-foreground">
                               {calculatie.number} &middot; {calculatie.regels} regels
                               {calculatie.extras > 0 && ` · ${calculatie.extras} optioneel`}
                             </p>
                           </div>
                           <div className="shrink-0 text-right">
-                            <p className="text-sm font-bold tabular-nums text-slate-900">
+                            <p className="text-sm font-bold tabular-nums text-foreground">
                               {formatCurrency(calculatie.totalExVat)}
                             </p>
-                            <p className="flex items-center justify-end gap-1 text-xs font-semibold text-emerald-600">
+                            <p className="flex items-center justify-end gap-1 text-sm font-semibold text-emerald-600">
                               <TrendingUp className="h-3 w-3" />
                               {calculatie.marginPercent.toFixed(0)}%
                             </p>
@@ -186,7 +186,11 @@ export function QuotePricePanel({
             </p>
           )}
 
-          <div className="flex flex-wrap gap-2">
+          {isDraft && <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" disabled={bezig !== null} onClick={() => maakCalculatie({ role: "BASE" }, "onderdeel")}>
+              {bezig === "onderdeel" ? <Loader2 className="animate-spin" /> : <Plus />}
+              Onderdeel toevoegen
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -196,11 +200,15 @@ export function QuotePricePanel({
               {bezig === "variant"
                 ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                 : <GitBranch className="mr-1.5 h-4 w-4" />}
-              Variant toevoegen
+              Lege variant
             </Button>
-          </div>
+          </div>}
 
-          <p className="text-xs leading-relaxed text-slate-500">
+          {isDraft && calculations[0] && <p className="text-base leading-6 text-muted-foreground">
+            Twee uitvoeringen vergelijken? Open de betreffende calculatie en kies <strong>Maak alternatief</strong> onder de tabel.
+          </p>}
+
+          <p className="text-sm leading-relaxed text-muted-foreground">
             Wil je een extra dat de klant zelf mag aanvinken? Zet die regel in de calculatie
             op <strong>optioneel</strong>. Hij telt dan niet mee in de prijs, maar verschijnt
             wel als keuze op de offerte.

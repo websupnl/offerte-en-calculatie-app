@@ -108,10 +108,10 @@ export function GlobalSearch({
             placeholder="Zoek klant, project, offerte of artikel…"
             className="h-16 rounded-none border-0 bg-transparent pl-14 pr-16 text-base shadow-none focus-visible:ring-0"
           />
-          <kbd className="absolute right-4 top-1/2 -translate-y-1/2 rounded border bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">ESC</kbd>
+          <kbd className="absolute right-4 top-1/2 -translate-y-1/2 rounded border bg-muted px-2 py-1 text-sm font-medium text-muted-foreground">ESC</kbd>
         </div>
         <div className="max-h-[55vh] overflow-y-auto p-2">
-          <p className="px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.13em] text-muted-foreground">
+          <p className="px-3 pb-2 pt-1 text-sm font-bold uppercase tracking-[0.13em] text-muted-foreground">
             {query.trim().length < 2 ? "Snel starten" : `${results.length} resultaten`}
           </p>
           {visibleResults.length === 0 && !loading ? (
@@ -133,10 +133,10 @@ export function GlobalSearch({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{result.title}</p>
-                    <p className="truncate text-xs text-muted-foreground">{result.subtitle}</p>
+                    <p className="truncate text-sm text-muted-foreground">{result.subtitle}</p>
                   </div>
                   {index === 0 ? (
-                    <span className="hidden text-[10px] text-muted-foreground sm:block">Enter</span>
+                    <span className="hidden text-sm text-muted-foreground sm:block">Enter</span>
                   ) : (
                     <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                   )}
@@ -145,7 +145,7 @@ export function GlobalSearch({
             })
           )}
         </div>
-        <div className="flex items-center justify-between border-t bg-muted/40 px-4 py-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center justify-between border-t bg-muted/40 px-4 py-2 text-sm text-muted-foreground">
           <span>Zoekt binnen het actieve bedrijf</span>
           <span>⌘/Ctrl + K</span>
         </div>

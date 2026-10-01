@@ -49,17 +49,17 @@ export function SectionToggles({
             type="button"
             onClick={() => wissel(sectie.key)}
             className={`flex w-full items-start gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors ${
-              zichtbaar ? "border-slate-200 bg-white hover:bg-slate-50" : "border-slate-200 bg-slate-50"
+              zichtbaar ? "border-border bg-card hover:bg-muted/40" : "border-border bg-muted/40"
             }`}
           >
             {zichtbaar
               ? <Eye className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-              : <EyeOff className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />}
+              : <EyeOff className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />}
             <span className="min-w-0 flex-1">
-              <span className={`block text-sm font-bold ${zichtbaar ? "text-slate-900" : "text-slate-400"}`}>
+              <span className={`block text-sm font-bold ${zichtbaar ? "text-foreground" : "text-muted-foreground"}`}>
                 {sectie.naam}
               </span>
-              <span className="block text-xs text-slate-500">
+              <span className="block text-sm text-muted-foreground">
                 {!zichtbaar
                   ? "Uitgezet, inhoud blijft bewaard"
                   : heeftInhoud

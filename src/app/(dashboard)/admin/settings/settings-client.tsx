@@ -1,5 +1,7 @@
 "use client";
 
+import { PageHeader } from "@/components/layout/page-header";
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -212,16 +214,7 @@ export function SettingsClient({
 
   return (
     <div className="w-full max-w-[1400px] space-y-6 p-6 lg:p-8 2xl:px-10">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Instellingen</h1>
-          <p className="text-muted-foreground">{companyName}</p>
-        </div>
-        <Button onClick={saveSettings} disabled={saving}>
-          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          Opslaan
-        </Button>
-      </div>
+      <PageHeader className="px-0! pt-0!" eyebrow="Beheer" title="Instellingen" description={companyName} actions={<Button onClick={saveSettings} disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : <Save />}Opslaan</Button>} />
 
       <Tabs defaultValue="general">
         <TabsList>
@@ -359,7 +352,7 @@ export function SettingsClient({
                 <div className="space-y-2">
                   {settings.travelPricingTiers.map((tier, i) => (
                     <div key={i} className="flex items-center gap-2">
-                      <span className="text-sm text-slate-500 w-16 shrink-0">t/m</span>
+                      <span className="text-sm text-muted-foreground w-16 shrink-0">t/m</span>
                       <Input
                         type="number"
                         placeholder="km"
@@ -375,7 +368,7 @@ export function SettingsClient({
                         }
                         className="w-24"
                       />
-                      <span className="text-sm text-slate-500 shrink-0">km =</span>
+                      <span className="text-sm text-muted-foreground shrink-0">km =</span>
                       <Input
                         type="number"
                         placeholder="euro"
@@ -390,12 +383,12 @@ export function SettingsClient({
                         }
                         className="w-24"
                       />
-                      <span className="text-sm text-slate-500 shrink-0">euro</span>
+                      <span className="text-sm text-muted-foreground shrink-0">euro</span>
                       {settings.travelPricingTiers.length > 1 && (
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="h-8 w-8 text-slate-400 hover:text-red-600"
+                          className="h-8 w-8 text-muted-foreground hover:text-red-600"
                           onClick={() =>
                             setSettings((s) => ({
                               ...s,
@@ -559,7 +552,7 @@ export function SettingsClient({
                   onChange={(e) => setSettings((s) => ({ ...s, openaiApiKey: e.target.value }))}
                   placeholder="sk-..."
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Laat leeg om de globale OPENAI_API_KEY omgevingsvariabele te gebruiken
                 </p>
               </div>
@@ -571,7 +564,7 @@ export function SettingsClient({
                   onChange={(e) => setSettings((s) => ({ ...s, emailFrom: e.target.value }))}
                   placeholder="offerte@jouwbedrijf.nl"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   E-mailadres waarmee offertes worden verstuurd via Resend
                 </p>
               </div>
@@ -583,7 +576,7 @@ export function SettingsClient({
                   onChange={(e) => setSettings((s) => ({ ...s, notifyEmail: e.target.value }))}
                   placeholder="info@websup.nl"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Ontvang een melding wanneer een klant een offerte accepteert of afwijst
                 </p>
               </div>
@@ -617,7 +610,7 @@ export function SettingsClient({
                             href={`/api/legal/${companySlug}/${document.type}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                            className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
                           >
                             <ExternalLink className="h-3 w-3" />
                             Bekijk PDF
@@ -631,7 +624,7 @@ export function SettingsClient({
                           <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium">{current.name}</p>
-                              {fileSize && <p className="text-xs text-muted-foreground">{fileSize}</p>}
+                              {fileSize && <p className="text-sm text-muted-foreground">{fileSize}</p>}
                             </div>
                             <Button
                               type="button"
@@ -668,7 +661,7 @@ export function SettingsClient({
                             event.target.value = "";
                           }}
                         />
-                        <span className="text-xs text-muted-foreground">PDF, max. 15 MB</span>
+                        <span className="text-sm text-muted-foreground">PDF, max. 15 MB</span>
                       </div>
                     </CardContent>
                   </Card>

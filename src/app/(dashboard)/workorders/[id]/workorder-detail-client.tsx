@@ -1,5 +1,7 @@
 "use client";
 
+import { PageHeader } from "@/components/layout/page-header";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useConfirm } from "@/components/confirm-provider";
@@ -207,16 +209,7 @@ export function WorkOrderDetailClient({
         <ArrowLeft className="h-4 w-4" /> {workOrder.project.number} · {workOrder.project.title}
       </Link>
 
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <span className="text-xs font-mono text-muted-foreground">{workOrder.number}</span>
-          <h1 className="text-xl font-bold">{title || "Werkbon"}</h1>
-          <p className="text-sm text-muted-foreground">
-            {workOrder.project.customer?.name ?? ""}
-          </p>
-        </div>
-        <Badge variant="secondary">{WORKORDER_STATUS_LABELS[status] ?? status}</Badge>
-      </div>
+      <PageHeader className="px-0! pt-0!" eyebrow={workOrder.number} title={title || "Werkbon"} description={workOrder.project.customer?.name ?? ""} actions={<Badge variant="secondary">{WORKORDER_STATUS_LABELS[status] ?? status}</Badge>} />
 
       {/* Kerngegevens */}
       <Card>
@@ -294,7 +287,7 @@ export function WorkOrderDetailClient({
                   />
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <Label className="text-xs">Aantal</Label>
+                      <Label className="text-sm">Aantal</Label>
                       <Input
                         type="number"
                         step="0.01"
@@ -303,14 +296,14 @@ export function WorkOrderDetailClient({
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">Eenheid</Label>
+                      <Label className="text-sm">Eenheid</Label>
                       <Input
                         value={l.unit}
                         onChange={(e) => updateLine(i, { unit: e.target.value })}
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">Prijs/st</Label>
+                      <Label className="text-sm">Prijs/st</Label>
                       <Input
                         type="number"
                         step="0.01"
@@ -360,7 +353,7 @@ export function WorkOrderDetailClient({
           </h2>
           {signatureUrl ? (
             <div className="space-y-2">
-              <div className="rounded-md border bg-white p-2">
+              <div className="rounded-md border bg-card p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={signatureUrl} alt="Handtekening" className="max-h-40" />
               </div>

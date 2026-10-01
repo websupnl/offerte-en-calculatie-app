@@ -40,9 +40,9 @@ export default async function AdviceListPage() {
         {reports.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center py-16 text-center">
-              <FileText className="h-12 w-12 text-slate-300 mb-4" />
+              <FileText className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="font-bold text-lg">Nog geen adviesrapporten</h3>
-              <p className="text-slate-500 max-w-xs mx-auto mt-2">
+              <p className="text-muted-foreground max-w-xs mx-auto mt-2">
                 Maak je eerste technische onderbouwing om klanten te overtuigen met data.
               </p>
               <Link href="/advice/new" className="mt-6">
@@ -60,10 +60,10 @@ export default async function AdviceListPage() {
                       <FileText className="h-5 w-5" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                      <h3 className="font-bold text-foreground group-hover:text-blue-600 transition-colors">
                         {report.title}
                       </h3>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                      <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <User className="h-3 w-3" /> {report.customer.name}
                         </span>
@@ -78,7 +78,7 @@ export default async function AdviceListPage() {
                       </div>
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-blue-500 transition-colors" />
+                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-blue-500 transition-colors" />
                 </CardContent>
               </Card>
             </Link>

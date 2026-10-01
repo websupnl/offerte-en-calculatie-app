@@ -11,7 +11,7 @@ function readableTextColor(hex: string) {
   const [r, g, b] = [0, 2, 4].map((index) => parseInt(match[1].slice(index, index + 2), 16) / 255);
   const luminance = [r, g, b].map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
     .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
-  return luminance > 0.42 ? "#101820" : "#ffffff";
+  return luminance > 0.179 ? "#101820" : "#ffffff";
 }
 
 type Company = {
@@ -67,10 +67,16 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!activeCompany || !branding) return;
     const root = document.documentElement;
-    for (const [name, value] of Object.entries(cssVarsFromBranding(branding))) root.style.setProperty(name, value);
+    // Document colors and workbench tokens have separate roles. Tailwind's
+    // semantic colors must keep following the light/dark workbench theme.
+    for (const name of ["--color-primary", "--color-accent", "--color-background", "--color-text"]) root.style.removeProperty(name);
+    for (const [name, value] of Object.entries(cssVarsFromBranding(branding))) {
+      if (name.startsWith("--brand-")) root.style.setProperty(name, value);
+    }
     root.style.setProperty("--primary", branding.accentColor);
     root.style.setProperty("--primary-foreground", readableTextColor(branding.accentColor));
-    root.style.setProperty("--accent", branding.accentColor);
+    root.style.setProperty("--accent", "var(--muted)");
+    root.style.setProperty("--accent-foreground", "var(--foreground)");
     root.style.setProperty("--ws-accent", branding.accentColor);
     root.style.setProperty("--ws-accent-hover", `color-mix(in srgb, ${branding.accentColor}, #000 18%)`);
     root.style.setProperty("--ws-accent-soft", `color-mix(in srgb, ${branding.accentColor}, transparent 88%)`);

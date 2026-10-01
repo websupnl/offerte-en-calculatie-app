@@ -93,22 +93,22 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
         <section className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="divide-y md:hidden">
             {invoices.map((invoice) => (
-              <Link key={invoice.id} href={`/invoices/${invoice.id}`} className="block p-4 active:bg-slate-50">
+              <Link key={invoice.id} href={`/invoices/${invoice.id}`} className="block p-4 active:bg-muted/40">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate font-semibold text-slate-950">{invoice.number}</p>
-                    <p className="mt-1 truncate text-xs text-slate-500">{invoice.customer.name}</p>
+                    <p className="truncate font-semibold text-foreground">{invoice.number}</p>
+                    <p className="mt-1 truncate text-sm text-muted-foreground">{invoice.customer.name}</p>
                   </div>
                   <Badge variant={STATUS_VARIANT[invoice.status] ?? "outline"}>
                     {INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
                   </Badge>
                 </div>
                 <div className="mt-3 flex items-end justify-between gap-3 text-sm">
-                  <div className="min-w-0 text-slate-500">
+                  <div className="min-w-0 text-muted-foreground">
                     <p className={invoice.status === "VERVALLEN" ? "font-semibold text-red-600 dark:text-red-400" : ""}>
                       {invoice.dueDate ? `Vervalt ${formatDate(invoice.dueDate)}` : formatDate(invoice.invoiceDate)}
                     </p>
-                    <p className="truncate text-xs">{invoice.project?.number ?? "Geen project"}</p>
+                    <p className="truncate text-sm">{invoice.project?.number ?? "Geen project"}</p>
                   </div>
                   <p className="text-right font-bold tabular-nums">{formatCurrency(Number(invoice.totalIncVat))}</p>
                 </div>
@@ -131,10 +131,10 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
               {invoices.map((invoice) => (
                 <TableRow key={invoice.id}>
                   <TableCell className="pl-4">
-                    <Link href={`/invoices/${invoice.id}`} className="font-semibold text-slate-950 hover:text-[var(--ws-accent)]">
+                    <Link href={`/invoices/${invoice.id}`} className="font-semibold text-foreground hover:text-[var(--ws-accent)]">
                       {invoice.number}
                     </Link>
-                    {invoice.reference && <p className="max-w-72 truncate text-xs text-slate-500">{invoice.reference}</p>}
+                    {invoice.reference && <p className="max-w-72 truncate text-sm text-muted-foreground">{invoice.reference}</p>}
                   </TableCell>
                   <TableCell>{invoice.customer.name}</TableCell>
                   <TableCell className="hidden lg:table-cell">
@@ -143,7 +143,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                         <Link href={`/projects/${invoice.project.id}`} className="font-medium hover:text-[var(--ws-accent)]">
                           {invoice.project.number}
                         </Link>
-                        <p className="max-w-64 truncate text-xs text-slate-500">{invoice.project.title}</p>
+                        <p className="max-w-64 truncate text-sm text-muted-foreground">{invoice.project.title}</p>
                       </>
                     ) : (
                       "-"
@@ -166,9 +166,9 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
           </Table>
           </div>
           {invoices.length === 0 && (
-            <div className="grid min-h-64 place-items-center px-6 text-center text-sm text-slate-500">
+            <div className="grid min-h-64 place-items-center px-6 text-center text-sm text-muted-foreground">
               <div>
-                <ReceiptText className="mx-auto mb-3 h-9 w-9 text-slate-300" />
+                <ReceiptText className="mx-auto mb-3 h-9 w-9 text-muted-foreground" />
                 <p className="font-semibold text-foreground">{view === "overdue" ? "Geen vervallen facturen" : view === "ready" ? "Geen facturen klaar voor verzending" : "Nog geen facturen"}</p>
                 <p className="mt-1">{view === "all" ? "Maak je eerste factuur vanuit een offerte, werkbon of met losse regels." : "Kies Alle facturen om de rest te bekijken."}</p>
                 <Button nativeButton={false} variant="outline" className="mt-4" render={<Link href="/invoices/new" />}>

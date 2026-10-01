@@ -243,7 +243,7 @@ export function SubscriptionsClient({
                   <TableCell>
                     {s.serviceName}
                     {s.migrationPending && (
-                      <Badge variant="outline" className="ml-2 text-[11px]">
+                      <Badge variant="outline" className="ml-2 text-sm">
                         migratie
                       </Badge>
                     )}

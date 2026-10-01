@@ -80,7 +80,7 @@ export function ContractsClient({
 
       <div className="space-y-5 p-5 lg:p-8">
         <div className="relative max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -90,9 +90,9 @@ export function ContractsClient({
           />
         </div>
 
-        <div className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+        <div className="overflow-hidden rounded-xl bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
           {filtered.length === 0 ? (
-            <div className="grid min-h-56 place-items-center text-center text-sm text-slate-400">
+            <div className="grid min-h-56 place-items-center text-center text-sm text-muted-foreground">
               <div>
                 <FileSignature className="mx-auto mb-2 h-8 w-8" />
                 {search ? "Niets gevonden." : "Nog geen contracten."}
@@ -102,11 +102,11 @@ export function ContractsClient({
             <>
               <div className="divide-y md:hidden">
                 {filtered.map((contract) => (
-                  <Link key={contract.id} href={`/contracts/${contract.id}`} className="block p-4 active:bg-slate-50">
+                  <Link key={contract.id} href={`/contracts/${contract.id}`} className="block p-4 active:bg-muted/40">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate font-semibold text-slate-950">{contract.title}</p>
-                        <p className="mt-1 truncate text-xs text-slate-500">{contract.number} · {contract.customer?.name}</p>
+                        <p className="truncate font-semibold text-foreground">{contract.title}</p>
+                        <p className="mt-1 truncate text-sm text-muted-foreground">{contract.number} · {contract.customer?.name}</p>
                       </div>
                       <Badge variant={CONTRACT_STATUS_COLORS[contract.status] ?? "outline"}>
                         {CONTRACT_STATUS_LABELS[contract.status]}
@@ -115,7 +115,7 @@ export function ContractsClient({
                     {contract.recurringAmount && (
                       <p className="mt-2 text-sm font-bold tabular-nums">
                         {formatCurrency(Number(contract.recurringAmount))}{" "}
-                        <span className="text-xs font-normal text-slate-400">
+                        <span className="text-sm font-normal text-muted-foreground">
                           {contract.recurringPeriod ? CONTRACT_PERIOD_LABELS[contract.recurringPeriod] : ""}
                         </span>
                       </p>
@@ -125,7 +125,7 @@ export function ContractsClient({
               </div>
               <div className="hidden md:block">
                 <Table>
-                  <TableHeader className="bg-slate-50">
+                  <TableHeader className="bg-muted/40">
                     <TableRow>
                       <TableHead className="pl-4">Contract</TableHead>
                       <TableHead>Klant</TableHead>
@@ -140,7 +140,7 @@ export function ContractsClient({
                       <TableRow key={contract.id}>
                         <TableCell className="pl-4">
                           <p className="max-w-72 truncate font-semibold">{contract.title}</p>
-                          <p className="text-xs text-slate-400">{contract.number}</p>
+                          <p className="text-sm text-muted-foreground">{contract.number}</p>
                         </TableCell>
                         <TableCell className="font-medium">{contract.customer?.name}</TableCell>
                         <TableCell>
@@ -148,21 +148,21 @@ export function ContractsClient({
                             {CONTRACT_STATUS_LABELS[contract.status]}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-sm text-slate-500">
+                        <TableCell className="text-sm text-muted-foreground">
                           {contract.endDate ? formatDate(contract.endDate) : "—"}
                         </TableCell>
                         <TableCell className="text-right font-bold tabular-nums">
                           {contract.recurringAmount ? (
                             <>
                               {formatCurrency(Number(contract.recurringAmount))}
-                              <span className="block text-[11px] font-normal text-slate-400">
+                              <span className="block text-sm font-normal text-muted-foreground">
                                 {contract.recurringPeriod ? CONTRACT_PERIOD_LABELS[contract.recurringPeriod] : ""}
                               </span>
                             </>
                           ) : "—"}
                         </TableCell>
                         <TableCell>
-                          <Link href={`/contracts/${contract.id}`} className="grid h-8 w-8 place-items-center rounded-md hover:bg-slate-100">
+                          <Link href={`/contracts/${contract.id}`} className="grid h-8 w-8 place-items-center rounded-md hover:bg-muted">
                             <ArrowUpRight className="h-4 w-4" />
                           </Link>
                         </TableCell>
@@ -325,7 +325,7 @@ function NewContractDialog({
               value={noticeDays}
               onChange={(event) => setNoticeDays(event.target.value)}
             />
-            <p className="text-xs text-slate-400">
+            <p className="text-sm text-muted-foreground">
               Je krijgt automatisch een taak zodra je erover moet nadenken.
             </p>
           </div>

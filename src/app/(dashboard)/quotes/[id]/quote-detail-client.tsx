@@ -1,5 +1,7 @@
 "use client";
 
+import { PageHeader } from "@/components/layout/page-header";
+
 import { ConvertMenu } from "@/components/convert/convert-menu";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -504,27 +506,7 @@ export function QuoteDetailClient({
 
   return (
     <div className="mx-auto w-full max-w-[1800px] space-y-3 p-4 sm:p-5 lg:px-8 lg:py-5 2xl:px-10">
-      {/* Header */}
-      <div className="flex flex-col gap-3 border-b border-border pb-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <Link href="/quotes">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div className="min-w-0">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <h1 className="min-w-0 truncate text-xl font-bold sm:text-2xl">{quote.title || quote.number || "Conceptofferte"}</h1>
-              <Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>
-                {QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
-              </Badge>
-            </div>
-            <p className="mt-1 truncate text-sm text-muted-foreground">
-              {quote.number ?? "Nog geen offertenummer"} · {quote.customer.name} · {formatDate(quote.createdAt)}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <PageHeader className="px-0! pt-0!" eyebrow={quote.number ?? "Concept zonder nummer"} title={quote.title || quote.number || "Conceptofferte"} description={quote.customer.name + " · " + formatDate(quote.createdAt)} actions={<><Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>{QUOTE_STATUS_LABELS[quote.status] ?? quote.status}</Badge>
           <Button variant="outline" size="sm" onClick={openPriceAudit} disabled={priceAuditLoading} className="h-9 text-base">
             {priceAuditLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Check prijzen
@@ -616,8 +598,7 @@ export function QuoteDetailClient({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      </div>
+</>} />
 
       <Dialog open={priceAuditOpen} onOpenChange={setPriceAuditOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
@@ -713,7 +694,7 @@ export function QuoteDetailClient({
               disabled={openingMail}
               className="min-h-32 resize-y"
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               De aanhef, offerteknop, bijlagen en ondertekening worden automatisch toegevoegd.
             </p>
           </div>
@@ -807,13 +788,13 @@ export function QuoteDetailClient({
             <Copy className="h-3 w-3" />
           </Button>
           {quote.share?.viewedAt && (
-            <Badge variant="outline" className="text-xs shrink-0">
+            <Badge variant="outline" className="text-sm shrink-0">
               Bekeken {formatDate(quote.share.viewedAt)}
               {(quote.share.viewCount ?? 0) > 1 ? ` · ${quote.share.viewCount}x` : ""}
             </Badge>
           )}
           {quote.share?.acceptedAt && (
-            <Badge className="text-xs shrink-0">Geaccepteerd</Badge>
+            <Badge className="text-sm shrink-0">Geaccepteerd</Badge>
           )}
         </div>
       )}
@@ -822,7 +803,7 @@ export function QuoteDetailClient({
         <Card className="border-amber-300 bg-amber-50">
           <CardContent className="pt-4">
             <p className="text-sm font-semibold text-amber-800">Verzending niet bevestigd</p>
-            <p className="mt-1 text-xs text-amber-700">
+            <p className="mt-1 text-sm text-amber-700">
               Deze offerte staat op &ldquo;{QUOTE_STATUS_LABELS[quote.status] ?? quote.status}&rdquo;, maar er is geen verzendmoment vastgelegd.
               Waarschijnlijk is hij niet via de app verstuurd. Verstuur hem via &ldquo;Verstuur offerte&rdquo; of markeer hem handmatig als verstuurd.
             </p>
@@ -839,10 +820,10 @@ export function QuoteDetailClient({
               className="flex w-full flex-wrap items-center justify-between gap-2 text-left"
             >
               <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${timelineOpen ? "" : "-rotate-90"}`} />
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${timelineOpen ? "" : "-rotate-90"}`} />
                 Tijdlijn
               </span>
-              <span className="text-xs text-slate-400">
+              <span className="text-sm text-muted-foreground">
                 Verstuurd op {formatDateTime(quote.sentAt)}
                 {quote.sendCount > 1 ? ` · ${quote.sendCount}x verstuurd` : ""}
                 {quote.share?.viewCount ? ` · ${quote.share.viewCount}x bekeken` : " · nog niet geopend"}
@@ -855,14 +836,14 @@ export function QuoteDetailClient({
                     <li key={event.id} className="flex items-start justify-between gap-3 border-t border-border pt-2 first:border-0 first:pt-0">
                       <div className="min-w-0">
                         <p className="font-medium text-foreground">{EVENT_LABELS[event.type] ?? event.type}</p>
-                        {event.detail && <p className="truncate text-xs text-slate-400">{event.detail}</p>}
+                        {event.detail && <p className="truncate text-sm text-muted-foreground">{event.detail}</p>}
                       </div>
-                      <span className="shrink-0 text-xs text-slate-400">{formatDateTime(event.createdAt)}</span>
+                      <span className="shrink-0 text-sm text-muted-foreground">{formatDateTime(event.createdAt)}</span>
                     </li>
                   ))}
                 </ol>
               ) : (
-                <p className="mt-2 text-xs text-slate-400">Nog geen activiteit geregistreerd.</p>
+                <p className="mt-2 text-sm text-muted-foreground">Nog geen activiteit geregistreerd.</p>
               )
             )}
         </div>

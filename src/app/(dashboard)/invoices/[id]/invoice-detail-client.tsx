@@ -34,7 +34,7 @@ type Invoice = {
 };
 
 const STATUS_STYLE: Record<string, string> = {
-  CONCEPT: "bg-slate-100 text-slate-700",
+  CONCEPT: "bg-muted text-foreground",
   GEREED: "bg-amber-100 text-amber-900",
   VERZENDEN: "bg-amber-100 text-amber-900",
   VERZONDEN: "bg-sky-100 text-sky-800",
@@ -157,36 +157,36 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
     <div className="mx-auto max-w-7xl space-y-5 p-4 sm:p-5 lg:p-8">
       <Link
         href={invoice.project ? `/projects/${invoice.project.id}` : "/invoices"}
-        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" /> {invoice.project ? `${invoice.project.number} · ${invoice.project.title}` : "Facturen"}
       </Link>
 
       {/* Kop met het bedrag als hoofdzaak */}
-      <header className="overflow-hidden rounded-2xl bg-slate-950 text-white">
+      <header className="overflow-hidden rounded-xl border border-border bg-card text-foreground">
         <div className="flex flex-col gap-6 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-6">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-sm text-white/60">{invoice.number}</span>
-              <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", STATUS_STYLE[status])}>
+              <span className="font-mono text-sm text-muted-foreground">{invoice.number}</span>
+              <span className={cn("rounded-full px-2.5 py-0.5 text-sm font-semibold", STATUS_STYLE[status])}>
                 {INVOICE_STATUS_LABELS[status] ?? status}
               </span>
-              {overdue && <span className="rounded-full bg-red-500 px-2.5 py-0.5 text-xs font-semibold text-white">Over de vervaldatum</span>}
+              {overdue && <span className="rounded-full bg-red-500 px-2.5 py-0.5 text-sm font-semibold text-white">Over de vervaldatum</span>}
             </div>
-            <h1 className="mt-2 truncate text-2xl font-bold tracking-tight">{c?.name ?? "Onbekende klant"}</h1>
-            <p className="mt-1 text-sm text-white/60">
+            <h1 className="workspace-title mt-2 text-2xl font-semibold tracking-tight">{c?.name ?? "Onbekende klant"}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
               {[c?.address, [c?.zipCode, c?.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "Geen adres bekend"}
             </p>
           </div>
           <div className="sm:text-right">
-            <p className="text-xs uppercase tracking-[0.14em] text-white/50">Te betalen</p>
+            <p className="text-sm uppercase tracking-[0.14em] text-muted-foreground">Te betalen</p>
             <p className="text-3xl font-bold tabular-nums sm:text-4xl">{formatCurrency(totals.totalIncVat)}</p>
-            <p className="text-xs text-white/50">{formatCurrency(totals.totalExVat)} excl. btw</p>
+            <p className="text-sm text-muted-foreground">{formatCurrency(totals.totalExVat)} excl. btw</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 border-t border-white/10 bg-white/[0.03] px-5 py-3 sm:px-6">
+        <div className="flex flex-wrap gap-2 border-t border-border bg-muted/40 px-5 py-3 sm:px-6">
           {["CONCEPT", "GEREED", "VERZONDEN"].includes(status) && (
-            <Button size="sm" onClick={sendInvoice} disabled={saving || sending || dirty || !mollieLive || !emailConfigured || !c?.email || missingCompanyData.length > 0} className="bg-[var(--ws-accent)] text-white hover:opacity-90">
+            <Button size="sm" onClick={sendInvoice} disabled={saving || sending || dirty || !mollieLive || !emailConfigured || !c?.email || missingCompanyData.length > 0} className="bg-primary text-primary-foreground hover:bg-primary/90">
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               {sending ? "Factuur wordt verstuurd" : status === "VERZONDEN" ? "Factuur mailen" : "Verstuur factuur"}
             </Button>
@@ -220,7 +220,7 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
             <Button size="sm" variant="ghost" onClick={() => save("CONCEPT")} disabled={saving || sending}>Terug naar concept</Button>
           )}
           {status === "CONCEPT" && (
-            <Button size="sm" variant="ghost" onClick={remove} className="ml-auto text-white/60 hover:bg-white/10 hover:text-white">
+            <Button size="sm" variant="ghost" onClick={remove} className="ml-auto text-muted-foreground hover:bg-card/10 hover:text-white">
               <Trash2 className="h-4 w-4" /> Verwijderen
             </Button>
           )}
@@ -235,7 +235,7 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
       )}
 
       {!mollieConfigured && status !== "BETAALD" && (
-        <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700 ring-1 ring-slate-200">
+        <div className="rounded-xl bg-muted/40 px-4 py-3 text-sm text-foreground ring-1 ring-slate-200">
           Online betalen is voor dit bedrijf nog niet ingesteld. Voeg de bijbehorende Mollie-key toe aan de serverconfiguratie.
         </div>
       )}
@@ -259,14 +259,14 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
           Er staat nog een oude testbetaallink op deze factuur. Bij versturen wordt die vervangen door een live Mollie-link.
         </div>
       )}
-      {dirty && <p className="text-base text-slate-700">Sla je wijzigingen op voordat je de factuur verstuurt.</p>}
+      {dirty && <p className="text-base text-foreground">Sla je wijzigingen op voordat je de factuur verstuurt.</p>}
       {status === "VERZENDEN" && (
         <div className="rounded-xl bg-amber-50 px-4 py-3 text-base text-amber-950 ring-1 ring-amber-200">
           De verzending wordt verwerkt. Blijft dit staan? Controleer dan eerst in Brevo of de mail is verzonden.
         </div>
       )}
       {paymentMode === "test" && invoice.molliePaidAt && (
-        <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700 ring-1 ring-slate-200">
+        <div className="rounded-xl bg-muted/40 px-4 py-3 text-sm text-foreground ring-1 ring-slate-200">
           Testbetaling gelukt. Deze factuur blijft open totdat er een echte betaling is ontvangen.
         </div>
       )}
@@ -278,15 +278,15 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
       )}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <section className="min-w-0 overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+        <section className="min-w-0 overflow-hidden rounded-xl bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
           <InvoiceLinesEditor lines={lines} onChange={touch(setLines)} readOnly={locked} />
         </section>
 
         <aside className="space-y-4">
-          <section className="space-y-3 rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+          <section className="space-y-3 rounded-xl bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
             <div className="space-y-1.5">
               <Label>Status</Label>
-              <p className="text-base font-semibold text-slate-800">{INVOICE_STATUS_LABELS[status] ?? status}</p>
+              <p className="text-base font-semibold text-foreground">{INVOICE_STATUS_LABELS[status] ?? status}</p>
             </div>
             <div className="space-y-1.5">
               <Label>Factuurdatum</Label>
@@ -307,14 +307,14 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
           </section>
 
           {(invoice.quote || invoice.workOrder || invoice.project) && (
-            <section className="space-y-1.5 rounded-2xl bg-white p-4 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Gekoppeld</p>
+            <section className="space-y-1.5 rounded-xl bg-card p-4 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
+              <p className="text-sm font-bold uppercase tracking-[0.14em] text-muted-foreground">Gekoppeld</p>
               {invoice.quote && <Link className="block hover:text-[var(--ws-accent)]" href={`/quotes/${invoice.quote.id}`}>Offerte {invoice.quote.number}</Link>}
               {invoice.workOrder && <Link className="block hover:text-[var(--ws-accent)]" href={`/workorders/${invoice.workOrder.id}`}>Werkbon {invoice.workOrder.number}</Link>}
               {invoice.project && <Link className="block hover:text-[var(--ws-accent)]" href={`/projects/${invoice.project.id}`}>Project {invoice.project.number}</Link>}
             </section>
           )}
-          <p className="px-1 text-xs text-slate-400">Aangemaakt op {formatDate(invoice.invoiceDate)}</p>
+          <p className="px-1 text-sm text-muted-foreground">Aangemaakt op {formatDate(invoice.invoiceDate)}</p>
         </aside>
       </div>
 

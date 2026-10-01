@@ -13,6 +13,7 @@ import { isStorageConfigured, presignDownload } from "@/lib/storage";
 import { modulesToOptions } from "@/lib/quote-modules";
 import { applyCalculationPricing } from "@/lib/quote-with-pricing";
 import { getBranding } from "@/lib/branding";
+import { publicQuoteItems } from "@/lib/public-quote-items";
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
@@ -194,6 +195,7 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
   // De share-token is openbaar toegangsbewijs. Geef daarom alleen velden door
   // die de offerteweergave nodig heeft. De brede Prisma-resultaten bevatten ook
   // interne notities, akkoordberichten, PDF-url's en bedrijfsinstellingen.
+  const publicItems = publicQuoteItems(serialized.quote);
   const publicQuote = {
     id: serialized.quote.id,
     number: serialized.quote.number,
@@ -209,31 +211,7 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
     totalExVat: serialized.quote.totalExVat,
     totalVat: serialized.quote.totalVat,
     totalIncVat: serialized.quote.totalIncVat,
-    items: serialized.quote.items
-      .filter((item: { hiddenOnQuote?: boolean }) => !item.hiddenOnQuote)
-      .map((item: {
-        id: string;
-        description: string;
-        qty: unknown;
-        unitPrice: unknown;
-        vatRate: unknown;
-        total: unknown;
-        sortOrder: number;
-        indent: number;
-        type: string | null;
-        hiddenOnQuote: boolean;
-      }) => ({
-        id: item.id,
-        description: item.description,
-        qty: item.qty,
-        unitPrice: item.unitPrice,
-        vatRate: item.vatRate,
-        total: item.total,
-        sortOrder: item.sortOrder,
-        indent: item.indent,
-        type: item.type,
-        hiddenOnQuote: item.hiddenOnQuote,
-      })),
+    items: publicItems,
     customer: {
       name: serialized.quote.customer.name,
       email: serialized.quote.customer.email,
@@ -318,7 +296,6 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
     acceptedTotalExVat: serialized.acceptedTotalExVat,
     acceptedTotalIncVat: serialized.acceptedTotalIncVat,
   };
-
   return (
     <QuotePortalClient
       quote={publicQuote}

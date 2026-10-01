@@ -79,7 +79,7 @@ export function ArticlePickerDialog({
       <span onClick={() => setOpen(true)} className="inline-flex flex-1 min-w-0">
         {trigger ?? (
           <Button type="button" variant="outline" size="sm">
-            <Plus className="mr-1.5 h-4 w-4 text-slate-500" />
+            <Plus className="mr-1.5 h-4 w-4 text-muted-foreground" />
             Artikel toevoegen
           </Button>
         )}

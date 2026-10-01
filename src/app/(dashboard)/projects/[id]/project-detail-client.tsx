@@ -1,5 +1,7 @@
 "use client";
 
+import { PageHeader } from "@/components/layout/page-header";
+
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useConfirm } from "@/components/confirm-provider";
@@ -302,20 +304,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
         <ArrowLeft className="h-4 w-4" /> Terug naar projecten
       </Link>
 
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <span className="text-xs font-mono text-muted-foreground">{project.number}</span>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FolderKanban className="h-6 w-6" />
-            {project.title}
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {project.customer?.name ?? "Geen klant"}
-            {project.city ? ` · ${project.address ? project.address + ", " : ""}${project.city}` : ""}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select value={status} onValueChange={(v) => { if (v) changeStatus(v); }}>
+      <PageHeader className="px-0! pt-0!" eyebrow={project.number} title={project.title} description={[project.customer?.name ?? "Geen klant", project.city].filter(Boolean).join(" · ")} actions={<Select value={status} onValueChange={(v) => { if (v) changeStatus(v); }}>
             <SelectTrigger className="w-44">
               <SelectValue />
             </SelectTrigger>
@@ -324,9 +313,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                 <SelectItem key={s} value={s}>{PROJECT_STATUS_LABELS[s]}</SelectItem>
               ))}
             </SelectContent>
-          </Select>
-        </div>
-      </div>
+          </Select>} />
 
       <Tabs defaultValue="overview">
         <TabsList>
@@ -393,7 +380,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                   <CardContent className="p-4 flex items-center justify-between">
                     <div>
                       <p className="font-mono text-sm">{q.number}</p>
-                      <p className="text-xs text-muted-foreground">{formatDate(q.createdAt)}</p>
+                      <p className="text-sm text-muted-foreground">{formatDate(q.createdAt)}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <Badge variant="secondary">
@@ -427,9 +414,9 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                 <Card className="transition-colors hover:border-primary">
                   <CardContent className="p-4 flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-mono text-xs text-muted-foreground">{w.number}</p>
+                      <p className="font-mono text-sm text-muted-foreground">{w.number}</p>
                       <p className="font-medium truncate">{w.title}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         {w._count.lines} regel{w._count.lines === 1 ? "" : "s"}
                         {w.scheduledAt ? ` · gepland ${formatDate(w.scheduledAt)}` : ""}
                       </p>
@@ -502,7 +489,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                   <CardContent className="p-4 flex items-center justify-between gap-3">
                     <div>
                       <p className="font-mono text-sm">{inv.number}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         {formatDate(inv.invoiceDate)}
                       </p>
                     </div>
@@ -524,15 +511,15 @@ export function ProjectDetailClient({ project }: { project: Project }) {
           <Card>
             <CardContent className="p-4 grid grid-cols-3 gap-3 text-center">
               <div>
-                <p className="text-xs text-muted-foreground">Verkoop (incl.)</p>
+                <p className="text-sm text-muted-foreground">Verkoop (incl.)</p>
                 <p className="font-semibold">{formatCurrency(salesTotal)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Inkoop (excl.)</p>
+                <p className="text-sm text-muted-foreground">Inkoop (excl.)</p>
                 <p className="font-semibold">{formatCurrency(purchaseTotal)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Verschil</p>
+                <p className="text-sm text-muted-foreground">Verschil</p>
                 <p className="font-semibold">{formatCurrency(salesTotal - purchaseTotal)}</p>
               </div>
             </CardContent>
@@ -556,7 +543,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                 <CardContent className="p-4 flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-medium truncate">{p.supplierName}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       {p.invoiceNumber ? `${p.invoiceNumber} · ` : ""}
                       {p.invoiceDate ? formatDate(p.invoiceDate) : "geen datum"}
                       {p.fileName ? ` · 📎 ${p.fileName}` : ""}
@@ -616,7 +603,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                   <CardContent className="p-3 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-medium truncate">{f.name}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         {f.category} · {formatSize(f.size)} · {formatDate(f.uploadedAt)}
                       </p>
                     </div>

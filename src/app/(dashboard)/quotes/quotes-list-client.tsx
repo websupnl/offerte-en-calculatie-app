@@ -58,14 +58,14 @@ const SENT_STATES = ["SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"];
 function SentMarker({ quote }: { quote: Quote }) {
   if (quote.sentAt) {
     return (
-      <p className="mt-1 text-xs text-emerald-600">
+      <p className="mt-1 text-sm text-emerald-600">
         Verstuurd {formatDate(quote.sentAt)}
         {quote.sendCount > 1 ? ` · ${quote.sendCount}x` : ""}
       </p>
     );
   }
   if (SENT_STATES.includes(quote.status)) {
-    return <p className="mt-1 text-xs text-amber-600">Verzendmoment onbekend</p>;
+    return <p className="mt-1 text-sm text-amber-600">Verzendmoment onbekend</p>;
   }
   return null;
 }
@@ -201,7 +201,7 @@ export function QuotesListClient({
             e.stopPropagation();
             e.preventDefault();
           }}
-          className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+          className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
         >
           <MoreVertical className="h-4 w-4" />
         </DropdownMenuTrigger>
@@ -277,7 +277,7 @@ export function QuotesListClient({
       <div className="space-y-3 p-4 sm:p-5 lg:px-8 lg:py-5">
         <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-2 sm:flex-row sm:items-center">
           <div className="relative min-w-0 flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Zoek op nummer, titel of klant..."
               className="h-9 rounded-lg border-border bg-background pl-9"
@@ -317,7 +317,7 @@ export function QuotesListClient({
         </div>
 
         {selected.size > 0 && (
-          <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-900 px-3 py-2 text-sm text-white shadow-sm">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl bg-foreground px-3 py-2 text-sm text-background shadow-none">
             <span className="font-semibold">
               {selected.size} geselecteerd
             </span>
@@ -337,7 +337,7 @@ export function QuotesListClient({
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-white hover:bg-white/10 hover:text-white"
+                className="text-white hover:bg-card/10 hover:text-white"
                 onClick={() => setSelected(new Set())}
               >
                 Annuleren
@@ -350,9 +350,9 @@ export function QuotesListClient({
           {filtered.length === 0 ? (
             <div className="grid min-h-72 place-items-center p-8 text-center">
               <div>
-                <FileText className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-                <p className="font-semibold text-slate-700">Geen offertes gevonden</p>
-                <p className="mt-1 text-sm text-slate-400">Pas je zoekopdracht of statusfilter aan.</p>
+                <FileText className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+                <p className="font-semibold text-foreground">Geen offertes gevonden</p>
+                <p className="mt-1 text-sm text-muted-foreground">Pas je zoekopdracht of statusfilter aan.</p>
               </div>
             </div>
           ) : (
@@ -362,7 +362,7 @@ export function QuotesListClient({
                   <Link
                     key={quote.id}
                     href={`/quotes/${quote.id}`}
-                    className={`block p-4 active:bg-slate-50 ${selected.has(quote.id) ? "bg-[var(--ws-accent-soft)]" : ""}`}
+                    className={`block p-4 active:bg-muted/40 ${selected.has(quote.id) ? "bg-[var(--ws-accent-soft)]" : ""}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-start gap-2.5">
@@ -378,8 +378,8 @@ export function QuotesListClient({
                           }}
                         />
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-950">{quote.title || quote.number || "Conceptofferte"}</p>
-                          <p className="mt-1 truncate text-xs text-slate-500">
+                          <p className="truncate font-semibold text-foreground">{quote.title || quote.number || "Conceptofferte"}</p>
+                          <p className="mt-1 truncate text-sm text-muted-foreground">
                             {quote.number ?? "Concept zonder nummer"} · {quote.customer.name}
                           </p>
                         </div>
@@ -395,11 +395,11 @@ export function QuotesListClient({
                       </div>
                     </div>
                     <div className="mt-3 flex items-end justify-between gap-3 text-sm">
-                      <div className="min-w-0 text-slate-500">
+                      <div className="min-w-0 text-muted-foreground">
                         <p className={quote.status === "EXPIRED" ? "font-semibold text-red-600 dark:text-red-400" : ""}>
                           {quote.validUntil ? `${quote.status === "EXPIRED" ? "Verlopen" : "Geldig tot"} ${formatDate(quote.validUntil)}` : formatDate(quote.createdAt)}
                         </p>
-                        <p className="truncate text-xs">
+                        <p className="truncate text-sm">
                           {quote._count.items} regels
                           {quote.choiceGroupCount > 0 ? ` · ${quote.choiceGroupCount} keuzes` : ""}
                         </p>
@@ -457,7 +457,7 @@ export function QuotesListClient({
                             router.push(`/quotes/${quote.id}`);
                           }
                         }}
-                        className={`group cursor-pointer focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ws-accent)] ${selected.has(quote.id) ? "bg-[var(--ws-accent-soft)]" : ""}`}
+                        className={`group cursor-pointer focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ws-accent)] ${selected.has(quote.id) ? "bg-[var(--ws-accent-soft)]" : ""}`}
                       >
                         <TableCell className="w-10 pl-4" onClick={(e) => e.stopPropagation()}>
                           <input
@@ -470,8 +470,8 @@ export function QuotesListClient({
                         </TableCell>
                         <TableCell>
                           <Link href={`/quotes/${quote.id}`} className="block" onClick={(event) => event.stopPropagation()}>
-                            <p className="max-w-80 truncate font-semibold text-slate-900">{quote.title || quote.number || "Conceptofferte"}</p>
-                            <p className="text-xs text-slate-400">
+                            <p className="max-w-80 truncate font-semibold text-foreground">{quote.title || quote.number || "Conceptofferte"}</p>
+                            <p className="text-sm text-muted-foreground">
                               {quote.number ?? "Concept zonder nummer"} · {quote._count.items} vaste regels
                               {quote.choiceGroupCount > 0 ? ` · ${quote.choiceGroupCount} keuze${quote.choiceGroupCount === 1 ? "" : "s"}` : ""}
                             </p>
@@ -479,7 +479,7 @@ export function QuotesListClient({
                         </TableCell>
                         <TableCell>
                           <p className="max-w-56 truncate font-medium">{quote.customer.name}</p>
-                          <p className="max-w-56 truncate text-xs text-slate-400">{quote.customer.email || "Geen e-mail"}</p>
+                          <p className="max-w-56 truncate text-sm text-muted-foreground">{quote.customer.email || "Geen e-mail"}</p>
                         </TableCell>
                         <TableCell>
                           <Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>
@@ -496,7 +496,7 @@ export function QuotesListClient({
                           ) : (
                             <>
                               <p className="font-bold">Vanaf {formatCurrency(quote.pricing.minimum.totalIncVat)}</p>
-                              <p className="text-xs font-normal text-slate-400">
+                              <p className="text-sm font-normal text-muted-foreground">
                                 Advies {formatCurrency(quote.pricing.recommended.totalIncVat)}
                               </p>
                             </>
@@ -513,7 +513,7 @@ export function QuotesListClient({
             </>
           )}
         </div>
-        <p className="text-xs text-slate-400">
+        <p className="text-sm text-muted-foreground">
           {filtered.length} van {initialQuotes.length} offertes zichtbaar
         </p>
       </div>

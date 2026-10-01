@@ -1,5 +1,7 @@
 "use client";
 
+import { PageHeader } from "@/components/layout/page-header";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -134,26 +136,22 @@ export function NewInvoiceClient({
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 p-4 sm:p-5 lg:p-8">
-      <Link href="/invoices" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">
+      <Link href="/invoices" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> Facturen
       </Link>
-      <div>
-        <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--ws-accent)]">Nieuwe factuur</p>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-950 lg:text-[28px]">Wat ga je factureren?</h1>
-        <p className="mt-1 text-sm text-slate-500">Kies een klant en een bron. De regels kun je daarna nog aanpassen, er wordt pas iets opgeslagen als je op aanmaken klikt.</p>
-      </div>
+      <PageHeader className="px-0! pt-0!" eyebrow="Nieuwe factuur" title="Wat ga je factureren?" description="Kies een klant en een bron. Controleer daarna de regels en maak de factuur aan." />
 
       {/* 1. Klant */}
-      <section className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06] sm:p-5">
+      <section className="rounded-xl bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border sm:p-5">
         <div className="mb-3 flex items-center gap-2">
-          <span className="grid h-6 w-6 place-items-center rounded-full bg-slate-950 text-xs font-bold text-white">1</span>
-          <h2 className="font-semibold text-slate-950">Klant</h2>
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-slate-950 text-sm font-bold text-white">1</span>
+          <h2 className="font-semibold text-foreground">Klant</h2>
         </div>
         {customer ? (
-          <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/40 px-4 py-3">
             <div>
-              <p className="font-semibold text-slate-950">{customer.name}</p>
-              {customer.city && <p className="text-xs text-slate-500">{customer.city}</p>}
+              <p className="font-semibold text-foreground">{customer.name}</p>
+              {customer.city && <p className="text-sm text-muted-foreground">{customer.city}</p>}
             </div>
             <Button variant="ghost" size="sm" onClick={() => { setCustomerId(null); setSource(null); setLines([]); setProjectId(null); }}>
               Wijzigen
@@ -162,27 +160,27 @@ export function NewInvoiceClient({
         ) : (
           <div>
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input className="pl-9" placeholder="Zoek klant" value={customerQuery} onChange={(e) => setCustomerQuery(e.target.value)} />
             </div>
             <div className="mt-2 grid gap-1 sm:grid-cols-2">
               {filteredCustomers.map((c) => (
-                <button key={c.id} type="button" onClick={() => setCustomerId(c.id)} className="rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50">
-                  <span className="font-medium text-slate-900">{c.name}</span>
-                  {c.city && <span className="ml-2 text-xs text-slate-500">{c.city}</span>}
+                <button key={c.id} type="button" onClick={() => setCustomerId(c.id)} className="rounded-lg px-3 py-2 text-left text-sm hover:bg-muted/40">
+                  <span className="font-medium text-foreground">{c.name}</span>
+                  {c.city && <span className="ml-2 text-sm text-muted-foreground">{c.city}</span>}
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-xs text-slate-500">Of kies hieronder direct een offerte, calculatie of werkbon: de klant komt dan mee.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Of kies hieronder direct een offerte, calculatie of werkbon: de klant komt dan mee.</p>
           </div>
         )}
       </section>
 
       {/* 2. Bron */}
-      <section className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06] sm:p-5">
+      <section className="rounded-xl bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border sm:p-5">
         <div className="mb-3 flex items-center gap-2">
-          <span className="grid h-6 w-6 place-items-center rounded-full bg-slate-950 text-xs font-bold text-white">2</span>
-          <h2 className="font-semibold text-slate-950">Bron</h2>
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-slate-950 text-sm font-bold text-white">2</span>
+          <h2 className="font-semibold text-foreground">Bron</h2>
         </div>
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
           {TABS.map((t) => (
@@ -192,22 +190,22 @@ export function NewInvoiceClient({
               onClick={() => setTab(t.key)}
               className={cn(
                 "flex items-start gap-3 rounded-xl p-3 text-left ring-1 transition",
-                tab === t.key ? "bg-slate-950 text-white ring-slate-950" : "bg-white text-slate-700 ring-slate-200 hover:ring-slate-300",
+                tab === t.key ? "bg-foreground text-background ring-slate-950" : "bg-card text-foreground ring-slate-200 hover:ring-slate-300",
               )}
             >
-              <t.icon className={cn("mt-0.5 h-4 w-4 shrink-0", tab === t.key ? "text-[var(--ws-accent)]" : "text-slate-400")} />
+              <t.icon className={cn("mt-0.5 h-4 w-4 shrink-0", tab === t.key ? "text-[var(--ws-accent)]" : "text-muted-foreground")} />
               <span>
                 <span className="block text-sm font-semibold">{t.label}</span>
-                <span className={cn("block text-xs", tab === t.key ? "text-white/60" : "text-slate-500")}>{t.hint}</span>
+                <span className={cn("block text-sm", tab === t.key ? "text-white/60" : "text-muted-foreground")}>{t.hint}</span>
               </span>
             </button>
           ))}
         </div>
 
         {tab !== "free" && (
-          <div className="mt-3 max-h-72 divide-y divide-slate-100 overflow-y-auto rounded-xl ring-1 ring-slate-100">
-            {sources === null && <p className="p-4 text-sm text-slate-500">Laden…</p>}
-            {sources && list.length === 0 && <p className="p-4 text-sm text-slate-500">Niets gevonden{customer ? ` voor ${customer.name}` : ""}.</p>}
+          <div className="mt-3 max-h-72 divide-y divide-border overflow-y-auto rounded-xl ring-1 ring-slate-100">
+            {sources === null && <p className="p-4 text-sm text-muted-foreground">Laden…</p>}
+            {sources && list.length === 0 && <p className="p-4 text-sm text-muted-foreground">Niets gevonden{customer ? ` voor ${customer.name}` : ""}.</p>}
             {list.map((s) => {
               const active = source?.type === tab && source.id === s.id;
               return (
@@ -216,18 +214,18 @@ export function NewInvoiceClient({
                   type="button"
                   disabled={loadingSource}
                   onClick={() => pickSource(tab, s.id)}
-                  className={cn("flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50", active && "bg-[color-mix(in_srgb,var(--ws-accent)_8%,white)]")}
+                  className={cn("flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-muted/40", active && "bg-[color-mix(in_srgb,var(--ws-accent)_8%,white)]")}
                 >
                   <span className="min-w-0">
                     <span className="flex items-center gap-2">
-                      <span className="font-mono text-xs text-slate-500">{s.number}</span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{STATUS_NL[s.status] ?? s.status}</span>
-                      {s.invoicedAs && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">Al gefactureerd: {s.invoicedAs}</span>}
+                      <span className="font-mono text-sm text-muted-foreground">{s.number}</span>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-sm font-semibold text-muted-foreground">{STATUS_NL[s.status] ?? s.status}</span>
+                      {s.invoicedAs && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-sm font-semibold text-amber-800">Al gefactureerd: {s.invoicedAs}</span>}
                     </span>
-                    <span className="mt-0.5 block truncate text-sm font-medium text-slate-900">{s.title || "Zonder titel"}</span>
-                    {!customer && s.customerName && <span className="block truncate text-xs text-slate-500">{s.customerName}</span>}
+                    <span className="mt-0.5 block truncate text-sm font-medium text-foreground">{s.title || "Zonder titel"}</span>
+                    {!customer && s.customerName && <span className="block truncate text-sm text-muted-foreground">{s.customerName}</span>}
                   </span>
-                  <span className="flex shrink-0 items-center gap-2 text-sm tabular-nums text-slate-700">
+                  <span className="flex shrink-0 items-center gap-2 text-sm tabular-nums text-foreground">
                     {s.amount !== null && formatCurrency(s.amount)}
                     {active && <Check className="h-4 w-4 text-[var(--ws-accent)]" />}
                   </span>
@@ -239,15 +237,15 @@ export function NewInvoiceClient({
       </section>
 
       {/* 3. Regels */}
-      <section className="relative overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+      <section className="relative overflow-hidden rounded-xl bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
         {loadingSource && (
-          <div className="absolute inset-0 z-10 grid place-items-center bg-white/70">
-            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+          <div className="absolute inset-0 z-10 grid place-items-center bg-card/70">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         )}
         {source?.type === "quote" && (
-          <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-2.5 text-sm sm:px-5">
-            <span className="text-slate-600">{detailed ? "Alle regels uit de offerte" : "Eén regel: werkzaamheden volgens offerte"}</span>
+          <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/60 px-4 py-2.5 text-sm sm:px-5">
+            <span className="text-muted-foreground">{detailed ? "Alle regels uit de offerte" : "Eén regel: werkzaamheden volgens offerte"}</span>
             <button
               type="button"
               className="font-semibold text-[var(--ws-accent)] hover:underline"
@@ -260,7 +258,7 @@ export function NewInvoiceClient({
         <InvoiceLinesEditor lines={lines} onChange={setLines} />
       </section>
 
-      <section className="grid gap-4 rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06] sm:grid-cols-2 sm:p-5">
+      <section className="grid gap-4 rounded-xl bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border sm:grid-cols-2 sm:p-5">
         <div className="space-y-2">
           <Label>Referentie</Label>
           <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Bijv. offertenummer of PO van de klant" />

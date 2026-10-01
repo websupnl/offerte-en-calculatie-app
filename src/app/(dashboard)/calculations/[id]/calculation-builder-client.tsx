@@ -1,5 +1,6 @@
 "use client";
 
+import { CalculationForkAction } from "@/components/calculations/calculation-fork-action";
 import { ConvertMenu } from "@/components/convert/convert-menu";
 import { Fragment, useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -26,7 +27,6 @@ import {
   Trash2,
   Clock,
   Layers,
-  TrendingUp,
   Loader2,
   Percent,
   CheckCircle2,
@@ -504,17 +504,18 @@ export function CalculationBuilderClient({
     });
   }
 
-  async function handleAddVariant() {
+  async function handleAddVariant(asAlternative = true) {
     setVariantBezig(true);
     try {
+      if (!(await handleSave())) return;
       const res = await fetch(`/api/calculations/${calculation.id}/duplicate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ asVariant: true }),
+        body: JSON.stringify({ asAlternative }),
       });
       const created = await res.json();
       if (!res.ok) throw new Error(created.error || "Variant maken mislukt");
-      toast.success("Variant aangemaakt. Pas hem aan en de klant kan kiezen.");
+      toast.success(asAlternative ? "Alternatief aangemaakt in dezelfde conceptofferte" : "Losse kopie aangemaakt");
       router.push(`/calculations/${created.id}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Fout bij variant maken");
@@ -687,7 +688,7 @@ export function CalculationBuilderClient({
         title={title || "Naamloze calculatie"}
         description="Kostprijsberekening op basis van netto inkoop en winstmarges"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link href="/calculations">
               <Button variant="outline">
                 <ArrowLeft className="mr-2 h-4 w-4" />
@@ -695,18 +696,18 @@ export function CalculationBuilderClient({
               </Button>
             </Link>
 
-            <div className="flex items-center gap-1.5 text-xs font-medium" aria-live="polite">
+            <div className="flex items-center gap-1.5 text-sm font-medium" aria-live="polite">
               {saveStatus === "saving" && (
-                <><Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" /><span className="text-slate-500">Bezig met opslaan</span></>
+                <><Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /><span className="text-muted-foreground">Bezig met opslaan</span></>
               )}
               {saveStatus === "saved" && (
                 <><Check className="h-3.5 w-3.5 text-emerald-600" /><span className="text-emerald-600">Opgeslagen</span></>
               )}
               {saveStatus === "unsaved" && (
-                <span className="text-slate-500">Wijzigingen worden opgeslagen</span>
+                <span className="text-muted-foreground">Wijzigingen worden opgeslagen</span>
               )}
               {saveStatus === "idle" && (
-                <span className="text-slate-400">Slaat automatisch op</span>
+                <span className="text-muted-foreground">Slaat automatisch op</span>
               )}
             </div>
             {saveStatus === "error" && (
@@ -718,13 +719,13 @@ export function CalculationBuilderClient({
 
             <ConvertMenu type="calculation" id={calculation.id} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent disabled:opacity-50" />
 
-            <Button onClick={handleConvertToQuote} disabled={converting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Button onClick={calculation.quote?.status === "DRAFT" ? handleUpdateDraftQuote : handleConvertToQuote} disabled={converting || updatingQuote}>
               {converting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <FileText className="mr-2 h-4 w-4" />
               )}
-              Omzetten naar Offerte
+              {calculation.quote?.status === "DRAFT" ? "Concept actualiseren" : "Conceptofferte maken"}
             </Button>
 
             <Button
@@ -742,79 +743,32 @@ export function CalculationBuilderClient({
       />
 
       <div className="space-y-6 p-5 lg:p-8">
-        {/* Live Margin Header Dashboard */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-          <Card className="bg-slate-900 text-white shadow-md">
-            <CardContent className="p-5">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Totale Netto Inkoop
-              </span>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-slate-200">
-                {formatCurrency(totals.materialCost)}
-              </p>
-              <span className="text-[11px] text-slate-400">Excl. BTW · alleen materiaal</span>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-slate-900 text-white shadow-md">
-            <CardContent className="p-5">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Totale Verkoopprijs
-              </span>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-400">
-                {formatCurrency(totals.totalSales)}
-              </p>
-              <span className="text-[11px] text-slate-400">Excl. BTW (voorgesteld aan klant)</span>
-              <p className="mt-1 text-sm font-semibold tabular-nums text-slate-300">
-                {formatCurrency(totals.totalSalesIncVat)} <span className="text-[11px] font-normal text-slate-500">incl. BTW</span>
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-slate-900 text-white shadow-md">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Wat je overhoudt (€)
-                </span>
-                <TrendingUp className="h-4 w-4 text-emerald-400" />
-              </div>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-400">
-                {formatCurrency(totals.takeHome)}
-              </p>
-              <span className="text-[11px] text-emerald-300 font-medium">Verkoop min materiaal (uren zijn voor jou)</span>
-              <p className="mt-1 text-sm font-semibold tabular-nums text-slate-300">
-                {formatCurrency(totals.laborSales)} <span className="text-[11px] font-normal text-slate-500">waarvan uuromzet</span>
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-emerald-950 text-white border-emerald-800 shadow-md">
-            <CardContent className="p-5">
-              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-300">
-                Marge (%)
-              </span>
-              <p className="mt-2 text-3xl font-extrabold tabular-nums text-emerald-300">
-                {totals.takeHomePct.toFixed(1)}%
-              </p>
-              <span className="text-[11px] text-emerald-400">Wat je overhoudt / omzet</span>
-            </CardContent>
-          </Card>
-        </div>
+        <section aria-label="Calculatiebedragen" className="grid overflow-hidden rounded-xl border border-border bg-card sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: "Materiaalinkoop", value: formatCurrency(totals.materialCost), detail: "Excl. btw" },
+            { label: "Verkoopprijs", value: formatCurrency(totals.totalSales), detail: formatCurrency(totals.totalSalesIncVat) + " incl. btw" },
+            { label: "Wat je overhoudt", value: formatCurrency(totals.takeHome), detail: "Waarvan " + formatCurrency(totals.laborSales) + " uuromzet" },
+            { label: "Marge", value: totals.takeHomePct.toFixed(1) + "%", detail: "Verkoop min materiaal / omzet" },
+          ].map(metric => <div key={metric.label} className="border-b border-border px-5 py-4 sm:border-r xl:border-b-0 last:border-r-0">
+            <p className="text-sm font-medium text-muted-foreground">{metric.label}</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums text-foreground">{metric.value}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{metric.detail}</p>
+          </div>)}
+        </section>
 
         {calculation.quote && (
-          <Card className="border-slate-200 bg-white shadow-sm">
+          <Card className="border-border bg-card shadow-none">
             <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                   Deze calculatie bepaalt de prijs van
                 </span>
-                <p className="mt-1 text-base font-bold text-slate-900">
+                <p className="mt-1 text-base font-bold text-foreground">
                   <Link href={`/quotes/${calculation.quote.id}`} className="hover:underline">
                     {calculation.quote.number ?? "Concept zonder nummer"}
                   </Link>
                   {siblings.length > 0 && (
-                    <span className="ml-2 text-sm font-medium text-slate-500">
+                    <span className="ml-2 text-sm font-medium text-muted-foreground">
                       samen met {siblings.length} andere{siblings.length === 1 ? "" : "n"}
                     </span>
                   )}
@@ -823,7 +777,7 @@ export function CalculationBuilderClient({
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {siblings.map((zus) => (
                       <Link key={zus.id} href={`/calculations/${zus.id}`}>
-                        <Badge variant="outline" className="text-[11px] font-normal hover:bg-slate-50">
+                        <Badge variant="outline" className="text-sm font-normal hover:bg-muted/40">
                           {zus.role === "VARIANT" ? "Variant" : "Basis"} · {zus.title}
                         </Badge>
                       </Link>
@@ -846,7 +800,7 @@ export function CalculationBuilderClient({
                     Conceptofferte bijwerken
                   </Button>
                 )}
-                <div className="flex rounded-lg border border-slate-200 p-0.5">
+                <div className="flex rounded-lg border border-border p-0.5">
                   {([
                     ["BASE", "Basis", "Telt altijd mee in de prijs"],
                     ["VARIANT", "Variant", "De klant kiest tussen de varianten"],
@@ -856,8 +810,9 @@ export function CalculationBuilderClient({
                       type="button"
                       title={uitleg}
                       onClick={() => setRole(waarde)}
+                      disabled={calculation.quote?.status !== "DRAFT"}
                       className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
-                        role === waarde ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"
+                        role === waarde ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted/40"
                       }`}
                     >
                       {label}
@@ -865,7 +820,7 @@ export function CalculationBuilderClient({
                   ))}
                 </div>
 
-                <Button variant="outline" size="sm" onClick={handleAddVariant} disabled={variantBezig}>
+                <Button variant="outline" size="sm" onClick={() => handleAddVariant()} disabled={variantBezig || calculation.quote.status !== "DRAFT"}>
                   {variantBezig
                     ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                     : <GitBranch className="mr-1.5 h-4 w-4" />}
@@ -885,9 +840,9 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
         )}
 
         {/* Calculation Settings Header */}
-        <Card className="bg-white shadow-sm">
+        <Card className="bg-card shadow-none">
           <CardHeader className="pb-3 border-b">
-            <CardTitle className="text-base font-semibold">Calculatie Gegevens & Koppeling</CardTitle>
+            <CardTitle className="text-base font-semibold">Gegevens en koppeling</CardTitle>
           </CardHeader>
           <CardContent className="p-5">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -943,11 +898,11 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
         </Card>
 
         {/* Calculation Items Section */}
-        <Card className="bg-white shadow-sm">
+        <Card className="bg-card shadow-none">
           <CardHeader className="pb-3 border-b flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
               <CardTitle className="text-base font-semibold">Calculatieregels ({items.length})</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-sm text-muted-foreground mt-0.5">
                 Stel per regel de netto inkoopprijs en opslag % in voor automatische verkoopprijsberekening.
               </p>
             </div>
@@ -996,17 +951,17 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
 
           <CardContent className="p-0 overflow-x-auto">
             {items.length === 0 ? (
-              <div className="py-12 text-center text-slate-500">
-                <Calculator className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-                <p className="font-semibold text-slate-700">Nog geen calculatieregels</p>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+              <div className="py-12 text-center text-muted-foreground">
+                <Calculator className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                <p className="font-semibold text-foreground">Nog geen calculatieregels</p>
+                <p className="text-sm text-muted-foreground max-w-sm mx-auto mt-1">
                   Voeg artikelen toe uit de catalogus, laad een complete set in of voeg vrije uren toe.
                 </p>
               </div>
             ) : (
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full text-left text-sm border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 text-slate-600 font-semibold border-b">
+                  <tr className="bg-muted/40 text-muted-foreground font-semibold border-b">
                     <th className="py-2.5 px-3 w-16">Volgorde</th>
                     <th className="py-2.5 px-3 w-16 text-center" title="Optionele regels tellen niet mee in het hoofdtotaal">Optie</th>
                     <th className="py-2.5 px-3 w-16 text-center" title="Regel wel laten meetellen, maar niet aan de klant tonen">Offerte</th>
@@ -1032,9 +987,9 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                         setDraggedItemIndex(null);
                       }}
                       onDragEnd={() => setDraggedItemIndex(null)}
-                      className={`hover:bg-slate-50/80 transition-colors ${item.optional ? "bg-amber-50/60" : ""} ${draggedItemIndex === idx ? "opacity-50" : ""}`}
+                      className={`hover:bg-muted/80 transition-colors ${item.optional ? "bg-amber-50/60" : ""} ${draggedItemIndex === idx ? "opacity-50" : ""}`}
                     >
-                      <td className="py-2 px-2 text-slate-400 font-mono text-[11px]">
+                      <td className="py-2 px-2 text-muted-foreground font-mono text-sm">
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
@@ -1050,7 +1005,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                                 moveItem(idx, idx + (event.key === "ArrowUp" ? -1 : 1));
                               }
                             }}
-                            className="touch-none cursor-grab rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                            className="touch-none cursor-grab rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                             aria-label={`Regel ${idx + 1} verplaatsen. Gebruik Alt plus pijltje omhoog of omlaag om de volgorde aan te passen.`}
                             title="Sleep om te verplaatsen, of gebruik Alt + ↑ / ↓"
                           >
@@ -1077,7 +1032,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className={`h-7 w-7 ${item.hiddenOnQuote ? "text-slate-400" : "text-emerald-600"}`}
+                          className={`h-7 w-7 ${item.hiddenOnQuote ? "text-muted-foreground" : "text-emerald-600"}`}
                           onClick={() => updateItem(idx, "hiddenOnQuote", !item.hiddenOnQuote)}
                           title={item.hiddenOnQuote ? "Verborgen op offerte — klik om te tonen" : "Zichtbaar op offerte — klik om te verbergen"}
                           aria-label={item.hiddenOnQuote ? "Regel tonen op offerte" : "Regel verbergen op offerte"}
@@ -1091,14 +1046,14 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                         <Input
                           value={item.description}
                           onChange={(e) => updateItem(idx, "description", e.target.value)}
-                          className="h-8 text-xs bg-white"
+                          className="h-8 text-sm bg-card"
                         />
                         {item.supplier && (
                           <div className="flex items-center gap-1.5 mt-1">
-                            <Badge variant="outline" className="text-[10px] py-0 px-1 font-normal bg-slate-50">
+                            <Badge variant="outline" className="text-sm py-0 px-1 font-normal bg-muted/40">
                               {item.supplier}
                             </Badge>
-                            {item.sku && <span className="text-[10px] text-slate-400 font-mono">Art# {item.sku}</span>}
+                            {item.sku && <span className="text-sm text-muted-foreground font-mono">Art# {item.sku}</span>}
                           </div>
                         )}
                       </td>
@@ -1111,7 +1066,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                           min="0.01"
                           value={item.qty}
                           onChange={(e) => updateItem(idx, "qty", e.target.value)}
-                          className="h-8 text-xs bg-white text-center tabular-nums"
+                          className="h-8 text-sm bg-card text-center tabular-nums"
                         />
                       </td>
 
@@ -1120,7 +1075,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                         <Input
                           value={item.unit}
                           onChange={(e) => updateItem(idx, "unit", e.target.value)}
-                          className="h-8 text-xs bg-white text-center"
+                          className="h-8 text-sm bg-card text-center"
                         />
                       </td>
 
@@ -1132,7 +1087,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                           min="0"
                           value={item.costPrice}
                           onChange={(e) => updateItem(idx, "costPrice", e.target.value)}
-                          className="h-8 text-xs bg-white text-right tabular-nums font-medium"
+                          className="h-8 text-sm bg-card text-right tabular-nums font-medium"
                         />
                       </td>
 
@@ -1144,9 +1099,9 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                             step="0.1"
                             value={item.markupPercent}
                             onChange={(e) => updateItem(idx, "markupPercent", e.target.value)}
-                            className="h-8 min-w-[76px] text-xs bg-white text-right pr-5 tabular-nums text-emerald-700 font-semibold"
+                            className="h-8 min-w-[76px] text-sm bg-card text-right pr-5 tabular-nums text-emerald-700 font-semibold"
                           />
-                          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">%</span>
+                          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
                         </div>
                       </td>
 
@@ -1158,19 +1113,19 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                           min="0"
                           value={item.unitPrice}
                           onChange={(e) => updateItem(idx, "unitPrice", e.target.value)}
-                          className="h-8 text-xs bg-white text-right tabular-nums font-bold text-slate-900"
+                          className="h-8 text-sm bg-card text-right tabular-nums font-bold text-foreground"
                         />
                       </td>
 
                       {/* Total Cost */}
-                      <td className="py-2 px-3 text-right tabular-nums text-slate-600 font-medium">
+                      <td className="py-2 px-3 text-right tabular-nums text-muted-foreground font-medium">
                         {formatCurrency(item.qty * item.costPrice)}
                       </td>
 
                       {/* Total Sales */}
                       <td className="py-2 px-3 text-right tabular-nums font-bold text-emerald-700">
                         {formatCurrency(item.qty * item.unitPrice)}
-                        <div className="text-[10px] font-normal text-slate-400">
+                        <div className="text-sm font-normal text-muted-foreground">
                           {formatCurrency(item.qty * item.unitPrice * (1 + item.vatRate / 100))} incl.
                         </div>
                       </td>
@@ -1180,7 +1135,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                          className="h-7 w-7 text-muted-foreground hover:text-red-600 hover:bg-red-50"
                           onClick={() => removeItem(idx)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -1196,16 +1151,16 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                         <td colSpan={2}></td>
                         <td colSpan={10} className="px-3 pb-3 pt-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800">
+                            <span className="text-sm font-bold uppercase tracking-wider text-amber-800">
                               Op de offerte
                             </span>
                             <Input
                               value={item.quoteNote ?? ""}
                               onChange={(e) => updateItem(idx, "quoteNote", e.target.value)}
                               placeholder={`Toelichting voor de klant. Leeg = "${item.qty} ${item.unit || "stuk"}"`}
-                              className="h-8 max-w-md flex-1 bg-white text-xs"
+                              className="h-8 max-w-md flex-1 bg-card text-sm"
                             />
-                            <div className="flex items-center gap-1 rounded-md border border-amber-200 bg-white p-0.5">
+                            <div className="flex items-center gap-1 rounded-md border border-amber-200 bg-card p-0.5">
                               <Repeat className="ml-1.5 h-3.5 w-3.5 text-amber-700" />
                               {([
                                 [null, "Eenmalig"],
@@ -1216,7 +1171,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                                   key={label}
                                   type="button"
                                   onClick={() => updateItem(idx, "recurringInterval", waarde)}
-                                  className={`rounded px-2 py-1 text-[11px] font-semibold transition-colors ${
+                                  className={`rounded px-2 py-1 text-sm font-semibold transition-colors ${
                                     (item.recurringInterval ?? null) === waarde
                                       ? "bg-amber-600 text-white"
                                       : "text-amber-800 hover:bg-amber-100"
@@ -1237,7 +1192,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                 {/* Footer Totals */}
                 <tfoot>
                   {totals.optionalSales > 0 && (
-                    <tr className="bg-amber-50 text-amber-700 text-[11px]">
+                    <tr className="bg-amber-50 text-amber-700 text-sm">
                       <td colSpan={9} className="py-1.5 px-4 text-right">
                         Optionele extra&apos;s (niet in hoofdtotaal, excl. BTW):
                       </td>
@@ -1247,16 +1202,16 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                       <td colSpan={2}></td>
                     </tr>
                   )}
-                  <tr className="bg-slate-900 text-white font-semibold">
+                  <tr className="bg-foreground text-background font-semibold">
                     <td colSpan={9} className="py-3 px-4 text-right">
                       Totaal Generaal (Excl. BTW):
                     </td>
-                    <td className="py-3 px-3 text-right tabular-nums text-slate-300">
+                    <td className="py-3 px-3 text-right tabular-nums text-muted-foreground">
                       {formatCurrency(totals.totalCost)}
                     </td>
-                    <td className="py-3 px-3 text-right tabular-nums text-emerald-400 font-bold text-sm">
+                    <td className="py-3 px-3 text-right tabular-nums text-foreground font-semibold text-base">
                       {formatCurrency(totals.totalSales)}
-                      <div className="text-[10px] font-normal text-slate-400">
+                      <div className="text-sm font-normal text-muted-foreground">
                         {formatCurrency(totals.totalSalesIncVat)} incl. BTW
                       </div>
                     </td>
@@ -1267,6 +1222,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
             )}
           </CardContent>
         </Card>
+        <CalculationForkAction title={title} busy={variantBezig} canCreateAlternative={Boolean(customerId)} locked={Boolean(calculation.quote && calculation.quote.status !== "DRAFT")} onAlternative={() => void handleAddVariant()} onCopy={() => void handleAddVariant(false)} />
       </div>
 
       {/* ProductSet Selector Dialog */}
@@ -1276,15 +1232,15 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
             <DialogTitle>Artikelset / Combi Inladen</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <p className="text-xs text-slate-500">
+            <p className="text-sm text-muted-foreground">
               Kies een vooraf samengestelde set (recept) om alle materialen en arbeidsuren in één keer aan je calculatie toe te voegen:
             </p>
 
             {sets.length === 0 ? (
-              <div className="py-8 text-center text-slate-500 border rounded-lg bg-slate-50">
-                <Layers className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-semibold">Nog geen artikelsets aangemaakt</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+              <div className="py-8 text-center text-muted-foreground border rounded-lg bg-muted/40">
+                <Layers className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm font-semibold">Nog geen artikelsets aangemaakt</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
                   Maak artikelsets aan via Beheer &rarr; Artikelen om samengestelde modules sneller in te laden.
                 </p>
               </div>
@@ -1297,9 +1253,9 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                     className="p-3 border rounded-lg hover:border-indigo-500 hover:bg-indigo-50/50 cursor-pointer transition-all flex items-center justify-between"
                   >
                     <div>
-                      <h4 className="font-semibold text-sm text-slate-900">{s.name}</h4>
-                      {s.description && <p className="text-xs text-slate-500 line-clamp-1">{s.description}</p>}
-                      <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-600">
+                      <h4 className="font-semibold text-sm text-foreground">{s.name}</h4>
+                      {s.description && <p className="text-sm text-muted-foreground line-clamp-1">{s.description}</p>}
+                      <div className="flex items-center gap-3 mt-1.5 text-sm text-muted-foreground">
                         <span>{s.items.length} artikelen</span>
                         {s.laborHours > 0 && <span>• {s.laborHours} uur montage</span>}
                       </div>
@@ -1337,9 +1293,9 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                 onChange={(e) => setBulkMarkupPercent(parseFloat(e.target.value) || 0)}
                 className="text-right pr-7"
               />
-              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">%</span>
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">%</span>
             </div>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-sm text-muted-foreground">
               Dit stelt de winstmarge voor alle huidige calculatieregels in op {bulkMarkupPercent}%.
             </p>
           </div>
@@ -1359,7 +1315,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
             <DialogTitle>Nieuw artikel aanmaken</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-1">
-            <p className="text-xs text-slate-500">
+            <p className="text-sm text-muted-foreground">
               Dit artikel wordt toegevoegd aan de catalogus en direct aan deze calculatie.
             </p>
             <div className="space-y-2">

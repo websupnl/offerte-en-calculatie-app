@@ -87,20 +87,20 @@ export function TrackerClient({ initialQuotes }: { initialQuotes: TrackedQuote[]
       <div className="space-y-4 p-4 sm:p-5 lg:p-8">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {metrics.map((metric) => (
-            <div key={metric.label} className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+            <div key={metric.label} className="rounded-xl bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
               <div className="flex items-center gap-3">
                 <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${metric.surface} ${metric.color}`}>
                   <metric.icon className="h-5 w-5" />
                 </div>
-                <p className="text-sm font-semibold text-slate-500">{metric.label}</p>
+                <p className="text-sm font-semibold text-muted-foreground">{metric.label}</p>
               </div>
-              <p className="mt-4 text-[26px] font-bold leading-none tracking-tight text-slate-950">{metric.value}</p>
-              <p className="mt-2 text-[13px] text-slate-400">{metric.meta}</p>
+              <p className="mt-4 text-[26px] font-bold leading-none tracking-tight text-foreground">{metric.value}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{metric.meta}</p>
             </div>
           ))}
         </div>
 
-        <div className="flex flex-wrap gap-1 rounded-2xl bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+        <div className="flex flex-wrap gap-1 rounded-xl bg-card p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
           {filters.map((f) => (
             <Button
               key={f}
@@ -114,13 +114,13 @@ export function TrackerClient({ initialQuotes }: { initialQuotes: TrackedQuote[]
           ))}
         </div>
 
-        <div className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+        <div className="overflow-hidden rounded-xl bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
           {filtered.length === 0 ? (
             <div className="grid min-h-72 place-items-center p-8 text-center">
               <div>
-                <MailCheck className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-                <p className="font-semibold text-slate-700">Geen offertes in dit filter</p>
-                <p className="mt-1 text-sm text-slate-400">Verstuur een offerte per e-mail om hem hier te zien verschijnen.</p>
+                <MailCheck className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+                <p className="font-semibold text-foreground">Geen offertes in dit filter</p>
+                <p className="mt-1 text-sm text-muted-foreground">Verstuur een offerte per e-mail om hem hier te zien verschijnen.</p>
               </div>
             </div>
           ) : (
@@ -130,11 +130,11 @@ export function TrackerClient({ initialQuotes }: { initialQuotes: TrackedQuote[]
                   const opened = !!quote.share?.viewCount;
                   const idle = !opened && !quote.share?.acceptedAt && !quote.share?.declinedAt && daysSince(quote.sentAt) >= 3;
                   return (
-                    <Link key={quote.id} href={`/quotes/${quote.id}`} className="block p-4 active:bg-slate-50">
+                    <Link key={quote.id} href={`/quotes/${quote.id}`} className="block p-4 active:bg-muted/40">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-950">{quote.title || quote.number || "Conceptofferte"}</p>
-                          <p className="mt-1 truncate text-xs text-slate-500">
+                          <p className="truncate font-semibold text-foreground">{quote.title || quote.number || "Conceptofferte"}</p>
+                          <p className="mt-1 truncate text-sm text-muted-foreground">
                             {quote.number ?? "Concept zonder nummer"} · {quote.customer.name}
                           </p>
                         </div>
@@ -143,9 +143,9 @@ export function TrackerClient({ initialQuotes }: { initialQuotes: TrackedQuote[]
                         </Badge>
                       </div>
                       <div className="mt-3 flex items-end justify-between gap-3 text-sm">
-                        <div className="min-w-0 text-slate-500">
+                        <div className="min-w-0 text-muted-foreground">
                           <p>Verstuurd {formatDate(quote.sentAt)}</p>
-                          <p className="truncate text-xs">
+                          <p className="truncate text-sm">
                             {opened ? `${quote.share?.viewCount}x bekeken` : idle ? `${daysSince(quote.sentAt)} dagen niet geopend` : "Nog niet geopend"}
                           </p>
                         </div>
@@ -158,7 +158,7 @@ export function TrackerClient({ initialQuotes }: { initialQuotes: TrackedQuote[]
 
               <div className="hidden md:block">
                 <Table>
-                  <TableHeader className="bg-slate-50">
+                  <TableHeader className="bg-muted/40">
                     <TableRow>
                       <TableHead className="pl-4">Offerte</TableHead>
                       <TableHead>Klant</TableHead>
@@ -185,29 +185,29 @@ export function TrackerClient({ initialQuotes }: { initialQuotes: TrackedQuote[]
                               router.push(`/quotes/${quote.id}`);
                             }
                           }}
-                          className="group cursor-pointer focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ws-accent)]"
+                          className="group cursor-pointer focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ws-accent)]"
                         >
                           <TableCell className="pl-4">
                             <Link href={`/quotes/${quote.id}`} className="block" onClick={(event) => event.stopPropagation()}>
-                              <p className="max-w-72 truncate font-semibold text-slate-900">{quote.title || quote.number || "Conceptofferte"}</p>
-                              <p className="text-xs text-slate-400">{quote.number ?? "Concept zonder nummer"}</p>
+                              <p className="max-w-72 truncate font-semibold text-foreground">{quote.title || quote.number || "Conceptofferte"}</p>
+                              <p className="text-sm text-muted-foreground">{quote.number ?? "Concept zonder nummer"}</p>
                             </Link>
                           </TableCell>
                           <TableCell>
                             <p className="max-w-56 truncate font-medium">{quote.customer.name}</p>
-                            <p className="max-w-56 truncate text-xs text-slate-400">{quote.customer.email || "Geen e-mail"}</p>
+                            <p className="max-w-56 truncate text-sm text-muted-foreground">{quote.customer.email || "Geen e-mail"}</p>
                           </TableCell>
-                          <TableCell className="text-slate-500">
+                          <TableCell className="text-muted-foreground">
                             <p>{formatDate(quote.sentAt)}</p>
-                            {quote.sendCount > 1 && <p className="text-xs text-slate-400">{quote.sendCount}x verstuurd</p>}
+                            {quote.sendCount > 1 && <p className="text-sm text-muted-foreground">{quote.sendCount}x verstuurd</p>}
                           </TableCell>
                           <TableCell>
                             {opened ? (
-                              <div className="flex items-center gap-1.5 text-slate-700">
+                              <div className="flex items-center gap-1.5 text-foreground">
                                 <Eye className="h-3.5 w-3.5 text-violet-500" />
                                 <span>{quote.share?.viewCount}x</span>
                                 {quote.share?.lastViewedAt && (
-                                  <span className="text-xs text-slate-400">· {formatDateTime(quote.share.lastViewedAt)}</span>
+                                  <span className="text-sm text-muted-foreground">· {formatDateTime(quote.share.lastViewedAt)}</span>
                                 )}
                               </div>
                             ) : idle ? (
@@ -215,7 +215,7 @@ export function TrackerClient({ initialQuotes }: { initialQuotes: TrackedQuote[]
                                 {daysSince(quote.sentAt)}d niet geopend
                               </Badge>
                             ) : (
-                              <span className="text-xs text-slate-400">Nog niet geopend</span>
+                              <span className="text-sm text-muted-foreground">Nog niet geopend</span>
                             )}
                           </TableCell>
                           <TableCell>
@@ -227,7 +227,7 @@ export function TrackerClient({ initialQuotes }: { initialQuotes: TrackedQuote[]
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Link href={`/quotes/${quote.id}`} onClick={(event) => event.stopPropagation()} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900">
+                            <Link href={`/quotes/${quote.id}`} onClick={(event) => event.stopPropagation()} className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
                               <ArrowUpRight className="h-4 w-4" />
                             </Link>
                           </TableCell>
@@ -240,7 +240,7 @@ export function TrackerClient({ initialQuotes }: { initialQuotes: TrackedQuote[]
             </>
           )}
         </div>
-        <p className="text-xs text-slate-400">
+        <p className="text-sm text-muted-foreground">
           {filtered.length} van {initialQuotes.length} verstuurde offertes zichtbaar
         </p>
       </div>

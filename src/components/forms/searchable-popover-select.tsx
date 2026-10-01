@@ -18,7 +18,7 @@ export function SearchablePopoverSelect<T>({
   emptyLabel = "Niets gevonden",
   allowClear = true,
   clearLabel = "— Geen —",
-  className = "h-9 w-full justify-between font-normal bg-white",
+  className = "h-9 w-full justify-between font-normal bg-card",
 }: {
   items: T[];
   value: string;
@@ -62,8 +62,8 @@ export function SearchablePopoverSelect<T>({
         }
       />
       <PopoverContent align="start" className="z-[200] w-[280px] p-0 gap-0">
-        <div className="p-2 border-b border-slate-100 relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+        <div className="p-2 border-b border-border relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             autoFocus
             value={search}
@@ -81,15 +81,15 @@ export function SearchablePopoverSelect<T>({
                 setOpen(false);
                 setSearch("");
               }}
-              className={`w-full text-left px-2 py-1.5 rounded-md text-sm hover:bg-slate-100 text-slate-500 ${
-                !value ? "bg-slate-100 font-semibold" : ""
+              className={`w-full text-left px-2 py-1.5 rounded-md text-sm hover:bg-muted text-muted-foreground ${
+                !value ? "bg-muted font-semibold" : ""
               }`}
             >
               {clearLabel}
             </button>
           )}
           {filtered.length === 0 ? (
-            <p className="text-xs text-slate-400 px-2 py-3 text-center">{emptyLabel}</p>
+            <p className="text-sm text-muted-foreground px-2 py-3 text-center">{emptyLabel}</p>
           ) : (
             filtered.map((item) => {
               const id = getId(item);
@@ -103,12 +103,12 @@ export function SearchablePopoverSelect<T>({
                     setOpen(false);
                     setSearch("");
                   }}
-                  className={`w-full text-left px-2 py-1.5 rounded-md text-sm hover:bg-slate-100 ${
-                    id === value ? "bg-slate-100 font-semibold" : ""
+                  className={`w-full text-left px-2 py-1.5 rounded-md text-sm hover:bg-muted ${
+                    id === value ? "bg-muted font-semibold" : ""
                   }`}
                 >
                   <span className="truncate block">{getLabel(item)}</span>
-                  {sub && <span className="block text-[11px] text-slate-400 truncate">{sub}</span>}
+                  {sub && <span className="block text-sm text-muted-foreground truncate">{sub}</span>}
                 </button>
               );
             })

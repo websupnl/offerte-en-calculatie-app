@@ -59,7 +59,7 @@ export function SupplierSelect({
         }
       }}
     >
-      <SelectTrigger className="bg-white">
+      <SelectTrigger className="bg-card">
         <SelectValue placeholder="Kies leverancier" />
       </SelectTrigger>
       <SelectContent>

@@ -71,7 +71,7 @@ export const DEFAULT_BRANDING: Record<string, CompanyBranding> = {
     backgroundColor: "#fbfcfd",
     textColor: "#102D59",
     logoUrl: "/logos/koolhaas-logo.png",
-    faviconUrl: "/icons/icon-192.png",
+    faviconUrl: "/logos/koolhaas-icon.png",
     font: "Sora",
     tagline: "Techniek die eerst goed doordacht wordt en daarna netjes wordt uitgevoerd.",
   },
@@ -107,15 +107,22 @@ export function getBranding(slug: string, stored?: Partial<CompanyBranding>): Co
   const fonts = new Set(["Inter", "Nunito", "Sora", "Bricolage Grotesque", "Arial"]);
   const safeAsset = (value: string | undefined, fallback: string, folders: string[]) =>
     value && (value.startsWith("s3://") || folders.some((folder) => value.startsWith(folder))) ? value : fallback;
+  const accentColor = color(candidate.accentColor, base.accentColor);
+  const faviconUrl = slug === "koolhaas" && candidate.faviconUrl === "/icons/icon-192.png"
+    ? base.faviconUrl
+    : safeAsset(candidate.faviconUrl, base.faviconUrl, ["/icons/", "/logos/"]);
   return {
     ...candidate,
     primaryColor: color(candidate.primaryColor, base.primaryColor),
-    accentColor: color(candidate.accentColor, base.accentColor),
+    // De WebsUp-standaardkleur is geen veilige fallback voor Koolhaas.
+    accentColor: slug === "koolhaas" && accentColor.toLowerCase() === "#f97316"
+      ? base.accentColor
+      : accentColor,
     backgroundColor: color(candidate.backgroundColor, base.backgroundColor),
     textColor: color(candidate.textColor, base.textColor),
     font: fonts.has(candidate.font) ? candidate.font : base.font,
     logoUrl: safeAsset(candidate.logoUrl, base.logoUrl, ["/logos/"]),
-    faviconUrl: safeAsset(candidate.faviconUrl, base.faviconUrl, ["/icons/"]),
+    faviconUrl,
     tagline: typeof candidate.tagline === "string" ? candidate.tagline : base.tagline,
   };
 }
