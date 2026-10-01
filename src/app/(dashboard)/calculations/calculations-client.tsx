@@ -384,8 +384,8 @@ export function CalculationsClient({
                             </span>
                           )}
                           {calc.quote && (
-                            <span className="flex items-center gap-1 font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                              <FileText className="h-3.5 w-3.5 text-emerald-600" />
+                            <span className="flex items-center gap-1 font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                              <FileText className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-400" />
                               Offerte {calc.quote.number ?? "zonder nummer"}
                             </span>
                           )}
@@ -410,11 +410,11 @@ export function CalculationsClient({
                         </div>
 
                         <div className="border-l border-border pl-3 text-right">
-                          <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Brutowinst</p>
-                          <p className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                          <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 dark:text-emerald-400">Brutowinst</p>
+                          <p className="text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-400 dark:text-emerald-400">
                             {formatCurrency(calc.marginAmount)}
                           </p>
-                          <p className="text-sm font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded inline-block mt-0.5">
+                          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded inline-block mt-0.5">
                             {calc.marginPercent.toFixed(1)}% marge
                           </p>
                         </div>

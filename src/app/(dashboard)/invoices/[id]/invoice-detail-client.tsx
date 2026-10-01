@@ -37,8 +37,8 @@ const STATUS_STYLE: Record<string, string> = {
   CONCEPT: "bg-muted text-foreground",
   GEREED: "bg-amber-100 text-amber-900",
   VERZENDEN: "bg-amber-100 text-amber-900",
-  VERZONDEN: "bg-sky-100 text-sky-800",
-  BETAALD: "bg-emerald-100 text-emerald-800",
+  VERZONDEN: "bg-primary/10 text-primary",
+  BETAALD: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
   VERVALLEN: "bg-red-100 text-red-700",
 };
 
@@ -272,7 +272,7 @@ export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigu
       )}
 
       {locked && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-sky-50 px-4 py-3 text-sm text-sky-900 ring-1 ring-sky-200">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-primary/10 px-4 py-3 text-sm text-primary ring-1 ring-primary/25">
           <span>Deze factuur is {INVOICE_STATUS_LABELS[status].toLowerCase()}. De regels zijn vergrendeld zodat hij gelijk blijft aan wat de klant heeft.</span>
         </div>
       )}

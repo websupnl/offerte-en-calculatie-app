@@ -166,7 +166,7 @@ export function QuotePricePanel({
                             <p className="text-sm font-bold tabular-nums text-foreground">
                               {formatCurrency(calculatie.totalExVat)}
                             </p>
-                            <p className="flex items-center justify-end gap-1 text-sm font-semibold text-emerald-600">
+                            <p className="flex items-center justify-end gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
                               <TrendingUp className="h-3 w-3" />
                               {calculatie.marginPercent.toFixed(0)}%
                             </p>

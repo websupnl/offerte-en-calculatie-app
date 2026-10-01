@@ -18,6 +18,7 @@ const routeLabels: Record<string, string> = {
   advice: "Adviesdocumenten", knowledge: "Kennisbank", products: "Artikelen", settings: "Instellingen",
   werkplek: "Koppelingen", tasks: "Taken", agenda: "Agenda", notes: "Notities", contracts: "Contracten",
   subscriptions: "Abonnementen", tracker: "Verzendtracker", review: "Reviews", new: "Nieuw",
+  login: "Ontwerp", ontwerp: "Werkplek",
 };
 const subscribeToHydration = () => () => {};
 

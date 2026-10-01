@@ -293,10 +293,10 @@ export function AgendaClient({
             <div className="flex items-center gap-4">
               <div className="hidden items-center gap-3 text-sm font-semibold text-muted-foreground sm:flex">
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2 shrink-0 rounded-full bg-sky-400" /> Zakelijk
+                  <span className="size-2 shrink-0 rounded-full bg-primary" /> Zakelijk
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2 shrink-0 rounded-full bg-violet-400" /> Privé
+                  <span className="size-2 shrink-0 rounded-full bg-primary" /> Privé
                 </span>
               </div>
               <div className="flex items-center gap-1">
@@ -338,7 +338,7 @@ export function AgendaClient({
                   key={date.toISOString()}
                   className={cn(
                     "flex min-w-0 flex-1 flex-col items-center gap-1 border-l border-border py-2.5",
-                    isToday && "bg-sky-50/50",
+                    isToday && "bg-primary/10",
                   )}
                 >
                   <span className="text-sm font-bold uppercase tracking-[0.16em] text-muted-foreground">
@@ -370,7 +370,7 @@ export function AgendaClient({
                     key={date.toISOString()}
                     className={cn(
                       "min-w-0 flex-1 space-y-1 border-l border-border p-1.5",
-                      isToday && "bg-sky-50/50",
+                      isToday && "bg-primary/10",
                     )}
                   >
                     {allDayTasks.map((task) => (
@@ -381,8 +381,8 @@ export function AgendaClient({
                           "block truncate rounded-md px-1.5 py-1 text-sm font-semibold",
                           task.status === "DONE" && "text-muted-foreground line-through",
                           task.companyId
-                            ? "bg-sky-50 text-sky-800 hover:bg-sky-100"
-                            : "bg-violet-50 text-violet-800 hover:bg-violet-100",
+                            ? "bg-primary/10 text-primary hover:bg-primary/10"
+                            : "bg-primary/10 text-primary hover:bg-primary/10",
                         )}
                       >
                         {task.title}
@@ -444,7 +444,7 @@ export function AgendaClient({
                       key={date.toISOString()}
                       className={cn(
                         "group/col relative min-w-0 flex-1 cursor-pointer border-l border-border",
-                        isToday ? "bg-sky-50/40 hover:bg-sky-50/70" : isWeekend ? "bg-muted/70 hover:bg-muted/70" : "bg-card hover:bg-muted/60",
+                        isToday ? "bg-primary/40 hover:bg-primary/10" : isWeekend ? "bg-muted/70 hover:bg-muted/70" : "bg-card hover:bg-muted/60",
                       )}
                       style={{ height: gridHeight }}
                       onClick={(event) => {
@@ -472,8 +472,8 @@ export function AgendaClient({
                             task.status === "DONE"
                               ? "border-border bg-muted/40 text-muted-foreground line-through"
                               : task.companyId
-                              ? "border-sky-200 bg-sky-50 text-sky-900 hover:bg-sky-100"
-                              : "border-violet-200 bg-violet-50 text-violet-900 hover:bg-violet-100",
+                              ? "border-primary/25 bg-primary/10 text-primary hover:bg-primary/10"
+                              : "border-primary/25 bg-primary/10 text-primary hover:bg-primary/10",
                           )}
                           style={{
                             top,

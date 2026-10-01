@@ -2,6 +2,17 @@
 
 Jij maakt een complete, importklare offerte voor de offerte-app van Daan Koolhaas en importeert deze direct via de CLI.
 
+## Werkplek en calculatie-alternatieven
+
+- Calculaties zijn de prijsbron. Open de bijbehorende calculatie om materialen, uren, tekstregels en optionele extra's te wijzigen.
+- Een gekoppelde conceptofferte actualiseer je met **Concept actualiseren**. Maak hiervoor geen nieuwe offerte en ken geen nummer toe tijdens de review.
+- **Maak alternatief** onder de calculatietabel kopieert de actuele, opgeslagen uitvoering naar dezelfde conceptofferte. De oorspronkelijke uitvoering en de kopie worden beide `VARIANT`; de klant kiest er één. Een losse calculatie krijgt hierbij eerst een conceptofferte zonder nummer.
+- Optionele extra's worden bij deze fork één gezamenlijke basiscalculatie, zodat ze bij beide uitvoeringen selecteerbaar blijven. Reken volledige alternatieven niet als twee inbegrepen onderdelen.
+- Het bestaande endpoint `POST /api/calculations/[id]/duplicate` ondersteunt `{ "asAlternative": true }` voor deze fork. Zonder deze vlag maak je een losse kopie. De fork werkt alleen op conceptoffertes.
+- Gebruik **Onderdeel toevoegen** in de prijszijbalk voor een extra inbegrepen onderdeel, bijvoorbeeld een tweede laadpunt dat de klant samen met het eerste koopt. Gebruik optionele calculatieregels voor losse keuzes.
+- Media en documenten staan in het vaste offertebewerkpaneel. Een afbeelding kan bij een onderdeel of op een eigen voorbeeldpagina staan. Kies een eerder geüpload bestand wanneer dat bruikbaar is.
+
+
 ## Stap 0 — Onderzoek producten en prijzen (web-first)
 
 Ga **altijd** eerst onderzoeken wat je nodig hebt vóór je prijzen opzoekt. Volgorde:

@@ -57,7 +57,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const highestOrder = linkedCopy ? await tx.calculation.aggregate({
         where: { quoteId, companyId }, _max: { sortOrder: true },
       }) : null;
-      return tx.calculation.create({
+      const copiedItems = asAlternative ? source.items.filter(item => !item.optional) : source.items;
+      const duplicate = await tx.calculation.create({
         data: {
           companyId, customerId: source.customerId, projectId: source.projectId,
           quoteId: linkedCopy ? quoteId : null,
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           description: source.description, status: "DRAFT", vatRate: source.vatRate,
           totalCostPrice: source.totalCostPrice, totalSalesPrice: source.totalSalesPrice,
           marginAmount: source.marginAmount, marginPercent: source.marginPercent, notes: source.notes,
-          items: source.items.length ? { create: source.items.map(item => ({
+          items: copiedItems.length ? { create: copiedItems.map(item => ({
             productId: item.productId, type: item.type, supplier: item.supplier, sku: item.sku,
             description: item.description, qty: item.qty, unit: item.unit, costPrice: item.costPrice,
             markupPercent: item.markupPercent, unitPrice: item.unitPrice,
@@ -79,8 +80,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         },
         include: { customer: true, project: true, items: true },
       });
+      if (asAlternative && source.items.some(item => item.optional)) {
+        // Optional work belongs beside the alternatives. Variant pricing does
+        // not expose optional rows, so preserve them once as a common BASE.
+        const extrasNumber = await nextCalculationNumber(companyId, company?.slug ?? "xx", tx);
+        const extras = await tx.calculation.create({ data: {
+          companyId, customerId: source.customerId, projectId: source.projectId, quoteId,
+          number: extrasNumber, title: `${source.title} (optionele extra's)`, role: "BASE",
+          status: "DRAFT", vatRate: source.vatRate, sortOrder: duplicate.sortOrder + 1,
+        } });
+        await tx.calculationItem.updateMany({
+          where: { calculationId: source.id, optional: true }, data: { calculationId: extras.id },
+        });
+      }
+      await syncQuoteTotalsFromCalculations(duplicate.quoteId, tx);
+      return duplicate;
     });
-    await syncQuoteTotalsFromCalculations(duplicate.quoteId);
     return NextResponse.json(duplicate, { status: 201 });
   } catch (error) {
     if (error instanceof ForkError) return NextResponse.json({ error: error.message }, { status: error.status });

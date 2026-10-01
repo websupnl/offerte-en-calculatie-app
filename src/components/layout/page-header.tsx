@@ -16,7 +16,7 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        "workspace-page-header flex flex-col gap-4 px-5 pb-2 pt-7 sm:flex-row sm:items-end sm:justify-between lg:px-8",
+        "workspace-page-header flex flex-col gap-4 px-5 pb-2 pt-7 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between lg:px-8",
         className,
       )}
     >

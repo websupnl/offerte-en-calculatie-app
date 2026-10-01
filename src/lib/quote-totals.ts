@@ -13,10 +13,10 @@ import { buildQuotePricing, resolvePricing, usesCalculationPricing } from "@/lib
  * Doet niets bij een offerte die nog losse regels heeft: die zit op het oude pad
  * en houdt zijn eigen totaal.
  */
-export async function syncQuoteTotalsFromCalculations(quoteId: string | null | undefined) {
+export async function syncQuoteTotalsFromCalculations(quoteId: string | null | undefined, client: Pick<typeof prisma, "quote"> = prisma) {
   if (!quoteId) return;
 
-  const quote = await prisma.quote.findUnique({
+  const quote = await client.quote.findUnique({
     where: { id: quoteId },
     select: {
       id: true,
@@ -34,7 +34,7 @@ export async function syncQuoteTotalsFromCalculations(quoteId: string | null | u
   // extra's. Dat is hetzelfde uitgangspunt als de preview toont.
   const totals = resolvePricing(buildQuotePricing(quote.calculations));
 
-  await prisma.quote.update({
+  await client.quote.update({
     where: { id: quote.id },
     data: {
       totalExVat: totals.totalExVat,

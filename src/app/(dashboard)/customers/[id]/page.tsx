@@ -146,7 +146,7 @@ export default async function CustomerDetailPage({
             <DossierSection title="Projecten" count={customer.projects.length} empty="Nog geen projecten voor deze klant.">
               {customer.projects.map((project) => (
                 <Link key={project.id} href={`/projects/${project.id}`} className="group flex items-center gap-4 border-b px-4 py-3 last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none">
-                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-sky-50 text-sky-600"><FolderKanban className="h-4 w-4" /></div>
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><FolderKanban className="h-4 w-4" /></div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold">{project.title}</p>
                     <p className="text-sm text-muted-foreground">{project.number} · {project.city || "Geen plaats"} · {formatDate(project.updatedAt)}</p>

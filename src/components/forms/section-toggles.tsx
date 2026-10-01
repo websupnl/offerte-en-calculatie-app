@@ -53,7 +53,7 @@ export function SectionToggles({
             }`}
           >
             {zichtbaar
-              ? <Eye className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+              ? <Eye className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
               : <EyeOff className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />}
             <span className="min-w-0 flex-1">
               <span className={`block text-sm font-bold ${zichtbaar ? "text-foreground" : "text-muted-foreground"}`}>

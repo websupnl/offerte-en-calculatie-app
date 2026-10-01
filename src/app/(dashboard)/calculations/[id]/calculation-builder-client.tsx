@@ -29,14 +29,11 @@ import {
   Layers,
   Loader2,
   Percent,
-  CheckCircle2,
   MapPin,
   Eye,
   EyeOff,
-  GitBranch,
   Repeat,
   GripVertical,
-  RefreshCw,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { estimateTravelDistanceKm, getTravelPrice, type TravelPricingTier } from "@/lib/travel";
@@ -692,7 +689,7 @@ export function CalculationBuilderClient({
             <Link href="/calculations">
               <Button variant="outline">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Terug naar overzicht
+                Overzicht
               </Button>
             </Link>
 
@@ -701,7 +698,7 @@ export function CalculationBuilderClient({
                 <><Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /><span className="text-muted-foreground">Bezig met opslaan</span></>
               )}
               {saveStatus === "saved" && (
-                <><Check className="h-3.5 w-3.5 text-emerald-600" /><span className="text-emerald-600">Opgeslagen</span></>
+                <><Check className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-400" /><span className="text-emerald-700 dark:text-emerald-400">Opgeslagen</span></>
               )}
               {saveStatus === "unsaved" && (
                 <span className="text-muted-foreground">Wijzigingen worden opgeslagen</span>
@@ -760,7 +757,7 @@ export function CalculationBuilderClient({
           <Card className="border-border bg-card shadow-none">
             <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="text-sm font-medium text-muted-foreground">
                   Deze calculatie bepaalt de prijs van
                 </span>
                 <p className="mt-1 text-base font-bold text-foreground">
@@ -787,19 +784,6 @@ export function CalculationBuilderClient({
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {calculation.quote.status === "DRAFT" && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleUpdateDraftQuote}
-                    disabled={updatingQuote || saving}
-                  >
-                    {updatingQuote
-                      ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      : <RefreshCw className="mr-2 h-4 w-4" />}
-                    Conceptofferte bijwerken
-                  </Button>
-                )}
                 <div className="flex rounded-lg border border-border p-0.5">
                   {([
                     ["BASE", "Basis", "Telt altijd mee in de prijs"],
@@ -820,12 +804,7 @@ export function CalculationBuilderClient({
                   ))}
                 </div>
 
-                <Button variant="outline" size="sm" onClick={() => handleAddVariant()} disabled={variantBezig || calculation.quote.status !== "DRAFT"}>
-                  {variantBezig
-                    ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                    : <GitBranch className="mr-1.5 h-4 w-4" />}
-                  Variant toevoegen
-                </Button>
+
               </div>
             </CardContent>
 
@@ -883,17 +862,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
               </div>
             </div>
 
-            {calculation.quote && (
-              <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2 font-semibold text-emerald-900">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  Deze calculatie is gekoppeld aan Offerte {calculation.quote.number ?? "zonder nummer"}
-                </span>
-                <Link href={`/quotes/${calculation.quote.id}`}>
-                  <Button variant="outline" size="sm">Bekijk Offerte</Button>
-                </Link>
-              </div>
-            )}
+
           </CardContent>
         </Card>
 
@@ -902,7 +871,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
           <CardHeader className="pb-3 border-b flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
               <CardTitle className="text-base font-semibold">Calculatieregels ({items.length})</CardTitle>
-              <p className="text-sm text-muted-foreground mt-0.5">
+              <p className="text-base text-muted-foreground mt-0.5">
                 Stel per regel de netto inkoopprijs en opslag % in voor automatische verkoopprijsberekening.
               </p>
             </div>
@@ -923,7 +892,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
               />
 
               <Button variant="outline" size="sm" onClick={() => setSetDialogOpen(true)}>
-                <Layers className="mr-1.5 h-4 w-4 text-indigo-600" />
+                <Layers className="mr-1.5 h-4 w-4 text-primary" />
                 Set / Combi inladen
               </Button>
 
@@ -943,7 +912,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
               </Button>
 
               <Button variant="ghost" size="sm" onClick={() => setBulkMarkupOpen(true)}>
-                <Percent className="mr-1.5 h-4 w-4 text-emerald-600" />
+                <Percent className="mr-1.5 h-4 w-4 text-emerald-700 dark:text-emerald-400" />
                 Marge instellen
               </Button>
             </div>
@@ -1005,7 +974,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                                 moveItem(idx, idx + (event.key === "ArrowUp" ? -1 : 1));
                               }
                             }}
-                            className="touch-none cursor-grab rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                            className="touch-none cursor-grab rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
                             aria-label={`Regel ${idx + 1} verplaatsen. Gebruik Alt plus pijltje omhoog of omlaag om de volgorde aan te passen.`}
                             title="Sleep om te verplaatsen, of gebruik Alt + ↑ / ↓"
                           >
@@ -1032,7 +1001,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className={`h-7 w-7 ${item.hiddenOnQuote ? "text-muted-foreground" : "text-emerald-600"}`}
+                          className={`h-7 w-7 ${item.hiddenOnQuote ? "text-muted-foreground" : "text-emerald-700 dark:text-emerald-400"}`}
                           onClick={() => updateItem(idx, "hiddenOnQuote", !item.hiddenOnQuote)}
                           title={item.hiddenOnQuote ? "Verborgen op offerte — klik om te tonen" : "Zichtbaar op offerte — klik om te verbergen"}
                           aria-label={item.hiddenOnQuote ? "Regel tonen op offerte" : "Regel verbergen op offerte"}
@@ -1099,7 +1068,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                             step="0.1"
                             value={item.markupPercent}
                             onChange={(e) => updateItem(idx, "markupPercent", e.target.value)}
-                            className="h-8 min-w-[76px] text-sm bg-card text-right pr-5 tabular-nums text-emerald-700 font-semibold"
+                            className="h-8 min-w-[76px] text-sm bg-card text-right pr-5 tabular-nums text-emerald-700 dark:text-emerald-400 font-semibold"
                           />
                           <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
                         </div>
@@ -1123,7 +1092,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                       </td>
 
                       {/* Total Sales */}
-                      <td className="py-2 px-3 text-right tabular-nums font-bold text-emerald-700">
+                      <td className="py-2 px-3 text-right tabular-nums font-bold text-emerald-700 dark:text-emerald-400">
                         {formatCurrency(item.qty * item.unitPrice)}
                         <div className="text-sm font-normal text-muted-foreground">
                           {formatCurrency(item.qty * item.unitPrice * (1 + item.vatRate / 100))} incl.
@@ -1250,7 +1219,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                   <div
                     key={s.id}
                     onClick={() => addProductSet(s)}
-                    className="p-3 border rounded-lg hover:border-indigo-500 hover:bg-indigo-50/50 cursor-pointer transition-all flex items-center justify-between"
+                    className="p-3 border rounded-lg hover:border-primary/25 hover:bg-primary/10 cursor-pointer transition-all flex items-center justify-between"
                   >
                     <div>
                       <h4 className="font-semibold text-sm text-foreground">{s.name}</h4>

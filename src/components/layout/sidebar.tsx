@@ -1,6 +1,8 @@
 "use client";
 
 import type React from "react";
+import { useSyncExternalStore } from "react";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -51,12 +53,16 @@ export function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; on
     .filter(item => pathname === item.href || pathname.startsWith(`${item.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
-  return <>
-    {mobileOpen && <button type="button" aria-label="Navigatie sluiten" className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs lg:hidden" onClick={onMobileClose} />}
-    <aside aria-label="Werkpleknavigatie" className={cn(
-      "workspace-sidebar fixed inset-y-0 left-0 z-50 flex w-[256px] flex-col border-r border-border bg-card transition-transform duration-200 lg:sticky lg:top-0 lg:z-30 lg:h-dvh lg:w-[240px] lg:shrink-0 lg:translate-x-0",
-      mobileOpen ? "translate-x-0" : "-translate-x-full",
-    )}>
+  const desktop = useSyncExternalStore(
+    (listener) => {
+      const query = window.matchMedia("(min-width: 1024px)");
+      query.addEventListener("change", listener);
+      return () => query.removeEventListener("change", listener);
+    },
+    () => window.matchMedia("(min-width: 1024px)").matches,
+    () => true,
+  );
+  const content = <>
       <div className="flex h-[72px] shrink-0 items-center gap-1 border-b border-border px-3">
         <DropdownMenu>
           <DropdownMenuTrigger aria-label={`Bedrijf wisselen: ${activeCompany?.name ?? "selecteer bedrijf"}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -84,8 +90,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; on
           <div className="space-y-0.5">
             {group.items.filter(item => !item.koolhaasOnly || activeCompany?.slug === "koolhaas").map(item => {
               const selected = activeHref === item.href;
-              return <Link key={item.href} href={item.href} onClick={onMobileClose} aria-current={selected ? "page" : undefined} className={cn(
-                "relative isolate flex min-h-9 items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              return <Link key={item.href} href={item.href} prefetch={false} onClick={onMobileClose} aria-current={selected ? "page" : undefined} className={cn(
+                "relative isolate flex min-h-11 items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-9",
                 selected ? "font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
               )}>
                 {selected && <m.span layoutId="workspace-navigation" transition={{ type: "spring", stiffness: 480, damping: 40 }} className="absolute inset-0 -z-10 rounded-lg border border-border bg-muted" />}
@@ -102,6 +108,13 @@ export function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; on
           <LogOut className="size-[18px]" />Uitloggen
         </button>
       </div>
-    </aside>
+
   </>;
+  if (desktop) return <aside aria-label="Werkpleknavigatie" className="workspace-sidebar sticky top-0 z-30 hidden h-dvh w-[240px] shrink-0 flex-col border-r border-border bg-card lg:flex">{content}</aside>;
+  return <Sheet open={mobileOpen} onOpenChange={open => { if (!open) onMobileClose(); }}>
+    <SheetContent side="left" showCloseButton={false} className="gap-0! w-[280px]! max-w-[calc(100vw-2rem)]! bg-card">
+      <SheetTitle className="sr-only">Werkpleknavigatie</SheetTitle>
+      {content}
+    </SheetContent>
+  </Sheet>;
 }

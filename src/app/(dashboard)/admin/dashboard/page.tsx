@@ -93,7 +93,7 @@ export default async function AdminDashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold uppercase text-muted-foreground flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-blue-500" /> Gem. Marge
+              <BarChart3 className="h-4 w-4 text-primary" /> Gem. Marge
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -105,11 +105,11 @@ export default async function AdminDashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold uppercase text-muted-foreground flex items-center gap-2">
-              <Clock className="h-4 w-4 text-orange-500" /> Potentiële Winst
+              <Clock className="h-4 w-4 text-primary" /> Potentiële Winst
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black text-orange-600">{formatCurrency(potentialMargin.profit)}</div>
+            <div className="text-3xl font-black text-primary">{formatCurrency(potentialMargin.profit)}</div>
             <p className="text-sm text-muted-foreground mt-1">In {stats.open.length} openstaande offertes</p>
           </CardContent>
         </Card>
@@ -117,7 +117,7 @@ export default async function AdminDashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold uppercase text-muted-foreground flex items-center gap-2">
-              <PieChart className="h-4 w-4 text-purple-500" /> Conversie
+              <PieChart className="h-4 w-4 text-primary" /> Conversie
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -167,7 +167,7 @@ export default async function AdminDashboardPage() {
             <div className="space-y-4">
               {[
                 { label: "Geaccepteerd", count: stats.accepted.length, color: "bg-green-500", icon: CheckCircle },
-                { label: "Openstaand", count: stats.open.length, color: "bg-orange-500", icon: Clock },
+                { label: "Openstaand", count: stats.open.length, color: "bg-primary", icon: Clock },
                 { label: "Afgewezen", count: stats.declined.length, color: "bg-red-500", icon: AlertCircle },
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-4">

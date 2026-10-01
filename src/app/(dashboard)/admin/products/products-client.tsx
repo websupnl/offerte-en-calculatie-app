@@ -538,7 +538,7 @@ export function ProductsClient({
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setCliDialogOpen(true)}>
-              <Terminal className="mr-2 h-4 w-4 text-emerald-600" />
+              <Terminal className="mr-2 h-4 w-4 text-emerald-700 dark:text-emerald-400" />
               Sync Leverancier (CLI)
             </Button>
             <Button onClick={openCreate}>
@@ -937,7 +937,7 @@ export function ProductsClient({
                 <Label>Verkoop (ex)</Label>
                 <button
                   type="button"
-                  className="text-sm text-blue-600 hover:underline"
+                  className="text-sm text-primary hover:underline"
                   onClick={() => setValue("basePriceAuto", !watchedBasePriceAuto)}
                 >
                   {watchedBasePriceAuto ? "Handmatig aanpassen" : "Automatisch berekenen"}
@@ -1156,7 +1156,7 @@ export function ProductsClient({
         <DialogContent className="max-w-2xl max-h-[85vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Terminal className="h-5 w-5 text-emerald-600" />
+              <Terminal className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
               CLI Scraper Uitvoeren (Realtime Output)
             </DialogTitle>
           </DialogHeader>
@@ -1212,7 +1212,7 @@ export function ProductsClient({
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-semibold">Terminal Stdout / Stderr Output</Label>
                 {cliRunning && (
-                  <span className="text-sm text-emerald-600 font-mono animate-pulse flex items-center gap-1">
+                  <span className="text-sm text-emerald-700 dark:text-emerald-400 font-mono animate-pulse flex items-center gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" /> Process actief...
                   </span>
                 )}

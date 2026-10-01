@@ -27,7 +27,7 @@ export function CalculationForkAction({ title, busy, canCreateAlternative, locke
       <h2 className="text-base font-semibold">Een andere uitvoering vergelijken</h2>
       <p className="mt-1 text-base leading-6 text-muted-foreground">{locked
         ? "Deze offerte is al verstuurd. Maak een losse kopie om een nieuwe uitvoering uit te werken."
-        : "Gebruik deze calculatie als vertrekpunt. Beide uitvoeringen worden keuzes in dezelfde conceptofferte."}</p>
+        : "Gebruik deze calculatie als vertrekpunt. Beide uitvoeringen worden keuzes in dezelfde conceptofferte. Optionele extra’s blijven apart beschikbaar."}</p>
       <span className="sr-only">Uitgangspunt: {title}</span>
       {!canCreateAlternative && !locked && <p className="mt-1 text-sm text-muted-foreground">Koppel eerst een klant om een conceptofferte met alternatieven te maken.</p>}
     </div>

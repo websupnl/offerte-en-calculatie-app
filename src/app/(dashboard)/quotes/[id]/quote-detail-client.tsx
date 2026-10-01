@@ -12,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
-  ArrowLeft,
   Share2,
   Pencil,
   Trash2,
@@ -634,7 +633,7 @@ export function QuoteDetailClient({
                           {line.currentCost !== null ? ` → ${formatCurrency(line.currentCost)}` : ""}
                         </p>
                       </div>
-                      <span className={`rounded-md px-2 py-1 text-sm font-medium ${line.issues.length ? "bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-100" : "bg-emerald-100 text-emerald-950 dark:bg-emerald-950 dark:text-emerald-100"}`}>
+                      <span className={`rounded-md px-2 py-1 text-sm font-medium ${line.issues.length ? "bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-100" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-950 dark:text-emerald-100"}`}>
                         {line.issues.length ? "Controleren" : "Actueel"}
                       </span>
                     </div>
@@ -893,11 +892,11 @@ export function QuoteDetailClient({
         {activeTab === "view" && (
           <div className="space-y-4">
           {quote.share?.acceptedAt && (
-            <Card className="border-emerald-200 bg-emerald-50/50">
+            <Card className="border-emerald-500/25 bg-emerald-500/10/50">
               <CardContent className="grid gap-3 pt-4 text-sm md:grid-cols-[1fr_auto]">
                 <div>
-                  <p className="font-bold text-emerald-950">Definitieve opdracht</p>
-                  <p className="mt-1 text-emerald-800">
+                  <p className="font-bold text-emerald-700 dark:text-emerald-400">Definitieve opdracht</p>
+                  <p className="mt-1 text-emerald-700 dark:text-emerald-400">
                     Ondertekend door {quote.share.signerName || quote.customer.name} op {formatDate(quote.share.acceptedAt)}.
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -909,7 +908,7 @@ export function QuoteDetailClient({
                     ))}
                   </div>
                 </div>
-                <strong className="text-lg text-emerald-950">
+                <strong className="text-lg text-emerald-700 dark:text-emerald-400">
                   {formatCurrency(Number(quote.share.acceptedTotalIncVat ?? quote.totalIncVat))}
                 </strong>
               </CardContent>

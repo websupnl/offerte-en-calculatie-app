@@ -142,7 +142,7 @@ export function AdviceBuilder({
                         setCustomerPickerOpen(false);
                       }}
                       className={`w-full text-left px-3 py-2 rounded-md text-sm hover:bg-muted ${
-                        c.id === customerId ? "bg-blue-50 text-blue-700 font-bold" : ""
+                        c.id === customerId ? "bg-primary/10 text-primary font-bold" : ""
                       }`}
                     >
                       {c.name}
@@ -153,7 +153,7 @@ export function AdviceBuilder({
             </PopoverContent>
           </Popover>
 
-          <Button disabled={!adviceData} className="bg-blue-600 hover:bg-blue-700">
+          <Button disabled={!adviceData} className="bg-primary hover:bg-primary">
             <Save className="mr-2 h-4 w-4" /> Rapport Opslaan
           </Button>
         </div>
@@ -162,9 +162,9 @@ export function AdviceBuilder({
       <main className="max-w-6xl mx-auto p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* ─── Left Column: Intake & Controls ─── */}
         <div className="lg:col-span-5 space-y-6">
-          <Card className="border-blue-100 shadow-none">
-            <CardHeader className="bg-blue-50/50">
-              <CardTitle className="text-sm font-black uppercase tracking-widest text-blue-900 flex items-center gap-2">
+          <Card className="border-primary/25 shadow-none">
+            <CardHeader className="bg-primary/10">
+              <CardTitle className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
                 <Sparkles className="h-4 w-4" /> Intake Gegevens
               </CardTitle>
             </CardHeader>
@@ -173,7 +173,7 @@ export function AdviceBuilder({
                 <Label className="text-sm font-bold text-muted-foreground uppercase">Input / Gesprek / P1 Data</Label>
                 <Textarea 
                   placeholder="Plak hier het gesprek met de klant, de P1 verbruiksgegevens of je eigen opname-notities..." 
-                  className="min-h-[300px] resize-none focus:ring-blue-500"
+                  className="min-h-[300px] resize-none focus:ring-primary/25"
                   value={intakePrompt}
                   onChange={(e) => setIntakePrompt(e.target.value)}
                 />
@@ -181,7 +181,7 @@ export function AdviceBuilder({
               <Button 
                 onClick={handleGenerateAdvice} 
                 disabled={generating || !customerId} 
-                className="w-full h-12 bg-blue-600 hover:bg-blue-700 font-bold text-lg gap-2 shadow-lg shadow-blue-200 transition-all active:scale-95"
+                className="w-full h-12 bg-primary hover:bg-primary font-bold text-lg gap-2 shadow-lg shadow-blue-200 transition-all active:scale-95"
               >
                 {generating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Wand2 className="h-5 w-5" />}
                 Genereer Technisch Advies
@@ -196,14 +196,14 @@ export function AdviceBuilder({
               </div>
               <CardContent className="p-6 relative z-10 space-y-4">
                 <div className="space-y-1">
-                  <h3 className="font-black text-xl text-blue-400">Advies Gereed</h3>
+                  <h3 className="font-black text-xl text-primary">Advies Gereed</h3>
                   <p className="text-muted-foreground text-sm">Zet dit advies nu om naar een officiële offerte.</p>
                 </div>
                 <Button 
                   onClick={handleConvertToQuote}
-                  className="w-full bg-card text-foreground hover:bg-blue-50 font-black h-12"
+                  className="w-full bg-card text-foreground hover:bg-primary/10 font-black h-12"
                 >
-                  <TrendingUp className="mr-2 h-5 w-5 text-blue-600" />
+                  <TrendingUp className="mr-2 h-5 w-5 text-primary" />
                   Genereer Offerte
                 </Button>
               </CardContent>
@@ -229,7 +229,7 @@ export function AdviceBuilder({
               <div className="bg-card border rounded-xl shadow-xl p-8 space-y-6">
                 <div className="flex justify-between items-start border-b pb-6">
                   <div className="space-y-1">
-                    <span className="text-sm font-black uppercase tracking-[0.2em] text-blue-600">Energie-advies rapport</span>
+                    <span className="text-sm font-black uppercase tracking-[0.2em] text-primary">Energie-advies rapport</span>
                     <h2 className="text-3xl font-black text-foreground">{adviceData.title}</h2>
                     <p className="text-muted-foreground font-medium">{customer?.name}</p>
                   </div>
@@ -242,9 +242,9 @@ export function AdviceBuilder({
                 {/* Summary Section */}
                 <div className="space-y-3">
                   <h3 className="font-bold text-lg flex items-center gap-2">
-                    <Activity className="h-5 w-5 text-blue-500" /> Advies in het kort
+                    <Activity className="h-5 w-5 text-primary" /> Advies in het kort
                   </h3>
-                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-blue-900 font-medium leading-relaxed whitespace-pre-wrap">
+                  <div className="bg-primary/10 border border-primary/25 rounded-xl p-4 text-primary font-medium leading-relaxed whitespace-pre-wrap">
                     {adviceData.summary}
                   </div>
                 </div>
@@ -287,7 +287,7 @@ export function AdviceBuilder({
                       </thead>
                       <tbody className="divide-y text-sm">
                         {adviceData.scenarios?.map((scenario, i) => (
-                          <tr key={i} className={i === 1 ? "bg-blue-50/50" : ""}>
+                          <tr key={i} className={i === 1 ? "bg-primary/10" : ""}>
                             <td className="px-4 py-3 font-bold">{scenario.name} {i === 1 && "✨"}</td>
                             <td className="px-4 py-3 font-medium">{scenario.capacityKwh} kWh</td>
                             <td className="px-4 py-3 text-muted-foreground">{scenario.goal}</td>
@@ -314,13 +314,13 @@ export function AdviceBuilder({
                   <div className="space-y-2">
                     {adviceData.calculation?.steps?.map((step: string, i: number) => (
                       <div key={i} className="flex gap-3 text-sm">
-                        <span className="text-blue-400 font-bold">{i + 1}.</span>
+                        <span className="text-primary font-bold">{i + 1}.</span>
                         <span className="text-slate-200">{step}</span>
                       </div>
                     ))}
                   </div>
                   <div className="pt-4 border-t border-white/10 flex justify-between items-center">
-                    <span className="font-bold text-blue-400">Resultaat:</span>
+                    <span className="font-bold text-primary">Resultaat:</span>
                     <span className="text-2xl font-black">{adviceData.calculation?.resultKwh} kWh bruikbaar</span>
                   </div>
                 </div>
@@ -329,7 +329,7 @@ export function AdviceBuilder({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-4 border rounded-xl space-y-2">
                     <p className="font-bold text-sm flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-orange-500" /> Slimme Sturing (EMS)
+                      <Zap className="h-4 w-4 text-primary" /> Slimme Sturing (EMS)
                     </p>
                     <p className="text-sm text-muted-foreground leading-relaxed">{adviceData.ems?.explanation}</p>
                   </div>

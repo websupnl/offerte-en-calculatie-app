@@ -70,10 +70,10 @@ export function TrackerClient({ initialQuotes }: { initialQuotes: TrackedQuote[]
   const conversionRate = totalSent > 0 ? Math.round((totalAccepted / totalSent) * 100) : 0;
 
   const metrics = [
-    { label: "Verstuurd", value: String(totalSent), meta: "offertes per e-mail", icon: MailCheck, color: "text-sky-600", surface: "bg-sky-50" },
-    { label: "Geopend", value: `${openRate}%`, meta: `${totalOpened} van ${totalSent} bekeken`, icon: Eye, color: "text-violet-600", surface: "bg-violet-50" },
+    { label: "Verstuurd", value: String(totalSent), meta: "offertes per e-mail", icon: MailCheck, color: "text-primary", surface: "bg-primary/10" },
+    { label: "Geopend", value: `${openRate}%`, meta: `${totalOpened} van ${totalSent} bekeken`, icon: Eye, color: "text-primary", surface: "bg-primary/10" },
     { label: "Wacht op reactie", value: String(totalWaiting), meta: "nog geen antwoord", icon: TimerReset, color: "text-amber-600", surface: "bg-amber-50" },
-    { label: "Conversie", value: `${conversionRate}%`, meta: `${totalAccepted} geaccepteerd`, icon: ThumbsUp, color: "text-emerald-600", surface: "bg-emerald-50" },
+    { label: "Conversie", value: `${conversionRate}%`, meta: `${totalAccepted} geaccepteerd`, icon: ThumbsUp, color: "text-emerald-700 dark:text-emerald-400", surface: "bg-emerald-500/10" },
   ];
 
   return (
@@ -204,7 +204,7 @@ export function TrackerClient({ initialQuotes }: { initialQuotes: TrackedQuote[]
                           <TableCell>
                             {opened ? (
                               <div className="flex items-center gap-1.5 text-foreground">
-                                <Eye className="h-3.5 w-3.5 text-violet-500" />
+                                <Eye className="h-3.5 w-3.5 text-primary" />
                                 <span>{quote.share?.viewCount}x</span>
                                 {quote.share?.lastViewedAt && (
                                   <span className="text-sm text-muted-foreground">· {formatDateTime(quote.share.lastViewedAt)}</span>

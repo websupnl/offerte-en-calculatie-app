@@ -220,7 +220,7 @@ export function ContractDetailClient({
                 </Button>
               </div>
               {contract.viewedAt && (
-                <p className="mt-2 text-sm text-emerald-700">
+                <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">
                   Klant heeft &apos;m bekeken op {formatDate(contract.viewedAt)}
                 </p>
               )}

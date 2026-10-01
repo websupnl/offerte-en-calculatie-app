@@ -43,7 +43,6 @@ import {
   Loader2,
   Trash2,
   Download,
-  FolderKanban,
   ClipboardList,
   Receipt,
   ShoppingCart,

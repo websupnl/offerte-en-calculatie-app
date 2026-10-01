@@ -58,7 +58,7 @@ const SENT_STATES = ["SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"];
 function SentMarker({ quote }: { quote: Quote }) {
   if (quote.sentAt) {
     return (
-      <p className="mt-1 text-sm text-emerald-600">
+      <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-400">
         Verstuurd {formatDate(quote.sentAt)}
         {quote.sendCount > 1 ? ` · ${quote.sendCount}x` : ""}
       </p>

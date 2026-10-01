@@ -27,7 +27,6 @@ import {
   ChevronDown,
   ChevronUp,
   CornerDownRight,
-  FileText,
   Search,
   Package,
   Layers,
@@ -48,6 +47,7 @@ import { QuoteSheetPreview, type QuotePageMeta, type QuotePreviewData } from "@/
 import { SheetScaler } from "@/components/sheet-scaler";
 import { SheetOverflowMonitor } from "@/components/forms/sheet-overflow-monitor";
 import { SectionToggles } from "@/components/forms/section-toggles";
+import { PageHeader } from "@/components/layout/page-header";
 import { QuotePageRail } from "@/components/forms/quote-page-rail";
 import { QuotePricePanel, type PanelCalculation } from "@/components/forms/quote-price-panel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
@@ -1841,7 +1841,7 @@ export function QuoteBuilder({
     <DialogContent className="max-h-[90vh] max-w-2xl overflow-hidden">
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-orange-500" />
+          <Sparkles className="h-5 w-5 text-primary" />
           Offerte importeren
         </DialogTitle>
         <DialogDescription>
@@ -1851,7 +1851,7 @@ export function QuoteBuilder({
       <div className="max-h-[calc(90vh-120px)] space-y-4 overflow-y-auto py-4 pr-2">
         {!importPreview ? (
           <>
-            <div className="rounded-lg border border-orange-100 bg-orange-50/70 p-3">
+            <div className="rounded-lg border border-primary/25 bg-primary/10 p-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-bold text-foreground">AI-prompt nodig?</p>
@@ -1864,7 +1864,7 @@ export function QuoteBuilder({
                   variant="outline"
                   onClick={copyQuoteImportPrompt}
                   disabled={copyPromptLoading}
-                  className="shrink-0 border-orange-200 bg-card text-orange-700 hover:bg-orange-50"
+                  className="shrink-0 border-primary/25 bg-card text-primary hover:bg-primary/10"
                 >
                   {copyPromptLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
                   Copy prompt
@@ -1889,7 +1889,7 @@ export function QuoteBuilder({
             <Button
               onClick={handleAiMagic}
               disabled={aiLoading}
-              className="w-full bg-orange-600 hover:bg-orange-700 h-12 text-lg font-bold gap-2"
+              className="w-full bg-primary hover:bg-primary h-12 text-lg font-bold gap-2"
             >
               {aiLoading ? <Loader2 className="animate-spin h-5 w-5" /> : <Wand2 className="h-5 w-5" />}
               Offerte verwerken
@@ -1900,7 +1900,7 @@ export function QuoteBuilder({
             <div className="rounded-lg border border-border bg-muted/40 p-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">
+                  <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
                     Preview ({importPreview.source === "json" ? "JSON" : "AI"})
                   </p>
                   <h3 className="mt-1 text-lg font-bold text-foreground">{importPreview.quote.title || "Zonder titel"}</h3>
@@ -1974,7 +1974,7 @@ export function QuoteBuilder({
               <Button variant="outline" className="flex-1" onClick={() => setImportPreview(null)}>
                 Terug naar invoer
               </Button>
-              <Button className="flex-1 bg-orange-600 hover:bg-orange-700" onClick={applyImportPreview}>
+              <Button className="flex-1 bg-primary hover:bg-primary" onClick={applyImportPreview}>
                 Offerte invullen
               </Button>
             </div>
@@ -1987,69 +1987,29 @@ export function QuoteBuilder({
   if (!creationMode) {
     return (
       <div className="min-h-[calc(100dvh-56px)] bg-[var(--ws-bg)]">
-        <header className="sticky top-[56px] z-20 bg-card border-b border-border px-6 py-3 flex items-center justify-between shadow-none">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => router.back()}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Terug
-            </Button>
-            <div className="h-6 w-px bg-slate-200" />
-            <div className="leading-tight">
-              <h1 className="font-bold text-foreground">Nieuwe offerte maken</h1>
-              <p className="text-sm text-muted-foreground">Kies hoe je wilt beginnen</p>
-            </div>
-          </div>
-        </header>
-
-        <main className="mx-auto flex min-h-[calc(100vh-64px)] max-w-5xl items-center px-6 py-10">
+        <PageHeader eyebrow="Offertes" title="Nieuwe conceptofferte" description="Begin met een calculatie of zet je voorstel uit ChatGPT klaar voor review." actions={<Button variant="outline" onClick={() => router.back()}><ArrowLeft />Terug</Button>} />
+        <div className="mx-auto max-w-5xl px-5 py-8 lg:px-8">
           <div className="w-full">
-            <div className="mb-6 max-w-2xl">
-              <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">Startpunt</p>
-              <h2 className="mt-2 text-3xl font-black text-foreground">Hoe wil je de offerte opbouwen?</h2>
-            </div>
             <div className="grid gap-4 md:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setCreationMode("manual")}
-                className="group rounded-lg border border-border bg-card p-6 text-left shadow-none transition hover:border-border hover:shadow-none"
-              >
-                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-muted text-foreground">
-                  <FileText className="h-5 w-5" />
-                </div>
-                <h3 className="text-xl font-black text-foreground">Handmatig starten</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Open de normale editor met standaardregels, teksten en opties.
-                </p>
-                <div className="mt-6 inline-flex items-center text-sm font-bold text-foreground">
-                  Editor openen <ChevronRight className="ml-2 h-4 w-4 transition group-hover:translate-x-0.5" />
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setImportErrors([]);
-                  setImportPreview(null);
-                  setShowAiModal(true);
-                }}
-                className="group rounded-lg border border-orange-200 bg-orange-50/60 p-6 text-left shadow-none transition hover:border-orange-300 hover:bg-orange-50 hover:shadow-none"
-              >
-                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-orange-100 text-orange-700">
-                  <Wand2 className="h-5 w-5" />
-                </div>
-                <h3 className="text-xl font-black text-foreground">Via ChatGPT plakken</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Plak een complete JSON-offerte of gewone tekst. Na de preview wordt de editor automatisch ingevuld.
-                </p>
-                <div className="mt-6 inline-flex items-center text-sm font-bold text-orange-700">
-                  Offerte plakken <ChevronRight className="ml-2 h-4 w-4 transition group-hover:translate-x-0.5" />
-                </div>
+              <Link href="/calculations?create=1" className="group rounded-xl border border-border bg-card p-6 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Calculator className="mb-5 size-6 text-primary" />
+                <h2 className="text-xl font-semibold text-foreground">Vanuit een calculatie</h2>
+                <p className="mt-2 text-base leading-6 text-muted-foreground">Werk materialen, arbeid en alternatieven uit. Maak daarna een conceptofferte met deze calculatie als prijsbron.</p>
+                <span className="mt-5 inline-flex items-center text-sm font-semibold text-foreground">Calculatie maken<ChevronRight className="ml-2 size-4 transition-transform group-hover:translate-x-1" /></span>
+              </Link>
+              <button type="button" onClick={() => { setImportErrors([]); setImportPreview(null); setShowAiModal(true); }} className="group rounded-xl border border-border bg-card p-6 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Wand2 className="mb-5 size-6 text-primary" />
+                <h2 className="text-xl font-semibold text-foreground">Samen met ChatGPT</h2>
+                <p className="mt-2 text-base leading-6 text-muted-foreground">Kopieer de actuele offerte-instructies en plak je voorstel terug. Bekijk de inhoud voordat je het concept bewaart.</p>
+                <span className="mt-5 inline-flex items-center text-sm font-semibold text-foreground">Voorstel importeren<ChevronRight className="ml-2 size-4 transition-transform group-hover:translate-x-1" /></span>
               </button>
             </div>
+            <div className="mt-5 flex flex-wrap items-center gap-3"><p className="text-base text-muted-foreground">Je kunt ook zelf tekst en regels invullen.</p><Button variant="ghost" onClick={() => setCreationMode("manual")}><Plus />Handmatig starten</Button></div>
             <Dialog open={showAiModal} onOpenChange={setShowAiModal}>
               {importDialogContent}
             </Dialog>
           </div>
-        </main>
+        </div>
       </div>
     );
   }
@@ -2067,13 +2027,13 @@ export function QuoteBuilder({
             <Button variant="ghost" size="sm" onClick={() => router.back()}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Terug
             </Button>
-            <div className="hidden h-6 w-px bg-slate-200 sm:block" />
+            <div className="hidden h-6 w-px bg-border sm:block" />
             <h1 className="truncate font-bold text-foreground">Nieuwe offerte</h1>
           </div>
         )}
 
         <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-2">
-          <label className="inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50/50 px-2.5 text-sm font-bold text-blue-600 transition-colors hover:bg-blue-50">
+          <label className="inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-lg border border-primary/25 bg-primary/10 px-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary/10">
             {visionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
             Scan Situatie
             <input type="file" accept="image/*" className="sr-only" onChange={handleVisionScan} disabled={visionLoading} />
@@ -2082,7 +2042,7 @@ export function QuoteBuilder({
           {initialQuote && (
             <Dialog open={showAiModal} onOpenChange={setShowAiModal}>
               <DialogTrigger render={
-                <Button variant="outline" className="text-orange-600 border-orange-200 hover:bg-orange-50 bg-orange-50/50 font-bold gap-2">
+                <Button variant="outline" className="text-primary border-primary/25 hover:bg-primary/10 bg-primary/10 font-bold gap-2">
                   <Wand2 className="h-4 w-4" /> Importeer
                 </Button>
               } />
@@ -2090,7 +2050,7 @@ export function QuoteBuilder({
             </Dialog>
           )}
 
-          {initialQuote && <div className="hidden h-6 w-px bg-slate-200 xl:block" />}
+          {initialQuote && <div className="hidden h-6 w-px bg-border xl:block" />}
 
           <div className="flex items-center gap-2">
             <Label className="hidden text-sm font-bold uppercase tracking-wider text-muted-foreground 2xl:block">Naam:</Label>
@@ -2167,7 +2127,7 @@ export function QuoteBuilder({
                 <><Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /><span className="text-muted-foreground">Bezig met opslaan</span></>
               )}
               {saveStatus === "saved" && (
-                <><Check className="h-3.5 w-3.5 text-emerald-600" /><span className="text-emerald-600">Opgeslagen</span></>
+                <><Check className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-400" /><span className="text-emerald-700 dark:text-emerald-400">Opgeslagen</span></>
               )}
               {saveStatus === "unsaved" && (
                 <span className="text-muted-foreground">Wijzigingen worden opgeslagen</span>
@@ -2178,7 +2138,7 @@ export function QuoteBuilder({
             </div>
           )}
 
-          <div className="h-6 w-px bg-slate-200" />
+          <div className="h-6 w-px bg-border" />
 
           <button
             type="button"
@@ -2193,7 +2153,7 @@ export function QuoteBuilder({
               <span className="block text-sm font-bold uppercase tracking-wider text-muted-foreground">
                 {priceDisplayMode === "incl" ? "Incl. btw" : "Excl. btw"}
               </span>
-              <span className="block text-sm font-black tabular-nums text-foreground">
+              <span className="block text-sm font-semibold tabular-nums text-foreground">
                 {formatCurrency(displayedTotal)}
               </span>
             </span>
@@ -2378,7 +2338,7 @@ export function QuoteBuilder({
                       <div key={item.id}>
                         {dropTarget?.id === item.id && dropTarget.position === "before" && (
                           <div
-                            className="h-0.5 rounded-full bg-orange-500 mb-1"
+                            className="h-0.5 rounded-full bg-primary mb-1"
                             style={{ marginLeft: dropTarget.indent ? 28 : 0 }}
                           />
                         )}
@@ -2456,7 +2416,7 @@ export function QuoteBuilder({
                         </div>
                         {dropTarget?.id === item.id && dropTarget.position === "after" && (
                           <div
-                            className="h-0.5 rounded-full bg-orange-500 mt-1"
+                            className="h-0.5 rounded-full bg-primary mt-1"
                             style={{ marginLeft: dropTarget.indent ? 28 : 0 }}
                           />
                         )}
@@ -2689,7 +2649,7 @@ export function QuoteBuilder({
                                         />
                                         {item.productId && (
                                           <Package
-                                            className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-emerald-600"
+                                            className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-emerald-700 dark:text-emerald-400"
                                             aria-label="Gekoppeld catalogusproduct"
                                           />
                                         )}
@@ -3040,7 +3000,7 @@ export function QuoteBuilder({
                                 onClick={() => updateAttachment(attachment.id, { section: "intro" })}
                                 className={`rounded-md border px-3 py-2 text-left text-sm transition-colors ${
                                   attachment.section !== "eigen-pagina"
-                                    ? "border-violet-300 bg-violet-50 text-violet-950 ring-1 ring-violet-200"
+                                    ? "border-primary/25 bg-primary/10 text-primary ring-1 ring-primary/25"
                                     : "border-border !bg-card !text-foreground hover:bg-muted/40"
                                 }`}
                               >
@@ -3052,7 +3012,7 @@ export function QuoteBuilder({
                                 onClick={() => updateAttachment(attachment.id, { section: "eigen-pagina" })}
                                 className={`rounded-md border px-3 py-2 text-left text-sm transition-colors ${
                                   attachment.section === "eigen-pagina"
-                                    ? "border-violet-300 bg-violet-50 text-violet-950 ring-1 ring-violet-200"
+                                    ? "border-primary/25 bg-primary/10 text-primary ring-1 ring-primary/25"
                                     : "border-border !bg-card !text-foreground hover:bg-muted/40"
                                 }`}
                               >
