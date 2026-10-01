@@ -77,7 +77,7 @@ export function QuotePageRail({
   return (
     <nav
       aria-label="Pagina's in deze offerte"
-      className="sticky top-[132px] hidden w-[132px] shrink-0 self-start lg:block"
+      className="sticky top-[132px] hidden w-[132px] shrink-0 self-start xl:block"
     >
       <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
         {pages.length} pagina&apos;s

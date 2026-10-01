@@ -125,6 +125,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     to: customerEmail,
     customerName: quote.customer.name,
     companySlug: quote.company.slug,
+    companyId: quote.companyId,
+    companyBranding: (quote.company.branding ?? {}) as Record<string, string>,
     quoteNumber,
     quoteTitle: quote.title ?? undefined,
     quoteUrl,

@@ -10,8 +10,9 @@ import { modulesToOptions } from "@/lib/quote-modules";
 import { applyCalculationPricing } from "@/lib/quote-with-pricing";
 import { formatDate } from "@/lib/format";
 import { createElement } from "react";
-import { DEFAULT_BRANDING } from "@/lib/branding";
-import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
+import { getBranding } from "@/lib/branding";
+import { getQuoteAttachmentStorageKey, resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
+import { presignDownload, isStorageConfigured } from "@/lib/storage";
 import { pdfFilename } from "@/lib/pdf/filename";
 
 export const runtime = "nodejs";
@@ -102,12 +103,26 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     { expiresIn: 3600 },
   );
   const companySlug = quote.company.slug;
-  const branding = DEFAULT_BRANDING[companySlug] ?? DEFAULT_BRANDING.websup;
+  const storedBranding = (quote.company.branding ?? {}) as Record<string, string>;
+  const branding = getBranding(companySlug, storedBranding);
+  const logoKey = storedBranding.logoUrl ? getQuoteAttachmentStorageKey(storedBranding.logoUrl) : null;
+  const customLogoUrl = logoKey && isStorageConfigured()
+    ? await presignDownload(logoKey, 300)
+    : branding.logoUrl;
 
   const element = createElement(QuotePDF, {
     companyName: quote.company.name,
     companySlug,
     companyTagline: branding.tagline,
+    brandOverrides: {
+      primaryColor: branding.primaryColor,
+      accentColor: branding.accentColor,
+      backgroundColor: branding.backgroundColor,
+      textColor: branding.textColor,
+      // Laat de bestaande witte variant op de donkere WebsUp-cover staan als
+      // er geen afwijkend logo is ingesteld.
+      ...(storedBranding.logoUrl ? { logoUrl: customLogoUrl } : {}),
+    },
     quoteNumber: quote.number ?? "CONCEPT",
     quoteDate: formatDate(quote.createdAt),
     validUntil: quote.validUntil ? formatDate(quote.validUntil) : undefined,

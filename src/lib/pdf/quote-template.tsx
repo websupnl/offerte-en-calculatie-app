@@ -58,6 +58,7 @@ type QuotePDFProps = {
   companyName: string;
   companySlug: string;
   companyTagline?: string;
+  brandOverrides?: { primaryColor?: string; accentColor?: string; backgroundColor?: string; textColor?: string; logoUrl?: string };
   quoteNumber: string;
   quoteDate: string;
   validUntil?: string;
@@ -396,6 +397,7 @@ function PageFooter({ tag, customerName }: { tag: string; customerName: string }
 
 export function QuotePDF({
   companySlug,
+  brandOverrides,
   quoteNumber,
   quoteDate,
   validUntil,
@@ -426,7 +428,19 @@ export function QuotePDF({
   planning: planningProp,
   commercial: commercialProp,
 }: QuotePDFProps) {
-  const brand = getBrand(companySlug);
+  const baseBrand = getBrand(companySlug);
+  const customLogo = brandOverrides?.logoUrl ? publicImageDataUri(brandOverrides.logoUrl) : undefined;
+  const brand = {
+    ...baseBrand,
+    ...(customLogo ? { logoColor: customLogo, logoWhite: customLogo } : {}),
+    colors: {
+      ...baseBrand.colors,
+      ...(brandOverrides?.primaryColor ? { primary: brandOverrides.primaryColor } : {}),
+      ...(brandOverrides?.accentColor ? { accent: brandOverrides.accentColor, accent2: brandOverrides.accentColor, accent3: brandOverrides.accentColor } : {}),
+      ...(brandOverrides?.backgroundColor ? { bg: brandOverrides.backgroundColor, surface: brandOverrides.backgroundColor } : {}),
+      ...(brandOverrides?.textColor ? { text: brandOverrides.textColor } : {}),
+    },
+  };
   const isKoolhaas = companySlug === "koolhaas";
 
   const flow = flowProp;
@@ -455,11 +469,9 @@ export function QuotePDF({
   const standaloneAttachments = introVisual
     ? attachments.filter((attachment) => attachment !== introVisual)
     : attachments;
-  const attachmentPairs = Array.from({ length: Math.ceil(standaloneAttachments.length / 2) }, (_, i) =>
-    standaloneAttachments.slice(i * 2, i * 2 + 2)
-  );
+  const attachmentPairs = standaloneAttachments.map((attachment) => [attachment]);
   // Cover uses dark left panel for WebsUp, light for Koolhaas
-  const coverDark = !isKoolhaas;
+  const coverDark = !isKoolhaas && !customLogo;
   const coverText = coverDark ? "#FFFFFF" : brand.colors.text;
   const coverMuted = coverDark ? "rgba(255,255,255,0.50)" : brand.colors.muted;
   const coverBorder = coverDark ? "rgba(255,255,255,0.13)" : brand.colors.border;
@@ -670,8 +682,7 @@ export function QuotePDF({
 
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 10 }}>
             <View>
-              <Eyebrow text="Ontwerp & uitwerking" color={brand.colors.accent} />
-              <H2 text={isKoolhaas ? "Technische indruk en plaatsing." : "Zo ziet de richting eruit."} />
+              {pair[0]?.title && <H2 text={pair[0].title} />}
             </View>
             <View style={{ backgroundColor: brand.colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
               <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>{pageIndex + 1} / {attachmentPairs.length}</Text>
@@ -690,17 +701,12 @@ export function QuotePDF({
                     <Image src={publicImageDataUri(attachment.imageUrl)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   )}
                 </View>
-                {(attachment.title || attachment.caption) && (
+                {(attachment.title || (attachment.caption && attachment.caption.trim().toLowerCase() !== "voorbeeld") || attachment.liveUrl) && (
                   <View style={{ marginTop: 7, minHeight: 32 }}>
-                    <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: brand.colors.accent, textTransform: "uppercase", letterSpacing: 0.7 }}>
-                      {attachment.liveUrl ? "Werkend ontwerp" : "Ontwerpimpressie"}
-                    </Text>
-                    <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.3, marginTop: 3 }}>
-                      {attachment.caption ||
-                        (attachment.liveUrl
-                          ? "Bekijk het ontwerp online om de interactie en volledige pagina te ervaren."
-                          : "Een visuele indruk van de voorgestelde uitwerking.")}
-                    </Text>
+                    {attachment.title && <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", marginBottom: 3 }}>{attachment.title}</Text>}
+                    {attachment.caption && attachment.caption.trim().toLowerCase() !== "voorbeeld" && (
+                      <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.3, marginTop: 3 }}>{attachment.caption}</Text>
+                    )}
                     {attachment.liveUrl && (
                       <Link
                         src={attachment.liveUrl}
@@ -717,7 +723,7 @@ export function QuotePDF({
                           textDecoration: "none",
                         }}
                       >
-                        Bekijk voorbeeld
+                        Open de pagina
                       </Link>
                     )}
                   </View>

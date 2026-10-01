@@ -185,6 +185,18 @@
   --sh-brand: 0 8px 24px rgba(31,155,163,.24), 0 4px 12px rgba(31,114,149,.18);
 }
 
+/* Instelbare bedrijfsbranding uit Instellingen. De opmaak blijft gelijk, alleen
+   het merkaccent, de neutrale basis en het lettertype wisselen per bedrijf. */
+.portal-container {
+  --accent: var(--portal-accent, #f97316);
+  --bg: var(--portal-background, #f0f2f7);
+  --on: var(--portal-text, #0b1526);
+  --grad: linear-gradient(120deg, var(--portal-primary, #0b1526), var(--portal-accent, #f97316));
+  --grad-text: linear-gradient(120deg, var(--portal-primary, #0b1526), var(--portal-accent, #f97316));
+  --display: var(--brand-font, var(--font-heading)), system-ui, sans-serif;
+  --text: var(--brand-font, var(--font-body)), system-ui, sans-serif;
+}
+
 .portal-koolhaas .cover {
   background: #fff;
   color: var(--on);
@@ -1844,6 +1856,10 @@
     linear-gradient(180deg, rgba(255,255,255,.075), rgba(255,255,255,0)),
     #08111f;
 }
+.portal-topbar,
+.portal-koolhaas .portal-topbar {
+  background: linear-gradient(120deg, var(--portal-primary, #0b1526), color-mix(in srgb, var(--portal-primary, #0b1526), var(--portal-accent, #f97316) 45%), var(--portal-accent, #f97316));
+}
 .portal-topbar-brand {
   display: flex;
   align-items: center;
@@ -1858,7 +1874,15 @@
   object-fit: contain;
 }
 .portal-websup .portal-topbar-brand img {
-  height: 100px;
+  height: 56px;
+}
+.portal-topbar-brand img.portal-custom-logo {
+  box-sizing: border-box;
+  height: 48px;
+  max-width: 240px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: #fff;
 }
 .portal-topbar-brand > span:last-child {
   flex: none;
@@ -2599,10 +2623,10 @@ a.portal-preview-link:hover {
   gap: .4rem;
 }
 .portal-option-price-row.is-recurring b {
-  color: #7c3aed;
+  color: var(--accent);
 }
 .portal-koolhaas .portal-option-price-row.is-recurring b {
-  color: #0e7490;
+  color: var(--accent);
 }
 .portal-option-price-row.is-recurring::before {
   content: 'abonnement';
@@ -2611,14 +2635,14 @@ a.portal-preview-link:hover {
   font-weight: 800;
   letter-spacing: .06em;
   text-transform: uppercase;
-  color: #7c3aed;
-  background: color-mix(in srgb, #7c3aed 12%, transparent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   padding: .12rem .35rem;
   border-radius: .3rem;
 }
 .portal-koolhaas .portal-option-price-row.is-recurring::before {
-  color: #0e7490;
-  background: color-mix(in srgb, #0e7490 12%, transparent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .portal-option-price b {
@@ -2684,9 +2708,9 @@ a.portal-preview-link:hover {
 .portal-composer-total b small { color: #64748b; font-size: .9rem; font-weight: 500; }
 .portal-composer-total b.portal-composer-recurring {
   font-size: 1.05rem;
-  color: #7c3aed;
+  color: var(--accent);
 }
-.portal-koolhaas .portal-composer-total b.portal-composer-recurring { color: #0e7490; }
+.portal-koolhaas .portal-composer-total b.portal-composer-recurring { color: var(--accent); }
 .portal-composer-total b.portal-composer-recurring small { color: #94a3b8; }
 
 .portal-composer-breakdown {
@@ -3549,7 +3573,7 @@ a.portal-preview-link:hover {
 }
 .acceptance-success__total--recurring strong {
   font-size: 1.15rem;
-  color: #7c3aed;
+  color: var(--accent);
 }
 .acceptance-success__total--recurring span { text-transform: none; letter-spacing: 0; }
 

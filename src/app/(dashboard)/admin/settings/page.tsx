@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SettingsClient } from "./settings-client";
-import { DEFAULT_SETTINGS, getInvoiceSettings, type TravelPricingTier } from "@/lib/branding";
+import { DEFAULT_SETTINGS, getBranding, getInvoiceSettings, type TravelPricingTier } from "@/lib/branding";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -36,11 +36,7 @@ export default async function SettingsPage() {
         travelPricingTiers: (settings.travelPricingTiers as TravelPricingTier[]) ?? DEFAULT_SETTINGS.travelPricingTiers,
         invoice: getInvoiceSettings(settings),
       }}
-      branding={{
-        primaryColor: (branding.primaryColor as string) ?? "",
-        accentColor: (branding.accentColor as string) ?? "",
-        tagline: (branding.tagline as string) ?? "",
-      }}
+      branding={getBranding(company.slug, branding)}
       legalDocuments={{
         terms: {
           name: company.termsPdfName,

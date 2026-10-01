@@ -166,6 +166,10 @@
   --ws-accent-soft: #d9edee;
 }
 
+[data-company] {
+  --ws-bg: var(--brand-background, #f5f6f7);
+}
+
 .dark[data-company="websup"],
 .dark[data-company="koolhaas"],
 .dark {
@@ -205,6 +209,10 @@
 
 .dark .workspace-shell {
   color-scheme: dark;
+}
+
+.workspace-shell {
+  font-family: var(--brand-font, var(--font-sans)), system-ui, sans-serif;
 }
 
 /* Legacy dashboard utilities stay legible in dark mode. Customer-facing

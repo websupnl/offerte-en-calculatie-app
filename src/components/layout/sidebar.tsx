@@ -100,11 +100,11 @@ export function Sidebar({
   onMobileClose: () => void;
 }) {
   const pathname = usePathname();
-  const { activeCompany, companies, switchingCompanyId, switchCompany } = useCompany();
-  const logoSrc =
-    activeCompany?.slug === "koolhaas"
-      ? "/logos/koolhaas-logo-tight.png"
-      : "/logos/websup-cover.png";
+  const { activeCompany, companies, switchingCompanyId, switchCompany, branding } = useCompany();
+  const storedLogo = branding?.logoUrl;
+  const logoSrc = storedLogo?.startsWith("s3://") && activeCompany
+    ? `/api/brand-assets/${activeCompany.id}/logo`
+    : storedLogo || (activeCompany?.slug === "koolhaas" ? "/logos/koolhaas-logo-tight.png" : "/logos/websup-cover.png");
 
   return (
     <>
@@ -134,7 +134,7 @@ export function Sidebar({
               )}
             >
               <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-white p-1">
-                <Image src={logoSrc} alt="" width={64} height={64} className="h-full w-full object-contain" />
+                <Image src={logoSrc} alt="" width={64} height={64} unoptimized className="h-full w-full object-contain" />
               </div>
               <div className={cn("min-w-0 flex-1", collapsed && "lg:hidden")}>
                 <p className="truncate text-sm font-bold text-white">{activeCompany?.name ?? "Bedrijf"}</p>

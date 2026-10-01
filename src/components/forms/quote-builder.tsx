@@ -50,9 +50,9 @@ import { SheetOverflowMonitor } from "@/components/forms/sheet-overflow-monitor"
 import { SectionToggles } from "@/components/forms/section-toggles";
 import { QuotePageRail } from "@/components/forms/quote-page-rail";
 import { QuotePricePanel, type PanelCalculation } from "@/components/forms/quote-price-panel";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useCompany } from "@/lib/company-context";
 
 type Customer = { id: string; name: string; email: string | null; address?: string | null; city?: string | null; zipCode?: string | null };
 type Product = {
@@ -168,9 +168,33 @@ type QuoteDocumentLink = {
 };
 
 type AvailableProductDocument = { id: string; name: string; type: string; productId: string; productName: string };
+type AvailableQuoteImage = { url: string; previewUrl: string; title: string; size: number };
+
+async function compressQuoteImage(file: File): Promise<File> {
+  // GIF kan animatie bevatten; die laten we intact. Andere formaten worden
+  // client-side naar compacte WebP omgezet voordat ze naar opslag gaan.
+  if (file.type === "image/gif" || typeof createImageBitmap === "undefined") return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 2200 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.82));
+    if (!blob || blob.size >= file.size || !["image/webp", "image/jpeg", "image/png"].includes(blob.type)) return file;
+    const extension = blob.type === "image/jpeg" ? "jpg" : blob.type === "image/png" ? "png" : "webp";
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.${extension}`, { type: blob.type });
+  } catch {
+    return file;
+  }
+}
 
 // Waar een afbeelding in de offerte terechtkomt. Bij een sectie staat hij onderaan
-// die pagina, in de vrije ruimte. "eigen-pagina" geeft een losse voorbeeldpagina.
+// die pagina, in de vrije ruimte. "eigen-pagina" geeft een losse afbeeldingspagina.
 const ATTACHMENT_SECTIONS: { value: string; label: string }[] = [
   { value: "intro", label: "Bij de toelichting (intro)" },
   { value: "werking", label: "Bij Werking van de installatie" },
@@ -415,6 +439,7 @@ export function QuoteBuilder({
   travelPricingTiers?: TravelPricingTier[];
 }) {
   const router = useRouter();
+  const { branding } = useCompany();
   const isKoolhaas = companySlug === "koolhaas";
 
   // ─── Core State ───
@@ -489,11 +514,12 @@ export function QuoteBuilder({
   const [choiceGroups, setChoiceGroups] = useState<ChoiceGroup[]>(initialQuote?.choiceGroups || []);
   const [internalAdvice, setInternalAdvice] = useState(initialQuote?.internalAdvice || initialAdvice?.analysis || "");
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  const [mediaPickerLoading, setMediaPickerLoading] = useState(false);
+  const [availableQuoteImages, setAvailableQuoteImages] = useState<AvailableQuoteImage[]>([]);
   const [attachmentDropActive, setAttachmentDropActive] = useState(false);
   const [activeTab, setActiveTab] = useState("prijs");
-  // Het paneel is een lade, geen vaste kolom. Het papier krijgt de hele breedte;
-  // de paar dingen die niet op het papier passen zitten hier één klik vandaan.
-  const [paneelOpen, setPaneelOpen] = useState(false);
+  const panelRef = useRef<HTMLElement>(null);
   const [paginas, setPaginas] = useState<QuotePageMeta[]>([]);
 
   // Prijs en artikelen komen uit de calculaties zodra er losse offerteregels
@@ -1215,8 +1241,9 @@ export function QuoteBuilder({
   async function uploadChoiceImage(groupId: string, choiceId: string, file: File) {
     setUploadingChoiceImageId(choiceId);
     try {
+      const compressedFile = await compressQuoteImage(file);
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", compressedFile);
       const response = await fetch("/api/quote-attachments/upload", {
         method: "POST",
         body: formData,
@@ -1575,8 +1602,9 @@ export function QuoteBuilder({
       // Eén voor één: de upload-route neemt per aanroep één bestand aan.
       for (const file of images) {
         try {
+          const compressedFile = await compressQuoteImage(file);
           const formData = new FormData();
-          formData.append("file", file);
+          formData.append("file", compressedFile);
 
           const response = await fetch("/api/quote-attachments/upload", {
             method: "POST",
@@ -1599,7 +1627,7 @@ export function QuoteBuilder({
             ...current,
             {
               id: genId(),
-              title: result.title || file.name.replace(/\.[^.]+$/, ""),
+            title: result.title || file.name.replace(/\.[^.]+$/, ""),
               imageUrl: previewUrl,
               storageRef,
               liveUrl: "",
@@ -1623,6 +1651,40 @@ export function QuoteBuilder({
       setActiveTab("media");
       toast.success(added === 1 ? "Afbeelding toegevoegd" : `${added} afbeeldingen toegevoegd`);
     }
+  }
+
+  async function openMediaPicker() {
+    setMediaPickerOpen(true);
+    setMediaPickerLoading(true);
+    try {
+      const response = await fetch("/api/quote-attachments/upload");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Ophalen van afbeeldingen mislukt");
+      setAvailableQuoteImages(data);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Ophalen van afbeeldingen mislukt");
+    } finally {
+      setMediaPickerLoading(false);
+    }
+  }
+
+  function selectExistingMedia(image: AvailableQuoteImage) {
+    if (attachments.some((attachment) => attachment.storageRef === image.url)) {
+      toast.info("Deze afbeelding staat al in de offerte");
+      return;
+    }
+    setAttachments((current) => [...current, {
+      id: genId(),
+      title: image.title,
+      imageUrl: image.previewUrl,
+      storageRef: image.url,
+      liveUrl: "",
+      caption: "",
+      section: "intro",
+    }]);
+    setActiveTab("media");
+    setMediaPickerOpen(false);
+    toast.success("Afbeelding toegevoegd aan de offerte");
   }
 
   // Een screenshot uit het klembord plakken werkt overal in de builder. Staat de
@@ -2118,7 +2180,10 @@ export function QuoteBuilder({
 
           <button
             type="button"
-            onClick={() => { setActiveTab("prijs"); setPaneelOpen(true); }}
+            onClick={() => {
+              setActiveTab("prijs");
+              panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
             className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-1.5 text-left transition-colors hover:bg-slate-50"
             title="Prijs, media en documenten"
           >
@@ -2147,7 +2212,7 @@ export function QuoteBuilder({
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-[1600px] items-start gap-6 p-4 lg:gap-8 lg:p-6 2xl:px-10">
+      <div className="mx-auto flex w-full max-w-[1800px] flex-col items-start gap-6 p-4 lg:gap-8 lg:p-6 xl:flex-row 2xl:px-10">
         <QuotePageRail
           pages={paginas}
           hiddenSections={hiddenSections}
@@ -2156,7 +2221,7 @@ export function QuoteBuilder({
         />
 
         {/* ── Het papier. Alles wat de klant leest bewerk je hier, niet ernaast. ── */}
-        <div className="w-full min-w-0 flex-1" ref={paperRef}>
+        <div className="w-full min-w-0 flex-1 xl:max-w-[calc(100%-440px)]" ref={paperRef}>
           <SheetOverflowMonitor containerRef={paperRef} />
           <SheetScaler>
             <QuoteSheetPreview
@@ -2183,14 +2248,10 @@ export function QuoteBuilder({
           </SheetScaler>
         </div>
 
-        <Sheet open={paneelOpen} onOpenChange={setPaneelOpen}>
-          <SheetContent
-            side="right"
-            className="w-full gap-0 overflow-y-auto p-0 sm:max-w-[540px] lg:max-w-[560px]"
-          >
-            <SheetHeader className="sticky top-0 z-10 border-b bg-white px-5 py-4">
-              <SheetTitle className="text-base">Bij deze offerte</SheetTitle>
-            </SheetHeader>
+        <aside ref={panelRef} aria-label="Instellingen voor deze offerte" className="w-full min-w-0 space-y-6 xl:sticky xl:top-24 xl:max-h-[calc(100vh-7rem)] xl:w-[400px] xl:shrink-0 xl:overflow-y-auto xl:pr-1">
+            <div className="sticky top-0 z-10 border-b border-slate-200 bg-background px-1 py-3">
+              <h2 className="text-base font-semibold">Bij deze offerte</h2>
+            </div>
             <div className="space-y-6 px-5 pb-8 pt-5">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             {/* Een eigen knoppenrij in plaats van TabsList: die rekt zijn knoppen
@@ -2381,7 +2442,7 @@ export function QuoteBuilder({
                                     title="Opslaan als catalogusartikel"
                                     disabled={savingCatalogItemId === item.id}
                                     onClick={() => saveItemToCatalog(item)}
-                                    className="rounded-full border border-slate-200 bg-white p-1 text-slate-400 shadow-sm hover:bg-slate-50 hover:text-[#167f88] disabled:opacity-50"
+                                    className="rounded-full border border-slate-200 bg-white p-1 text-slate-400 shadow-sm hover:bg-slate-50 hover:text-[var(--ws-accent)] disabled:opacity-50"
                                   >
                                     {savingCatalogItemId === item.id
                                       ? <Loader2 className="h-3 w-3 animate-spin" />
@@ -2905,6 +2966,9 @@ export function QuoteBuilder({
                   <CardTitle className="text-sm font-bold flex items-center justify-between">
                     Afbeeldingen en ontwerpen
                     <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={() => void openMediaPicker()} className="h-8">
+                        <ImageIcon className="mr-1 h-3 w-3" /> Bestaand kiezen
+                      </Button>
                       <label
                         className={`inline-flex h-8 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-xs font-medium shadow-xs transition-colors hover:bg-slate-50 ${
                           uploadingAttachment ? "pointer-events-none opacity-60" : ""
@@ -2962,12 +3026,12 @@ export function QuoteBuilder({
                 >
                   {attachments.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
-                      Sleep afbeeldingen hierheen, plak een screenshot met Ctrl+V of gebruik Uploaden. Kies daarna bij welke sectie de afbeelding hoort; hij komt onderaan die pagina in de vrije ruimte.
+                      Upload afbeeldingen, kies eerder gebruikte bestanden of plak een screenshot met Ctrl+V. Je kunt een afbeelding onder een onderdeel plaatsen of op een eigen pagina zetten.
                     </div>
                   ) : (
                     <div className="space-y-3">
                       <p className="text-xs leading-relaxed text-slate-500">
-                        Kies per afbeelding bij welke sectie hij hoort. Hij staat dan onderaan die pagina en schaalt automatisch mee, zodat de opmaak altijd heel blijft.
+                        Kies per afbeelding waar hij in de offerte komt. Een eigen pagina wordt automatisch toegevoegd. Grote uploads worden vóór opslag verkleind.
                       </p>
                       {attachments.map((attachment) => (
                         <div key={attachment.id} className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
@@ -2984,14 +3048,14 @@ export function QuoteBuilder({
                               value={attachment.title}
                               onChange={(e) => updateAttachment(attachment.id, { title: e.target.value })}
                               placeholder="Titel (bijv. Homepagina)"
-                              className="h-8 text-sm flex-1"
+                              className="h-8 flex-1 !bg-white !text-slate-900 placeholder:!text-slate-500"
                             />
                             <Button size="icon" variant="ghost" onClick={() => removeAttachment(attachment.id)} className="h-8 w-8 text-red-500 shrink-0">
                               <X className="h-4 w-4" />
                             </Button>
                           </div>
                           <fieldset className="space-y-2">
-                            <legend className="text-xs font-medium text-slate-700">Plaatsing in de offerte</legend>
+                                <legend className="text-xs font-medium !text-slate-900">Plaatsing in de offerte</legend>
                             <div className="grid grid-cols-2 gap-2">
                               <button
                                 type="button"
@@ -2999,7 +3063,7 @@ export function QuoteBuilder({
                                 className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
                                   attachment.section !== "eigen-pagina"
                                     ? "border-violet-300 bg-violet-50 text-violet-950 ring-1 ring-violet-200"
-                                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                    : "border-slate-200 !bg-white !text-slate-800 hover:bg-slate-50"
                                 }`}
                               >
                                 <span className="block font-semibold">In de offerte</span>
@@ -3011,7 +3075,7 @@ export function QuoteBuilder({
                                 className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
                                   attachment.section === "eigen-pagina"
                                     ? "border-violet-300 bg-violet-50 text-violet-950 ring-1 ring-violet-200"
-                                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                    : "border-slate-200 !bg-white !text-slate-800 hover:bg-slate-50"
                                 }`}
                               >
                                 <span className="block font-semibold">Eigen ontwerppagina</span>
@@ -3019,12 +3083,12 @@ export function QuoteBuilder({
                               </button>
                             </div>
                             {attachment.section !== "eigen-pagina" && (
-                              <label className="flex items-center gap-2 text-xs text-slate-600">
+                              <label className="flex items-center gap-2 text-xs !text-slate-800">
                                 <span className="shrink-0">Onderdeel</span>
                                 <select
                                   value={ATTACHMENT_INLINE_SECTIONS.some((option) => option.value === attachment.section) ? attachment.section : "intro"}
                                   onChange={(e) => updateAttachment(attachment.id, { section: e.target.value })}
-                                  className="h-8 flex-1 rounded-md border border-slate-200 bg-white px-2 text-sm"
+                                  className="h-8 flex-1 rounded-md border border-slate-200 !bg-white px-2 text-sm !text-slate-900"
                                 >
                                   {ATTACHMENT_INLINE_SECTIONS.map((option) => (
                                     <option key={option.value} value={option.value}>{option.label.replace("Bij ", "")}</option>
@@ -3038,19 +3102,19 @@ export function QuoteBuilder({
                             onChange={(e) => updateAttachment(attachment.id, { imageUrl: e.target.value })}
                             placeholder={attachment.storageRef ? "Opgeslagen in S3" : "Afbeelding URL (screenshot of https://...)"}
                             disabled={Boolean(attachment.storageRef)}
-                            className="h-8 text-xs font-mono"
+                            className="h-8 font-mono !bg-white !text-slate-900 placeholder:!text-slate-500"
                           />
                           <Input
                             value={attachment.liveUrl}
                             onChange={(e) => updateAttachment(attachment.id, { liveUrl: e.target.value })}
                             placeholder="Live URL — klikbaar in de offerte (optioneel)"
-                            className="h-8 text-xs font-mono"
+                            className="h-8 font-mono !bg-white !text-slate-900 placeholder:!text-slate-500"
                           />
                           <Input
                             value={attachment.caption}
                             onChange={(e) => updateAttachment(attachment.id, { caption: e.target.value })}
                             placeholder="Bijschrift (optioneel)"
-                            className="h-8 text-sm"
+                            className="h-8 !bg-white !text-slate-900 placeholder:!text-slate-500"
                           />
                         </div>
                       ))}
@@ -3106,6 +3170,30 @@ export function QuoteBuilder({
 
             </TabsContent>
           </Tabs>
+
+          <Dialog open={mediaPickerOpen} onOpenChange={setMediaPickerOpen}>
+            <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+              <DialogHeader>
+                <DialogTitle>Afbeelding kiezen</DialogTitle>
+                <DialogDescription>Kies een eerder geüploade afbeelding om aan deze offerte toe te voegen.</DialogDescription>
+              </DialogHeader>
+              {mediaPickerLoading ? (
+                <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>
+              ) : availableQuoteImages.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-500">Er zijn nog geen opgeslagen afbeeldingen.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 overflow-y-auto sm:grid-cols-3">
+                  {availableQuoteImages.map((image) => (
+                    <button key={image.url} type="button" onClick={() => selectExistingMedia(image)} className="overflow-hidden rounded-lg border border-slate-200 bg-white text-left hover:border-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- signed media preview URL */}
+                      <img src={image.previewUrl} alt="" className="h-28 w-full object-cover" />
+                      <span className="block truncate px-2 py-2 text-sm font-medium text-slate-800">{image.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
 
           <Dialog open={docPickerOpen} onOpenChange={setDocPickerOpen}>
             <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
@@ -3193,24 +3281,8 @@ export function QuoteBuilder({
             </DialogContent>
           </Dialog>
 
-          <Card className={`relative overflow-hidden border-none text-white shadow-xl ${isKoolhaas ? "bg-[#08111f]" : "bg-[#06040c]"}`}>
-            <div className="pointer-events-none absolute inset-0">
-              {isKoolhaas ? (
-                <>
-                  <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#1f9ba3]/45 blur-3xl" />
-                  <div className="absolute left-1/2 -top-20 h-44 w-44 -translate-x-1/2 rounded-full bg-[#1f7295]/35 blur-3xl" />
-                  <div className="absolute -bottom-20 -left-16 h-44 w-44 rounded-full bg-[#5bbfb0]/30 blur-3xl" />
-                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1f9ba3] via-[#1f7295] to-[#5bbfb0]" />
-                </>
-              ) : (
-                <>
-                  <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-orange-500/45 blur-3xl" />
-                  <div className="absolute left-1/2 -top-20 h-44 w-44 -translate-x-1/2 rounded-full bg-pink-500/35 blur-3xl" />
-                  <div className="absolute -bottom-20 -left-16 h-44 w-44 rounded-full bg-purple-400/30 blur-3xl" />
-                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500 via-pink-500 to-purple-400" />
-                </>
-              )}
-            </div>
+          <Card className="relative overflow-hidden border-none text-white shadow-xl" style={{ backgroundColor: branding?.primaryColor || (isKoolhaas ? "#102D59" : "#06040c") }}>
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-1" style={{ backgroundColor: branding?.accentColor || "#ec4899" }} />
             <CardContent className="relative z-10 space-y-4 pt-6">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">Totale investering</p>
@@ -3233,8 +3305,7 @@ export function QuoteBuilder({
             </CardContent>
           </Card>
             </div>
-          </SheetContent>
-        </Sheet>
+        </aside>
       </div>
     </div>
   );

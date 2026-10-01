@@ -3,7 +3,8 @@ export type CompanyBranding = {
   accentColor: string;
   backgroundColor: string;
   textColor: string;
-  logoUrl?: string;
+  logoUrl: string;
+  faviconUrl: string;
   font: string;
   tagline?: string;
 };
@@ -55,19 +56,22 @@ export function getInvoiceSettings(settings: unknown): InvoiceSettings {
 
 export const DEFAULT_BRANDING: Record<string, CompanyBranding> = {
   websup: {
-    primaryColor: "#06040c",
-    accentColor: "#ec4899",
-    backgroundColor: "#F8FAFC",
-    textColor: "#06040c",
+    primaryColor: "#0b1526",
+    accentColor: "#f97316",
+    backgroundColor: "#f8f9fc",
+    textColor: "#0b1526",
+    logoUrl: "/logos/websup-wordmark-black.png",
+    faviconUrl: "/icons/icon-192.png",
     font: "Inter",
     tagline: "Websites, apps & systemen die groeien",
   },
   koolhaas: {
     primaryColor: "#102D59",
     accentColor: "#247EB2",
-    backgroundColor: "#F4F8F8",
+    backgroundColor: "#fbfcfd",
     textColor: "#102D59",
     logoUrl: "/logos/koolhaas-logo.png",
+    faviconUrl: "/icons/icon-192.png",
     font: "Sora",
     tagline: "Techniek die eerst goed doordacht wordt en daarna netjes wordt uitgevoerd.",
   },
@@ -98,7 +102,22 @@ export const DEFAULT_SETTINGS: CompanySettings = {
 
 export function getBranding(slug: string, stored?: Partial<CompanyBranding>): CompanyBranding {
   const base = DEFAULT_BRANDING[slug] ?? DEFAULT_BRANDING.websup;
-  return { ...base, ...stored };
+  const candidate = { ...base, ...stored };
+  const color = (value: string, fallback: string) => /^#[\da-f]{6}$/i.test(value) ? value : fallback;
+  const fonts = new Set(["Inter", "Nunito", "Sora", "Bricolage Grotesque", "Arial"]);
+  const safeAsset = (value: string | undefined, fallback: string, folders: string[]) =>
+    value && (value.startsWith("s3://") || folders.some((folder) => value.startsWith(folder))) ? value : fallback;
+  return {
+    ...candidate,
+    primaryColor: color(candidate.primaryColor, base.primaryColor),
+    accentColor: color(candidate.accentColor, base.accentColor),
+    backgroundColor: color(candidate.backgroundColor, base.backgroundColor),
+    textColor: color(candidate.textColor, base.textColor),
+    font: fonts.has(candidate.font) ? candidate.font : base.font,
+    logoUrl: safeAsset(candidate.logoUrl, base.logoUrl, ["/logos/"]),
+    faviconUrl: safeAsset(candidate.faviconUrl, base.faviconUrl, ["/icons/"]),
+    tagline: typeof candidate.tagline === "string" ? candidate.tagline : base.tagline,
+  };
 }
 
 export function cssVarsFromBranding(branding: CompanyBranding): Record<string, string> {
@@ -107,5 +126,21 @@ export function cssVarsFromBranding(branding: CompanyBranding): Record<string, s
     "--color-accent": branding.accentColor,
     "--color-background": branding.backgroundColor,
     "--color-text": branding.textColor,
+    "--brand-primary": branding.primaryColor,
+    "--brand-accent": branding.accentColor,
+    "--brand-background": branding.backgroundColor,
+    "--brand-text": branding.textColor,
+    "--brand-font": branding.font,
   };
+}
+
+export function cssFontFromBranding(font: string): string {
+  const family: Record<string, string> = {
+    Inter: "var(--font-sans)",
+    Nunito: "var(--font-body)",
+    Sora: "var(--font-sora)",
+    "Bricolage Grotesque": "var(--font-heading)",
+    Arial: "Arial",
+  };
+  return `${family[font] ?? family.Inter}, system-ui, sans-serif`;
 }

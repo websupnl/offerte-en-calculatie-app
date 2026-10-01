@@ -5,6 +5,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -142,4 +143,20 @@ export async function objectExists(
   } catch {
     return false;
   }
+}
+
+/** Lijst objecten onder een afgeschermde bedrijfsmap. */
+export async function listObjects(prefix: string, bucket: string = STORAGE_BUCKET) {
+  const all: { key: string; lastModified?: Date; size: number }[] = [];
+  let continuationToken: string | undefined;
+  do {
+    const response = await getStorageClient().send(
+      new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: continuationToken }),
+    );
+    all.push(...(response.Contents ?? [])
+      .filter((item): item is typeof item & { Key: string } => Boolean(item.Key))
+      .map((item) => ({ key: item.Key, lastModified: item.LastModified, size: item.Size ?? 0 })));
+    continuationToken = response.NextContinuationToken;
+  } while (continuationToken);
+  return all;
 }

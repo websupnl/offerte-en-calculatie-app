@@ -3,6 +3,16 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import { cssFontFromBranding, cssVarsFromBranding, getBranding, type CompanyBranding } from "@/lib/branding";
+
+function readableTextColor(hex: string) {
+  const match = /^#([\da-f]{6})$/i.exec(hex);
+  if (!match) return "#ffffff";
+  const [r, g, b] = [0, 2, 4].map((index) => parseInt(match[1].slice(index, index + 2), 16) / 255);
+  const luminance = [r, g, b].map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
+    .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+  return luminance > 0.42 ? "#101820" : "#ffffff";
+}
 
 type Company = {
   id: string;
@@ -16,6 +26,8 @@ type CompanyContextType = {
   companies: Company[];
   switchingCompanyId: string | null;
   switchCompany: (companyId: string) => Promise<void>;
+  branding: CompanyBranding | null;
+  reloadBranding: () => Promise<void>;
 };
 
 const CompanyContext = createContext<CompanyContextType>({
@@ -23,11 +35,14 @@ const CompanyContext = createContext<CompanyContextType>({
   companies: [],
   switchingCompanyId: null,
   switchCompany: async () => {},
+  branding: null,
+  reloadBranding: async () => {},
 });
 
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const [switchingCompanyId, setSwitchingCompanyId] = useState<string | null>(null);
+  const [branding, setBranding] = useState<CompanyBranding | null>(null);
 
   const companies = session?.user?.companies ?? [];
   const activeCompany =
@@ -36,10 +51,51 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     null;
 
   useEffect(() => {
-    if (typeof document !== "undefined" && activeCompany) {
-      document.documentElement.setAttribute("data-company", activeCompany.slug);
-    }
+    if (!activeCompany) return;
+    document.documentElement.setAttribute("data-company", activeCompany.slug);
+    let cancelled = false;
+    fetch(`/api/company/${activeCompany.id}/settings`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Branding laden mislukt");
+        return response.json() as Promise<{ branding?: Partial<CompanyBranding> }>;
+      })
+      .then((data) => { if (!cancelled) setBranding(getBranding(activeCompany.slug, data.branding)); })
+      .catch(() => { if (!cancelled) setBranding(getBranding(activeCompany.slug)); });
+    return () => { cancelled = true; };
   }, [activeCompany]);
+
+  useEffect(() => {
+    if (!activeCompany || !branding) return;
+    const root = document.documentElement;
+    for (const [name, value] of Object.entries(cssVarsFromBranding(branding))) root.style.setProperty(name, value);
+    root.style.setProperty("--primary", branding.accentColor);
+    root.style.setProperty("--primary-foreground", readableTextColor(branding.accentColor));
+    root.style.setProperty("--accent", branding.accentColor);
+    root.style.setProperty("--ws-accent", branding.accentColor);
+    root.style.setProperty("--ws-accent-hover", `color-mix(in srgb, ${branding.accentColor}, #000 18%)`);
+    root.style.setProperty("--ws-accent-soft", `color-mix(in srgb, ${branding.accentColor}, transparent 88%)`);
+    root.style.setProperty("--brand-font", cssFontFromBranding(branding.font));
+    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", branding.primaryColor);
+    const favicon = branding.faviconUrl.startsWith("s3://")
+      ? `/api/brand-assets/${activeCompany.id}/favicon`
+      : branding.faviconUrl;
+    let icon = document.querySelector<HTMLLinkElement>('link[data-company-favicon="true"]');
+    if (!icon) {
+      icon = document.createElement("link");
+      icon.rel = "icon";
+      icon.dataset.companyFavicon = "true";
+      document.head.appendChild(icon);
+    }
+    icon.href = favicon;
+  }, [activeCompany, branding]);
+
+  async function reloadBranding() {
+    if (!activeCompany) return;
+    const response = await fetch(`/api/company/${activeCompany.id}/settings`);
+    if (!response.ok) throw new Error("Branding laden mislukt");
+    const data = await response.json() as { branding?: Partial<CompanyBranding> };
+    setBranding(getBranding(activeCompany.slug, data.branding));
+  }
 
   async function switchCompany(companyId: string) {
     if (companyId === activeCompany?.id || switchingCompanyId) return;
@@ -68,7 +124,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CompanyContext.Provider
-      value={{ activeCompany, companies, switchingCompanyId, switchCompany }}
+      value={{ activeCompany, companies, switchingCompanyId, switchCompany, branding, reloadBranding }}
     >
       {children}
     </CompanyContext.Provider>

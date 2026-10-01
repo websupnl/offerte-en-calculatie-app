@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
         select: {
           title: true,
           number: true,
-          company: { select: { name: true } },
+          company: { select: { id: true, name: true, updatedAt: true } },
         },
       },
     },
@@ -36,11 +36,21 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
   const quoteTitle = share.quote.title?.trim() || share.quote.number || "Offerte";
   const title = `${quoteTitle} | ${companyName}`;
   const description = `Bekijk de offerte van ${companyName}.`;
+  const assetVersion = share.quote.company.updatedAt.getTime();
 
   return {
     title: { absolute: title },
     description,
-    openGraph: { title, description, siteName: companyName, type: "website" },
+    icons: {
+      icon: `/api/brand-assets/${share.quote.company.id}/favicon?v=${assetVersion}`,
+    },
+    openGraph: {
+      title,
+      description,
+      siteName: companyName,
+      type: "website",
+      images: [`/q/${token}/opengraph-image?v=${assetVersion}`],
+    },
     twitter: { card: "summary", title: { absolute: title }, description },
   };
 }

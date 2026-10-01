@@ -1606,7 +1606,7 @@ export function QuoteSheetPreview({
           </section>
         ))}
 
-        {/* ── ONTWERPVOORBEELDEN ── */}
+        {/* ── EXTRA ONTWERPPAGINA'S ── */}
         {standaloneAttachments.map((attachment, index) => (
           <section className="sheet design-sheet" key={attachment.id ?? `${attachment.imageUrl}-${index}`}>
             <div className="bar"></div>
@@ -1616,12 +1616,11 @@ export function QuoteSheetPreview({
                 <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
               </div>
 
-              <div className="row-badge">
-                <div>
-                  <span className="eyebrow">Ontwerpvoorbeeld {index + 1}</span>
-                  <h2 className="h2">{attachment.title || "Voorbeeld van de uitwerking"}</h2>
+              {attachment.title && (
+                <div className="row-badge">
+                  <div><h2 className="h2">{attachment.title}</h2></div>
                 </div>
-              </div>
+              )}
 
               <figure className="design-full design-full-preview">
                 <div className="design-full-frame">
@@ -1632,19 +1631,19 @@ export function QuoteSheetPreview({
                         target="_blank"
                         rel="noopener noreferrer"
                         className="attachment-image-link"
-                        aria-label={`Open ${attachment.title || "het ontwerpvoorbeeld"} in een nieuw tabblad`}
+                        aria-label={`Open ${attachment.title || "de afbeelding"} in een nieuw tabblad`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element -- offerte-afbeeldingen kunnen tijdelijke opslag-URL's zijn */}
                         <img
                           src={attachment.imageUrl}
-                          alt={attachment.title || `Ontwerpvoorbeeld ${index + 1}`}
+                          alt={attachment.title || "Afbeelding bij de offerte"}
                         />
                       </a>
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element -- offerte-afbeeldingen kunnen tijdelijke opslag-URL's zijn
                       <img
                         src={attachment.imageUrl}
-                        alt={attachment.title || `Ontwerpvoorbeeld ${index + 1}`}
+                        alt={attachment.title || "Afbeelding bij de offerte"}
                       />
                     )
                   ) : (
@@ -1654,22 +1653,14 @@ export function QuoteSheetPreview({
                       rel="noopener noreferrer"
                       className="design-live-frame"
                     >
-                      <span>Werkend voorbeeld</span>
-                      <b>{attachment.liveUrl || "Open het voorbeeld online"}</b>
+                      <span>Live website</span>
+                      <b>{attachment.liveUrl || "Open de pagina"}</b>
                     </a>
                   )}
                 </div>
-                <figcaption className="design-full-caption">
+                {(attachment.caption?.trim().toLowerCase() !== "voorbeeld" && attachment.caption?.trim() || attachment.liveUrl) && <figcaption className="design-full-caption">
                   <div className="design-caption-copy">
-                    <span className="design-caption-label">
-                      {attachment.liveUrl ? "Werkend ontwerp" : "Ontwerpimpressie"}
-                    </span>
-                    <p>
-                      {attachment.caption ||
-                        (attachment.liveUrl
-                          ? "Bekijk het ontwerp op ware grootte en ervaar hoe de pagina straks werkt."
-                          : "Een visuele indruk van de voorgestelde uitwerking.")}
-                    </p>
+                    {attachment.caption?.trim() && attachment.caption.trim().toLowerCase() !== "voorbeeld" && <p>{attachment.caption}</p>}
                   </div>
                   {attachment.liveUrl && (
                     <a
@@ -1678,10 +1669,10 @@ export function QuoteSheetPreview({
                       rel="noopener noreferrer"
                       className="design-open-link"
                     >
-                      Open het interactieve ontwerp
+                      Open de pagina
                     </a>
                   )}
-                </figcaption>
+                </figcaption>}
               </figure>
 
               {renderPageFooter(pageNr(`attachment-${index}`))}

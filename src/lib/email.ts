@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { DEFAULT_BRANDING } from "@/lib/branding";
+import { DEFAULT_BRANDING, getBranding, type CompanyBranding } from "@/lib/branding";
 import { defaultQuoteExtensionMessage, defaultQuoteExtensionSubject } from "@/lib/quote-email-copy";
 
 type CompanyEmailIdentity = {
@@ -43,8 +43,13 @@ const COMPANY_EMAIL_IDENTITIES: Record<string, CompanyEmailIdentity> = {
   },
 };
 
-export function getCompanyEmailIdentity(companySlug: string): CompanyEmailIdentity {
-  return COMPANY_EMAIL_IDENTITIES[companySlug] ?? COMPANY_EMAIL_IDENTITIES.websup;
+export function getCompanyEmailIdentity(companySlug: string, overrides?: Partial<CompanyBranding>, companyId?: string): CompanyEmailIdentity {
+  const base = COMPANY_EMAIL_IDENTITIES[companySlug] ?? COMPANY_EMAIL_IDENTITIES.websup;
+  const branding = getBranding(companySlug, overrides);
+  const logoUrl = branding.logoUrl.startsWith("s3://") && companyId
+    ? `/api/brand-assets/${companyId}/logo`
+    : branding.logoUrl;
+  return { ...base, logoUrl, primaryColor: branding.accentColor, accentColor: branding.accentColor };
 }
 
 function getAppUrl() {
@@ -53,6 +58,7 @@ function getAppUrl() {
 
 function absoluteAssetUrl(path?: string) {
   if (!path) return undefined;
+  if (/^https?:\/\//i.test(path)) return path;
   return `${getAppUrl()}${path}`;
 }
 
@@ -169,6 +175,8 @@ type QuoteEmailData = {
   to: string;
   customerName: string;
   companySlug: string;
+  companyId?: string;
+  companyBranding?: Partial<CompanyBranding>;
   quoteNumber: string;
   quoteTitle?: string;
   quoteUrl: string;
@@ -219,7 +227,7 @@ export async function sendQuoteEmail(data: QuoteEmailData) {
   const smtp = getTransporter();
   if (!smtp) return { sent: false, reason: "SMTP niet geconfigureerd" };
 
-  const identity = getCompanyEmailIdentity(data.companySlug);
+  const identity = getCompanyEmailIdentity(data.companySlug, data.companyBranding, data.companyId);
 
   await smtp.sendMail({
     from: `"${identity.fromName}" <${identity.fromEmail}>`,

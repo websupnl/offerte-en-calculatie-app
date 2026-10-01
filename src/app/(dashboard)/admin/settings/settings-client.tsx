@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import type { InvoiceSettings } from "@/lib/branding";
+import type { CompanyBranding as BrandSettings, InvoiceSettings } from "@/lib/branding";
+import { useCompany } from "@/lib/company-context";
 import { Loader2, Save, Settings, Palette, Bot, Key, FileText, ExternalLink, Upload, Trash2 } from "lucide-react";
 
 type TravelPricingTier = {
@@ -32,11 +33,7 @@ type CompanySettings = {
   invoice: InvoiceSettings;
 };
 
-type CompanyBranding = {
-  primaryColor: string;
-  accentColor: string;
-  tagline: string;
-};
+type CompanyBranding = BrandSettings;
 
 type LegalDocumentState = {
   terms: { name: string | null; size: number | null };
@@ -71,6 +68,8 @@ export function SettingsClient({
 }) {
   const [settings, setSettings] = useState(initialSettings);
   const [branding, setBranding] = useState(initialBranding);
+  const [uploadingBrandAsset, setUploadingBrandAsset] = useState<"logo" | "favicon" | null>(null);
+  const { reloadBranding } = useCompany();
   const [legalDocuments, setLegalDocuments] = useState(initialLegalDocuments);
   const [saving, setSaving] = useState(false);
   const setInvoice = (patch: Partial<InvoiceSettings>) =>
@@ -87,16 +86,38 @@ export function SettingsClient({
         openaiApiKey: isMasked ? initialSettings.openaiApiKey : settings.openaiApiKey,
       };
 
-      await fetch(`/api/company/${companyId}/settings`, {
+      const response = await fetch(`/api/company/${companyId}/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ settings: finalSettings, branding }),
       });
+      if (!response.ok) throw new Error("Instellingen konden niet worden opgeslagen");
+      await reloadBranding();
       toast.success("Instellingen opgeslagen");
-    } catch {
-      toast.error("Opslaan mislukt");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Opslaan mislukt");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function uploadBrandAsset(kind: "logo" | "favicon", file: File | undefined) {
+    if (!file) return;
+    setUploadingBrandAsset(kind);
+    try {
+      const formData = new FormData();
+      formData.set("kind", kind);
+      formData.set("file", file);
+      const response = await fetch(`/api/company/${companyId}/branding-asset`, { method: "POST", body: formData });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error ?? "Uploaden mislukt");
+      setBranding(body.branding as CompanyBranding);
+      await reloadBranding();
+      toast.success(kind === "logo" ? "Logo bijgewerkt" : "Favicon bijgewerkt");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Uploaden mislukt");
+    } finally {
+      setUploadingBrandAsset(null);
     }
   }
 
@@ -183,6 +204,11 @@ export function SettingsClient({
       uploadLabel: "Upload privacyverklaring",
     },
   ];
+
+  const brandAssetSrc = (kind: "logo" | "favicon") => {
+    const value = kind === "logo" ? branding.logoUrl : branding.faviconUrl;
+    return value.startsWith("s3://") ? `/api/brand-assets/${companyId}/${kind}` : value;
+  };
 
   return (
     <div className="w-full max-w-[1400px] space-y-6 p-6 lg:p-8 2xl:px-10">
@@ -408,46 +434,50 @@ export function SettingsClient({
           <Card>
             <CardHeader>
               <CardTitle>Branding</CardTitle>
-              <CardDescription>Aanpassen van kleuren en teksten</CardDescription>
+              <CardDescription>Deze huisstijl wordt gebruikt in de werkplek en het offerteportaal.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Primaire kleur</Label>
-                  <div className="flex gap-2">
-                    <input
-                      type="color"
-                      value={branding.primaryColor || (isKoolhaas ? "#0E2344" : "#0F172A")}
-                      onChange={(e) => setBranding((b) => ({ ...b, primaryColor: e.target.value }))}
-                      className="h-10 w-16 rounded cursor-pointer border"
-                    />
-                    <Input
-                      value={branding.primaryColor}
-                      onChange={(e) => setBranding((b) => ({ ...b, primaryColor: e.target.value }))}
-                      placeholder="#0F172A"
-                    />
+              <div className="grid gap-4 sm:grid-cols-2">
+                {([
+                  ["primaryColor", "Primaire kleur"], ["accentColor", "Accentkleur"],
+                  ["backgroundColor", "Achtergrondkleur"], ["textColor", "Tekstkleur"],
+                ] as const).map(([key, label]) => (
+                  <div key={key} className="space-y-2">
+                    <Label htmlFor={`brand-${key}`}>{label}</Label>
+                    <div className="flex gap-2">
+                      <input aria-label={`${label} kiezen`} type="color" value={/^#[\da-f]{6}$/i.test(branding[key]) ? branding[key] : "#ffffff"}
+                        onChange={(e) => setBranding((b) => ({ ...b, [key]: e.target.value }))} className="h-10 w-12 shrink-0 cursor-pointer rounded border bg-transparent p-1" />
+                      <Input id={`brand-${key}`} value={branding[key]} onChange={(e) => setBranding((b) => ({ ...b, [key]: e.target.value }))} placeholder="#123456" />
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Accent kleur</Label>
-                  <div className="flex gap-2">
-                    <input
-                      type="color"
-                      value={branding.accentColor || (isKoolhaas ? "#1F9BA3" : "#6366F1")}
-                      onChange={(e) => setBranding((b) => ({ ...b, accentColor: e.target.value }))}
-                      className="h-10 w-16 rounded cursor-pointer border"
-                    />
-                    <Input
-                      value={branding.accentColor}
-                      onChange={(e) => setBranding((b) => ({ ...b, accentColor: e.target.value }))}
-                      placeholder="#6366F1"
-                    />
-                  </div>
-                </div>
+                ))}
               </div>
               <div className="space-y-2">
-                <Label>Tagline</Label>
+                <Label htmlFor="brand-font">Lettertype</Label>
+                <select id="brand-font" value={branding.font} onChange={(e) => setBranding((b) => ({ ...b, font: e.target.value }))}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base sm:text-sm">
+                  {["Inter", "Nunito", "Sora", "Bricolage Grotesque", "Arial"].map((font) => <option key={font} value={font}>{font}</option>)}
+                </select>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {([ ["logo", "Logo"], ["favicon", "Favicon"] ] as const).map(([kind, label]) => (
+                  <div key={kind} className="space-y-2">
+                    <Label htmlFor={`brand-${kind}`}>{label}</Label>
+                    <div className="flex min-h-20 items-center gap-3 rounded-lg border border-border p-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- afbeelding is door de gebruiker gekozen */}
+                      <img src={brandAssetSrc(kind)} alt={`Huidig ${label.toLowerCase()}`} className={kind === "logo" ? "h-12 max-w-40 object-contain" : "h-10 w-10 object-contain"} />
+                      <Input id={`brand-${kind}`} type="file" accept="image/png,image/jpeg,image/webp" className="min-w-0"
+                        disabled={uploadingBrandAsset !== null} onChange={(e) => { void uploadBrandAsset(kind, e.target.files?.[0]); e.currentTarget.value = ""; }} />
+                    </div>
+                    {uploadingBrandAsset === kind && <p className="text-sm text-muted-foreground">Uploaden…</p>}
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground">PNG, JPG of WebP, maximaal 4 MB. Een vierkante PNG werkt het best als favicon.</p>
+              <div className="space-y-2">
+                <Label htmlFor="brand-tagline">Tagline</Label>
                 <Input
+                  id="brand-tagline"
                   value={branding.tagline}
                   onChange={(e) => setBranding((b) => ({ ...b, tagline: e.target.value }))}
                   placeholder="Jouw tagline..."

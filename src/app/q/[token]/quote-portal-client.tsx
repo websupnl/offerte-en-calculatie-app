@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { toast } from "sonner";
 import {
   Building2,
@@ -17,6 +17,7 @@ import {
   PackageCheck,
 } from "lucide-react";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
+import { cssFontFromBranding } from "@/lib/branding";
 import { filenameFromResponse } from "@/lib/download-filename";
 import "./portal.css";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
@@ -62,7 +63,7 @@ type Quote = {
   totalIncVat: string | number;
   items: QuoteItem[];
   customer: { name: string; email: string | null; address: string | null; city: string | null; zipCode: string | null };
-  company: { name: string; slug: string };
+  company: { id: string; name: string; slug: string };
   flow?: FlowItem[];
   approach?: ApproachStep[];
   options?: QuoteOption[];
@@ -110,6 +111,8 @@ function formatOptionPriceTag(tag: string) {
 export function QuotePortalClient({
   quote,
   share,
+  companySlug,
+  branding,
 }: {
   quote: Quote;
   share: Share;
@@ -167,19 +170,42 @@ export function QuotePortalClient({
   );
 
   const isKoolhaas = quote.company.slug === "koolhaas";
-  const portalBrand = isKoolhaas
-    ? {
-        name: "Koolhaas Installaties",
-        website: "koolhaasinstallaties.nl",
-        // eslint-disable-next-line @next/next/no-img-element -- klantportaal rendert dynamische merkassets in print en web
-        logo: <img src="/logos/koolhaas-lockup-white.png" alt="Koolhaas Installaties" />,
-      }
-    : {
-        name: "WebsUp.nl",
-        website: "websup.nl",
-        // eslint-disable-next-line @next/next/no-img-element -- klantportaal rendert dynamische merkassets in print en web
-        logo: <img src="/logos/websup-lockup-white.png" alt="WebsUp.nl" />,
-      };
+  const primaryColor = branding.primaryColor || (isKoolhaas ? "#102D59" : "#0b1526");
+  const accentColor = branding.accentColor || (isKoolhaas ? "#247EB2" : "#f97316");
+  const backgroundColor = branding.backgroundColor || "#f8f9fc";
+  const textColor = branding.textColor || primaryColor;
+  const savedLogo = branding.logoUrl;
+  const brandLogo = !savedLogo || savedLogo === "/logos/koolhaas-logo.png" || savedLogo === "/logos/koolhaas-logo-tight.png"
+    ? (isKoolhaas ? "/logos/koolhaas-lockup-white.png" : savedLogo || "/logos/websup-lockup-white.png")
+    : savedLogo === "/logos/websup-wordmark-black.png"
+      ? "/logos/websup-lockup-white.png"
+      : savedLogo;
+  const logoSrc = brandLogo.startsWith("s3://") ? `/api/brand-assets/${quote.company.id}/logo` : brandLogo;
+  const brandStyle = {
+    "--portal-primary": primaryColor,
+    "--portal-accent": accentColor,
+    "--portal-background": backgroundColor,
+    "--portal-text": textColor,
+    "--brand-font": cssFontFromBranding(branding.font || (isKoolhaas ? "Sora" : "Inter")),
+  } as CSSProperties;
+  useEffect(() => {
+    const faviconUrl = branding.faviconUrl || "/icons/icon-192.png";
+    const favicon = faviconUrl.startsWith("s3://") ? `/api/brand-assets/${quote.company.id}/favicon` : faviconUrl;
+    let icon = document.querySelector<HTMLLinkElement>('link[data-company-favicon="true"]');
+    if (!icon) {
+      icon = document.createElement("link");
+      icon.rel = "icon";
+      icon.dataset.companyFavicon = "true";
+      document.head.appendChild(icon);
+    }
+    icon.href = favicon;
+  }, [branding.faviconUrl, companySlug, quote.company.id]);
+  const portalBrand = {
+    name: quote.company.name,
+    website: isKoolhaas ? "koolhaasinstallaties.nl" : "websup.nl",
+    // eslint-disable-next-line @next/next/no-img-element -- portaal gebruikt uploadbare merkafbeeldingen
+    logo: <img src={logoSrc} alt={quote.company.name} className={logoSrc.startsWith("/api/brand-assets/") ? "portal-custom-logo" : undefined} />,
+  };
 
   const documentRef = useRef<HTMLDivElement>(null);
   const [signerName, setSignerName] = useState(quote.customer.name);
@@ -464,7 +490,7 @@ export function QuotePortalClient({
   };
 
   return (
-    <div className={`portal-container ${isKoolhaas ? "portal-koolhaas" : "portal-websup"}`}>
+    <div className={`portal-container ${isKoolhaas ? "portal-koolhaas" : "portal-websup"}`} style={brandStyle}>
       <header className="portal-topbar no-print">
         <div className="portal-topbar-brand">
           {portalBrand.logo}
@@ -520,7 +546,7 @@ export function QuotePortalClient({
             priceLabel={priceLabel}
             displayedTotal={showExVat ? totals.totalExVat : totals.totalIncVat}
             recurringLines={recurringDisplayLines}
-            accentColor={isKoolhaas ? "#0e7490" : "#7c3aed"}
+            accentColor={accentColor}
             onScrollToQuote={() => documentRef.current?.scrollIntoView({ behavior: "smooth" })}
             shareToken={share.token}
           />
