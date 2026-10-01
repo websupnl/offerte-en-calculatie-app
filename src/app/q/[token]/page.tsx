@@ -12,6 +12,38 @@ import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/qu
 import { isStorageConfigured, presignDownload } from "@/lib/storage";
 import { modulesToOptions } from "@/lib/quote-modules";
 import { applyCalculationPricing } from "@/lib/quote-with-pricing";
+import { getBranding } from "@/lib/branding";
+import type { Metadata } from "next";
+
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { token } = await params;
+  const share = await prisma.quoteShare.findUnique({
+    where: { token },
+    select: {
+      quote: {
+        select: {
+          title: true,
+          number: true,
+          company: { select: { name: true } },
+        },
+      },
+    },
+  });
+
+  if (!share) return { title: "Offerte" };
+
+  const companyName = share.quote.company.name;
+  const quoteTitle = share.quote.title?.trim() || share.quote.number || "Offerte";
+  const title = `${quoteTitle} | ${companyName}`;
+  const description = `Bekijk de offerte van ${companyName}.`;
+
+  return {
+    title: { absolute: title },
+    description,
+    openGraph: { title, description, siteName: companyName, type: "website" },
+    twitter: { card: "summary", title: { absolute: title }, description },
+  };
+}
 
 export default async function QuotePortalPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -104,8 +136,8 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
     }
   }
 
-  const branding = (share.quote.company.branding ?? {}) as Record<string, string>;
   const slug = share.quote.company.slug;
+  const branding = getBranding(slug, (share.quote.company.branding ?? {}) as Record<string, string>);
   const serialized = JSON.parse(JSON.stringify(share));
   serialized.quote.attachments = await resolveQuoteAttachmentImages(
     serialized.quote.attachments,
@@ -149,10 +181,138 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
     })),
   );
 
+  // De share-token is openbaar toegangsbewijs. Geef daarom alleen velden door
+  // die de offerteweergave nodig heeft. De brede Prisma-resultaten bevatten ook
+  // interne notities, akkoordberichten, PDF-url's en bedrijfsinstellingen.
+  const publicQuote = {
+    id: serialized.quote.id,
+    number: serialized.quote.number,
+    title: serialized.quote.title,
+    category: serialized.quote.category,
+    tagline: serialized.quote.tagline,
+    itemsHeader: serialized.quote.itemsHeader,
+    status: serialized.quote.status,
+    intro: serialized.quote.intro,
+    outro: serialized.quote.outro,
+    validUntil: serialized.quote.validUntil,
+    createdAt: serialized.quote.createdAt,
+    totalExVat: serialized.quote.totalExVat,
+    totalVat: serialized.quote.totalVat,
+    totalIncVat: serialized.quote.totalIncVat,
+    items: serialized.quote.items
+      .filter((item: { hiddenOnQuote?: boolean }) => !item.hiddenOnQuote)
+      .map((item: {
+        id: string;
+        description: string;
+        qty: unknown;
+        unitPrice: unknown;
+        vatRate: unknown;
+        total: unknown;
+        sortOrder: number;
+        indent: number;
+        type: string | null;
+        hiddenOnQuote: boolean;
+      }) => ({
+        id: item.id,
+        description: item.description,
+        qty: item.qty,
+        unitPrice: item.unitPrice,
+        vatRate: item.vatRate,
+        total: item.total,
+        sortOrder: item.sortOrder,
+        indent: item.indent,
+        type: item.type,
+        hiddenOnQuote: item.hiddenOnQuote,
+      })),
+    customer: {
+      name: serialized.quote.customer.name,
+      email: serialized.quote.customer.email,
+      address: serialized.quote.customer.address,
+      city: serialized.quote.customer.city,
+      zipCode: serialized.quote.customer.zipCode,
+    },
+    company: {
+      id: serialized.quote.company.id,
+      name: serialized.quote.company.name,
+      slug: serialized.quote.company.slug,
+    },
+    flow: serialized.quote.flow,
+    approach: serialized.quote.approach,
+    options: serialized.quote.options,
+    exclusions: serialized.quote.exclusions,
+    assumptions: serialized.quote.assumptions,
+    technicalNotes: serialized.quote.technicalNotes,
+    customerResponsibilities: serialized.quote.customerResponsibilities,
+    planning: serialized.quote.planning,
+    commercial: serialized.quote.commercial,
+    batteryAdvice: serialized.quote.batteryAdvice,
+    choiceGroups: serialized.quote.choiceGroups.map((group: {
+      id: string;
+      title: string;
+      type: "SINGLE_SELECT";
+      description?: string;
+      recommendedChoiceId?: string;
+      choices: Array<{
+        id: string;
+        label?: string;
+        title: string;
+        summary?: string;
+        tag?: string;
+        imageUrl?: string;
+        items: Array<{
+          description: string;
+          qty: number;
+          unitPrice: number;
+          vatRate: number;
+          indent?: number;
+          hiddenOnQuote?: boolean;
+        }>;
+      }>;
+    }) => ({
+      id: group.id,
+      title: group.title,
+      type: group.type,
+      description: group.description,
+      recommendedChoiceId: group.recommendedChoiceId,
+      choices: group.choices.map((choice) => ({
+        id: choice.id,
+        label: choice.label,
+        title: choice.title,
+        summary: choice.summary,
+        tag: choice.tag,
+        imageUrl: choice.imageUrl,
+        items: choice.items
+          .filter((item) => !item.hiddenOnQuote)
+          .map((item) => ({
+            description: item.description,
+            qty: item.qty,
+            unitPrice: item.unitPrice,
+            vatRate: item.vatRate,
+            indent: item.indent,
+          })),
+      })),
+    })),
+    hiddenSections: serialized.quote.hiddenSections,
+    contentBlocks: serialized.quote.contentBlocks,
+    attachments: serialized.quote.attachments,
+    documents: serialized.quote.documents,
+    adviceDocuments: [],
+  };
+  const publicShare = {
+    id: serialized.id,
+    token: share.token,
+    acceptedAt: serialized.acceptedAt,
+    declinedAt: serialized.declinedAt,
+    selectedChoiceIds: serialized.selectedChoiceIds,
+    selectedOptionIds: serialized.selectedOptionIds,
+    acceptedTotalExVat: serialized.acceptedTotalExVat,
+    acceptedTotalIncVat: serialized.acceptedTotalIncVat,
+  };
+
   return (
     <QuotePortalClient
-      quote={serialized.quote}
-      share={serialized}
+      quote={publicQuote}
+      share={publicShare}
       companySlug={slug}
       branding={branding}
     />
