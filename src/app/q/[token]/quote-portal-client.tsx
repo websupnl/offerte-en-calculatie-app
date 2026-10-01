@@ -3,23 +3,20 @@
 import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { toast } from "sonner";
 import {
-  Building2,
-  Calendar,
+  ArrowDown,
   CheckCircle2,
   Clock,
   Download,
-  Euro,
   FileText,
   Loader2,
-  Mail,
-  Shield,
   XCircle,
   PackageCheck,
 } from "lucide-react";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
-import { cssFontFromBranding } from "@/lib/branding";
+import { getBranding, portalVarsFromBranding } from "@/lib/branding";
 import { filenameFromResponse } from "@/lib/download-filename";
 import "./portal.css";
+import "./portal-experience.css";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
 import { AcceptanceSuccess } from "./acceptance-success";
 import {
@@ -170,26 +167,14 @@ export function QuotePortalClient({
   );
 
   const isKoolhaas = quote.company.slug === "koolhaas";
-  const primaryColor = branding.primaryColor || (isKoolhaas ? "#102D59" : "#0b1526");
-  const accentColor = branding.accentColor || (isKoolhaas ? "#247EB2" : "#f97316");
-  const backgroundColor = branding.backgroundColor || "#f8f9fc";
-  const textColor = branding.textColor || primaryColor;
-  const savedLogo = branding.logoUrl;
-  const brandLogo = !savedLogo || savedLogo === "/logos/koolhaas-logo.png" || savedLogo === "/logos/koolhaas-logo-tight.png"
-    ? (isKoolhaas ? "/logos/koolhaas-lockup-white.png" : savedLogo || "/logos/websup-lockup-white.png")
-    : savedLogo === "/logos/websup-wordmark-black.png"
-      ? "/logos/websup-lockup-white.png"
-      : savedLogo;
-  const logoSrc = brandLogo.startsWith("s3://") ? `/api/brand-assets/${quote.company.id}/logo` : brandLogo;
-  const brandStyle = {
-    "--portal-primary": primaryColor,
-    "--portal-accent": accentColor,
-    "--portal-background": backgroundColor,
-    "--portal-text": textColor,
-    "--brand-font": cssFontFromBranding(branding.font || (isKoolhaas ? "Sora" : "Inter")),
-  } as CSSProperties;
+  const resolvedBranding = getBranding(companySlug, branding);
+  const accentColor = resolvedBranding.accentColor;
+  const logoSrc = resolvedBranding.logoUrl.startsWith("s3://")
+    ? `/api/brand-assets/${quote.company.id}/logo`
+    : resolvedBranding.logoUrl;
+  const brandStyle = portalVarsFromBranding(resolvedBranding) as CSSProperties;
   useEffect(() => {
-    const faviconUrl = branding.faviconUrl || "/icons/icon-192.png";
+    const faviconUrl = resolvedBranding.faviconUrl;
     const favicon = faviconUrl.startsWith("s3://") ? `/api/brand-assets/${quote.company.id}/favicon` : faviconUrl;
     let icon = document.querySelector<HTMLLinkElement>('link[data-company-favicon="true"]');
     if (!icon) {
@@ -199,7 +184,7 @@ export function QuotePortalClient({
       document.head.appendChild(icon);
     }
     icon.href = favicon;
-  }, [branding.faviconUrl, companySlug, quote.company.id]);
+  }, [resolvedBranding.faviconUrl, quote.company.id]);
   const portalBrand = {
     name: quote.company.name,
     website: isKoolhaas ? "koolhaasinstallaties.nl" : "websup.nl",
@@ -220,13 +205,18 @@ export function QuotePortalClient({
     setDownloadingPdf(true);
     try {
       const res = await fetch(`/api/portal/${share.token}/pdf`);
+      if (!res.ok || !res.headers.get("content-type")?.includes("application/pdf")) {
+        throw new Error("De PDF kon niet worden gemaakt. Probeer het opnieuw.");
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = filenameFromResponse(res, "offerte.pdf");
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "PDF downloaden mislukt.");
     } finally {
       setDownloadingPdf(false);
     }
@@ -244,7 +234,6 @@ export function QuotePortalClient({
   const selectionsComplete = choiceGroups.every((group) => Boolean(selectedChoiceIds[group.id]));
   // Zelfde reden als in de sheet: de offertedatum is een eigenschap van de offerte,
   // geen "nu". new Date() hier gaf een hydration-mismatch en een verspringende datum.
-  const today = quote.createdAt ?? new Date().toISOString();
   const statusLabel = submitted === "accepted"
     ? "Geaccepteerd"
     : submitted === "declined"
@@ -347,8 +336,6 @@ export function QuotePortalClient({
   const includedModules = optionalWork.filter(moduleIsIncluded);
   const extraModules = optionalWork.filter((option) => !moduleIsIncluded(option));
 
-  const oneTimeTotal = showExVat ? totals.totalExVat : totals.totalIncVat;
-
   const recurringDisplayLines: { interval: string; amount: number }[] = [];
   if (totals.recurring.perMonthExVat > 0) {
     recurringDisplayLines.push({
@@ -369,9 +356,6 @@ export function QuotePortalClient({
     });
   }
   const hasRecurring = recurringDisplayLines.length > 0;
-  const recurringMetaSuffix = recurringDisplayLines
-    .map((line) => `${formatCurrency(line.amount)} ${line.interval}`)
-    .join(" + ");
 
   const oneTimeBreakdown: { label: string; amount: number }[] = [];
   if (baseExVat > 0) {
@@ -490,16 +474,18 @@ export function QuotePortalClient({
   };
 
   return (
-    <div className={`portal-container ${isKoolhaas ? "portal-koolhaas" : "portal-websup"}`} style={brandStyle}>
+    <div className={`portal-container quote-portal ${isKoolhaas ? "portal-koolhaas" : "portal-websup"}`} style={brandStyle}>
+      <a href="#offerte" className="portal-skip-link no-print">Naar de offerte</a>
       <header className="portal-topbar no-print">
         <div className="portal-topbar-brand">
           {portalBrand.logo}
-          <span>Offerte portaal</span>
+          <span>Jouw offerte</span>
         </div>
-        <div className="portal-secure">
-          <Shield />
-          Beveiligde verbinding
-        </div>
+        <nav className="portal-header-nav" aria-label="Offertenavigatie">
+          <a href="#offerte">Voorstel</a>
+          {documents.length > 0 && <a href="#documenten">Bijlagen</a>}
+          {canRespond && <a href="#akkoord">Jouw reactie <ArrowDown /></a>}
+        </nav>
       </header>
 
       <main className="portal-shell">
@@ -507,8 +493,9 @@ export function QuotePortalClient({
           <div className="portal-overview-copy">
             <p className="portal-kicker">{quote.number ?? "Concept"}</p>
             <h1>{quote.title || quote.category || "Offerte"}</h1>
-            <p>{quote.customer.name} · {portalBrand.name}</p>
+            <p>Voor {quote.customer.name}</p>
           </div>
+          <div className="portal-overview-details">
           {showStatusBadge && (
             <div className="portal-overview-end">
               <div className={`portal-status-pill ${submitted === "accepted" ? "is-accepted" : isExpired ? "is-expired" : ""}`}>
@@ -522,6 +509,7 @@ export function QuotePortalClient({
               <span>{isExpired ? "Verlopen op" : "Geldig tot"} {formatDate(quote.validUntil)}</span>
             </div>
           )}
+          </div>
         </section>
 
         {submitted === "accepted" && (
@@ -556,7 +544,8 @@ export function QuotePortalClient({
           <div className="doc-viewer" id="offerte" ref={documentRef}>
               <QuoteSheetPreview
               quote={{ ...quote, number: quote.number ?? "CONCEPT" }}
-              companySlug={quote.company.slug} 
+              companySlug={quote.company.slug}
+              branding={resolvedBranding}
               selectedChoiceIds={selectedChoiceIds}
               selectedOptionIds={selectedOptionIds}
             />
@@ -564,60 +553,46 @@ export function QuotePortalClient({
 
           <aside className={`sidebar no-print${submitted === "accepted" ? " hidden" : ""}`}>
             <div className="portal-sidebar-content" id="akkoord">
-              <div className="portal-card portal-identity-card">
-                <div className="portal-meta-list">
-                  {[
-                    { icon: <FileText />, label: "Offertenummer", value: quote.number ?? "Concept" },
-                    { icon: <Calendar />, label: "Datum", value: formatDate(today) },
-                    ...(quote.validUntil
-                      ? [{ icon: <Clock />, label: isExpired ? "Verlopen op" : "Geldig tot", value: formatDate(quote.validUntil) }]
-                      : []),
-                    { icon: <Building2 />, label: "Status", value: statusLabel },
-                    {
-                      icon: <Euro />,
-                      label: "Voorgestelde investering",
-                      value: hasRecurring
-                        ? `${formatCurrency(Number(displayedTotal))} ${priceLabel} eenmalig + ${recurringMetaSuffix} ${priceLabel}`
-                        : `${formatCurrency(Number(displayedTotal))} ${priceLabel}`,
-                    },
-                    ...(quote.customer.email ? [{ icon: <Mail />, label: "Klant", value: quote.customer.email }] : []),
-                  ].map(({ icon, label, value }) => (
-                    <div key={label} className="portal-meta-row">
-                      <div className="portal-meta-icon">{icon}</div>
-                      <div>
-                        <p>{label}</p>
-                        <b>{value}</b>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="portal-card portal-total-card">
+              <div className="portal-card portal-total-card" aria-live="polite" aria-atomic="true">
                 <div>
                   <p>{hasRecurring ? "Eenmalige investering" : "Totale investering"}</p>
                   <strong>
                     {formatCurrency(Number(displayedTotal))}
-                    {" "}
-                    <small>{priceLabel}</small>
+
                   </strong>
+                  <span className="portal-price-tax">{priceLabel}</span>
                   {recurringDisplayLines.map((line) => (
                     <span key={line.interval} className="portal-total-recurring">
                       daarna {formatCurrency(line.amount)} {line.interval} {priceLabel}
                     </span>
                   ))}
                 </div>
-              </div>
-
-              <button
+                {oneTimeBreakdown.length > 1 && (
+                  <ul className="portal-price-breakdown">
+                    {oneTimeBreakdown.map((line, index) => <li key={index}><span>{line.label}</span><b>{formatCurrency(line.amount)}</b></li>)}
+                  </ul>
+                )}
+                <button
                 type="button"
                 className="btn-secondary"
                 onClick={handleDownloadPdf}
                 disabled={downloadingPdf}
               >
                 {downloadingPdf ? <Loader2 className="animate-spin" /> : <Download />}
-                {downloadingPdf ? "Bezig..." : "Print / PDF"}
+                {downloadingPdf ? "PDF wordt gemaakt..." : "Download offerte als PDF"}
               </button>
+              </div>
+
+              {documents.length > 0 && (
+                <section className="portal-card portal-documents" id="documenten" aria-labelledby="documenten-heading">
+                  <h2 id="documenten-heading">Bijlagen</h2>
+                  {documents.filter((doc) => doc.url).map((doc) => (
+                    <a key={doc.id} href={doc.url!} target="_blank" rel="noopener noreferrer">
+                      <FileText /><span>{doc.name}</span><Download />
+                    </a>
+                  ))}
+                </section>
+              )}
 
               {submitted ? (
                 <div className={`portal-card portal-result-card ${submitted === "accepted" ? "is-accepted" : ""}`}>
@@ -639,7 +614,8 @@ export function QuotePortalClient({
                 </div>
               ) : (
                 <div className="portal-card portal-action-card">
-                  <p className="portal-form-kicker" id="akkoord">Akkoord geven</p>
+                  <h2 className="portal-form-kicker">Jouw reactie</h2>
+                  <p className="portal-action-intro">Alles naar wens? Geef hieronder je akkoord.</p>
 
                   {(choiceGroups.length > 0 || optionalWork.length > 0) && (
                     <div className="portal-composer">
@@ -690,7 +666,7 @@ export function QuotePortalClient({
                                       {(isRecommended || choice.label) && <em>{choice.label || "Aanbevolen"}</em>}
                                     </span>
                                     {choice.summary && <small>{choice.summary}</small>}
-                                    <strong>{formatCurrency(choiceDisplayTotal)} <small>{priceLabel} — compleet</small></strong>
+                                    <strong>{formatCurrency(choiceDisplayTotal)} <small>{priceLabel} compleet</small></strong>
                                     {exVat > 0 && baseExVat > 0 && (
                                       <small>Systeem {formatCurrency(systemDisplayTotal)} · montage &amp; installatie {formatCurrency(baseDisplayTotal)}</small>
                                     )}
@@ -722,52 +698,8 @@ export function QuotePortalClient({
                         </fieldset>
                       )}
 
-                      <div className="portal-composer-total">
-                        <span>Jouw definitieve investering</span>
-                        {oneTimeBreakdown.length > 1 && (
-                          <ul className="portal-composer-breakdown">
-                            {oneTimeBreakdown.map((line, index) => (
-                              <li key={index}>
-                                <span>{line.label}</span>
-                                <span>{formatCurrency(line.amount)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        <b>
-                          {formatCurrency(oneTimeTotal)}{" "}
-                          <small>{hasRecurring ? "eenmalig" : ""} {priceLabel}</small>
-                        </b>
-                        {recurringDisplayLines.map((line) => (
-                          <b key={line.interval} className="portal-composer-recurring">
-                            + {formatCurrency(line.amount)} <small>{line.interval} {priceLabel}</small>
-                          </b>
-                        ))}
-                        <small>Wordt bijgewerkt wanneer je een optie aan- of uitzet.</small>
-                      </div>
+                      <p className="portal-choice-help">Je totaal bovenaan wordt direct bijgewerkt bij elke keuze.</p>
                     </div>
-                  )}
-
-                  {documents.length > 0 && (
-                    <fieldset className="portal-choice-group">
-                      <legend>Documenten & datasheets</legend>
-                      <div className="portal-choice-list">
-                        {documents.map((doc) => (
-                          <a
-                            key={doc.id}
-                            href={doc.url ?? "#"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="portal-select-card"
-                            style={{ display: "flex", alignItems: "center", gap: "0.6rem", textDecoration: "none" }}
-                          >
-                            <FileText className="h-4 w-4 shrink-0" />
-                            <span className="portal-select-title" style={{ flex: 1 }}>{doc.name}</span>
-                            <Download className="h-4 w-4 shrink-0" />
-                          </a>
-                        ))}
-                      </div>
-                    </fieldset>
                   )}
 
                   <div className="portal-field">
@@ -775,6 +707,8 @@ export function QuotePortalClient({
                     <input
                       id="signer-name"
                       type="text"
+                      autoComplete="name"
+                      required
                       value={signerName}
                       onChange={(e) => setSignerName(e.target.value)}
                       placeholder="Volledige naam"
@@ -788,7 +722,7 @@ export function QuotePortalClient({
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       rows={3}
-                      placeholder="Laat hier eventueel een vraag, opmerking of aanvullende afspraak achter."
+                      placeholder="Wil je nog iets meegeven?"
                     />
                   </div>
 
@@ -825,7 +759,7 @@ export function QuotePortalClient({
                     <>
                       <button
                         onClick={handleAccept}
-                        disabled={submitting || !agreed || !canRespond || !selectionsComplete}
+                        disabled={submitting || !agreed || !signerName.trim() || !canRespond || !selectionsComplete}
                         className="btn-primary"
                       >
                         {submitting ? (
@@ -864,10 +798,7 @@ export function QuotePortalClient({
                     </div>
                   )}
 
-                  <p className="portal-security-note">
-                    <Shield />
-                    Beveiligd met SSL-encryptie. Elektronisch akkoord is rechtsgeldig.
-                  </p>
+
                 </div>
               )}
             </div>
@@ -926,7 +857,7 @@ export function QuotePortalClient({
             </b>
           </div>
           <a href="#akkoord" className="btn-primary">
-            Bekijk akkoord
+            Jouw reactie
           </a>
         </div>
       )}

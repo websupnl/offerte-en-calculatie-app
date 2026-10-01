@@ -151,3 +151,14 @@ export function cssFontFromBranding(font: string): string {
   };
   return `${family[font] ?? family.Inter}, system-ui, sans-serif`;
 }
+
+/** Documenten krijgen hun eigen merkwaarden, los van de actieve werkplekthema's. */
+export function portalVarsFromBranding(branding: CompanyBranding): Record<string, string> {
+  return {
+    "--portal-primary": branding.primaryColor,
+    "--portal-accent": branding.accentColor,
+    "--portal-background": branding.backgroundColor,
+    "--portal-text": branding.textColor,
+    "--brand-font": cssFontFromBranding(branding.font),
+  };
+}

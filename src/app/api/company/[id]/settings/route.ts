@@ -40,10 +40,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   // Portal-PDF's kunnen de oude huisstijl uit cache tonen. Laat ze na een
   // brandingwijziging opnieuw opbouwen bij het volgende downloadverzoek.
   if (brandingChanged) {
-    await prisma.quoteShare.updateMany({
-      where: { quote: { companyId: id } },
-      data: { portalPdfUrl: null },
-    });
+    await prisma.$transaction([
+      prisma.quote.updateMany({ where: { companyId: id }, data: { pdfUrl: null } }),
+      prisma.quoteShare.updateMany({ where: { quote: { companyId: id } }, data: { portalPdfUrl: null } }),
+    ]);
   }
 
   return NextResponse.json({ ok: true });

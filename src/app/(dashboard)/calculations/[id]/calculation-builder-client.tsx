@@ -1161,7 +1161,7 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                 {/* Footer Totals */}
                 <tfoot>
                   {totals.optionalSales > 0 && (
-                    <tr className="bg-amber-50 text-amber-700 text-sm">
+                    <tr className="bg-muted/40 text-muted-foreground text-sm">
                       <td colSpan={9} className="py-1.5 px-4 text-right">
                         Optionele extra&apos;s (niet in hoofdtotaal, excl. BTW):
                       </td>
@@ -1171,9 +1171,9 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                       <td colSpan={2}></td>
                     </tr>
                   )}
-                  <tr className="bg-foreground text-background font-semibold">
+                  <tr className="border-t border-border bg-muted/60 text-foreground font-semibold">
                     <td colSpan={9} className="py-3 px-4 text-right">
-                      Totaal Generaal (Excl. BTW):
+                      Totaal excl. btw
                     </td>
                     <td className="py-3 px-3 text-right tabular-nums text-muted-foreground">
                       {formatCurrency(totals.totalCost)}

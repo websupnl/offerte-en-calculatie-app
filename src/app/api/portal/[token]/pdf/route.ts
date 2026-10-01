@@ -14,6 +14,7 @@ import { getBranding } from "@/lib/branding";
 import { getQuoteAttachmentStorageKey, resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
 import { isStorageConfigured, presignDownload } from "@/lib/storage";
 import { pdfFilename } from "@/lib/pdf/filename";
+import { isCurrentPdfCache, quotePdfCachePath } from "@/lib/pdf/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   const host = req.headers.get("host") ?? "localhost:3001";
 
   // 1. Serve from cache if available
-  if (share.portalPdfUrl) {
+  if (isCurrentPdfCache(share.portalPdfUrl, quotePdfCachePath("portal", token, quote.company))) {
     const res = await fetch(share.portalPdfUrl);
     if (res.ok) {
       const buffer = await res.arrayBuffer();

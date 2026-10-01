@@ -439,7 +439,7 @@ export function QuoteBuilder({
   travelPricingTiers?: TravelPricingTier[];
 }) {
   const router = useRouter();
-  const { branding } = useCompany();
+  const { branding, activeCompany } = useCompany();
   const isKoolhaas = companySlug === "koolhaas";
 
   // ─── Core State ───
@@ -688,7 +688,7 @@ export function QuoteBuilder({
       city: customer?.city || null,
       zipCode: customer?.zipCode || null,
     },
-    company: { slug: companySlug }
+    company: { id: activeCompany?.id, slug: companySlug, branding: branding ?? undefined }
   };
 
   async function handleAiMagic() {

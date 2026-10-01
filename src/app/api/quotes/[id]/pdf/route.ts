@@ -14,6 +14,7 @@ import { getBranding } from "@/lib/branding";
 import { getQuoteAttachmentStorageKey, resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
 import { presignDownload, isStorageConfigured } from "@/lib/storage";
 import { pdfFilename } from "@/lib/pdf/filename";
+import { isCurrentPdfCache, quotePdfCachePath } from "@/lib/pdf/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const quoteCheck = await prisma.quote.findFirst({
     where: { id, companyId: session.user.activeCompanyId },
-    select: { pdfUrl: true, number: true, customer: { select: { name: true } } },
+    select: { pdfUrl: true, number: true, customer: { select: { name: true } }, company: { select: { slug: true, branding: true } } },
   });
 
   if (!quoteCheck) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const filename = pdfFilename("Offerte", quoteCheck.number || id, quoteCheck.customer?.name);
 
   // 1. Cached blob PDF
-  if (quoteCheck.pdfUrl) {
+  if (isCurrentPdfCache(quoteCheck.pdfUrl, quotePdfCachePath("offerte", id, quoteCheck.company))) {
     const res = await fetch(quoteCheck.pdfUrl);
     if (res.ok) {
       const buffer = await res.arrayBuffer();

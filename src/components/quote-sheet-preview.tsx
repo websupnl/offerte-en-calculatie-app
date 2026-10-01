@@ -10,6 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { getBranding, portalVarsFromBranding, type CompanyBranding } from "@/lib/branding";
 import "@/app/q/[token]/portal.css";
 import { useRef, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -310,7 +311,7 @@ export type QuotePreviewData = {
   hiddenSections?: string[];
   attachments?: QuoteAttachment[];
   adviceDocuments?: { id: string; type: string }[];
-  company?: { name?: string | null; slug?: string | null };
+  company?: { id?: string; name?: string | null; slug?: string | null; branding?: Partial<CompanyBranding> };
   choiceGroups?: QuoteChoiceGroup[];
   commercial?: { priceDisplayMode?: "incl" | "excl"; [key: string]: unknown };
   batteryAdvice?: { sources?: QuoteSource[]; [key: string]: unknown };
@@ -346,6 +347,7 @@ export type QuotePageMeta = {
 interface QuoteSheetPreviewProps {
   quote: QuotePreviewData;
   companySlug?: string;
+  branding?: Partial<CompanyBranding>;
   isEditable?: boolean;
   onUpdate?: (updates: Partial<QuotePreviewData>) => void;
   onUpdateItem?: (id: string, updates: Partial<QuoteItem>) => void;
@@ -435,6 +437,7 @@ const COMPANY_COPY = {
 export function QuoteSheetPreview({
   quote,
   companySlug,
+  branding: brandingOverride,
   isEditable = false,
   onUpdate,
   onUpdateItem,
@@ -472,6 +475,11 @@ export function QuoteSheetPreview({
   const activeSlug = companySlug || quote.company?.slug || "websup";
   const brand = activeSlug === "koolhaas" ? COMPANY_COPY.koolhaas : COMPANY_COPY.websup;
   const isKoolhaas = brand.slug === "koolhaas";
+  const documentBranding = getBranding(activeSlug, brandingOverride ?? quote.company?.branding);
+  const customLogo = documentBranding.logoUrl.startsWith("s3://")
+    ? (quote.company?.id ? `/api/brand-assets/${quote.company.id}/logo` : null)
+    : documentBranding.logoUrl;
+  const documentLogo = customLogo || (isKoolhaas ? "/logos/koolhaas-logo-tight.png" : "/logos/websup-cover.png");
   
   // Choice Logic
   const choiceGroups = quote.choiceGroups || [];
@@ -809,23 +817,13 @@ export function QuoteSheetPreview({
   };
 
   const renderHeaderLogo = (cover = false) => {
-    if (isKoolhaas) {
-      // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout gebruikt intrinsieke CSS-afmetingen
-      return <img src="/logos/koolhaas-logo-tight.png" alt="Koolhaas Installaties" className={cover ? "brand-logo brand-logo-cover" : "brand-logo"} />;
-    }
     // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout gebruikt intrinsieke CSS-afmetingen
-    return <img src="/logos/websup-cover.png" alt="WebsUp" className={cover ? "brand-logo brand-logo-cover" : "brand-logo"} />;
+    return <img src={documentLogo} alt={quote.company?.name || brand.name} className={cover ? "brand-logo brand-logo-cover" : "brand-logo"} />;
   };
 
   const renderPageFooter = (pageNo: string) => (
     <div className="doc-foot">
-      {isKoolhaas ? (
-        // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout gebruikt intrinsieke CSS-afmetingen
-        <img src="/logos/koolhaas-logo-tight.png" alt="Koolhaas Installaties" className="brand-logo doc-foot-brand-logo" />
-      ) : (
-        // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout gebruikt intrinsieke CSS-afmetingen
-        <img src="/logos/websup-icon.png" alt="WebsUp" className="doc-foot-icon" />
-      )}
+      {renderHeaderLogo()}
       <div className="doc-foot-meta">
         <div className="doc-foot-meta-row">
           {!isKoolhaas && <span>{brand.website}</span>}
@@ -1303,7 +1301,7 @@ export function QuoteSheetPreview({
   );
 
   return (
-    <div className={`portal-container ${isKoolhaas ? "portal-koolhaas" : "portal-websup"}`} style={{ minHeight: 'auto', backgroundColor: 'transparent' }}>
+    <div className={`portal-container ${isKoolhaas ? "portal-koolhaas" : "portal-websup"}`} style={{ ...portalVarsFromBranding(documentBranding), minHeight: 'auto', backgroundColor: 'transparent' }}>
       <div className="doc-viewer" style={{ paddingBottom: 0 }}>
         
         {/* ── PAGINA 1: COVER ── */}

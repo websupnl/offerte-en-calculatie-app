@@ -1,6 +1,7 @@
 import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { renderPageAsPdf } from "./render-page-as-pdf";
+import { quotePdfCachePath } from "./cache";
 
 export async function generateAndStorePdf(
   quoteId: string,
@@ -19,7 +20,9 @@ export async function generateAndStorePdf(
     const pdfBuffer = await renderPageAsPdf(printUrl, cookie);
     if (!pdfBuffer) return null;
 
-    const blob = await put(`pdfs/offerte-${quoteId}.pdf`, pdfBuffer, {
+    const quote = await prisma.quote.findUnique({ where: { id: quoteId }, select: { company: { select: { slug: true, branding: true } } } });
+    if (!quote) return null;
+    const blob = await put(quotePdfCachePath("offerte", quoteId, quote.company), pdfBuffer, {
       access: "public",
       contentType: "application/pdf",
       addRandomSuffix: false,
@@ -67,7 +70,9 @@ export async function generatePortalPdfWithBuffer(
   }
 
   try {
-    const blob = await put(`pdfs/portal-${shareToken}.pdf`, pdfBuffer, {
+    const share = await prisma.quoteShare.findUnique({ where: { token: shareToken }, select: { quote: { select: { company: { select: { slug: true, branding: true } } } } } });
+    if (!share) return { buffer: pdfBuffer };
+    const blob = await put(quotePdfCachePath("portal", shareToken, share.quote.company), pdfBuffer, {
       access: "public",
       contentType: "application/pdf",
       addRandomSuffix: false,
