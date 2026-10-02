@@ -11,6 +11,7 @@ import {
 import { calculateLine, calculateTotals } from "@/lib/calculation";
 import { normalizeQuoteCopyValue } from "@/lib/quote-copy";
 import { saveQuoteModules } from "@/lib/quote-modules";
+import { usesCalculationPricing } from "@/lib/quote-pricing";
 import {
   getQuoteAttachmentStorageKey,
   resolveQuoteAttachmentImages,
@@ -104,6 +105,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     select: {
       status: true,
       sentAt: true,
+      calculations: { where: { archivedAt: null }, select: { id: true } },
       choiceGroups: true,
       items: {
         orderBy: { sortOrder: "asc" },
@@ -134,6 +136,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  // Ook oudere editors kunnen previewregels terugsturen. Bij een offerte met
+  // calculatiebron mogen die nooit nieuwe losse prijsregels worden.
+  if (usesCalculationPricing(existingQuote)) {
+    delete parsed.data.items;
+    delete parsed.data.choiceGroups;
+    delete parsed.data.options;
   }
 
   const effectiveItemCount = parsed.data.items === undefined ? existingQuote.items.length : parsed.data.items.length;

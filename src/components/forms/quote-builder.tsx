@@ -276,6 +276,7 @@ type InitialQuote = Partial<Omit<QuotePreviewData, "items" | "customer" | "choic
    * De gekoppelde calculaties. Sinds de omslag is dit de bron van de prijs en de
    * artikelen; `items` blijft alleen gevuld bij offertes van vóór die omslag.
    */
+  usesCalculations?: boolean;
   calculations?: {
     id: string;
     number: string;
@@ -525,11 +526,11 @@ export function QuoteBuilder({
   // Prijs en artikelen komen uit de calculaties zodra er losse offerteregels
   // meer zijn. Zie src/lib/quote-pricing.ts voor waarom die grens daar ligt.
   const gekoppeldeCalculaties = initialQuote?.calculations ?? [];
-  const werktMetCalculaties = gekoppeldeCalculaties.length > 0
-    && (initialQuote?.items?.length ?? 0) === 0;
+  const werktMetCalculaties = initialQuote?.usesCalculations === true
+    || (gekoppeldeCalculaties.length > 0 && (initialQuote?.items?.length ?? 0) === 0);
 
   const paneelCalculaties: PanelCalculation[] = gekoppeldeCalculaties.map((calculatie) => {
-    const regels = (calculatie.items ?? []).filter((regel) => !regel.hiddenOnQuote);
+    const regels = calculatie.items ?? [];
     const vast = regels.filter((regel) => !regel.optional);
     const omzet = vast.reduce((som, regel) => som + Number(regel.totalSalesPrice ?? 0), 0);
     const inkoop = vast
