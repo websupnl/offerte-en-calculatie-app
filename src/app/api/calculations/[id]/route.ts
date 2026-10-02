@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
+import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -187,6 +188,12 @@ export async function PUT(
 
   // De offerte leest zijn prijs uit deze calculatie, dus die moet mee.
   await syncQuoteTotalsFromCalculations(updated.quoteId);
+  if (updated.quoteId) {
+    const quoteId = updated.quoteId;
+    const host = req.headers.get("host") ?? "localhost:3001";
+    const cookie = req.headers.get("cookie") ?? "";
+    after(async () => { await generateAndStorePdf(quoteId, host, cookie); });
+  }
 
   return NextResponse.json(updated);
 }
@@ -206,6 +213,12 @@ export async function DELETE(
 
   await prisma.calculation.delete({ where: { id } });
   await syncQuoteTotalsFromCalculations(existing.quoteId);
+  if (existing.quoteId) {
+    const quoteId = existing.quoteId;
+    const host = req.headers.get("host") ?? "localhost:3001";
+    const cookie = req.headers.get("cookie") ?? "";
+    after(async () => { await generateAndStorePdf(quoteId, host, cookie); });
+  }
 
   return NextResponse.json({ success: true });
 }

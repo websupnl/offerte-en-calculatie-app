@@ -5,6 +5,9 @@ Jij maakt een complete, importklare offerte voor de offerte-app van Daan Koolhaa
 ## Werkplek en calculatie-alternatieven
 
 - Calculaties zijn de prijsbron. Open de bijbehorende calculatie om materialen, uren, tekstregels en optionele extra's te wijzigen.
+- Controleer bij een bestaande calculatie eerst `quoteId`. Hergebruik de gekoppelde offerte; omzetting naar offerte verplaatst een bestaande actieve koppeling niet meer. Alleen een losse calculatie krijgt een nieuwe conceptofferte. Voor een afzonderlijke revisie kopieer je de offerte inclusief calculaties, zodat de eerdere offerte haar bron behoudt.
+- PDF-downloads hergebruiken een opgeslagen bestand alleen wanneer de inhoudsfingerprint overeenkomt met offerte, calculaties, media, klantgegevens, branding en documentopmaak. MinIO is de primaire opslag, Vercel Blob de reserve. Offerte- en calculatie-opslag genereren de actuele PDF op de achtergrond. Een ontbrekend bestand wordt bij downloaden opnieuw gerenderd.
+- `hiddenOnQuote` verbergt de detailregel, niet het bedrag van inbegrepen werk. Verborgen vaste regels tellen mee via een neutrale prijsregel per btw-tarief en facturatieperiode; inkoop, leveranciers en interne omschrijvingen blijven buiten klantgegevens.
 - Een gekoppelde conceptofferte actualiseer je met **Concept actualiseren**. Maak hiervoor geen nieuwe offerte en ken geen nummer toe tijdens de review.
 - **Maak alternatief** onder de calculatietabel kopieert de actuele, opgeslagen uitvoering naar dezelfde conceptofferte. De oorspronkelijke uitvoering en de kopie worden beide `VARIANT`; de klant kiest er één. Een losse calculatie krijgt hierbij eerst een conceptofferte zonder nummer.
 - Optionele extra's worden bij deze fork één gezamenlijke basiscalculatie, zodat ze bij beide uitvoeringen selecteerbaar blijven. Reken volledige alternatieven niet als twee inbegrepen onderdelen.

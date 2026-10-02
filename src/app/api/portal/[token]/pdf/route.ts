@@ -14,7 +14,8 @@ import { getBranding } from "@/lib/branding";
 import { getQuoteAttachmentStorageKey, resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
 import { isStorageConfigured, presignDownload } from "@/lib/storage";
 import { pdfFilename } from "@/lib/pdf/filename";
-import { isCurrentPdfCache, quotePdfCachePath } from "@/lib/pdf/cache";
+import { isCurrentPdfCache } from "@/lib/pdf/cache";
+import { cachedPdfBuffer, pdfCacheState } from "@/lib/pdf/cache-state";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,13 +48,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   const host = req.headers.get("host") ?? "localhost:3001";
 
   // 1. Serve from cache if available
-  if (isCurrentPdfCache(share.portalPdfUrl, quotePdfCachePath("portal", token, quote.company))) {
-    const res = await fetch(share.portalPdfUrl);
-    if (res.ok) {
-      const buffer = await res.arrayBuffer();
+  const cacheState = await pdfCacheState("portal", token);
+  if (cacheState && isCurrentPdfCache(cacheState.url, cacheState.path)) {
+    const buffer = await cachedPdfBuffer(cacheState.url);
+    if (buffer) {
       return new NextResponse(new Uint8Array(buffer), {
         headers: {
           "Content-Type": "application/pdf",
+          "Cache-Control": "private, no-store",
           "Content-Disposition": `attachment; filename="${filename}"`,
         },
       });
@@ -68,11 +70,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   if (pdfBuffer) {
     // Cache for next request
     after(async () => {
-      await generateAndStorePortalPdf(token, host, pdfBuffer);
+      await generateAndStorePortalPdf(token, host, pdfBuffer, cacheState?.path);
     });
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
+          "Cache-Control": "private, no-store",
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
@@ -204,9 +207,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fallbackBuffer: Buffer = await renderToBuffer(element as any);
+  after(async () => { await generateAndStorePortalPdf(token, host, fallbackBuffer, cacheState?.path); });
   return new NextResponse(new Uint8Array(fallbackBuffer), {
     headers: {
       "Content-Type": "application/pdf",
+          "Cache-Control": "private, no-store",
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });

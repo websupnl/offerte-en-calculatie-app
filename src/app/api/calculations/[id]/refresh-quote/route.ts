@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
@@ -33,5 +34,9 @@ export async function POST(
   }
 
   await syncQuoteTotalsFromCalculations(calculation.quote.id);
+  const quoteId = calculation.quote.id;
+  const host = _req.headers.get("host") ?? "localhost:3001";
+  const cookie = _req.headers.get("cookie") ?? "";
+  after(async () => { await generateAndStorePdf(quoteId, host, cookie); });
   return NextResponse.json({ quoteId: calculation.quote.id });
 }

@@ -37,6 +37,10 @@ export async function POST(
 
   const customerId = calculation.customerId;
   const quote = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "Calculation" WHERE "id" = ${id} FOR UPDATE`;
+    const current = await tx.calculation.findUniqueOrThrow({ where: { id }, include: { quote: true } });
+    // Een calculatie heeft één actieve offerte. Nooit stil naar een nieuwe verplaatsen.
+    if (current.quote && !current.quote.archivedAt) return current.quote;
     const projectId = calculation.projectId ?? (await createDocumentProject(tx, {
       companyId, customerId, title: calculation.title, description: calculation.description,
     })).id;
@@ -72,5 +76,5 @@ export async function POST(
     await generateAndStorePdf(quote.id, host, cookie);
   });
 
-  return NextResponse.json({ quote, calculationId: calculation.id }, { status: 201 });
+  return NextResponse.json({ quote, calculationId: calculation.id }, { status: calculation.quoteId === quote.id ? 200 : 201 });
 }

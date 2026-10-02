@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
@@ -14,7 +14,8 @@ import { getBranding } from "@/lib/branding";
 import { getQuoteAttachmentStorageKey, resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
 import { presignDownload, isStorageConfigured } from "@/lib/storage";
 import { pdfFilename } from "@/lib/pdf/filename";
-import { isCurrentPdfCache, quotePdfCachePath } from "@/lib/pdf/cache";
+import { isCurrentPdfCache } from "@/lib/pdf/cache";
+import { cachedPdfBuffer, pdfCacheState } from "@/lib/pdf/cache-state";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,14 +36,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const filename = pdfFilename("Offerte", quoteCheck.number || id, quoteCheck.customer?.name);
 
-  // 1. Cached blob PDF
-  if (isCurrentPdfCache(quoteCheck.pdfUrl, quotePdfCachePath("offerte", id, quoteCheck.company))) {
-    const res = await fetch(quoteCheck.pdfUrl);
-    if (res.ok) {
-      const buffer = await res.arrayBuffer();
+  // 1. Actuele opgeslagen PDF
+  const cacheState = await pdfCacheState("offerte", id);
+  if (cacheState && isCurrentPdfCache(cacheState.url, cacheState.path)) {
+    const buffer = await cachedPdfBuffer(cacheState.url);
+    if (buffer) {
       return new NextResponse(new Uint8Array(buffer), {
         headers: {
           "Content-Type": "application/pdf",
+          "Cache-Control": "private, no-store",
           "Content-Disposition": `attachment; filename="${filename}"`,
         },
       });
@@ -57,13 +59,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const pdfBuffer = await renderPageAsPdf(printUrl, cookie);
 
   if (pdfBuffer) {
-    // Cache via blob if configured
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      generateAndStorePdf(id, host, cookie, pdfBuffer).catch(() => {});
-    }
+    // Bewaar dezelfde render in MinIO of Blob na de response
+    after(async () => { await generateAndStorePdf(id, host, cookie, pdfBuffer, cacheState?.path); });
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
+          "Cache-Control": "private, no-store",
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
@@ -184,9 +185,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fallbackBuffer: Buffer = await renderToBuffer(element as any);
+  after(async () => { await generateAndStorePdf(id, host, cookie, fallbackBuffer, cacheState?.path); });
   return new NextResponse(new Uint8Array(fallbackBuffer), {
     headers: {
       "Content-Type": "application/pdf",
+          "Cache-Control": "private, no-store",
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });

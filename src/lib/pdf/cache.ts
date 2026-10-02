@@ -9,14 +9,16 @@ export function quotePdfCachePath(
   kind: "offerte" | "portal",
   id: string,
   company: { slug: string; branding: unknown },
+  revision: string,
 ) {
   const brand = getBranding(company.slug, company.branding as Partial<CompanyBranding>);
   const fingerprint = createHash("sha256").update(JSON.stringify(brand)).digest("hex").slice(0, 12);
-  return `pdfs/${kind}-${id}-${PDF_LAYOUT_VERSION}-${fingerprint}.pdf`;
+  return `pdfs/${kind}-${id}-${PDF_LAYOUT_VERSION}-${fingerprint}-${revision}.pdf`;
 }
 
 export function isCurrentPdfCache(url: string | null, path: string): url is string {
   if (!url) return false;
+  if (url.startsWith("s3://")) return url === `s3://${path}`;
   try {
     return decodeURIComponent(new URL(url).pathname).endsWith(`/${path}`);
   } catch {

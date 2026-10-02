@@ -169,11 +169,9 @@ export function QuotePortalClient({
   const isKoolhaas = quote.company.slug === "koolhaas";
   const resolvedBranding = getBranding(companySlug, branding);
   const accentColor = resolvedBranding.accentColor;
-  const logoSrc = resolvedBranding.logoUrl.startsWith("s3://")
-    ? brandAssetUrl(quote.company.id, "logo", resolvedBranding.logoUrl)
-    : ["/logos/koolhaas-logo.png", "/logos/koolhaas-logo-tight.png"].includes(resolvedBranding.logoUrl)
-      ? "/logos/koolhaas-logo-tight.png"
-      : resolvedBranding.logoUrl;
+  // De merkgradient vraagt om de transparante witte variant van het bedrijfslogo.
+  // Het document zelf blijft het logo uit de brandinginstellingen gebruiken.
+  const logoSrc = isKoolhaas ? "/logos/koolhaas-lockup-white.png" : "/logos/websup-lockup-white.png";
   const brandStyle = portalVarsFromBranding(resolvedBranding) as CSSProperties;
   useEffect(() => {
     const faviconUrl = resolvedBranding.faviconUrl;
@@ -191,7 +189,7 @@ export function QuotePortalClient({
     name: quote.company.name,
     website: isKoolhaas ? "koolhaasinstallaties.nl" : "websup.nl",
     // eslint-disable-next-line @next/next/no-img-element -- portaal gebruikt uploadbare merkafbeeldingen
-    logo: <img src={logoSrc} alt={quote.company.name} className={logoSrc.startsWith("/api/brand-assets/") ? "portal-custom-logo" : undefined} />,
+    logo: <img src={logoSrc} alt={quote.company.name} />,
   };
 
   const documentRef = useRef<HTMLDivElement>(null);

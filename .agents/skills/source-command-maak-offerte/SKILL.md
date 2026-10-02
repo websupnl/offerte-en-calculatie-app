@@ -11,6 +11,12 @@ Use this skill when the user asks to run the migrated source command `maak-offer
 
 # Maak een offerte
 
+## Bestaande calculaties en actuele PDF
+
+- Controleer `quoteId` bij een bestaande calculatie. Hergebruik de actieve gekoppelde offerte; omzetting mag de koppeling niet naar een nieuw exemplaar verplaatsen. Een nieuwe revisie kopieert ook de calculaties.
+- Calculaties blijven de prijsbron. `hiddenOnQuote` verbergt prijsdetails, maar inbegrepen bedragen tellen mee via een neutrale samenvatting. Interne omschrijvingen, inkoop en leveranciers blijven intern.
+- De app bewaart PDF's in MinIO, met Blob als reserve. Download hergebruikt uitsluitend de inhoudelijk actuele versie en rendert opnieuw bij een verouderd of ontbrekend bestand. Offerte- en calculatie-opslag bereiden de PDF op de achtergrond voor.
+
 Jij maakt een complete, importklare offerte voor de offerte-app van Daan Koolhaas en importeert deze direct via de CLI.
 
 ## Stap 0 — Onderzoek producten en prijzen (web-first)

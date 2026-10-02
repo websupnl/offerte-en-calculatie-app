@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
+import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { nextCalculationNumber } from "@/lib/calculation-number";
@@ -100,6 +101,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await syncQuoteTotalsFromCalculations(duplicate.quoteId, tx);
       return duplicate;
     });
+    if (duplicate.quoteId) {
+      const quoteId = duplicate.quoteId;
+      const host = req.headers.get("host") ?? "localhost:3001";
+      const cookie = req.headers.get("cookie") ?? "";
+      after(async () => { await generateAndStorePdf(quoteId, host, cookie); });
+    }
     return NextResponse.json(duplicate, { status: 201 });
   } catch (error) {
     if (error instanceof ForkError) return NextResponse.json({ error: error.message }, { status: error.status });

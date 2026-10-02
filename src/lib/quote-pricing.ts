@@ -153,10 +153,24 @@ function toBlock(calculation: RawCalculation): PriceBlock {
     .filter((item) => !item.hiddenOnQuote)
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
-  const vaste = zichtbaar.filter((item) => !item.optional);
+  const vaste = calculation.items.filter((item) => !item.optional);
   const extras = zichtbaar.filter((item) => item.optional);
 
-  const lines = vaste.map(toLine);
+  const lines = zichtbaar.filter((item) => !item.optional).map(toLine);
+  // Verbergen van prijsdetails is geen korting. Toon alleen een neutrale som,
+  // met behoud van het btw-tarief en de facturatieperiode van de verborgen regels.
+  const hiddenTotals = new Map<string, PriceLine>();
+  for (const item of vaste.filter((item) => item.hiddenOnQuote)) {
+    const line = toLine(item);
+    const key = `${line.vatRate}-${line.billingCycle ?? "ONE_OFF"}`;
+    const summary = hiddenTotals.get(key) ?? { ...line,
+      id: `${calculation.id}-summary-${key}`, description: "Inbegrepen materialen en werkzaamheden",
+      quoteNote: null, qty: 1, unit: "post", unitPrice: 0, total: 0 };
+    summary.total = round2(summary.total + line.total);
+    summary.unitPrice = summary.total;
+    hiddenTotals.set(key, summary);
+  }
+  lines.unshift(...[...hiddenTotals.values()].filter((line) => line.total !== 0));
   const eenmalig = lines.filter((line) => line.recurringInterval === null);
   const totalExVat = round2(eenmalig.reduce((sum, line) => sum + line.total, 0));
 
@@ -437,4 +451,3 @@ export function pricingToPreviewShape(pricing: QuotePricing): PreviewShape {
 
   return { items, choiceGroups, options };
 }
-
