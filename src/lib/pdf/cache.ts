@@ -3,7 +3,7 @@ import { getBranding, type CompanyBranding } from "@/lib/branding";
 
 // Verhoog bij wijzigingen in het document: oude bestanden mogen niet blijven
 // terugkomen wanneer de preview al een nieuw ontwerp of nieuwe branding toont.
-const PDF_LAYOUT_VERSION = "v3-branding-photos";
+const PDF_LAYOUT_VERSION = "v4-public-calculation-lines";
 
 export function quotePdfCachePath(
   kind: "offerte" | "portal",

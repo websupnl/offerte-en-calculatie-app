@@ -73,7 +73,7 @@ export function publicQuoteItems(quote: QuoteWithItems): PublicQuoteItem[] {
       indent: 0,
       type: "summary",
       hiddenOnQuote: false,
-    }];
+    }, ...visibleItems];
   }
 
   return visibleItems;
