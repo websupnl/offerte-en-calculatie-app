@@ -125,6 +125,8 @@ De CLI geeft het offertenummer en de directe app-URL terug. Stuur die URL terug 
 
 ## Technische context
 
+- Offerte, PDF en klantportaal bevatten automatisch **Mijn voorstel voor jou**, met Daans foto, naam, persoonlijke tekst en WhatsApp-link. Naam, tekst en WhatsApp-nummer zijn per bedrijf instelbaar onder Instellingen → Branding. Schrijf geen los contactpersoon- of functielabel voor Daan en voeg dit standaardblok niet nogmaals aan de offertetekst toe.
+
 - Een concept krijgt zijn definitieve nummer bij verzending via de app of via **Markeer als verstuurd** (`POST /api/quotes/[id]/mark-sent`). Gebruik die laatste alleen nadat Daan de offerte buiten de app heeft gedeeld. Deze actie verstuurt geen e-mail, registreert de verzending in de historie en ververst de PDF. Alleen een klantlink ophalen of een PDF downloaden houdt de offerte op Concept.
 
 - App draait op poort **3001** (niet 3000 — dat is een andere app)

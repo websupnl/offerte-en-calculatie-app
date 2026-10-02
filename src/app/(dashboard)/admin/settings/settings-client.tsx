@@ -1,6 +1,7 @@
 "use client";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { PERSONAL_QUOTE_MESSAGE } from "@/lib/quote-personal";
 import { BrandPaletteEditor } from "@/components/forms/brand-palette-editor";
 
 import { useState } from "react";
@@ -472,6 +473,24 @@ export function SettingsClient({
                   onChange={(e) => setBranding((b) => ({ ...b, tagline: e.target.value }))}
                   placeholder="Jouw tagline..."
                 />
+              </div>
+              <div className="space-y-4 border-t border-border pt-4">
+                <h3 className="text-lg font-semibold">Mijn voorstel voor jou</h3>
+                <p className="text-base text-muted-foreground">Jouw persoonlijke blok in offertes, PDF en het offerteportaal van dit bedrijf.</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="personal-name">Naam</Label>
+                    <Input id="personal-name" value={branding.personalName ?? "Daan Koolhaas"} maxLength={100} onChange={(e) => setBranding((b) => ({ ...b, personalName: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="personal-whatsapp">WhatsApp-nummer</Label>
+                    <Input id="personal-whatsapp" type="tel" value={branding.personalWhatsapp ?? "06 82 20 21 48"} maxLength={30} onChange={(e) => setBranding((b) => ({ ...b, personalWhatsapp: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="personal-message">Persoonlijke tekst</Label>
+                  <Textarea id="personal-message" rows={4} maxLength={400} value={branding.personalMessage ?? PERSONAL_QUOTE_MESSAGE} onChange={(e) => setBranding((b) => ({ ...b, personalMessage: e.target.value }))} />
+                </div>
               </div>
             </CardContent>
           </Card>

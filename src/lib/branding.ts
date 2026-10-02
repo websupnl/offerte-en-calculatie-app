@@ -16,6 +16,9 @@ export type CompanyBranding = {
   font: string;
   gradient: BrandGradient;
   tagline?: string;
+  personalName?: string;
+  personalMessage?: string;
+  personalWhatsapp?: string;
 };
 
 export type TravelPricingTier = {
@@ -143,6 +146,9 @@ export function getBranding(slug: string, stored?: Partial<CompanyBranding>): Co
     logoUrl: safeAsset(candidate.logoUrl, base.logoUrl, ["/logos/"]),
     faviconUrl,
     tagline: typeof candidate.tagline === "string" ? candidate.tagline : base.tagline,
+    personalName: typeof candidate.personalName === "string" ? candidate.personalName.slice(0, 100) : undefined,
+    personalMessage: typeof candidate.personalMessage === "string" ? candidate.personalMessage.slice(0, 400) : undefined,
+    personalWhatsapp: typeof candidate.personalWhatsapp === "string" ? candidate.personalWhatsapp.slice(0, 30) : undefined,
   };
 }
 

@@ -14,6 +14,7 @@ import {
 } from "@react-pdf/renderer";
 import { readFileSync } from "node:fs";
 import { getBranding, type BrandGradient, type CompanyBranding } from "@/lib/branding";
+import { quotePersonalProfile } from "@/lib/quote-personal";
 import {
   getQuoteOptionPrice,
   getQuoteOptionRecurringInterval,
@@ -457,6 +458,7 @@ export function QuotePDF({
 }: QuotePDFProps) {
   const baseBrand = getBrand(companySlug);
   const resolvedBranding = getBranding(companySlug, brandOverrides);
+  const personalProfile = quotePersonalProfile(resolvedBranding);
   const customLogo = brandOverrides?.logoUrl ? publicImageDataUri(brandOverrides.logoUrl) : undefined;
   const brand = {
     ...baseBrand,
@@ -1131,6 +1133,17 @@ export function QuotePDF({
         <Text style={{ fontSize: 9.5, lineHeight: 1.65, color: "#334155", marginBottom: 4 }}>
           {outro || "Heb je vragen over deze offerte of wil je iets aanpassen? Stuur een bericht via WhatsApp of e-mail. Ik loop het graag samen met je door."}
         </Text>
+        <View wrap={false} style={{ marginTop: 12, marginBottom: 12, padding: 14, borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 8 }}>
+          <View style={{ flexDirection: "row", gap: 10, alignItems: "center", marginBottom: 10 }}>
+            {PROFILE_PHOTO && <Image src={PROFILE_PHOTO} style={{ width: 36, height: 36, borderRadius: 18, objectFit: "cover", objectPositionY: "20%" }} />}
+            <View>
+              <Text style={{ fontSize: 14, fontFamily: "Helvetica-Bold", marginBottom: 3 }}>Mijn voorstel voor jou</Text>
+              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold" }}>{personalProfile.name}</Text>
+            </View>
+          </View>
+          <Text style={{ fontSize: 12, lineHeight: 1.55, color: "#334155", marginBottom: 8 }}>{personalProfile.message}</Text>
+          {personalProfile.whatsappUrl && <Link src={personalProfile.whatsappUrl} style={{ fontSize: 12, color: brand.colors.primary }}>Stuur me een bericht</Link>}
+        </View>
 
         {(planningProp || commercialProp) && (
           <>

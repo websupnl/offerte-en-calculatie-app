@@ -17,6 +17,7 @@ import { filenameFromResponse } from "@/lib/download-filename";
 import "./portal.css";
 import "./portal-experience.css";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
+import { QuotePersonalNote } from "@/components/quote-personal-note";
 import { SheetScaler } from "@/components/sheet-scaler";
 import { AcceptanceSuccess } from "./acceptance-success";
 import {
@@ -551,6 +552,7 @@ export function QuotePortalClient({
 
           <aside className={`sidebar no-print${submitted === "accepted" ? " hidden" : ""}`}>
             <div className="portal-sidebar-content">
+              <QuotePersonalNote branding={resolvedBranding} portal />
               <div className="portal-card portal-total-card" aria-live="polite" aria-atomic="true">
                 <div>
                   <p>{hasRecurring ? "Eenmalige investering" : "Totale investering"}</p>

@@ -1,4 +1,6 @@
 "use client";
+import { QuotePersonalNote } from "@/components/quote-personal-note";
+import { quotePersonalProfile } from "@/lib/quote-personal";
 
 import {
   Check,
@@ -476,6 +478,7 @@ export function QuoteSheetPreview({
   const brand = activeSlug === "koolhaas" ? COMPANY_COPY.koolhaas : COMPANY_COPY.websup;
   const isKoolhaas = brand.slug === "koolhaas";
   const documentBranding = getBranding(activeSlug, brandingOverride ?? quote.company?.branding);
+  const personalProfile = quotePersonalProfile(documentBranding);
   const customLogo = documentBranding.logoUrl.startsWith("s3://")
     ? (quote.company?.id ? brandAssetUrl(quote.company.id, "logo", documentBranding.logoUrl) : null)
     : documentBranding.logoUrl;
@@ -1319,7 +1322,7 @@ export function QuoteSheetPreview({
                       <dt>Offertenummer</dt> <dd>{quote.number || "CONCEPT"}</dd>
                       <dt>Datum</dt>         <dd>{formatDate(today)}</dd>
                       {validUntilLabel && <><dt>Geldig tot</dt><dd>{validUntilLabel}</dd></>}
-                      <dt>Contactpersoon</dt><dd>Daan Koolhaas</dd>
+                      <dt>Opgesteld door</dt><dd>{personalProfile.name}</dd>
                     </dl>
                   </div>
                 </div>
@@ -1407,8 +1410,8 @@ export function QuoteSheetPreview({
                 <img src="/logos/daan-koolhaas.jpg" alt="Daan Koolhaas" />
               </div>
               <div>
-                <div className="sig-name">Daan Koolhaas</div>
-                <div className="sig-role">{brand.role}</div>
+                <div className="sig-name">{personalProfile.name}</div>
+                <div className="sig-role">{brand.name}</div>
               </div>
             </div>
             {renderSectionSpace("intro")}
@@ -2015,6 +2018,7 @@ export function QuoteSheetPreview({
               </div>
             )}
             
+            <QuotePersonalNote branding={documentBranding} />
             <div className="sign-grid">
               <div className="sign-box">
                 <div className="sign-who">Namens opdrachtgever</div>
