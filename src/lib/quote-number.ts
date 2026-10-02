@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { generateQuoteNumber } from "@/lib/format";
 import { volgendVolgnummer } from "@/lib/next-number";
+import type { Prisma } from "@/generated/prisma";
 
 /**
  * Volgend offertenummer binnen een bedrijf.
@@ -12,12 +13,12 @@ import { volgendVolgnummer } from "@/lib/next-number";
  *
  * Gearchiveerde offertes tellen bewust mee: hun nummer blijft gereserveerd.
  */
-export async function nextQuoteNumber(companyId: string, companySlug: string): Promise<string> {
+export async function nextQuoteNumber(companyId: string, companySlug: string, db: Pick<Prisma.TransactionClient, "quote"> = prisma): Promise<string> {
   const prefix = generateQuoteNumber(companySlug, 0).replace(/\d+$/, "");
   // Alle nummers ophalen in plaats van alleen het lexicaal hoogste: naast het
   // huidige formaat staan er nog offertes uit een ouder formaat, en die kunnen
   // bovenaan sorteren zonder de hoogste te zijn. Zie next-number.ts.
-  const bestaande = await prisma.quote.findMany({
+  const bestaande = await db.quote.findMany({
     where: { companyId, number: { startsWith: prefix } },
     select: { number: true },
   });

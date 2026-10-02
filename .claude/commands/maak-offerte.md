@@ -172,6 +172,8 @@ bij te veel of te lange blokken.
 
 ## Technische context
 
+- Een concept krijgt zijn definitieve nummer bij verzending via de app of via **Markeer als verstuurd** (`POST /api/quotes/[id]/mark-sent`). Gebruik die laatste alleen nadat Daan de offerte buiten de app heeft gedeeld. Deze actie verstuurt geen e-mail, registreert de verzending in de historie en ververst de PDF. Alleen een klantlink ophalen of een PDF downloaden houdt de offerte op Concept.
+
 - App draait op poort **3001** (niet 3000 — dat is een andere app)
 - `CLI_API_KEY` staat in `.env.local`
 - Klant wordt gezocht op e-mail, daarna op naam (case-insensitive contains) — geen duplicate bij bestaande klant

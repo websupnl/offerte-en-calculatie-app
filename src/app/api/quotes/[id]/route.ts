@@ -203,12 +203,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   }
 
-  // "Verstuurd" wordt uitsluitend gezet door een echte e-mail via de app
-  // (send-email). Handmatig de status op SENT zetten mag niet — dat zou een
-  // verzending suggereren die niet heeft plaatsgevonden.
+  // Verzending via send-email of mark-sent registreert ook nummer en historie.
+  // Een losse statuswijziging mag die registratie niet overslaan.
   if (parsed.data.status === "SENT" && existingQuote.status !== "SENT") {
     return NextResponse.json(
-      { error: "Een offerte wordt 'Verstuurd' door hem via 'Verstuur offerte' te mailen, niet handmatig." },
+      { error: "Gebruik 'Verstuur offerte' of 'Markeer als verstuurd' om verzending te registreren." },
       { status: 400 },
     );
   }

@@ -368,6 +368,22 @@ export function QuoteDetailClient({
     }
   }
 
+  async function handleMarkSent() {
+    setUpdatingStatus(true);
+    try {
+      const response = await fetch(`/api/quotes/${quote.id}/mark-sent`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Markeren mislukt");
+      toast.success(`Offerte ${data.number} als verstuurd gemarkeerd`);
+      setPdfGenerated(false);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Markeren mislukt");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  }
+
   async function handleDelete() {
     const ok = await confirm({
       title: "Offerte verwijderen?",
@@ -510,10 +526,16 @@ export function QuoteDetailClient({
             {priceAuditLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Check prijzen
           </Button>
-          <Button size="sm" onClick={openSendQuoteDialog} disabled={openingMail} className="h-9 text-base">
+          <Button size="sm" onClick={openSendQuoteDialog} disabled={openingMail || updatingStatus} className="h-9 text-base">
             {openingMail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
             Verstuur offerte
           </Button>
+          {quote.status === "DRAFT" && !quote.archivedAt && (
+            <Button variant="outline" size="sm" onClick={handleMarkSent} disabled={updatingStatus || openingMail} className="h-9 text-base" title="Registreer dat je de offerte zelf hebt gedeeld, bijvoorbeeld via WhatsApp of als PDF">
+              {updatingStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Markeer als verstuurd
+            </Button>
+          )}
           <ConvertMenu type="quote" id={quote.id} />
           {quote.calculations.length === 1 ? (
             <Link href={`/calculations/${quote.calculations[0].id}`} className={buttonVariants({ variant: "outline", size: "sm", className: "h-9 text-base" })}>
