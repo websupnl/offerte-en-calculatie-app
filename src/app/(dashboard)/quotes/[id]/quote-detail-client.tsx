@@ -30,6 +30,7 @@ import {
   CalendarClock,
   Repeat,
   RefreshCw,
+  MessageCircle,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -293,17 +294,44 @@ export function QuoteDetailClient({
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [timelineOpen, setTimelineOpen] = useState(false);
 
+  async function getCustomerLink() {
+    if (shareUrl) return shareUrl;
+    const res = await fetch(`/api/quotes/${quote.id}/share`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok || !data.token) throw new Error(data.error || "Klantlink maken mislukt");
+    const url = `${window.location.origin}/q/${data.token}`;
+    setShareUrl(url);
+    return url;
+  }
+
   async function handleShare() {
     setSharing(true);
     try {
-      const res = await fetch(`/api/quotes/${quote.id}/share`, { method: "POST" });
-      const data = await res.json();
-      const url = `${window.location.origin}/q/${data.token}`;
-      setShareUrl(url);
+      const url = await getCustomerLink();
       await navigator.clipboard.writeText(url);
       toast.success("Link gekopieerd naar klembord!");
     } catch {
       toast.error("Delen mislukt");
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  async function handleCopyWhatsApp() {
+    setSharing(true);
+    try {
+      const url = await getCustomerLink();
+      const text = [
+        `Hoi ${quote.customer.name},`,
+        quote.title ? `Hierbij de offerte voor ${quote.title}.` : "Hierbij de offerte.",
+        `Je kunt de offerte bekijken, downloaden en je reactie doorgeven via:\n${url}`,
+        "Heb je vragen? Stuur gerust een bericht.",
+        company?.name ? `Groet,\n${company.name}` : "Groet",
+      ].join("\n\n");
+      await navigator.clipboard.writeText(text);
+      toast.success("WhatsApp-bericht gekopieerd. Je kunt het nu plakken.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Bericht kopiëren mislukt");
     } finally {
       setSharing(false);
     }
@@ -571,6 +599,9 @@ export function QuoteDetailClient({
               <DropdownMenuItem onClick={handleShare} disabled={sharing}>
                 <Share2 className="h-4 w-4" /> Deel klantlink
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleCopyWhatsApp} disabled={sharing}>
+                <MessageCircle className="h-4 w-4" /> Kopieer WhatsApp-bericht
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleDuplicate} disabled={duplicating}>
                 <Copy className="h-4 w-4" /> Dupliceer als concept
               </DropdownMenuItem>
@@ -798,15 +829,21 @@ export function QuoteDetailClient({
 
       {/* Share URL display */}
       {shareUrl && (
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm">
           <Share2 className="h-4 w-4 text-muted-foreground shrink-0" />
-          <span className="flex-1 truncate">{shareUrl}</span>
+          <span className="min-w-0 flex-1 truncate">{shareUrl}</span>
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => { navigator.clipboard.writeText(shareUrl); toast.success("Gekopieerd!"); }}
+            aria-label="Kopieer klantlink"
+            disabled={sharing}
+            onClick={handleShare}
           >
             <Copy className="h-3 w-3" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleCopyWhatsApp} disabled={sharing} className="text-base">
+            {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
+            Kopieer WhatsApp-bericht
           </Button>
           {quote.share?.viewedAt && (
             <Badge variant="outline" className="text-sm shrink-0">
