@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { nextCalculationNumber } from "@/lib/calculation-number";
 import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
+import { createDocumentProject } from "@/lib/document-project";
 
 class ForkError extends Error {
   constructor(message: string, readonly status: number) { super(message); }
@@ -43,6 +44,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
       if (asAlternative && !quoteId) {
         if (!source.customerId) throw new ForkError("Koppel eerst een klant aan deze calculatie", 400);
+        if (!source.projectId) source.projectId = (await createDocumentProject(tx, {
+          companyId, customerId: source.customerId, title: source.title, description: source.description,
+        })).id;
         const quote = await tx.quote.create({ data: {
           companyId, customerId: source.customerId, createdById: session.user.id,
           title: source.title, notes: source.notes, vatRate: source.vatRate, projectId: source.projectId,
@@ -52,7 +56,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       // Two full executions are alternatives. Turning only the copy into a
       // variant would add the original BASE price to every customer choice.
       if (asAlternative) await tx.calculation.update({
-        where: { id: source.id }, data: { quoteId, role: "VARIANT", status: "QUOTED" },
+        where: { id: source.id }, data: { quoteId, projectId: source.projectId, role: "VARIANT", status: "QUOTED" },
       });
       const highestOrder = linkedCopy ? await tx.calculation.aggregate({
         where: { quoteId, companyId }, _max: { sortOrder: true },

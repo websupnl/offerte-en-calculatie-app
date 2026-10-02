@@ -47,3 +47,32 @@ Controleer typen en lint van gewijzigde bestanden. Controleer desktop en mobiel,
 - Animatie respecteert de gebruikersvoorkeur voor minder beweging. Bewegingsgedrag bij die specifieke OS-instelling is niet afzonderlijk in de browser beoordeeld.
 - TypeScript, lint en productiecompilatie zijn uitgevoerd. Er zijn geen automatische functionele tests of mutaties op klantgegevens uitgevoerd.
 - Volledige views met echte gegevens, opslag, daadwerkelijke forks en klantportaalinteracties blijven onbeoordeeld in deze sessie doordat de lokale app geen geldige sessie had. Het ontwerpvoorbeeld demonstreert gedeelde componenten en bevat expliciet fictieve bedragen.
+
+## Klantportaal en projectaanmaak, vervolg op 1 oktober 2026
+
+Doel: klanten rustig een offerte laten lezen, downloaden en goedkeuren. Aanname: de schermweergave moet hetzelfde A4-document tonen als de PDF. Daan wees de lichte portaalomgeving af en vroeg om vaste paginahoogte, beter geplaatste foto's en minder navigatie.
+
+- Donkere marine omgeving rond wit documentpapier. Bedrijfskleuren en logo komen uit dezelfde brandinginstellingen in editor, portaal en PDF. De links Voorstel, Bijlagen en Jouw reactie zijn uit de bovenbalk verwijderd.
+- Documentpagina's behouden 210 × 297 mm, ook op mobiel. Alleen de zoom verandert. De zijbalk toont één investering, de PDF-download, beschikbare bijlagen en het akkoordformulier. Op mobiel staan deze onder het document met een compacte actiebalk.
+- Foto's op de eigen voorbeeldpagina vullen hun frame met een gecentreerde uitsnede, zonder grijze stroken. De bronafbeelding blijft behouden. De standaardlogo's gebruiken hun strak uitgesneden of witte variant, afhankelijk van het oppervlak.
+- De interne preview had ontbrekende documentkleurvariabelen, waardoor een WebsUp-fallback Koolhaas oranje kleurde. Iedere preview heeft nu expliciete bedrijfsbranding. PDF-cachepaden bevatten branding en opmaakversie; oude bestanden worden niet als actuele PDF hergebruikt. Een brandingwijziging wist interne en publieke PDF-cacheverwijzingen.
+- Nieuwe calculaties en offertes maken automatisch een project als een klant maar geen project wordt gekozen. Project, document en modules worden samen opgeslagen. De klant en het bedrijf begrenzen de projectkeuze. Handmatige en automatische projectaanmaak delen de nummering, gebaseerd op het hoogste bestaande volgnummer en een transactieslot. Imports en calculatie-naar-offerte volgen dezelfde regel.
+
+Kwaliteitscontrole: de echte openbare offerte is lokaal bekeken op desktop (1440 × 1000) en mobiel (390 × 844). Alle zeven pagina's behouden de A4-verhouding en hebben geen inhoudsoverloop; mobiel heeft geen horizontale paginaoverloop. De gegenereerde PDF heeft zeven A4-pagina's. Logo, kleur, fotopagina en tekst zijn visueel beoordeeld. Velden hebben zichtbare labels, de akkoordknop blijft uit tot naam en toestemming aanwezig zijn, downloaden toont een foutmelding bij mislukken, paginanavigatie en focus zijn zichtbaar. Bodytekst is 16 px, ondersteunende labels 14 px. Reduced motion wordt in de code gerespecteerd. Er zijn geen automatische tests of nieuwe klant-/projectgegevens aangemaakt; daadwerkelijke projectaanmaak en akkoord/afwijzen zijn niet uitgevoerd.
+
+TypeScript, lint van de gewijzigde bronbestanden en de productiecompilatie zijn geslaagd. De DNA-librarycontrole is geslaagd. De lokale ontwikkelserver is weer beschikbaar op poort 3001.
+
+## Merkpaletten en instelbare gradients
+
+De beide opgeslagen bedrijfspaletten zijn afgestemd op de websitecaptures van 1 oktober 2026:
+
+| Bedrijf | Primaire kleur | Actiekleur | Gradient |
+|---|---|---|---|
+| WebsUp | `#0b1526` | `#f97316` | 135°, `#f97316` op 0%, `#ec4899` op 50%, `#a78bfa` op 100% |
+| Koolhaas | `#102d59` | `#247eb2` | 120°, `#102d59` op 0%, `#247eb2` op 48%, `#6edbcf` op 100% |
+
+Instellingen toont een live merkpreview, drie gradientkleuren, richting en middenpositie. **Gebruik websitekleuren** zet alleen het kleurenpalet terug; de algemene opslagknop bewaart de keuze. Logo, favicon, font en andere bedrijfsinstellingen blijven behouden. De werkplek gebruikt het effen actieaccent met contrasterende tekst, document en e-mail gebruiken de merkgradient. Interne preview, openbaar portaal, Chromium-PDF en de reserve-PDF krijgen dezelfde gradientconfiguratie. De settings-API valideert de kleuren en gradientwaarden en wist PDF-cacheverwijzingen in dezelfde transactie als de brandingwijziging.
+
+De bestaande bedrijven zijn bijgewerkt met `scripts/sync-brand-palettes.ts` en daarna teruggelezen. De seed gebruikt dezelfde standaardpaletten en overschrijft geen bestaande Koolhaas-branding meer. De gedeelde kleurcomponent is visueel bekeken op desktop en 390 × 844 px; mobiel heeft geen horizontale overloop. De gegenereerde openbare Koolhaas-PDF is bekeken en bevat nog zeven A4-pagina's. Volledige Instellingen-opslag via de ingelogde UI en de reserve-PDF zijn niet functioneel uitgevoerd; er zijn geen automatische tests gestart.
+
+TypeScript, lint van de gewijzigde bronbestanden, productiecompilatie en DNA-librarycontrole zijn geslaagd na deze aanpassing. De ontwikkelserver draait weer op poort 3001.

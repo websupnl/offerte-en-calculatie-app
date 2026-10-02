@@ -53,10 +53,10 @@ export function modulesToOptions(modules: QuoteModuleRow[]): QuoteOption[] {
  * Velden die de aanroeper niet meestuurt blijven staan: dat is precies het verschil
  * met de oude blob, waar een onbekend veld stilzwijgend werd gewist.
  */
-export async function saveQuoteModules(quoteId: string, options: QuoteOption[]): Promise<void> {
+export async function saveQuoteModules(quoteId: string, options: QuoteOption[], client?: Prisma.TransactionClient): Promise<void> {
   const keys = options.map((option) => option.id).filter(Boolean);
 
-  await prisma.$transaction(async (tx) => {
+  const save = async (tx: Prisma.TransactionClient) => {
     await tx.quoteModule.deleteMany({
       where: { quoteId, ...(keys.length ? { key: { notIn: keys } } : {}) },
     });
@@ -82,7 +82,9 @@ export async function saveQuoteModules(quoteId: string, options: QuoteOption[]):
         update: data,
       });
     }
-  });
+  };
+  if (client) await save(client);
+  else await prisma.$transaction(save);
 }
 
 /** Prisma-include om modules in de juiste volgorde mee te laden. */

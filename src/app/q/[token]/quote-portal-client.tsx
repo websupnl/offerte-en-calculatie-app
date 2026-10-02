@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { toast } from "sonner";
 import {
-  ArrowDown,
   CheckCircle2,
   Clock,
   Download,
@@ -13,11 +12,12 @@ import {
   PackageCheck,
 } from "lucide-react";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
-import { getBranding, portalVarsFromBranding } from "@/lib/branding";
+import { getBranding, portalVarsFromBranding, type CompanyBranding } from "@/lib/branding";
 import { filenameFromResponse } from "@/lib/download-filename";
 import "./portal.css";
 import "./portal-experience.css";
-import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
+import { QuoteSheetPreview, type QuotePageMeta } from "@/components/quote-sheet-preview";
+import { SheetScaler } from "@/components/sheet-scaler";
 import { AcceptanceSuccess } from "./acceptance-success";
 import {
   calculateQuoteSelectionTotals,
@@ -114,7 +114,7 @@ export function QuotePortalClient({
   quote: Quote;
   share: Share;
   companySlug: string;
-  branding: Record<string, string>;
+  branding: CompanyBranding;
 }) {
   const choiceGroups = quote.choiceGroups ?? [];
   const optionalWork = quote.options ?? [];
@@ -171,7 +171,9 @@ export function QuotePortalClient({
   const accentColor = resolvedBranding.accentColor;
   const logoSrc = resolvedBranding.logoUrl.startsWith("s3://")
     ? `/api/brand-assets/${quote.company.id}/logo`
-    : resolvedBranding.logoUrl;
+    : ["/logos/koolhaas-logo.png", "/logos/koolhaas-logo-tight.png"].includes(resolvedBranding.logoUrl)
+      ? "/logos/koolhaas-lockup-white.png"
+      : resolvedBranding.logoUrl === "/logos/websup-wordmark-black.png" ? "/logos/websup-lockup-white.png" : resolvedBranding.logoUrl;
   const brandStyle = portalVarsFromBranding(resolvedBranding) as CSSProperties;
   useEffect(() => {
     const faviconUrl = resolvedBranding.faviconUrl;
@@ -193,6 +195,7 @@ export function QuotePortalClient({
   };
 
   const documentRef = useRef<HTMLDivElement>(null);
+  const [documentPages, setDocumentPages] = useState<QuotePageMeta[]>([]);
   const [signerName, setSignerName] = useState(quote.customer.name);
   const [message, setMessage] = useState("");
   const [agreed, setAgreed] = useState(false);
@@ -479,13 +482,9 @@ export function QuotePortalClient({
       <header className="portal-topbar no-print">
         <div className="portal-topbar-brand">
           {portalBrand.logo}
-          <span>Jouw offerte</span>
+          <span>Offerteportaal</span>
         </div>
-        <nav className="portal-header-nav" aria-label="Offertenavigatie">
-          <a href="#offerte">Voorstel</a>
-          {documents.length > 0 && <a href="#documenten">Bijlagen</a>}
-          {canRespond && <a href="#akkoord">Jouw reactie <ArrowDown /></a>}
-        </nav>
+
       </header>
 
       <main className="portal-shell">
@@ -542,17 +541,30 @@ export function QuotePortalClient({
 
         <div className={`portal-layout${submitted === "accepted" ? " portal-layout--full" : ""}`}>
           <div className="doc-viewer" id="offerte" ref={documentRef}>
+              <div className="portal-document-toolbar no-print">
+                <span>Het voorstel{documentPages.length > 0 ? ` · ${documentPages.length} pagina's` : ""}</span>
+                <select aria-label="Ga naar een pagina van de offerte" defaultValue="" onChange={(event) => {
+                  const page = documentRef.current?.querySelectorAll<HTMLElement>(".sheet")[Number(event.target.value) - 1];
+                  page?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+                }}>
+                  <option value="" disabled>Ga naar pagina</option>
+                  {documentPages.map((page) => <option key={page.id} value={page.nr}>{page.nr}. {page.label}</option>)}
+                </select>
+              </div>
+              <SheetScaler><div className="portal-fixed-document">
               <QuoteSheetPreview
               quote={{ ...quote, number: quote.number ?? "CONCEPT" }}
               companySlug={quote.company.slug}
               branding={resolvedBranding}
+              onPagesChange={setDocumentPages}
               selectedChoiceIds={selectedChoiceIds}
               selectedOptionIds={selectedOptionIds}
             />
+              </div></SheetScaler>
           </div>
 
           <aside className={`sidebar no-print${submitted === "accepted" ? " hidden" : ""}`}>
-            <div className="portal-sidebar-content" id="akkoord">
+            <div className="portal-sidebar-content">
               <div className="portal-card portal-total-card" aria-live="polite" aria-atomic="true">
                 <div>
                   <p>{hasRecurring ? "Eenmalige investering" : "Totale investering"}</p>
@@ -613,8 +625,8 @@ export function QuotePortalClient({
                   <p>Neem contact op voor een actuele versie voordat je akkoord geeft.</p>
                 </div>
               ) : (
-                <div className="portal-card portal-action-card">
-                  <h2 className="portal-form-kicker">Jouw reactie</h2>
+                <div className="portal-card portal-action-card" id="akkoord">
+                  <h2 className="portal-form-kicker">Akkoord geven</h2>
                   <p className="portal-action-intro">Alles naar wens? Geef hieronder je akkoord.</p>
 
                   {(choiceGroups.length > 0 || optionalWork.length > 0) && (
@@ -857,7 +869,7 @@ export function QuotePortalClient({
             </b>
           </div>
           <a href="#akkoord" className="btn-primary">
-            Jouw reactie
+            Naar akkoord
           </a>
         </div>
       )}

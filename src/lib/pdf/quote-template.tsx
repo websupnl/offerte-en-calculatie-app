@@ -6,8 +6,14 @@ import {
   Page,
   Text,
   View,
+  Svg,
+  Defs,
+  LinearGradient,
+  Stop,
+  Rect,
 } from "@react-pdf/renderer";
 import { readFileSync } from "node:fs";
+import { getBranding, type BrandGradient, type CompanyBranding } from "@/lib/branding";
 import {
   getQuoteOptionPrice,
   getQuoteOptionRecurringInterval,
@@ -58,7 +64,7 @@ type QuotePDFProps = {
   companyName: string;
   companySlug: string;
   companyTagline?: string;
-  brandOverrides?: { primaryColor?: string; accentColor?: string; backgroundColor?: string; textColor?: string; logoUrl?: string };
+  brandOverrides?: Partial<CompanyBranding>;
   quoteNumber: string;
   quoteDate: string;
   validUntil?: string;
@@ -323,6 +329,27 @@ function getBrand(slug: string): BrandConfig {
   return slug === "koolhaas" ? BRANDS.koolhaas : BRANDS.websup;
 }
 
+function BrandStripe({ gradient }: { gradient: BrandGradient }) {
+  const width = 595.28;
+  const height = 4;
+  const radians = (gradient.angle - 90) * Math.PI / 180;
+  const dx = Math.cos(radians);
+  const dy = Math.sin(radians);
+  const length = Math.abs(width * dx) + Math.abs(height * dy);
+  return <View style={{ position: "absolute", top: 0, left: 0, right: 0, height }}>
+    <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+      <Defs><LinearGradient id="brand-gradient" gradientUnits="userSpaceOnUse"
+        x1={(width - dx * length) / 2} y1={(height - dy * length) / 2}
+        x2={(width + dx * length) / 2} y2={(height + dy * length) / 2}>
+        <Stop offset="0%" stopColor={gradient.from} />
+        <Stop offset={`${gradient.viaPosition}%`} stopColor={gradient.via} />
+        <Stop offset="100%" stopColor={gradient.to} />
+      </LinearGradient></Defs>
+      <Rect width={width} height={height} fill="url(#brand-gradient)" />
+    </Svg>
+  </View>;
+}
+
 function formatEur(amount: number): string {
   return new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(amount);
 }
@@ -429,16 +456,20 @@ export function QuotePDF({
   commercial: commercialProp,
 }: QuotePDFProps) {
   const baseBrand = getBrand(companySlug);
+  const resolvedBranding = getBranding(companySlug, brandOverrides);
   const customLogo = brandOverrides?.logoUrl ? publicImageDataUri(brandOverrides.logoUrl) : undefined;
   const brand = {
     ...baseBrand,
     ...(customLogo ? { logoColor: customLogo, logoWhite: customLogo } : {}),
     colors: {
       ...baseBrand.colors,
-      ...(brandOverrides?.primaryColor ? { primary: brandOverrides.primaryColor } : {}),
-      ...(brandOverrides?.accentColor ? { accent: brandOverrides.accentColor, accent2: brandOverrides.accentColor, accent3: brandOverrides.accentColor } : {}),
-      ...(brandOverrides?.backgroundColor ? { bg: brandOverrides.backgroundColor, surface: brandOverrides.backgroundColor } : {}),
-      ...(brandOverrides?.textColor ? { text: brandOverrides.textColor } : {}),
+      primary: resolvedBranding.primaryColor,
+      accent: resolvedBranding.accentColor,
+      accent2: resolvedBranding.gradient.via,
+      accent3: resolvedBranding.gradient.to,
+      bg: resolvedBranding.backgroundColor,
+      surface: resolvedBranding.backgroundColor,
+      text: resolvedBranding.textColor,
     },
   };
   const isKoolhaas = companySlug === "koolhaas";
@@ -568,13 +599,14 @@ export function QuotePDF({
           </View>
 
         </View>
+        <BrandStripe gradient={resolvedBranding.gradient} />
       </Page>
 
       {/* ════════════════════════════════════════════════════════
           PAGE 2: INTRO + DELIVERABLES
       ════════════════════════════════════════════════════════ */}
       <Page size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
-        <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
+        <BrandStripe gradient={resolvedBranding.gradient} />
         <PageHeader brand={brand} quoteNumber={quoteNumber} customerName={customerName} />
 
         {/* Intro */}
@@ -619,7 +651,7 @@ export function QuotePDF({
       ════════════════════════════════════════════════════════ */}
       {(flow.length > 0 || approach.length > 0) && (
       <Page size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
-        <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
+        <BrandStripe gradient={resolvedBranding.gradient} />
         <PageHeader brand={brand} quoteNumber={quoteNumber} customerName={customerName} />
 
         {flow.length > 0 && (
@@ -677,7 +709,7 @@ export function QuotePDF({
 
       {attachmentPairs.map((pair, pageIndex) => (
         <Page key={pageIndex} size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
-          <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
+          <BrandStripe gradient={resolvedBranding.gradient} />
           <PageHeader brand={brand} quoteNumber={quoteNumber} customerName={customerName} />
 
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 10 }}>
@@ -740,7 +772,7 @@ export function QuotePDF({
           PAGE 4: INVESTMENT + OPTIONS
       ════════════════════════════════════════════════════════ */}
       <Page size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
-        <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
+        <BrandStripe gradient={resolvedBranding.gradient} />
         <PageHeader brand={brand} quoteNumber={quoteNumber} customerName={customerName} />
 
         <Eyebrow text="De investering" color={brand.colors.accent} />
@@ -1041,7 +1073,7 @@ export function QuotePDF({
           PAGE 5: EXCLUSIONS + OUTRO + SIGN
       ════════════════════════════════════════════════════════ */}
       <Page size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
-        <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
+        <BrandStripe gradient={resolvedBranding.gradient} />
         <PageHeader brand={brand} quoteNumber={quoteNumber} customerName={customerName} />
 
         {/* Technical notes */}

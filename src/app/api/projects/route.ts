@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateProjectNumber } from "@/lib/format";
+import { createDocumentProject } from "@/lib/document-project";
 
 const schema = z.object({
   customerId: z.string().min(1, "Klant is verplicht"),
@@ -56,29 +56,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Klant niet gevonden" }, { status: 404 });
   }
 
-  const company = await prisma.company.findUnique({
-    where: { id: companyId },
-    select: { slug: true },
-  });
-  const count = await prisma.project.count({ where: { companyId } });
-  const number = generateProjectNumber(company?.slug ?? "xx", count + 1);
-
-  const project = await prisma.project.create({
-    data: {
-      companyId,
-      customerId: parsed.data.customerId,
-      number,
-      title: parsed.data.title,
-      description: parsed.data.description,
-      status: parsed.data.status ?? "OPEN",
-      address: parsed.data.address,
-      city: parsed.data.city,
-      zipCode: parsed.data.zipCode,
-    },
-    include: {
+  const project = await prisma.$transaction(async (tx) => {
+    const created = await createDocumentProject(tx, { companyId, ...parsed.data });
+    return tx.project.findUniqueOrThrow({ where: { id: created.id }, include: {
       customer: { select: { id: true, name: true } },
       _count: { select: { quotes: true, files: true } },
-    },
+    } });
   });
 
   return NextResponse.json(project, { status: 201 });

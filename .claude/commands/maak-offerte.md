@@ -11,6 +11,8 @@ Jij maakt een complete, importklare offerte voor de offerte-app van Daan Koolhaa
 - Het bestaande endpoint `POST /api/calculations/[id]/duplicate` ondersteunt `{ "asAlternative": true }` voor deze fork. Zonder deze vlag maak je een losse kopie. De fork werkt alleen op conceptoffertes.
 - Gebruik **Onderdeel toevoegen** in de prijszijbalk voor een extra inbegrepen onderdeel, bijvoorbeeld een tweede laadpunt dat de klant samen met het eerste koopt. Gebruik optionele calculatieregels voor losse keuzes.
 - Media en documenten staan in het vaste offertebewerkpaneel. Een afbeelding kan bij een onderdeel of op een eigen voorbeeldpagina staan. Kies een eerder geüpload bestand wanneer dat bruikbaar is.
+- Bij een nieuwe calculatie of offerte wordt zonder projectkeuze automatisch een project van de gekozen klant aangemaakt. Titel en klantadres worden overgenomen. Dit geldt ook bij omzetting van een calculatie naar een offerte en bij een alternatief dat een nieuwe conceptofferte nodig heeft. Een calculatie mag zonder klant als concept beginnen.
+- `POST /api/cli/import-quote` ondersteunt een optioneel `projectId` naast `companySlug`, `customer` en `quote`. Geef het bestaande klantproject mee wanneer je daar een nieuwe offerte voor maakt; zonder dit veld ontstaat een nieuw project. `POST /api/quotes` en `POST /api/calculations` ondersteunen dezelfde projectkeuze. Een project moet binnen hetzelfde bedrijf bij dezelfde klant horen.
 
 
 ## Stap 0 — Onderzoek producten en prijzen (web-first)

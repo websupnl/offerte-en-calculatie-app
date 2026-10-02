@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { nextCalculationNumber } from "@/lib/calculation-number";
+import { createDocumentProject } from "@/lib/document-project";
 
 const calculationItemSchema = z.object({
   productId: z.string().optional().nullable(),
@@ -21,8 +22,8 @@ const calculationItemSchema = z.object({
 const schema = z.object({
   title: z.string().min(1, "Titel is verplicht"),
   description: z.string().optional().nullable(),
-  customerId: z.string().optional().nullable(),
-  projectId: z.string().optional().nullable(),
+  customerId: z.string().optional().nullable().transform((value) => value && value !== "none" ? value : null),
+  projectId: z.string().optional().nullable().transform((value) => value && value !== "none" ? value : null),
   vatRate: z.coerce.number().default(21),
   notes: z.string().optional().nullable(),
   items: z.array(calculationItemSchema).default([]),
@@ -68,13 +69,14 @@ export async function POST(req: NextRequest) {
     if (!customer) return NextResponse.json({ error: "Klant bestaat niet binnen dit bedrijf" }, { status: 400 });
   }
 
-  if (projectId) {
-    const project = await prisma.project.findFirst({ where: { id: projectId, companyId } });
-    if (!project) return NextResponse.json({ error: "Project bestaat niet binnen dit bedrijf" }, { status: 400 });
+  const selectedProject = projectId ? await prisma.project.findFirst({ where: { id: projectId, companyId } }) : null;
+  if (projectId && !selectedProject) return NextResponse.json({ error: "Project bestaat niet binnen dit bedrijf" }, { status: 400 });
+  if (selectedProject && customerId && selectedProject.customerId !== customerId) {
+    return NextResponse.json({ error: "Kies een project van deze klant" }, { status: 400 });
   }
+  const documentCustomerId = customerId || selectedProject?.customerId || null;
 
   const company = await prisma.company.findUnique({ where: { id: companyId } });
-  const number = await nextCalculationNumber(companyId, company?.slug ?? "xx");
 
   // Recalculate totals
   let totalCostPrice = 0;
@@ -113,14 +115,19 @@ export async function POST(req: NextRequest) {
   const marginAmount = totalSalesPrice - totalCostPrice;
   const marginPercent = totalSalesPrice > 0 ? (marginAmount / totalSalesPrice) * 100 : 0;
 
-  const calculation = await prisma.calculation.create({
+  const calculation = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "Company" WHERE "id" = ${companyId} FOR UPDATE`;
+    const project = selectedProject ?? (documentCustomerId ? await createDocumentProject(tx, {
+      companyId, customerId: documentCustomerId, title: title.trim(), description,
+    }) : null);
+    return tx.calculation.create({
     data: {
       companyId,
-      number,
+      number: await nextCalculationNumber(companyId, company?.slug ?? "xx", tx),
       title,
       description,
-      customerId: customerId || null,
-      projectId: projectId || null,
+      customerId: documentCustomerId,
+      projectId: project?.id ?? null,
       vatRate,
       totalCostPrice,
       totalSalesPrice,
@@ -136,7 +143,8 @@ export async function POST(req: NextRequest) {
       project: true,
       items: true,
     },
+    });
   });
 
-  return NextResponse.json(calculation, { status: 201 });
+  return NextResponse.json({ ...calculation, projectCreated: !selectedProject && Boolean(calculation.projectId) }, { status: 201 });
 }

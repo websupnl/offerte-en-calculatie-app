@@ -1,22 +1,22 @@
 /* De publieke werkplek staat los van het A4-document in portal.css.
    Alle regels zijn bewust begrensd tot deze klantweergave. */
 .quote-portal {
-  --on: var(--portal-text);
-  --on-m: #526174;
-  --on-s: #526174;
-  --border: #e2e7ed;
-  --border-str: #cbd5e1;
-  --surface-in: #f6f8fa;
-  --accent-bg: color-mix(in srgb, var(--portal-accent) 8%, white);
-  background: var(--portal-background);
-  color-scheme: light;
+  --on: #edf3fa;
+  --on-m: #b4c3d4;
+  --on-s: #b4c3d4;
+  --border: rgb(255 255 255 / 12%);
+  --border-str: rgb(255 255 255 / 24%);
+  --surface-in: color-mix(in srgb, var(--portal-primary) 45%, #07111f);
+  --accent-bg: color-mix(in srgb, var(--portal-accent) 20%, #0e2034);
+  background: color-mix(in srgb, var(--portal-primary) 22%, #07111f);
+  color-scheme: dark;
   font-size: 16px;
   line-height: 1.5;
 }
 .quote-portal .portal-topbar {
   min-height: 72px;
   padding: 12px max(24px, calc((100vw - 1240px) / 2));
-  background: #fff;
+  background: color-mix(in srgb, var(--portal-primary) 40%, #07111f);
   border-bottom: 1px solid var(--border);
   box-shadow: none;
   z-index: 30;
@@ -39,19 +39,7 @@
   font-size: 14px;
   letter-spacing: 0;
 }
-.quote-portal .portal-header-nav { display: flex; gap: 24px; align-items: center; }
-.quote-portal .portal-header-nav a {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  color: var(--on);
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 600;
-  padding-block: 10px;
-}
-.quote-portal .portal-header-nav svg { width: 15px; height: 15px; }
-.quote-portal .portal-header-nav a:hover { color: var(--portal-accent); }
+.quote-portal .portal-topbar-brand img.portal-custom-logo { background: #fff; padding: 6px 10px; border-radius: 4px; }
 .quote-portal .portal-shell { max-width: 1288px; padding: 36px 24px 64px; }
 .quote-portal .portal-overview {
   align-items: flex-end;
@@ -90,7 +78,7 @@
   text-transform: none;
   border-radius: 6px;
   border-color: var(--border);
-  background: #fff;
+  background: var(--surface-in);
   color: var(--on-m);
   font-weight: 600;
 }
@@ -100,25 +88,8 @@
 .quote-portal .portal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 32px; }
 .quote-portal .portal-layout--full { display: block; }
 .quote-portal .doc-viewer { padding: 0; scroll-margin-top: 96px; }
-.quote-portal .doc-viewer .sheet {
-  width: 100%;
-  max-width: 210mm;
-  height: auto;
-  min-height: 297mm;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgb(16 45 89 / 4%);
-  margin-bottom: 24px;
-}
-.quote-portal .doc-viewer .sheet.cover { min-height: 0; }
-.quote-portal .cover .cov-layout { height: auto; }
-.quote-portal .cover .cov-pad { min-height: 660px; padding: 64px 40px 28px; }
-.quote-portal .cover .cov-top { gap: 24px; flex-wrap: wrap; }
-.quote-portal .cover .cov-main { padding-block: 44px; }
-.quote-portal .cover .cov-h1 { font-size: clamp(32px, 3.2vw, 44px); line-height: 1.12; letter-spacing: -.03em; }
-.quote-portal .cover .bar { height: 5px; }
-.quote-portal .cover .cov-line { height: 2px; }
-.quote-portal .doc-viewer .pad { padding-inline: 40px; height: auto; min-height: 297mm; }
+.quote-portal .portal-document-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; font-size: 14px; color: var(--on-m); }
+.quote-portal .portal-document-toolbar select { min-height: 36px; max-width: 55%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-in); color: var(--on); font: 400 14px/1.5 var(--text); }
 .quote-portal .sidebar { width: auto; align-self: start; position: sticky; top: 96px; }
 .quote-portal .sidebar.hidden { display: none; }
 .quote-portal .portal-sidebar-content {
@@ -135,7 +106,7 @@
 .quote-portal .portal-card {
   flex-shrink: 0;
   padding: 24px;
-  background: #fff;
+  background: var(--surface-in);
   color: var(--on);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -167,6 +138,8 @@
 .quote-portal .portal-documents a:hover span { text-decoration: underline; }
 .quote-portal .portal-documents svg { width: 18px; height: 18px; flex: none; color: var(--on-m); }
 .quote-portal .portal-action-intro { margin: 0 0 24px; font-size: 16px; line-height: 1.5; color: var(--on-m); }
+.quote-portal .portal-action-card,
+.quote-portal .portal-documents { scroll-margin-top: 96px; }
 .quote-portal .portal-field { margin-bottom: 20px; }
 .quote-portal .portal-field label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; line-height: 1.4; color: var(--on); }
 .quote-portal .portal-field label span { color: var(--on-m); font-weight: 400; }
@@ -178,18 +151,18 @@
   color: var(--on);
   border: 1px solid var(--border-str);
   border-radius: 6px;
-  background: #fff;
+  background: rgb(0 0 0 / 12%);
 }
 .quote-portal .portal-field textarea { min-height: 100px; resize: vertical; }
-.quote-portal .portal-field :is(input, textarea)::placeholder { color: #657487; }
+.quote-portal .portal-field :is(input, textarea)::placeholder { color: #9eb0c5; }
 .quote-portal .portal-check { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 24px; font-size: 16px; color: var(--on-m); line-height: 1.5; }
 .quote-portal .portal-check input { flex: none; width: 20px; height: 20px; margin-top: 3px; accent-color: var(--portal-primary); }
 .quote-portal .btn-primary,
 .quote-portal .btn-secondary { min-height: 44px; padding: 12px 16px; border-radius: 6px; font: 600 16px/1.3 var(--text); box-shadow: none; transition: background-color 160ms, border-color 160ms; }
-.quote-portal .btn-primary { background: var(--portal-primary); color: #fff; }
-.quote-portal .btn-primary:not(:disabled):hover { background: color-mix(in srgb, var(--portal-primary), black 14%); transform: none; }
-.quote-portal .btn-primary:disabled { background: #e8edf2; color: #526174; opacity: 1; }
-.quote-portal .btn-secondary { color: var(--on); border-color: var(--border); background: #fff; }
+.quote-portal .btn-primary { background: var(--portal-accent); color: var(--portal-accent-text, #fff); }
+.quote-portal .btn-primary:not(:disabled):hover { background: color-mix(in srgb, var(--portal-accent), black 14%); transform: none; }
+.quote-portal .btn-primary:disabled { background: rgb(255 255 255 / 9%); color: #a7b8cc; opacity: 1; }
+.quote-portal .btn-secondary { color: var(--on); border-color: var(--border-str); background: transparent; }
 .quote-portal .btn-secondary:hover { background: var(--surface-in); transform: none; box-shadow: none; }
 .quote-portal .portal-text-button { margin-top: 12px; padding: 10px; font-size: 14px; font-weight: 500; color: var(--on-m); }
 .quote-portal :is(a, button, input, textarea):focus-visible { outline: 2px solid var(--portal-accent); outline-offset: 3px; box-shadow: none; }
@@ -200,12 +173,16 @@
 .quote-portal .portal-choice-group { margin-bottom: 20px; }
 .quote-portal .portal-choice-group legend { font-size: 16px; font-weight: 600; }
 .quote-portal .portal-choice-help { font-size: 16px; line-height: 1.5; color: var(--on-m); }
-.quote-portal .portal-select-card { border-radius: 6px; padding: 14px; background: #fff; border-color: var(--border); box-shadow: none; }
+.quote-portal .portal-select-card { border-radius: 6px; padding: 14px; background: rgb(0 0 0 / 8%); border-color: var(--border); box-shadow: none; }
 .quote-portal .portal-select-card.is-selected { border-color: var(--portal-accent); background: var(--accent-bg); box-shadow: none; }
 .quote-portal .portal-option-card { padding: 0; }
 .quote-portal .portal-option-card > label { padding: 14px; }
 .quote-portal .portal-select-title b { font-size: 16px; font-weight: 600; }
+.quote-portal :is(.portal-select-title b, .portal-select-copy > strong, .portal-option-price b, .portal-composer-heading h3, .portal-choice-group legend, .portal-result-card h3, .portal-expired-card h3) { color: var(--on); }
+.quote-portal .portal-option-card.is-selected .portal-option-price b { color: var(--on); }
+.quote-portal .portal-preview-card { background: var(--surface-in); }
 .quote-portal .portal-select-title em { font-size: 14px; letter-spacing: 0; }
+.quote-portal .portal-option-read-more { font-size: 14px; }
 .quote-portal .portal-select-copy > small,
 .quote-portal .portal-option-desc,
 .quote-portal .portal-option-bullets,
@@ -216,10 +193,46 @@
 .quote-portal .portal-skip-link { position: fixed; left: 24px; top: -80px; z-index: 100; padding: 12px; border-radius: 6px; background: var(--portal-primary); color: #fff; }
 .quote-portal .portal-skip-link:focus { top: 12px; }
 @keyframes portal-title-in { from { opacity: .6; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+/* Het document behoudt zijn drukformaat. SheetScaler past alleen de zoom aan,
+   zodat ook een telefoon dezelfde A4-pagina toont als de PDF. */
+@media screen {
+  .quote-portal .portal-fixed-document { width: 210mm; color-scheme: light; }
+  .quote-portal .portal-fixed-document .sheet {
+    width: 210mm !important;
+    max-width: none !important;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    scroll-margin-top: 96px;
+    margin: 0 auto 28px;
+    border: 0;
+    border-radius: 4px;
+    box-shadow: 0 12px 36px rgb(0 0 0 / 16%);
+  }
+  .quote-portal .portal-fixed-document .pad { padding: 15mm 16mm 12mm !important; height: 100%; min-height: 100%; }
+  .quote-portal .portal-fixed-document .cov-layout { display: flex; height: 100%; }
+  .quote-portal .portal-fixed-document .cov-panel { flex: 1; height: 100%; }
+  .quote-portal .portal-fixed-document .cov-pad { padding: 21mm 16mm 12mm; gap: 0; min-height: 100%; }
+  .quote-portal .portal-fixed-document .cov-top { display: flex; justify-content: space-between; gap: 0; }
+  .quote-portal .portal-fixed-document .cov-meta { width: auto; padding-left: 14px; border-left: 1px solid var(--border-str); font-size: 16px; }
+  .quote-portal .portal-fixed-document .cov-meta dl { grid-template-columns: auto auto; gap: 2px 14px; }
+  .quote-portal .portal-fixed-document .cov-meta :is(dt, dd) { font-size: 16px; width: auto; }
+  .quote-portal .portal-fixed-document .cov-main { flex: 1; display: flex; padding: 6mm 0 4mm; }
+  .quote-portal .portal-fixed-document .portal-koolhaas .cov-h1 { font-size: 48px; line-height: 1; }
+  .quote-portal .portal-fixed-document .portal-websup .cov-h1 { font-size: 72px; line-height: 1; }
+  .quote-portal .portal-fixed-document .cov-h1 { overflow-wrap: normal; }
+  .quote-portal .portal-fixed-document .cov-project { font-size: 26px; }
+  .quote-portal .portal-fixed-document .cov-line { margin-bottom: 8mm; }
+  .quote-portal .portal-fixed-document .cov-foot { gap: 12px; font-size: 13px; }
+  .quote-portal .portal-fixed-document .cov-foot b { font-size: 13px; white-space: nowrap; }
+  .quote-portal .portal-fixed-document .doc-foot { flex-wrap: nowrap; }
+  .quote-portal .portal-fixed-document .doc-foot-meta { font-size: 13px; }
+  .quote-portal .portal-fixed-document .source-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; }
+  .quote-portal .portal-fixed-document .flow-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .quote-portal .portal-fixed-document .sign-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .quote-portal .portal-fixed-document .sign-box { padding: 18px; }
+}
 @media screen and (max-width: 1100px) {
   .quote-portal .portal-layout { grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; }
-  .quote-portal .cover .cov-pad { padding-inline: 28px; }
-  .quote-portal .doc-viewer .pad { padding-inline: 28px; }
   .quote-portal .portal-overview { align-items: flex-start; flex-direction: column; }
   .quote-portal .portal-overview-details { display: flex; align-items: center; gap: 16px; }
 }
@@ -228,7 +241,7 @@
   .quote-portal .sidebar { position: static; width: 100%; max-width: 794px; margin: 0 auto; }
   .quote-portal .portal-sidebar-content { max-height: none; overflow: visible; padding: 0; }
   .quote-portal .portal-shell { padding-bottom: 120px; }
-  .quote-portal .portal-mobile-action { display: flex; position: fixed; inset: auto 0 0; z-index: 40; background: #fff; border-top: 1px solid var(--border); box-shadow: none; padding: 12px 24px calc(12px + env(safe-area-inset-bottom)); gap: 16px; pointer-events: auto; }
+  .quote-portal .portal-mobile-action { display: flex; position: fixed; inset: auto 0 0; z-index: 40; background: #0e2034; border-top: 1px solid var(--border); box-shadow: none; padding: 12px 24px calc(12px + env(safe-area-inset-bottom)); gap: 16px; pointer-events: auto; }
   .quote-portal .portal-mobile-action span { font-size: 14px; text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--on-m); }
   .quote-portal .portal-mobile-action b { font-size: 20px; line-height: 1.4; color: var(--on); }
   .quote-portal .portal-mobile-action b em { display: block; font-size: 14px; font-weight: 400; color: var(--on-m); }
@@ -238,18 +251,10 @@
   .quote-portal .portal-topbar { min-height: 64px; padding: 12px 16px; }
   .quote-portal .portal-topbar-brand img { height: 30px; max-width: 150px; }
   .quote-portal .portal-topbar-brand > span:last-child { display: none; }
-  .quote-portal .portal-header-nav { gap: 12px; }
-  .quote-portal .portal-header-nav a:first-child { display: none; }
   .quote-portal .portal-shell { padding: 24px 16px 120px; }
   .quote-portal .portal-overview { gap: 18px; margin-bottom: 24px; padding-bottom: 24px; }
   .quote-portal .portal-overview-details { flex-wrap: wrap; }
   .quote-portal .portal-card { padding: 20px; }
-  .quote-portal .cover .cov-pad { padding: 28px 20px 20px; min-height: 0; }
-  .quote-portal .cover .cov-main { padding-block: 28px; }
-  .quote-portal .cover .cov-h1 { font-size: 30px; }
-  .quote-portal .cover :is(.cov-meta dt, .cov-meta dd) { font-size: 14px; }
-  .quote-portal .doc-viewer .sheet { width: 100% !important; max-width: 100%; min-height: 0; }
-  .quote-portal .doc-viewer .pad { padding: 24px 20px !important; min-height: 0; }
   .quote-portal .portal-mobile-action { padding-inline: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {

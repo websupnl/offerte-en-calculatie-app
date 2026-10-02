@@ -13,6 +13,7 @@ import { getQuoteAttachmentStorageKey } from "@/lib/quote-attachments";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
 import { saveQuoteModules } from "@/lib/quote-modules";
 import { nextCalculationNumber } from "@/lib/calculation-number";
+import { createDocumentProject } from "@/lib/document-project";
 
 const itemSchema = z.object({
   productId: z.string().optional(),
@@ -38,6 +39,7 @@ const attachmentSchema = z.object({
 
 const schema = z.object({
   customerId: z.string().min(1),
+  projectId: z.string().nullish().transform((value) => value && value !== "none" ? value : null),
   title: z.string().optional(),
   category: z.string().optional(),
   tagline: z.string().optional(),
@@ -77,7 +79,7 @@ export async function POST(req: NextRequest) {
   // typen wilden we kwijt.
 
   const { 
-    customerId, title, category, tagline, itemsHeader, validUntil, 
+    customerId, projectId, title, category, tagline, itemsHeader, validUntil,
     intro, outro, notes, quoteType, flow, approach, options, exclusions,
     assumptions, technicalNotes, customerResponsibilities,
     planning, commercial, batteryAdvice, choiceGroups, internalAdvice,
@@ -86,6 +88,8 @@ export async function POST(req: NextRequest) {
 
   const customer = await prisma.customer.findFirst({ where: { id: customerId, companyId }, select: { id: true } });
   if (!customer) return NextResponse.json({ error: "Klant bestaat niet binnen het actieve bedrijf." }, { status: 400 });
+  const selectedProject = projectId ? await prisma.project.findFirst({ where: { id: projectId, companyId, customerId } }) : null;
+  if (projectId && !selectedProject) return NextResponse.json({ error: "Kies een project van deze klant binnen het actieve bedrijf." }, { status: 400 });
   const attachmentPrefix = `offertes/${companyId}/`;
   if (attachments?.some((attachment) => {
     const key = getQuoteAttachmentStorageKey(attachment.imageUrl);
@@ -119,10 +123,15 @@ export async function POST(req: NextRequest) {
     return { ...item, total: calculateLine(item).revenueExVat, sortOrder: i };
   });
 
-  const quote = await prisma.quote.create({
+  const quote = await prisma.$transaction(async (tx) => {
+    const project = selectedProject ?? await createDocumentProject(tx, {
+      companyId, customerId, title: title?.trim() || category?.trim() || "Nieuw voorstel",
+    });
+    const createdQuote = await tx.quote.create({
     data: {
       companyId,
       customerId,
+      projectId: project.id,
       createdById: session.user.id,
       title,
       category,
@@ -161,34 +170,20 @@ export async function POST(req: NextRequest) {
         : undefined,
     },
     include: { customer: true, items: true, attachments: { orderBy: { sortOrder: "asc" } } },
+    });
+    if (options?.length) await saveQuoteModules(createdQuote.id, options, tx);
+    if (items.length === 0 && (choiceGroups?.length ?? 0) === 0) {
+      await tx.$queryRaw`SELECT "id" FROM "Company" WHERE "id" = ${companyId} FOR UPDATE`;
+      await tx.calculation.create({ data: {
+        companyId, customerId, projectId: createdQuote.projectId, quoteId: createdQuote.id,
+        number: await nextCalculationNumber(companyId, company?.slug ?? "xx", tx),
+        title: title ?? "Calculatie concept", status: "DRAFT", role: "BASE", vatRate: createdQuote.vatRate,
+      } });
+    }
+    return createdQuote;
   });
 
-  // Modules staan in hun eigen tabel, dus na het aanmaken van de offerte wegschrijven.
-  if (options?.length) {
-    await saveQuoteModules(quote.id, options);
-  }
-
-  // Een offerte die leeg begint krijgt meteen een basiscalculatie. De calculatie
-  // is immers de bron van de prijs, dus je hoort er niet eerst zelf een te moeten
-  // aanmaken. Wordt de offerte mét regels aangemaakt (import, oude flow), dan
-  // laten we hem op het oude pad staan.
-  if (items.length === 0 && (choiceGroups?.length ?? 0) === 0) {
-    await prisma.calculation.create({
-      data: {
-        companyId,
-        customerId,
-        projectId: quote.projectId,
-        quoteId: quote.id,
-        number: await nextCalculationNumber(companyId, company?.slug ?? "xx"),
-        title: title ?? `Calculatie ${quote.number ?? "concept"}`,
-        status: "DRAFT",
-        role: "BASE",
-        vatRate: quote.vatRate,
-      },
-    });
-  }
-
-  const host = req.headers.get("host") ?? "localhost:3000";
+  const host = req.headers.get("host") ?? "localhost:3001";
   const cookie = req.headers.get("cookie") ?? "";
   after(async () => {
     await generateAndStorePdf(quote.id, host, cookie);

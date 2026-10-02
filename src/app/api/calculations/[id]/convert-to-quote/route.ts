@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
 import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
+import { createDocumentProject } from "@/lib/document-project";
 
 export async function POST(
   req: NextRequest,
@@ -34,31 +35,38 @@ export async function POST(
   }
 
 
-  const quote = await prisma.quote.create({
+  const customerId = calculation.customerId;
+  const quote = await prisma.$transaction(async (tx) => {
+    const projectId = calculation.projectId ?? (await createDocumentProject(tx, {
+      companyId, customerId, title: calculation.title, description: calculation.description,
+    })).id;
+    const createdQuote = await tx.quote.create({
     data: {
       companyId,
-      customerId: calculation.customerId,
+      customerId,
       createdById: session.user.id,
       title: calculation.title,
       notes: calculation.notes,
       vatRate: calculation.vatRate,
-      projectId: calculation.projectId,
+      projectId,
     },
     include: { customer: true },
-  });
+    });
 
   // Link Quote to Calculation and update status to QUOTED
-  await prisma.calculation.update({
+    await tx.calculation.update({
     where: { id: calculation.id },
     data: {
-      quoteId: quote.id,
+      quoteId: createdQuote.id,
+      projectId,
       status: "QUOTED",
     },
+    });
+    await syncQuoteTotalsFromCalculations(createdQuote.id, tx);
+    return createdQuote;
   });
 
-  await syncQuoteTotalsFromCalculations(quote.id);
-
-  const host = req.headers.get("host") ?? "localhost:3000";
+  const host = req.headers.get("host") ?? "localhost:3001";
   const cookie = req.headers.get("cookie") ?? "";
   after(async () => {
     await generateAndStorePdf(quote.id, host, cookie);

@@ -59,7 +59,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (pdfBuffer) {
     // Cache via blob if configured
     if (process.env.BLOB_READ_WRITE_TOKEN) {
-      generateAndStorePdf(id, host, cookie).catch(() => {});
+      generateAndStorePdf(id, host, cookie, pdfBuffer).catch(() => {});
     }
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
@@ -118,6 +118,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     brandOverrides: {
       primaryColor: branding.primaryColor,
       accentColor: branding.accentColor,
+      gradient: branding.gradient,
       backgroundColor: branding.backgroundColor,
       textColor: branding.textColor,
       // Laat de bestaande witte variant op de donkere WebsUp-cover staan als

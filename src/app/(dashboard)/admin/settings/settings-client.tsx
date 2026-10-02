@@ -1,6 +1,7 @@
 "use client";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { BrandPaletteEditor } from "@/components/forms/brand-palette-editor";
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import type { CompanyBranding as BrandSettings, InvoiceSettings } from "@/lib/branding";
+import { getBranding, type CompanyBranding as BrandSettings, type InvoiceSettings } from "@/lib/branding";
 import { useCompany } from "@/lib/company-context";
 import { Loader2, Save, Settings, Palette, Bot, Key, FileText, ExternalLink, Upload, Trash2 } from "lucide-react";
 
@@ -93,7 +94,10 @@ export function SettingsClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ settings: finalSettings, branding }),
       });
-      if (!response.ok) throw new Error("Instellingen konden niet worden opgeslagen");
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "Instellingen konden niet worden opgeslagen");
+      }
       await reloadBranding();
       toast.success("Instellingen opgeslagen");
     } catch (error) {
@@ -113,7 +117,7 @@ export function SettingsClient({
       const response = await fetch(`/api/company/${companyId}/branding-asset`, { method: "POST", body: formData });
       const body = await response.json().catch(() => null);
       if (!response.ok) throw new Error(body?.error ?? "Uploaden mislukt");
-      setBranding(body.branding as CompanyBranding);
+      setBranding(getBranding(companySlug, body.branding));
       await reloadBranding();
       toast.success(kind === "logo" ? "Logo bijgewerkt" : "Favicon bijgewerkt");
     } catch (error) {
@@ -427,24 +431,10 @@ export function SettingsClient({
           <Card>
             <CardHeader>
               <CardTitle>Branding</CardTitle>
-              <CardDescription>Deze huisstijl wordt gebruikt in de werkplek en het offerteportaal.</CardDescription>
+              <CardDescription>Deze huisstijl wordt gebruikt in de werkplek, offertes, PDF en e-mails.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                {([
-                  ["primaryColor", "Primaire kleur"], ["accentColor", "Accentkleur"],
-                  ["backgroundColor", "Achtergrondkleur"], ["textColor", "Tekstkleur"],
-                ] as const).map(([key, label]) => (
-                  <div key={key} className="space-y-2">
-                    <Label htmlFor={`brand-${key}`}>{label}</Label>
-                    <div className="flex gap-2">
-                      <input aria-label={`${label} kiezen`} type="color" value={/^#[\da-f]{6}$/i.test(branding[key]) ? branding[key] : "#ffffff"}
-                        onChange={(e) => setBranding((b) => ({ ...b, [key]: e.target.value }))} className="h-10 w-12 shrink-0 cursor-pointer rounded border bg-transparent p-1" />
-                      <Input id={`brand-${key}`} value={branding[key]} onChange={(e) => setBranding((b) => ({ ...b, [key]: e.target.value }))} placeholder="#123456" />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <BrandPaletteEditor companySlug={companySlug} companyName={companyName} branding={branding} onChange={setBranding} />
               <div className="space-y-2">
                 <Label htmlFor="brand-font">Lettertype</Label>
                 <select id="brand-font" value={branding.font} onChange={(e) => setBranding((b) => ({ ...b, font: e.target.value }))}

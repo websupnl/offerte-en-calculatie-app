@@ -479,7 +479,9 @@ export function QuoteSheetPreview({
   const customLogo = documentBranding.logoUrl.startsWith("s3://")
     ? (quote.company?.id ? `/api/brand-assets/${quote.company.id}/logo` : null)
     : documentBranding.logoUrl;
-  const documentLogo = customLogo || (isKoolhaas ? "/logos/koolhaas-logo-tight.png" : "/logos/websup-cover.png");
+  const documentLogo = customLogo === "/logos/koolhaas-logo.png"
+    ? "/logos/koolhaas-logo-tight.png"
+    : customLogo || (isKoolhaas ? "/logos/koolhaas-logo-tight.png" : "/logos/websup-cover.png");
   
   // Choice Logic
   const choiceGroups = quote.choiceGroups || [];

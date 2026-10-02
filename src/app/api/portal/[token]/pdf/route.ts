@@ -68,7 +68,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   if (pdfBuffer) {
     // Cache for next request
     after(async () => {
-      await generateAndStorePortalPdf(token, host);
+      await generateAndStorePortalPdf(token, host, pdfBuffer);
     });
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
@@ -138,6 +138,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     brandOverrides: {
       primaryColor: branding.primaryColor,
       accentColor: branding.accentColor,
+      gradient: branding.gradient,
       backgroundColor: branding.backgroundColor,
       textColor: branding.textColor,
       ...(storedBranding.logoUrl ? { logoUrl: customLogoUrl } : {}),

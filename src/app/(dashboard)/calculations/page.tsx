@@ -36,7 +36,7 @@ export default async function CalculationsPage({
     }),
     prisma.project.findMany({
       where: { companyId },
-      select: { id: true, number: true, title: true },
+      select: { id: true, number: true, title: true, customerId: true },
       orderBy: { createdAt: "desc" },
     }),
   ]);

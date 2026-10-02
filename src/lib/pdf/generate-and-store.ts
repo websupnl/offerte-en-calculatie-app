@@ -6,7 +6,8 @@ import { quotePdfCachePath } from "./cache";
 export async function generateAndStorePdf(
   quoteId: string,
   host: string,
-  cookie: string
+  cookie: string,
+  renderedBuffer?: Buffer,
 ): Promise<string | null> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     console.warn("[PDF] BLOB_READ_WRITE_TOKEN not set — skipping PDF pre-generation");
@@ -17,7 +18,7 @@ export async function generateAndStorePdf(
   const printUrl = `${proto}://${host}/print/quotes/${quoteId}`;
 
   try {
-    const pdfBuffer = await renderPageAsPdf(printUrl, cookie);
+    const pdfBuffer = renderedBuffer ?? await renderPageAsPdf(printUrl, cookie);
     if (!pdfBuffer) return null;
 
     const quote = await prisma.quote.findUnique({ where: { id: quoteId }, select: { company: { select: { slug: true, branding: true } } } });
@@ -43,9 +44,10 @@ export async function generateAndStorePdf(
 
 export async function generateAndStorePortalPdf(
   shareToken: string,
-  host: string
+  host: string,
+  renderedBuffer?: Buffer,
 ): Promise<string | null> {
-  const result = await generatePortalPdfWithBuffer(shareToken, host);
+  const result = await generatePortalPdfWithBuffer(shareToken, host, renderedBuffer);
   return result?.url ?? null;
 }
 
@@ -53,13 +55,14 @@ export async function generateAndStorePortalPdf(
 // zodat de PDF direct als e-mailbijlage meegestuurd kan worden.
 export async function generatePortalPdfWithBuffer(
   shareToken: string,
-  host: string
+  host: string,
+  renderedBuffer?: Buffer,
 ): Promise<{ url?: string; buffer: Buffer } | null> {
 
   const proto = host.startsWith("localhost") ? "http" : "https";
   const printUrl = `${proto}://${host}/print/portal/${shareToken}`;
 
-  const pdfBuffer = await renderPageAsPdf(printUrl);
+  const pdfBuffer = renderedBuffer ?? await renderPageAsPdf(printUrl);
   if (!pdfBuffer) return null;
 
   // De bijlage moet niet afhankelijk zijn van de optionele Blob-cache. Als het

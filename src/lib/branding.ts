@@ -1,3 +1,11 @@
+export type BrandGradient = {
+  from: string;
+  via: string;
+  to: string;
+  angle: number;
+  viaPosition: number;
+};
+
 export type CompanyBranding = {
   primaryColor: string;
   accentColor: string;
@@ -6,6 +14,7 @@ export type CompanyBranding = {
   logoUrl: string;
   faviconUrl: string;
   font: string;
+  gradient: BrandGradient;
   tagline?: string;
 };
 
@@ -63,6 +72,7 @@ export const DEFAULT_BRANDING: Record<string, CompanyBranding> = {
     logoUrl: "/logos/websup-wordmark-black.png",
     faviconUrl: "/icons/icon-192.png",
     font: "Inter",
+    gradient: { from: "#f97316", via: "#ec4899", to: "#a78bfa", angle: 135, viaPosition: 50 },
     tagline: "Websites, apps & systemen die groeien",
   },
   koolhaas: {
@@ -73,6 +83,7 @@ export const DEFAULT_BRANDING: Record<string, CompanyBranding> = {
     logoUrl: "/logos/koolhaas-logo.png",
     faviconUrl: "/logos/koolhaas-icon.png",
     font: "Sora",
+    gradient: { from: "#102d59", via: "#247eb2", to: "#6edbcf", angle: 120, viaPosition: 48 },
     tagline: "Techniek die eerst goed doordacht wordt en daarna netjes wordt uitgevoerd.",
   },
 };
@@ -104,6 +115,7 @@ export function getBranding(slug: string, stored?: Partial<CompanyBranding>): Co
   const base = DEFAULT_BRANDING[slug] ?? DEFAULT_BRANDING.websup;
   const candidate = { ...base, ...stored };
   const color = (value: string, fallback: string) => /^#[\da-f]{6}$/i.test(value) ? value : fallback;
+  const gradient = { ...base.gradient, ...stored?.gradient };
   const fonts = new Set(["Inter", "Nunito", "Sora", "Bricolage Grotesque", "Arial"]);
   const safeAsset = (value: string | undefined, fallback: string, folders: string[]) =>
     value && (value.startsWith("s3://") || folders.some((folder) => value.startsWith(folder))) ? value : fallback;
@@ -121,6 +133,13 @@ export function getBranding(slug: string, stored?: Partial<CompanyBranding>): Co
     backgroundColor: color(candidate.backgroundColor, base.backgroundColor),
     textColor: color(candidate.textColor, base.textColor),
     font: fonts.has(candidate.font) ? candidate.font : base.font,
+    gradient: {
+      from: color(gradient.from, base.gradient.from),
+      via: color(gradient.via, base.gradient.via),
+      to: color(gradient.to, base.gradient.to),
+      angle: Number.isFinite(gradient.angle) && gradient.angle >= 0 && gradient.angle <= 360 ? gradient.angle : base.gradient.angle,
+      viaPosition: Number.isFinite(gradient.viaPosition) && gradient.viaPosition >= 1 && gradient.viaPosition <= 99 ? gradient.viaPosition : base.gradient.viaPosition,
+    },
     logoUrl: safeAsset(candidate.logoUrl, base.logoUrl, ["/logos/"]),
     faviconUrl,
     tagline: typeof candidate.tagline === "string" ? candidate.tagline : base.tagline,
@@ -138,6 +157,7 @@ export function cssVarsFromBranding(branding: CompanyBranding): Record<string, s
     "--brand-background": branding.backgroundColor,
     "--brand-text": branding.textColor,
     "--brand-font": branding.font,
+    "--brand-gradient": gradientCssFromBranding(branding),
   };
 }
 
@@ -152,6 +172,21 @@ export function cssFontFromBranding(font: string): string {
   return `${family[font] ?? family.Inter}, system-ui, sans-serif`;
 }
 
+export function gradientCssFromBranding(branding: CompanyBranding): string {
+  const { from, via, to, angle, viaPosition } = branding.gradient;
+  return `linear-gradient(${angle}deg, ${from} 0%, ${via} ${viaPosition}%, ${to} 100%)`;
+}
+
+/** De tekstkleur met het hoogste contrast voor een effen actieknop. */
+export function readableBrandText(hex: string): string {
+  const match = /^#([\da-f]{6})$/i.exec(hex);
+  if (!match) return "#ffffff";
+  const channels = [0, 2, 4].map((index) => parseInt(match[1].slice(index, index + 2), 16) / 255);
+  const luminance = channels.map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
+    .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+  return luminance > 0.179 ? "#000000" : "#ffffff";
+}
+
 /** Documenten krijgen hun eigen merkwaarden, los van de actieve werkplekthema's. */
 export function portalVarsFromBranding(branding: CompanyBranding): Record<string, string> {
   return {
@@ -159,6 +194,8 @@ export function portalVarsFromBranding(branding: CompanyBranding): Record<string
     "--portal-accent": branding.accentColor,
     "--portal-background": branding.backgroundColor,
     "--portal-text": branding.textColor,
+    "--portal-gradient": gradientCssFromBranding(branding),
+    "--portal-accent-text": readableBrandText(branding.accentColor),
     "--brand-font": cssFontFromBranding(branding.font),
   };
 }

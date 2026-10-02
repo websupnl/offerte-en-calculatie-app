@@ -3,16 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { cssFontFromBranding, cssVarsFromBranding, getBranding, type CompanyBranding } from "@/lib/branding";
-
-function readableTextColor(hex: string) {
-  const match = /^#([\da-f]{6})$/i.exec(hex);
-  if (!match) return "#ffffff";
-  const [r, g, b] = [0, 2, 4].map((index) => parseInt(match[1].slice(index, index + 2), 16) / 255);
-  const luminance = [r, g, b].map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
-    .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
-  return luminance > 0.179 ? "#101820" : "#ffffff";
-}
+import { cssFontFromBranding, cssVarsFromBranding, getBranding, readableBrandText, type CompanyBranding } from "@/lib/branding";
 
 type Company = {
   id: string;
@@ -74,7 +65,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       if (name.startsWith("--brand-")) root.style.setProperty(name, value);
     }
     root.style.setProperty("--primary", branding.accentColor);
-    root.style.setProperty("--primary-foreground", readableTextColor(branding.accentColor));
+    root.style.setProperty("--primary-foreground", readableBrandText(branding.accentColor));
     root.style.setProperty("--accent", "var(--muted)");
     root.style.setProperty("--accent-foreground", "var(--foreground)");
     root.style.setProperty("--ws-accent", branding.accentColor);

@@ -60,7 +60,7 @@ type CalculationSummary = {
   quote: { id: string; number: string | null; status: string } | null;
 };
 
-type OptionItem = { id: string; name?: string; title?: string; number?: string };
+type OptionItem = { id: string; name?: string; title?: string; number?: string; customerId?: string };
 
 export function CalculationsClient({
   initialCalculations,
@@ -162,15 +162,15 @@ export function CalculationsClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
-          customerId: customerId || null,
-          projectId: projectId || null,
+          customerId: customerId && customerId !== "none" ? customerId : null,
+          projectId: projectId && projectId !== "none" ? projectId : null,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Aanmaken mislukt");
 
-      toast.success("Calculatie aangemaakt");
+      toast.success("Calculatie aangemaakt", { description: data.projectCreated ? `Nieuw project ${data.project.number} is direct gekoppeld.` : undefined });
       setNewDialogOpen(false);
       router.push(`/calculations/${data.id}`);
     } catch (err) {
@@ -484,12 +484,12 @@ export function CalculationsClient({
 
             <div className="space-y-2">
               <Label>Koppel aan Klant (optioneel)</Label>
-              <Select value={customerId} onValueChange={(val) => setCustomerId(val || "")}>
+              <Select value={customerId || "none"} onValueChange={(val) => { setCustomerId(val && val !== "none" ? val : ""); setProjectId(""); }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecteer een klant" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">— Geen klant —</SelectItem>
+                  <SelectItem value="none">Nog geen klant</SelectItem>
                   {customers.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
@@ -500,20 +500,25 @@ export function CalculationsClient({
             </div>
 
             <div className="space-y-2">
-              <Label>Koppel aan Project (optioneel)</Label>
-              <Select value={projectId} onValueChange={(val) => setProjectId(val || "")}>
+              <Label>Project</Label>
+              <Select value={projectId || "none"} onValueChange={(val) => {
+                setProjectId(val && val !== "none" ? val : "");
+                const selectedProject = projects.find((project) => project.id === val);
+                if (selectedProject?.customerId) setCustomerId(selectedProject.customerId);
+              }}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecteer een project" />
+                  <SelectValue placeholder="Automatisch een nieuw project" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">— Geen project —</SelectItem>
-                  {projects.map((p) => (
+                  <SelectItem value="none">Automatisch een nieuw project</SelectItem>
+                  {projects.filter((project) => !customerId || project.customerId === customerId).map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.number} — {p.title}
+                      {p.number} · {p.title}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-sm text-muted-foreground">{customerId ? "Zonder projectkeuze maken we een nieuw project met deze titel en koppelen we de calculatie direct." : "Je kunt zonder klant beginnen. Met een klant maken we automatisch een nieuw project."}</p>
             </div>
           </div>
           <DialogFooter>
