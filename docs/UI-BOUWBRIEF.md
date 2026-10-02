@@ -90,3 +90,9 @@ Nieuwe keuze van Daan: de portaalomgeving blijft strak wit, met bedrijfslogo en 
 Bij visuele controle bleek de publieke logo-route naar login te verwijzen. Alleen de leesroute /api/brand-assets/ is nu publiek toegankelijk; deze serveert uitsluitend het opgeslagen bedrijfslogo of favicon. De uploadroute blijft beschermd. Het bestaande geüploade Koolhaas-logo laadt nu zonder sessie.
 
 Kwaliteitscontrole: desktop en 390 × 844 px lokaal bekeken, geen horizontale paginaoverloop. Alle zeven pagina's behouden 794 × 1123 CSS-pixels (A4). Paginakeuze ontbreekt, bedrijfsgradient en logo zijn zichtbaar. Bodytekst en formuliervelden blijven 16 px, labels 14 px, focus en reduced motion behouden. TypeScript en gerichte lint zijn geslaagd. Geen akkoord ingediend, geen bestanden geüpload en geen automatische tests uitgevoerd. Deze wijzigingen zijn nog niet gepusht.
+
+## Gradientheader en zwevende documentpagina's, 2 oktober 2026
+
+Daan vraagt de header volledig in de bedrijfsgradient, een groter headerlogo en duidelijke diepte tussen witte offertepagina's en de witte portaalachtergrond. De header gebruikt de ingestelde gradient zonder eigen kleurwaarden. Het logo staat in een wit vlak voor contrast, op desktop 248 × 64 px en mobiel 208 × 56 px. De merknaam wordt niet vervangen. A4-pagina's hebben nu een sterkere zachte schaduw, een subtiele rand en meer tussenruimte. Sticky-zijbalk en scrollankers houden rekening met de grotere header.
+
+Kwaliteitscontrole: de echte Koolhaas-offerte is bekeken op desktop en 390 × 844 px. Gradient, logo en papierschaduw zijn zichtbaar, achtergrond blijft wit en er is geen horizontale overloop. Alle zeven pagina's behouden 794 × 1123 CSS-pixels. De gedeelde variabele houdt de WebsUp-gradient configureerbaar; deze is niet opnieuw met een echte WebsUp-offerte bekeken. Er zijn geen automatische tests of klantmutaties uitgevoerd. Alleen de schermopmaak is gewijzigd, de PDF-opmaak blijft behouden. Nog niet gepusht.

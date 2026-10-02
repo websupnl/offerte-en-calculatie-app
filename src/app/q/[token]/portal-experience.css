@@ -14,33 +14,34 @@
   line-height: 1.5;
 }
 .quote-portal .portal-topbar {
-  min-height: 72px;
+  min-height: 96px;
   padding: 12px max(24px, calc((100vw - 1240px) / 2));
-  background: #fff;
-  border-bottom: 1px solid var(--border);
-  box-shadow: none;
+  background: var(--portal-gradient);
+  border-bottom: 0;
+  box-shadow: 0 4px 16px rgb(15 23 42 / 10%);
   z-index: 30;
 }
-.quote-portal .portal-topbar::after { content: ""; position: absolute; inset: auto 0 0; height: 3px; background: var(--portal-gradient); }
+.quote-portal .portal-topbar::after { display: none; }
 .quote-portal .portal-topbar-brand { gap: 20px; }
 .quote-portal .portal-topbar-brand img {
-  width: auto;
-  height: 38px;
-  max-width: 190px;
-  padding: 0;
-  border-radius: 0;
+  width: 248px;
+  height: 64px;
+  max-width: 248px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #fff;
+  object-fit: contain;
 }
 .quote-portal .portal-topbar-brand > span:last-child {
   border: 0;
-  border-left: 1px solid var(--border);
-  border-radius: 0;
-  padding: 4px 0 4px 20px;
-  background: none;
-  color: var(--on-m);
+  border-radius: 4px;
+  padding: 6px 10px;
+  background: #fff;
+  color: var(--portal-primary);
   font-size: 14px;
   letter-spacing: 0;
 }
-.quote-portal .portal-topbar-brand img.portal-custom-logo { background: #fff; padding: 6px 10px; border-radius: 4px; }
+.quote-portal .portal-topbar-brand img.portal-custom-logo { height: 64px; max-width: 248px; padding: 8px 12px; border-radius: 6px; }
 .quote-portal .portal-shell { max-width: 1288px; padding: 36px 24px 64px; }
 .quote-portal .portal-overview {
   align-items: flex-end;
@@ -88,18 +89,18 @@
 .quote-portal .portal-corner-date { font-size: 14px; }
 .quote-portal .portal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 32px; }
 .quote-portal .portal-layout--full { display: block; }
-.quote-portal .doc-viewer { padding: 0; scroll-margin-top: 96px; }
-.quote-portal .sidebar { width: auto; align-self: start; position: sticky; top: 96px; }
+.quote-portal .doc-viewer { padding: 8px; scroll-margin-top: 120px; }
+.quote-portal .sidebar { width: auto; align-self: start; position: sticky; top: 120px; }
 .quote-portal .sidebar.hidden { display: none; }
 .quote-portal .portal-sidebar-content {
   display: flex;
   gap: 16px;
-  max-height: calc(100dvh - 120px);
+  max-height: calc(100dvh - 144px);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
-  scroll-margin-top: 96px;
+  scroll-margin-top: 120px;
   padding: 0 4px 4px 0;
 }
 .quote-portal .portal-card {
@@ -138,7 +139,7 @@
 .quote-portal .portal-documents svg { width: 18px; height: 18px; flex: none; color: var(--on-m); }
 .quote-portal .portal-action-intro { margin: 0 0 24px; font-size: 16px; line-height: 1.5; color: var(--on-m); }
 .quote-portal .portal-action-card,
-.quote-portal .portal-documents { scroll-margin-top: 96px; }
+.quote-portal .portal-documents { scroll-margin-top: 120px; }
 .quote-portal .portal-field { margin-bottom: 20px; }
 .quote-portal .portal-field label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; line-height: 1.4; color: var(--on); }
 .quote-portal .portal-field label span { color: var(--on-m); font-weight: 400; }
@@ -201,11 +202,11 @@
     max-width: none !important;
     height: 297mm !important;
     min-height: 297mm !important;
-    scroll-margin-top: 96px;
-    margin: 0 auto 28px;
+    scroll-margin-top: 120px;
+    margin: 0 auto 40px;
     border: 0;
     border-radius: 4px;
-    box-shadow: 0 6px 24px rgb(15 23 42 / 8%), 0 0 0 1px var(--border);
+    box-shadow: 0 20px 48px -12px rgb(15 23 42 / 24%), 0 6px 16px rgb(15 23 42 / 8%), 0 0 0 1px var(--border);
   }
   .quote-portal .portal-fixed-document .pad { padding: 15mm 16mm 12mm !important; height: 100%; min-height: 100%; }
   .quote-portal .portal-fixed-document .cov-layout { display: flex; height: 100%; }
@@ -247,8 +248,9 @@
   .quote-portal .portal-mobile-action a { width: auto; flex: none; font-size: 14px; }
 }
 @media screen and (max-width: 600px) {
-  .quote-portal .portal-topbar { min-height: 64px; padding: 12px 16px; }
-  .quote-portal .portal-topbar-brand img { height: 30px; max-width: 150px; }
+  .quote-portal .portal-topbar { min-height: 80px; padding: 12px 16px; }
+  .quote-portal .portal-topbar-brand img,
+  .quote-portal .portal-topbar-brand img.portal-custom-logo { width: 208px; height: 56px; max-width: 208px; padding: 6px 10px; }
   .quote-portal .portal-topbar-brand > span:last-child { display: none; }
   .quote-portal .portal-shell { padding: 24px 16px 120px; }
   .quote-portal .portal-overview { gap: 18px; margin-bottom: 24px; padding-bottom: 24px; }
