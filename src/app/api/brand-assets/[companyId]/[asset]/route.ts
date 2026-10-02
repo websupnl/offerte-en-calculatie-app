@@ -19,5 +19,5 @@ export async function GET(_req: Request, { params }: { params: Promise<{ company
   if (!key || !key.startsWith(`branding/${companyId}/`) || !isStorageConfigured()) {
     return NextResponse.json({ error: "Afbeelding niet beschikbaar" }, { status: 404 });
   }
-  return NextResponse.redirect(await presignDownload(key, 3600), { headers: { "Cache-Control": "public, max-age=300" } });
+  return NextResponse.redirect(await presignDownload(key, 3600), { headers: { "Cache-Control": "no-store" } });
 }

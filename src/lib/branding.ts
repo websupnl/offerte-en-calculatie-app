@@ -177,6 +177,13 @@ export function gradientCssFromBranding(branding: CompanyBranding): string {
   return `linear-gradient(${angle}deg, ${from} 0%, ${via} ${viaPosition}%, ${to} 100%)`;
 }
 
+/** Iedere upload krijgt een unieke key, zodat de browser het nieuwe bestand laadt. */
+export function brandAssetUrl(companyId: string, asset: "logo" | "favicon", value: string): string {
+  if (!value.startsWith("s3://")) return value;
+  const version = encodeURIComponent(value.split("/").at(-1) ?? "");
+  return `/api/brand-assets/${companyId}/${asset}?v=${version}`;
+}
+
 /** De tekstkleur met het hoogste contrast voor een effen actieknop. */
 export function readableBrandText(hex: string): string {
   const match = /^#([\da-f]{6})$/i.exec(hex);

@@ -12,11 +12,11 @@ import {
   PackageCheck,
 } from "lucide-react";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
-import { getBranding, portalVarsFromBranding, type CompanyBranding } from "@/lib/branding";
+import { brandAssetUrl, getBranding, portalVarsFromBranding, type CompanyBranding } from "@/lib/branding";
 import { filenameFromResponse } from "@/lib/download-filename";
 import "./portal.css";
 import "./portal-experience.css";
-import { QuoteSheetPreview, type QuotePageMeta } from "@/components/quote-sheet-preview";
+import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
 import { SheetScaler } from "@/components/sheet-scaler";
 import { AcceptanceSuccess } from "./acceptance-success";
 import {
@@ -170,14 +170,14 @@ export function QuotePortalClient({
   const resolvedBranding = getBranding(companySlug, branding);
   const accentColor = resolvedBranding.accentColor;
   const logoSrc = resolvedBranding.logoUrl.startsWith("s3://")
-    ? `/api/brand-assets/${quote.company.id}/logo`
+    ? brandAssetUrl(quote.company.id, "logo", resolvedBranding.logoUrl)
     : ["/logos/koolhaas-logo.png", "/logos/koolhaas-logo-tight.png"].includes(resolvedBranding.logoUrl)
-      ? "/logos/koolhaas-lockup-white.png"
-      : resolvedBranding.logoUrl === "/logos/websup-wordmark-black.png" ? "/logos/websup-lockup-white.png" : resolvedBranding.logoUrl;
+      ? "/logos/koolhaas-logo-tight.png"
+      : resolvedBranding.logoUrl;
   const brandStyle = portalVarsFromBranding(resolvedBranding) as CSSProperties;
   useEffect(() => {
     const faviconUrl = resolvedBranding.faviconUrl;
-    const favicon = faviconUrl.startsWith("s3://") ? `/api/brand-assets/${quote.company.id}/favicon` : faviconUrl;
+    const favicon = brandAssetUrl(quote.company.id, "favicon", faviconUrl);
     let icon = document.querySelector<HTMLLinkElement>('link[data-company-favicon="true"]');
     if (!icon) {
       icon = document.createElement("link");
@@ -195,7 +195,6 @@ export function QuotePortalClient({
   };
 
   const documentRef = useRef<HTMLDivElement>(null);
-  const [documentPages, setDocumentPages] = useState<QuotePageMeta[]>([]);
   const [signerName, setSignerName] = useState(quote.customer.name);
   const [message, setMessage] = useState("");
   const [agreed, setAgreed] = useState(false);
@@ -541,22 +540,11 @@ export function QuotePortalClient({
 
         <div className={`portal-layout${submitted === "accepted" ? " portal-layout--full" : ""}`}>
           <div className="doc-viewer" id="offerte" ref={documentRef}>
-              <div className="portal-document-toolbar no-print">
-                <span>Het voorstel{documentPages.length > 0 ? ` · ${documentPages.length} pagina's` : ""}</span>
-                <select aria-label="Ga naar een pagina van de offerte" defaultValue="" onChange={(event) => {
-                  const page = documentRef.current?.querySelectorAll<HTMLElement>(".sheet")[Number(event.target.value) - 1];
-                  page?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
-                }}>
-                  <option value="" disabled>Ga naar pagina</option>
-                  {documentPages.map((page) => <option key={page.id} value={page.nr}>{page.nr}. {page.label}</option>)}
-                </select>
-              </div>
               <SheetScaler><div className="portal-fixed-document">
               <QuoteSheetPreview
               quote={{ ...quote, number: quote.number ?? "CONCEPT" }}
               companySlug={quote.company.slug}
               branding={resolvedBranding}
-              onPagesChange={setDocumentPages}
               selectedChoiceIds={selectedChoiceIds}
               selectedOptionIds={selectedOptionIds}
             />

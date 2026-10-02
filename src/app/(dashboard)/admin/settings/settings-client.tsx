@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { getBranding, type CompanyBranding as BrandSettings, type InvoiceSettings } from "@/lib/branding";
+import { brandAssetUrl, getBranding, type CompanyBranding as BrandSettings, type InvoiceSettings } from "@/lib/branding";
 import { useCompany } from "@/lib/company-context";
 import { Loader2, Save, Settings, Palette, Bot, Key, FileText, ExternalLink, Upload, Trash2 } from "lucide-react";
 
@@ -117,8 +117,15 @@ export function SettingsClient({
       const response = await fetch(`/api/company/${companyId}/branding-asset`, { method: "POST", body: formData });
       const body = await response.json().catch(() => null);
       if (!response.ok) throw new Error(body?.error ?? "Uploaden mislukt");
-      setBranding(getBranding(companySlug, body.branding));
-      await reloadBranding();
+      const uploadedBranding = getBranding(companySlug, body.branding);
+      const field = kind === "logo" ? "logoUrl" : "faviconUrl";
+      setBranding((current) => ({ ...current, [field]: uploadedBranding[field] }));
+      try {
+        await reloadBranding();
+      } catch {
+        toast.warning("Afbeelding opgeslagen. Vernieuw de pagina om de huisstijl overal bij te werken.");
+        return;
+      }
       toast.success(kind === "logo" ? "Logo bijgewerkt" : "Favicon bijgewerkt");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Uploaden mislukt");
@@ -213,12 +220,12 @@ export function SettingsClient({
 
   const brandAssetSrc = (kind: "logo" | "favicon") => {
     const value = kind === "logo" ? branding.logoUrl : branding.faviconUrl;
-    return value.startsWith("s3://") ? `/api/brand-assets/${companyId}/${kind}` : value;
+    return brandAssetUrl(companyId, kind, value);
   };
 
   return (
     <div className="w-full max-w-[1400px] space-y-6 p-6 lg:p-8 2xl:px-10">
-      <PageHeader className="px-0! pt-0!" eyebrow="Beheer" title="Instellingen" description={companyName} actions={<Button onClick={saveSettings} disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : <Save />}Opslaan</Button>} />
+      <PageHeader className="px-0! pt-0!" eyebrow="Beheer" title="Instellingen" description={companyName} actions={<Button onClick={saveSettings} disabled={saving || uploadingBrandAsset !== null}>{saving ? <Loader2 className="animate-spin" /> : <Save />}Opslaan</Button>} />
 
       <Tabs defaultValue="general">
         <TabsList>
@@ -450,7 +457,7 @@ export function SettingsClient({
                       {/* eslint-disable-next-line @next/next/no-img-element -- afbeelding is door de gebruiker gekozen */}
                       <img src={brandAssetSrc(kind)} alt={`Huidig ${label.toLowerCase()}`} className={kind === "logo" ? "h-12 max-w-40 object-contain" : "h-10 w-10 object-contain"} />
                       <Input id={`brand-${kind}`} type="file" accept="image/png,image/jpeg,image/webp" className="min-w-0"
-                        disabled={uploadingBrandAsset !== null} onChange={(e) => { void uploadBrandAsset(kind, e.target.files?.[0]); e.currentTarget.value = ""; }} />
+                        disabled={saving || uploadingBrandAsset !== null} onChange={(e) => { void uploadBrandAsset(kind, e.target.files?.[0]); e.currentTarget.value = ""; }} />
                     </div>
                     {uploadingBrandAsset === kind && <p className="text-sm text-muted-foreground">Uploaden…</p>}
                   </div>

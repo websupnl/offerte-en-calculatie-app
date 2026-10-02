@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { DEFAULT_BRANDING, getBranding, gradientCssFromBranding, type CompanyBranding } from "@/lib/branding";
+import { brandAssetUrl, DEFAULT_BRANDING, getBranding, gradientCssFromBranding, type CompanyBranding } from "@/lib/branding";
 import { defaultQuoteExtensionMessage, defaultQuoteExtensionSubject } from "@/lib/quote-email-copy";
 
 type CompanyEmailIdentity = {
@@ -47,7 +47,7 @@ export function getCompanyEmailIdentity(companySlug: string, overrides?: Partial
   const base = COMPANY_EMAIL_IDENTITIES[companySlug] ?? COMPANY_EMAIL_IDENTITIES.websup;
   const branding = getBranding(companySlug, overrides);
   const logoUrl = branding.logoUrl.startsWith("s3://") && companyId
-    ? `/api/brand-assets/${companyId}/logo`
+    ? brandAssetUrl(companyId, "logo", branding.logoUrl)
     : branding.logoUrl;
   return { ...base, logoUrl, primaryColor: branding.primaryColor, accentColor: branding.accentColor, accentGradient: gradientCssFromBranding(branding) };
 }

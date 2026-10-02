@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { cssFontFromBranding, cssVarsFromBranding, getBranding, readableBrandText, type CompanyBranding } from "@/lib/branding";
+import { brandAssetUrl, cssFontFromBranding, cssVarsFromBranding, getBranding, readableBrandText, type CompanyBranding } from "@/lib/branding";
 
 type Company = {
   id: string;
@@ -73,9 +73,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--ws-accent-soft", `color-mix(in srgb, ${branding.accentColor}, transparent 88%)`);
     root.style.setProperty("--brand-font", cssFontFromBranding(branding.font));
     document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", branding.primaryColor);
-    const favicon = branding.faviconUrl.startsWith("s3://")
-      ? `/api/brand-assets/${activeCompany.id}/favicon`
-      : branding.faviconUrl;
+    const favicon = brandAssetUrl(activeCompany.id, "favicon", branding.faviconUrl);
     let icon = document.querySelector<HTMLLinkElement>('link[data-company-favicon="true"]');
     if (!icon) {
       icon = document.createElement("link");

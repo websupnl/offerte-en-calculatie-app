@@ -10,6 +10,7 @@ import { signOut } from "next-auth/react";
 import { m } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useCompany } from "@/lib/company-context";
+import { brandAssetUrl } from "@/lib/branding";
 import { Brain, Building2, Calculator, CalendarDays, ChevronDown, ClipboardList, Database, Eye, FileSignature, FileText, FolderKanban, LayoutDashboard, ListTodo, LoaderCircle, LogOut, Package, ReceiptText, Repeat, Settings, ShieldCheck, StickyNote, TrendingUp, Users, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -47,7 +48,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; on
   const { activeCompany, companies, switchingCompanyId, switchCompany, branding } = useCompany();
   const storedLogo = branding?.logoUrl;
   const logoSrc = storedLogo?.startsWith("s3://") && activeCompany
-    ? `/api/brand-assets/${activeCompany.id}/logo`
+    ? brandAssetUrl(activeCompany.id, "logo", storedLogo)
     : storedLogo || (activeCompany?.slug === "koolhaas" ? "/logos/koolhaas-logo-tight.png" : "/logos/websup-cover.png");
   const activeHref = navGroups.flatMap(group => group.items)
     .filter(item => pathname === item.href || pathname.startsWith(`${item.href}/`))

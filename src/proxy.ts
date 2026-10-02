@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   "/print/portal/",
   "/api/auth",
   "/api/legal/",
+  "/api/brand-assets/", // Alleen publieke bedrijfslogo's en favicons; uploads blijven beschermd.
   "/api/integrations/quote-contract",
   "/api/cli/",
   // Server-to-server gateway; it has its own Bearer-token authentication.

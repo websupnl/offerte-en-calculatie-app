@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { buildObjectKey, isStorageConfigured, uploadObject } from "@/lib/storage";
 import { createQuoteAttachmentStorageRef } from "@/lib/quote-attachments";
 import type { Prisma } from "@/generated/prisma";
+import { brandAssetUrl } from "@/lib/branding";
 
 export const runtime = "nodejs";
 
@@ -25,16 +26,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Kies een logo of favicon" }, { status: 400 });
   }
   if (!IMAGE_TYPES.has(file.type)) return NextResponse.json({ error: "Gebruik een PNG-, JPG- of WebP-afbeelding" }, { status: 415 });
+  if (file.size === 0) return NextResponse.json({ error: "Dit bestand is leeg. Kies een andere afbeelding." }, { status: 400 });
   if (file.size > MAX_BYTES) return NextResponse.json({ error: "De afbeelding mag maximaal 4 MB zijn" }, { status: 413 });
 
   const extension = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1];
   const key = buildObjectKey(`${kind}.${extension}`, `branding/${id}/${kind}`);
-  await uploadObject(key, Buffer.from(await file.arrayBuffer()), file.type);
-  const company = await prisma.company.findUnique({ where: { id }, select: { branding: true } });
-  const current = (company?.branding ?? {}) as Record<string, unknown>;
-  const field = kind === "logo" ? "logoUrl" : "faviconUrl";
-  const branding = { ...current, [field]: createQuoteAttachmentStorageRef(key) };
-  await prisma.company.update({ where: { id }, data: { branding: branding as Prisma.InputJsonValue } });
-  await prisma.quoteShare.updateMany({ where: { quote: { companyId: id } }, data: { portalPdfUrl: null } });
-  return NextResponse.json({ url: `/api/brand-assets/${id}/${kind}`, branding });
+  try {
+    await uploadObject(key, Buffer.from(await file.arrayBuffer()), file.type);
+    const field = kind === "logo" ? "logoUrl" : "faviconUrl";
+    const value = createQuoteAttachmentStorageRef(key);
+    const branding = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Company" WHERE "id" = ${id} FOR UPDATE`;
+      const company = await tx.company.findUniqueOrThrow({ where: { id }, select: { branding: true } });
+      const next = { ...((company.branding ?? {}) as Record<string, unknown>), [field]: value };
+      await tx.company.update({ where: { id }, data: { branding: next as Prisma.InputJsonValue } });
+      await tx.quote.updateMany({ where: { companyId: id }, data: { pdfUrl: null } });
+      await tx.quoteShare.updateMany({ where: { quote: { companyId: id } }, data: { portalPdfUrl: null } });
+      return next;
+    });
+    return NextResponse.json({ url: brandAssetUrl(id, kind, value), branding });
+  } catch (error) {
+    console.error("Branding upload failed", error instanceof Error ? error.name : "Unknown error");
+    return NextResponse.json({ error: "De afbeelding kon niet worden opgeslagen. Probeer het opnieuw." }, { status: 502 });
+  }
 }

@@ -10,7 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { getBranding, portalVarsFromBranding, type CompanyBranding } from "@/lib/branding";
+import { brandAssetUrl, getBranding, portalVarsFromBranding, type CompanyBranding } from "@/lib/branding";
 import "@/app/q/[token]/portal.css";
 import { useRef, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -477,7 +477,7 @@ export function QuoteSheetPreview({
   const isKoolhaas = brand.slug === "koolhaas";
   const documentBranding = getBranding(activeSlug, brandingOverride ?? quote.company?.branding);
   const customLogo = documentBranding.logoUrl.startsWith("s3://")
-    ? (quote.company?.id ? `/api/brand-assets/${quote.company.id}/logo` : null)
+    ? (quote.company?.id ? brandAssetUrl(quote.company.id, "logo", documentBranding.logoUrl) : null)
     : documentBranding.logoUrl;
   const documentLogo = customLogo === "/logos/koolhaas-logo.png"
     ? "/logos/koolhaas-logo-tight.png"

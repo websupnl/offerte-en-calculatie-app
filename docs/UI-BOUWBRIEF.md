@@ -76,3 +76,17 @@ Instellingen toont een live merkpreview, drie gradientkleuren, richting en midde
 De bestaande bedrijven zijn bijgewerkt met `scripts/sync-brand-palettes.ts` en daarna teruggelezen. De seed gebruikt dezelfde standaardpaletten en overschrijft geen bestaande Koolhaas-branding meer. De gedeelde kleurcomponent is visueel bekeken op desktop en 390 × 844 px; mobiel heeft geen horizontale overloop. De gegenereerde openbare Koolhaas-PDF is bekeken en bevat nog zeven A4-pagina's. Volledige Instellingen-opslag via de ingelogde UI en de reserve-PDF zijn niet functioneel uitgevoerd; er zijn geen automatische tests gestart.
 
 TypeScript, lint van de gewijzigde bronbestanden, productiecompilatie en DNA-librarycontrole zijn geslaagd na deze aanpassing. De ontwikkelserver draait weer op poort 3001.
+
+## Logo-upload, 2 oktober 2026
+
+De uploadroute gebruikte een vaste afbeeldings-URL en een redirect met vijf minuten cache. Een vervangend logo kon hierdoor onzichtbaar blijven tot verversen of cacheverloop. Uploadbare logo's en favicons krijgen nu een URL met de unieke bestandskey als versie, gedeeld door Instellingen, zijbalk, documentpreview, portaal en e-mail. De redirect wordt niet gecachet. De upload bewaart alleen het gewijzigde assetveld in de lokale instellingenstate, zodat onopgeslagen kleurwijzigingen behouden blijven. Opslaan en uploaden kunnen niet tegelijk starten.
+
+Opslag van branding en het wissen van interne en publieke PDF-cacheverwijzingen gebeuren samen. Lege bestanden krijgen een duidelijke melding; een opslagfout geeft een leesbare foutresponse. Als alleen het verversen van de werkplek mislukt na een geslaagde upload, meldt de UI dat de afbeelding wel opgeslagen is. PNG, JPG en WebP tot 4 MB zijn ondersteund, SVG blijft niet ondersteund. Er is geen nieuw bedrijfslogo geüpload voor deze diagnose.
+
+## Wit offerteportaal, 2 oktober 2026
+
+Nieuwe keuze van Daan: de portaalomgeving blijft strak wit, met bedrijfslogo en de ingestelde gradient van WebsUp of Koolhaas. De volledige paginawerkbalk met Ga naar pagina is verwijderd. De A4-documenten behouden 210 × 297 mm en schalen alleen mee met de beschikbare ruimte. Witte invoervelden, donkere tekst, subtiele kaders en een dunne merkgradient in bovenbalk en prijskaart houden de hiërarchie rustig.
+
+Bij visuele controle bleek de publieke logo-route naar login te verwijzen. Alleen de leesroute /api/brand-assets/ is nu publiek toegankelijk; deze serveert uitsluitend het opgeslagen bedrijfslogo of favicon. De uploadroute blijft beschermd. Het bestaande geüploade Koolhaas-logo laadt nu zonder sessie.
+
+Kwaliteitscontrole: desktop en 390 × 844 px lokaal bekeken, geen horizontale paginaoverloop. Alle zeven pagina's behouden 794 × 1123 CSS-pixels (A4). Paginakeuze ontbreekt, bedrijfsgradient en logo zijn zichtbaar. Bodytekst en formuliervelden blijven 16 px, labels 14 px, focus en reduced motion behouden. TypeScript en gerichte lint zijn geslaagd. Geen akkoord ingediend, geen bestanden geüpload en geen automatische tests uitgevoerd. Deze wijzigingen zijn nog niet gepusht.
