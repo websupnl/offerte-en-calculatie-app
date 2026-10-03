@@ -18,6 +18,7 @@ export default async function ProjectDetailPage({
     include: {
       customer: true,
       quotes: {
+        where: { archivedAt: null },
         orderBy: { createdAt: "desc" },
         select: { id: true, number: true, status: true, totalIncVat: true, createdAt: true },
       },

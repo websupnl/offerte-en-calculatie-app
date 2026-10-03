@@ -281,22 +281,22 @@ export function AgendaClient({
       />
 
       <div className="mx-auto max-w-6xl space-y-6 p-5 lg:p-8">
-        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-6">
+        <section className="overflow-hidden rounded-xl border border-border bg-card shadow-none">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3.5 sm:px-6">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Deze week</p>
-              <h2 className="mt-0.5 text-base font-bold tracking-tight text-slate-950 sm:text-lg">
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-muted-foreground">Deze week</p>
+              <h2 className="mt-0.5 text-base font-bold tracking-tight text-foreground sm:text-lg">
                 <span className="sm:hidden">{shortWeekLabel(weekStart)}</span>
                 <span className="hidden sm:inline">{weekLabel(weekStart)}</span>
               </h2>
             </div>
             <div className="flex items-center gap-4">
-              <div className="hidden items-center gap-3 text-[11px] font-semibold text-slate-500 sm:flex">
+              <div className="hidden items-center gap-3 text-sm font-semibold text-muted-foreground sm:flex">
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2 shrink-0 rounded-full bg-sky-400" /> Zakelijk
+                  <span className="size-2 shrink-0 rounded-full bg-primary" /> Zakelijk
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2 shrink-0 rounded-full bg-violet-400" /> Privé
+                  <span className="size-2 shrink-0 rounded-full bg-primary" /> Privé
                 </span>
               </div>
               <div className="flex items-center gap-1">
@@ -329,7 +329,7 @@ export function AgendaClient({
           </header>
 
           {/* Dagkoppen */}
-          <div className="flex border-b border-slate-100">
+          <div className="flex border-b border-border">
             <div className="w-12 shrink-0 sm:w-16" />
             {days.map(({ date }) => {
               const isToday = sameDay(date, today);
@@ -337,17 +337,17 @@ export function AgendaClient({
                 <div
                   key={date.toISOString()}
                   className={cn(
-                    "flex min-w-0 flex-1 flex-col items-center gap-1 border-l border-slate-100 py-2.5",
-                    isToday && "bg-sky-50/50",
+                    "flex min-w-0 flex-1 flex-col items-center gap-1 border-l border-border py-2.5",
+                    isToday && "bg-primary/10",
                   )}
                 >
-                  <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                  <span className="text-sm font-bold uppercase tracking-[0.16em] text-muted-foreground">
                     {date.toLocaleDateString("nl-NL", { weekday: "short" }).replace(".", "")}
                   </span>
                   <span
                     className={cn(
                       "flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums",
-                      isToday ? "bg-[var(--ws-accent)] text-white" : "text-slate-950",
+                      isToday ? "bg-[var(--ws-accent)] text-white" : "text-foreground",
                     )}
                   >
                     {date.getDate()}
@@ -359,9 +359,9 @@ export function AgendaClient({
 
           {/* Hele dag */}
           {days.some((day) => day.allDayTasks.length > 0 || day.allDayForeign.length > 0) && (
-            <div className="flex border-b border-slate-100">
+            <div className="flex border-b border-border">
               <div className="flex w-12 shrink-0 items-center justify-end pr-1.5 sm:w-16 sm:pr-2">
-                <span className="text-[9px] font-bold uppercase tracking-wide text-slate-300">Dag</span>
+                <span className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Dag</span>
               </div>
               {days.map(({ date, allDayTasks, allDayForeign }) => {
                 const isToday = sameDay(date, today);
@@ -369,8 +369,8 @@ export function AgendaClient({
                   <div
                     key={date.toISOString()}
                     className={cn(
-                      "min-w-0 flex-1 space-y-1 border-l border-slate-100 p-1.5",
-                      isToday && "bg-sky-50/50",
+                      "min-w-0 flex-1 space-y-1 border-l border-border p-1.5",
+                      isToday && "bg-primary/10",
                     )}
                   >
                     {allDayTasks.map((task) => (
@@ -378,11 +378,11 @@ export function AgendaClient({
                         key={task.id}
                         href={`/tasks?task=${task.id}`}
                         className={cn(
-                          "block truncate rounded-md px-1.5 py-1 text-[11px] font-semibold",
-                          task.status === "DONE" && "text-slate-400 line-through",
+                          "block truncate rounded-md px-1.5 py-1 text-sm font-semibold",
+                          task.status === "DONE" && "text-muted-foreground line-through",
                           task.companyId
-                            ? "bg-sky-50 text-sky-800 hover:bg-sky-100"
-                            : "bg-violet-50 text-violet-800 hover:bg-violet-100",
+                            ? "bg-primary/10 text-primary hover:bg-primary/10"
+                            : "bg-primary/10 text-primary hover:bg-primary/10",
                         )}
                       >
                         {task.title}
@@ -392,7 +392,7 @@ export function AgendaClient({
                       <div
                         key={event.id}
                         title="Uit Google Agenda, alleen-lezen"
-                        className="block truncate rounded-md border border-dashed border-slate-300 bg-slate-50 px-1.5 py-1 text-[11px] font-semibold text-slate-500"
+                        className="block truncate rounded-md border border-dashed border-border bg-muted/40 px-1.5 py-1 text-sm font-semibold text-muted-foreground"
                       >
                         {event.title}
                       </div>
@@ -406,11 +406,11 @@ export function AgendaClient({
           {/* Uurrooster */}
           <div ref={scrollRef} className="max-h-[576px] overflow-y-auto overflow-x-auto">
             <div className="relative flex" style={{ minWidth: 560 }}>
-              <div className="sticky left-0 z-10 w-12 shrink-0 bg-white sm:w-16">
+              <div className="sticky left-0 z-10 w-12 shrink-0 bg-card sm:w-16">
                 {hours.map((hour, index) => (
                   <div key={hour} className="relative" style={{ height: HOUR_HEIGHT }}>
                     {index > 0 && (
-                      <span className="absolute -top-2 right-1.5 text-[10px] tabular-nums text-slate-400 sm:right-2">
+                      <span className="absolute -top-2 right-1.5 text-sm tabular-nums text-muted-foreground sm:right-2">
                         {formatHour(hour)}
                       </span>
                     )}
@@ -424,7 +424,7 @@ export function AgendaClient({
                   {hours.map((hour, index) => (
                     <div
                       key={hour}
-                      className="absolute inset-x-0 border-t border-slate-100"
+                      className="absolute inset-x-0 border-t border-border"
                       style={{ top: index * HOUR_HEIGHT }}
                     />
                   ))}
@@ -443,8 +443,8 @@ export function AgendaClient({
                     <div
                       key={date.toISOString()}
                       className={cn(
-                        "group/col relative min-w-0 flex-1 cursor-pointer border-l border-slate-100",
-                        isToday ? "bg-sky-50/40 hover:bg-sky-50/70" : isWeekend ? "bg-slate-50/70 hover:bg-slate-100/70" : "bg-white hover:bg-slate-50/60",
+                        "group/col relative min-w-0 flex-1 cursor-pointer border-l border-border",
+                        isToday ? "bg-primary/40 hover:bg-primary/10" : isWeekend ? "bg-muted/70 hover:bg-muted/70" : "bg-card hover:bg-muted/60",
                       )}
                       style={{ height: gridHeight }}
                       onClick={(event) => {
@@ -468,12 +468,12 @@ export function AgendaClient({
                           href={`/tasks?task=${task.id}`}
                           onClick={(event) => event.stopPropagation()}
                           className={cn(
-                            "absolute overflow-hidden rounded-lg border px-1.5 py-1 text-[11px] leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ws-accent)]/40",
+                            "absolute overflow-hidden rounded-lg border px-1.5 py-1 text-sm leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ws-accent)]/40",
                             task.status === "DONE"
-                              ? "border-slate-200 bg-slate-50 text-slate-400 line-through"
+                              ? "border-border bg-muted/40 text-muted-foreground line-through"
                               : task.companyId
-                              ? "border-sky-200 bg-sky-50 text-sky-900 hover:bg-sky-100"
-                              : "border-violet-200 bg-violet-50 text-violet-900 hover:bg-violet-100",
+                              ? "border-primary/25 bg-primary/10 text-primary hover:bg-primary/10"
+                              : "border-primary/25 bg-primary/10 text-primary hover:bg-primary/10",
                           )}
                           style={{
                             top,
@@ -505,7 +505,7 @@ export function AgendaClient({
                           key={event.id}
                           onClick={(e) => e.stopPropagation()}
                           title="Uit Google Agenda, alleen-lezen"
-                          className="group/foreign absolute overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50/90 px-1.5 py-1 text-[11px] leading-tight text-slate-500"
+                          className="group/foreign absolute overflow-hidden rounded-lg border border-dashed border-border bg-muted/90 px-1.5 py-1 text-sm leading-tight text-muted-foreground"
                           style={{
                             top,
                             height,
@@ -518,7 +518,7 @@ export function AgendaClient({
                             <button
                               type="button"
                               aria-label="Maak er een taak van"
-                              className="hidden shrink-0 rounded-full bg-white p-0.5 text-slate-500 shadow-sm ring-1 ring-slate-200 hover:text-[var(--ws-accent)] group-hover/foreign:block"
+                              className="hidden shrink-0 rounded-full bg-card p-0.5 text-muted-foreground shadow-none ring-1 ring-slate-200 hover:text-[var(--ws-accent)] group-hover/foreign:block"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 openCreateDialog(new Date(event.start), minutesOfDay(new Date(event.start)), event.title);
@@ -546,14 +546,14 @@ export function AgendaClient({
 
         {/* Koppelingen */}
         <section>
-          <h2 className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Koppelingen</h2>
-          <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <h2 className="mb-2 px-1 text-sm font-bold uppercase tracking-[0.18em] text-muted-foreground">Koppelingen</h2>
+          <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-none">
             <div className="p-4 sm:flex sm:items-center sm:justify-between sm:gap-6 sm:px-5">
               <div className="min-w-0">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                  <CalendarDays className="h-4 w-4 text-slate-400" /> Agendalink
+                <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" /> Agendalink
                 </div>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
+                <p className="mt-1 text-sm leading-5 text-muted-foreground">
                   Alleen-lezen voor Apple, Outlook of een andere agenda-app.
                 </p>
               </div>
@@ -579,15 +579,15 @@ export function AgendaClient({
 
             <div className="p-4 sm:flex sm:items-center sm:justify-between sm:gap-6 sm:px-5">
               <div className="min-w-0">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                  <Link2 className="h-4 w-4 text-slate-400" /> Google Agenda
+                <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                  <Link2 className="h-4 w-4 text-muted-foreground" /> Google Agenda
                   {google.connected && <Badge variant="secondary">Gekoppeld</Badge>}
                 </div>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
+                <p className="mt-1 text-sm leading-5 text-muted-foreground">
                   Taken direct naar Google; privé blijft in een aparte agenda.
                 </p>
                 {!google.configured && (
-                  <p className="mt-2 text-xs font-medium text-amber-700">
+                  <p className="mt-2 text-sm font-medium text-amber-700">
                     Google is nog niet ingesteld.
                   </p>
                 )}
@@ -605,7 +605,7 @@ export function AgendaClient({
                       variant="ghost"
                       size="icon-sm"
                       aria-label="Google Agenda ontkoppelen"
-                      className="text-slate-400 hover:text-red-600"
+                      className="text-muted-foreground hover:text-red-600"
                       onClick={async () => {
                         await fetch("/api/integrations/google", { method: "DELETE" });
                         toast.success("Koppeling verbroken");
@@ -746,14 +746,14 @@ function NewEventDialog({
             />
           </div>
 
-          <div className="flex items-center gap-1 rounded-full bg-slate-100 p-1">
+          <div className="flex items-center gap-1 rounded-full bg-muted p-1">
             <button
               type="button"
               onClick={() => setScope("business")}
               disabled={!hasCompany}
               className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold transition disabled:opacity-40",
-                scope === "business" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-900",
+                "flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold transition disabled:opacity-40",
+                scope === "business" ? "bg-card text-foreground shadow-none" : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Briefcase className="h-3.5 w-3.5" /> Zakelijk
@@ -762,8 +762,8 @@ function NewEventDialog({
               type="button"
               onClick={() => setScope("private")}
               className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold transition",
-                scope === "private" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-900",
+                "flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold transition",
+                scope === "private" ? "bg-card text-foreground shadow-none" : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Lock className="h-3.5 w-3.5" /> Privé
@@ -780,8 +780,8 @@ function NewEventDialog({
                 type="button"
                 onClick={() => setAllDay((value) => !value)}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[13px] font-semibold transition",
-                  allDay ? "border-[var(--ws-accent)] bg-[var(--ws-accent)]/10 text-[var(--ws-accent)]" : "border-slate-200 text-slate-500 hover:border-slate-300",
+                  "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition",
+                  allDay ? "border-[var(--ws-accent)] bg-[var(--ws-accent)]/10 text-[var(--ws-accent)]" : "border-border text-muted-foreground hover:border-border",
                 )}
               >
                 Hele dag

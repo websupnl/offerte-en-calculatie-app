@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateQuoteNumber } from "@/lib/format";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
+import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
+import { createDocumentProject } from "@/lib/document-project";
 
 export async function POST(
   req: NextRequest,
@@ -33,85 +34,47 @@ export async function POST(
     );
   }
 
-  const count = await prisma.quote.count({ where: { companyId } });
-  const company = await prisma.company.findUnique({ where: { id: companyId } });
-  const quoteNumber = generateQuoteNumber(company?.slug ?? "xx", count + 1);
 
-  // Verplichte regels worden gewone QuoteItems; optionele regels worden offerte-opties
-  // (Quote.options), zodat ze als losse meerprijs zichtbaar zijn en niet meetellen in het totaal.
-  const mainItems = calculation.items.filter((item) => !item.optional);
-  const optionalItems = calculation.items.filter((item) => item.optional && !item.hiddenOnQuote);
-
-  const quoteItemsData = mainItems.map((item, index) => {
-    const total = Number(item.totalSalesPrice);
-    return {
-      productId: item.productId,
-      description: item.description,
-      qty: item.qty,
-      unitPrice: item.unitPrice,
-      costPrice: item.costPrice,
-      vatRate: item.vatRate,
-      total,
-      sortOrder: index,
-      indent: 0,
-      type: "main",
-      hiddenOnQuote: item.hiddenOnQuote,
-    };
-  });
-
-  const quoteOptions = optionalItems.map((item) => ({
-    id: item.id,
-    t: item.description,
-    d: `${item.qty} × ${item.unit ?? "stuk"}`,
-    tag: "Optioneel",
-    price: Number(item.unitPrice) * Number(item.qty),
-    vatRate: Number(item.vatRate),
-    required: false,
-    details: [],
-  }));
-
-  const totalExVat = Number(calculation.totalSalesPrice);
-  const totalVat = Math.round(totalExVat * (Number(calculation.vatRate) / 100) * 100) / 100;
-  const totalIncVat = totalExVat + totalVat;
-
-  const quote = await prisma.quote.create({
+  const customerId = calculation.customerId;
+  const quote = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "Calculation" WHERE "id" = ${id} FOR UPDATE`;
+    const current = await tx.calculation.findUniqueOrThrow({ where: { id }, include: { quote: true } });
+    // Een calculatie heeft één actieve offerte. Nooit stil naar een nieuwe verplaatsen.
+    if (current.quote && !current.quote.archivedAt) return current.quote;
+    const projectId = calculation.projectId ?? (await createDocumentProject(tx, {
+      companyId, customerId, title: calculation.title, description: calculation.description,
+    })).id;
+    const createdQuote = await tx.quote.create({
     data: {
       companyId,
-      customerId: calculation.customerId,
+      customerId,
       createdById: session.user.id,
-      number: quoteNumber,
       title: calculation.title,
       notes: calculation.notes,
       vatRate: calculation.vatRate,
-      totalExVat,
-      totalVat,
-      totalIncVat,
-      projectId: calculation.projectId,
-      options: quoteOptions,
-      items: {
-        create: quoteItemsData,
-      },
+      projectId,
     },
-    include: {
-      customer: true,
-      items: true,
-    },
-  });
+    include: { customer: true },
+    });
 
   // Link Quote to Calculation and update status to QUOTED
-  await prisma.calculation.update({
+    await tx.calculation.update({
     where: { id: calculation.id },
     data: {
-      quoteId: quote.id,
+      quoteId: createdQuote.id,
+      projectId,
       status: "QUOTED",
     },
+    });
+    await syncQuoteTotalsFromCalculations(createdQuote.id, tx);
+    return createdQuote;
   });
 
-  const host = req.headers.get("host") ?? "localhost:3000";
+  const host = req.headers.get("host") ?? "localhost:3001";
   const cookie = req.headers.get("cookie") ?? "";
   after(async () => {
     await generateAndStorePdf(quote.id, host, cookie);
   });
 
-  return NextResponse.json({ quote, calculationId: calculation.id }, { status: 201 });
+  return NextResponse.json({ quote, calculationId: calculation.id }, { status: calculation.quoteId === quote.id ? 200 : 201 });
 }

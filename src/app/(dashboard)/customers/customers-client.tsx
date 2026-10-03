@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "@/components/confirm-provider";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -41,11 +42,12 @@ type Customer = {
   _count: { quotes: number };
 };
 
-export function CustomersClient({ initialCustomers }: { initialCustomers: Customer[] }) {
+export function CustomersClient({ initialCustomers, initialCreateOpen = false }: { initialCustomers: Customer[]; initialCreateOpen?: boolean }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
   const [search, setSearch] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(initialCreateOpen);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -109,7 +111,15 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
   }
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`Weet je zeker dat je ${name} wilt verwijderen?`)) return;
+    if (
+      !(await confirm({
+        title: "Klant verwijderen?",
+        body: `${name} wordt definitief verwijderd.`,
+        confirmLabel: "Verwijderen",
+        destructive: true,
+      }))
+    )
+      return;
     const response = await fetch(`/api/customers/${id}`, { method: "DELETE" });
     if (!response.ok) {
       toast.error("Verwijderen mislukt");
@@ -132,14 +142,14 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Zoek op naam of e-mail..."
-            className="h-10 rounded-full border-transparent bg-white pl-9 shadow-sm"
+            className="h-10 rounded-lg border-border bg-card pl-9 shadow-none"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
         </div>
 
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl bg-white px-6 py-16 text-center ring-1 ring-slate-950/[0.06]">
+          <div className="flex flex-col items-center justify-center rounded-xl bg-card px-6 py-16 text-center ring-1 ring-border">
             <Users className="mb-4 h-12 w-12 text-muted-foreground/30" />
             <p className="text-muted-foreground">Geen klanten gevonden</p>
             <Button variant="outline" className="mt-4" onClick={openCreate}>
@@ -147,19 +157,19 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
             </Button>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+          <div className="overflow-hidden rounded-xl bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
             <div className="divide-y md:hidden">
               {filtered.map((customer) => (
                 <div key={customer.id} className="p-4">
                   <Link href={`/customers/${customer.id}`} className="block">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate font-semibold text-slate-950">{customer.name}</p>
-                        <p className="mt-1 truncate text-xs text-slate-500">{customer.email || "Geen e-mail"}</p>
+                        <p className="truncate font-semibold text-foreground">{customer.name}</p>
+                        <p className="mt-1 truncate text-sm text-muted-foreground">{customer.email || "Geen e-mail"}</p>
                       </div>
                       <Badge variant="secondary">{customer._count.quotes}</Badge>
                     </div>
-                    <div className="mt-3 flex items-center justify-between gap-3 text-sm text-slate-500">
+                    <div className="mt-3 flex items-center justify-between gap-3 text-sm text-muted-foreground">
                       <p className="min-w-0 truncate">{customer.city || customer.phone || "Geen plaats"}</p>
                       <ArrowUpRight className="h-4 w-4 shrink-0" />
                     </div>
@@ -178,7 +188,7 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
 
             <div className="hidden md:block">
               <Table>
-                <TableHeader className="bg-slate-50">
+                <TableHeader className="bg-muted/40">
                   <TableRow>
                     <TableHead className="pl-4">Naam</TableHead>
                     <TableHead>Contact</TableHead>
@@ -201,14 +211,14 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
                           router.push(`/customers/${customer.id}`);
                         }
                       }}
-                      className="cursor-pointer focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ws-accent)]"
+                      className="cursor-pointer focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ws-accent)]"
                     >
                       <TableCell className="pl-4 font-semibold">{customer.name}</TableCell>
                       <TableCell>
                         <p className="text-sm">{customer.email || "-"}</p>
-                        <p className="text-xs text-slate-400">{customer.phone || "Geen telefoon"}</p>
+                        <p className="text-sm text-muted-foreground">{customer.phone || "Geen telefoon"}</p>
                       </TableCell>
-                      <TableCell className="text-slate-500">{customer.city || "-"}</TableCell>
+                      <TableCell className="text-muted-foreground">{customer.city || "-"}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{customer._count.quotes} offerte{customer._count.quotes !== 1 ? "s" : ""}</Badge>
                       </TableCell>
@@ -225,7 +235,7 @@ export function CustomersClient({ initialCustomers }: { initialCustomers: Custom
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                          <span className="grid h-8 w-8 place-items-center text-slate-400">
+                          <span className="grid h-8 w-8 place-items-center text-muted-foreground">
                             <ArrowUpRight className="h-4 w-4" />
                           </span>
                         </div>

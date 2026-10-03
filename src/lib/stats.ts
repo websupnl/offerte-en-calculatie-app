@@ -15,6 +15,16 @@ export const OPEN_QUOTE_STATUSES = ["SENT", "VIEWED"] as const;
 /** Prisma where-fragment: sluit conceptoffertes uit. */
 export const excludeDraftQuotes = { status: { not: "DRAFT" } } as const;
 
+/**
+ * Prisma where-fragment: sluit gearchiveerde offertes uit. Hoort in elke
+ * werklijst en elk cijfer. Een gearchiveerde offerte blijft wel opvraagbaar via
+ * de detailpagina en het klantportaal.
+ */
+export const excludeArchivedQuotes = { archivedAt: null } as const;
+
+/** Idem voor calculaties. */
+export const excludeArchivedCalculations = { archivedAt: null } as const;
+
 /** Telt deze offertestatus mee in de cijfers? */
 export function countsInStats(status: string): boolean {
   return (COUNTED_QUOTE_STATUSES as readonly string[]).includes(status);

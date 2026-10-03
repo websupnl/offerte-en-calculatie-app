@@ -49,7 +49,7 @@ export const quoteOptionSchema = z.object({
   // Terugkerende prijs (abonnement/onderhoud), EXCL. btw. Echt veld — niet meer
   // uit het label geraden. Telt niet mee in de eenmalige totalen.
   recurringPrice: z.coerce.number().min(0).nullable().optional(),
-  recurringInterval: z.enum(["maand", "jaar"]).nullable().optional(),
+  recurringInterval: z.enum(["maand", "kwartaal", "jaar"]).nullable().optional(),
   vatRate: z.coerce.number().min(0).max(100).default(21),
   required: z.boolean().optional(),
   // true = in het klantportaal standaard aangevinkt (maar wél afvinkbaar, anders 'required').
@@ -79,9 +79,11 @@ export type QuoteSelection = {
 };
 
 export type QuoteRecurringTotals = {
-  /// Per interval een los totaal, zodat "per maand" en "per jaar" niet bij elkaar opgeteld worden.
+  /// Per interval een los totaal, zodat "per maand", "per kwartaal" en "per jaar" niet bij elkaar opgeteld worden.
   perMonthExVat: number;
   perMonthIncVat: number;
+  perQuarterExVat: number;
+  perQuarterIncVat: number;
   perYearExVat: number;
   perYearIncVat: number;
 };
@@ -122,9 +124,11 @@ export function getQuoteOptionRecurringInterval(
 ) {
   // Echt veld heeft voorrang; oude offertes vallen terug op tekstherkenning in het label.
   if (option.recurringInterval === "maand") return "per maand";
+  if (option.recurringInterval === "kwartaal") return "per kwartaal";
   if (option.recurringInterval === "jaar") return "per jaar";
   const text = `${option.tag ?? ""} ${option.d ?? ""}`;
   if (/per\s+maand|\/\s*maand|p\/m|maandelijks/i.test(text)) return "per maand";
+  if (/per\s+kwartaal|\/\s*kwartaal|kwartaal|per\s+3\s*maand/i.test(text)) return "per kwartaal";
   if (/per\s+jaar|\/\s*jaar|p\/j|jaarlijks/i.test(text)) return "per jaar";
   return null;
 }
@@ -218,6 +222,8 @@ export function calculateQuoteSelectionTotals(
 
   let recurringMonthExVat = 0;
   let recurringMonthIncVat = 0;
+  let recurringQuarterExVat = 0;
+  let recurringQuarterIncVat = 0;
   let recurringYearExVat = 0;
   let recurringYearIncVat = 0;
 
@@ -237,6 +243,9 @@ export function calculateQuoteSelectionTotals(
       if (recurringInterval === "per jaar") {
         recurringYearExVat += recurringPrice;
         recurringYearIncVat += incVat;
+      } else if (recurringInterval === "per kwartaal") {
+        recurringQuarterExVat += recurringPrice;
+        recurringQuarterIncVat += incVat;
       } else {
         recurringMonthExVat += recurringPrice;
         recurringMonthIncVat += incVat;
@@ -255,6 +264,8 @@ export function calculateQuoteSelectionTotals(
     recurring: {
       perMonthExVat: roundMoney(recurringMonthExVat),
       perMonthIncVat: roundMoney(recurringMonthIncVat),
+      perQuarterExVat: roundMoney(recurringQuarterExVat),
+      perQuarterIncVat: roundMoney(recurringQuarterIncVat),
       perYearExVat: roundMoney(recurringYearExVat),
       perYearIncVat: roundMoney(recurringYearIncVat),
     },

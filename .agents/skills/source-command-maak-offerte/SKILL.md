@@ -11,6 +11,12 @@ Use this skill when the user asks to run the migrated source command `maak-offer
 
 # Maak een offerte
 
+## Bestaande calculaties en actuele PDF
+
+- Controleer `quoteId` bij een bestaande calculatie. Hergebruik de actieve gekoppelde offerte; omzetting mag de koppeling niet naar een nieuw exemplaar verplaatsen. Een nieuwe revisie kopieert ook de calculaties.
+- Calculaties blijven de prijsbron. `hiddenOnQuote` verbergt prijsdetails, maar inbegrepen bedragen tellen mee via een neutrale samenvatting. Interne omschrijvingen, inkoop en leveranciers blijven intern.
+- De app bewaart PDF's in MinIO, met Blob als reserve. Download hergebruikt uitsluitend de inhoudelijk actuele versie en rendert opnieuw bij een verouderd of ontbrekend bestand. Offerte- en calculatie-opslag bereiden de PDF op de achtergrond voor.
+
 Jij maakt een complete, importklare offerte voor de offerte-app van Daan Koolhaas en importeert deze direct via de CLI.
 
 ## Stap 0 — Onderzoek producten en prijzen (web-first)
@@ -118,6 +124,10 @@ npm run import:quote /tmp/offerte-draft.json --company [koolhaas|websup] --custo
 De CLI geeft het offertenummer en de directe app-URL terug. Stuur die URL terug aan de gebruiker zodat hij de offerte direct kan bekijken en eventueel aanpassen.
 
 ## Technische context
+
+- Offerte, PDF en klantportaal bevatten automatisch **Mijn voorstel voor jou**, met Daans foto, naam, persoonlijke tekst en WhatsApp-link. Naam, tekst en WhatsApp-nummer zijn per bedrijf instelbaar onder Instellingen → Branding. Schrijf geen los contactpersoon- of functielabel voor Daan en voeg dit standaardblok niet nogmaals aan de offertetekst toe.
+
+- Een concept krijgt zijn definitieve nummer bij verzending via de app of via **Markeer als verstuurd** (`POST /api/quotes/[id]/mark-sent`). Gebruik die laatste alleen nadat Daan de offerte buiten de app heeft gedeeld. Deze actie verstuurt geen e-mail, registreert de verzending in de historie en ververst de PDF. Alleen een klantlink ophalen of een PDF downloaden houdt de offerte op Concept.
 
 - App draait op poort **3001** (niet 3000 — dat is een andere app)
 - `CLI_API_KEY` staat in `.env.local`

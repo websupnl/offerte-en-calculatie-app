@@ -111,14 +111,14 @@ export function NotesClient({
         }
         actions={
           <>
-            <div className="flex items-center gap-1 rounded-full bg-slate-100 p-1">
+            <div className="flex items-center gap-1 rounded-full bg-muted p-1">
               <button
                 type="button"
                 onClick={() => setScope("business")}
                 disabled={!hasCompany}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold transition disabled:opacity-40",
-                  scope === "business" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-900",
+                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold transition disabled:opacity-40",
+                  scope === "business" ? "bg-card text-foreground shadow-none" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <Briefcase className="h-3.5 w-3.5" /> Zakelijk
@@ -127,8 +127,8 @@ export function NotesClient({
                 type="button"
                 onClick={() => setScope("private")}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold transition",
-                  scope === "private" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-900",
+                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold transition",
+                  scope === "private" ? "bg-card text-foreground shadow-none" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <Lock className="h-3.5 w-3.5" /> Privé
@@ -141,7 +141,7 @@ export function NotesClient({
 
       <div className="space-y-5 p-5 lg:p-8">
         <div className="relative max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -152,9 +152,9 @@ export function NotesClient({
         </div>
 
         {loading ? (
-          <div className="grid min-h-40 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-slate-300" /></div>
+          <div className="grid min-h-40 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : visible.length === 0 ? (
-          <div className="grid min-h-56 place-items-center rounded-2xl bg-white text-center text-sm text-slate-400 ring-1 ring-slate-950/[0.06]">
+          <div className="grid min-h-56 place-items-center rounded-xl bg-card text-center text-sm text-muted-foreground ring-1 ring-border">
             <div>
               <StickyNote className="mx-auto mb-2 h-8 w-8" />
               {search ? "Niets gevonden." : "Nog geen notities."}
@@ -165,7 +165,7 @@ export function NotesClient({
             {visible.map((note) => (
               <div
                 key={note.id}
-                className="group relative flex flex-col rounded-2xl bg-white p-4 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06] transition hover:ring-slate-950/[0.12]"
+                className="group relative flex flex-col rounded-xl bg-card p-4 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border transition hover:ring-slate-950/[0.12]"
               >
                 <button
                   type="button"
@@ -173,16 +173,16 @@ export function NotesClient({
                   aria-label={note.pinned ? "Losmaken" : "Vastzetten"}
                   className={cn(
                     "absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-lg transition",
-                    note.pinned ? "text-amber-500" : "text-slate-300 opacity-0 hover:text-slate-500 group-hover:opacity-100",
+                    note.pinned ? "text-amber-500" : "text-muted-foreground opacity-0 hover:text-muted-foreground group-hover:opacity-100",
                   )}
                 >
                   <Pin className={cn("h-4 w-4", note.pinned && "fill-current")} />
                 </button>
                 <button type="button" onClick={() => setOpen(note)} className="min-w-0 flex-1 text-left">
-                  {note.title && <p className="truncate pr-8 font-bold text-slate-950">{note.title}</p>}
-                  <p className="mt-1 line-clamp-6 whitespace-pre-wrap text-sm leading-6 text-slate-600">{note.body}</p>
+                  {note.title && <p className="truncate pr-8 font-bold text-foreground">{note.title}</p>}
+                  <p className="mt-1 line-clamp-6 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{note.body}</p>
                 </button>
-                <div className="mt-3 flex flex-wrap items-center gap-x-2 text-xs text-slate-400">
+                <div className="mt-3 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
                   <span>{new Date(note.updatedAt).toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}</span>
                   {note.project && <span>· {note.project.number}</span>}
                   {note.customer && <span>· {note.customer.name}</span>}

@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import { brandAssetUrl, cssFontFromBranding, cssVarsFromBranding, getBranding, readableBrandText, type CompanyBranding } from "@/lib/branding";
 
 type Company = {
   id: string;
@@ -16,6 +17,8 @@ type CompanyContextType = {
   companies: Company[];
   switchingCompanyId: string | null;
   switchCompany: (companyId: string) => Promise<void>;
+  branding: CompanyBranding | null;
+  reloadBranding: () => Promise<void>;
 };
 
 const CompanyContext = createContext<CompanyContextType>({
@@ -23,11 +26,14 @@ const CompanyContext = createContext<CompanyContextType>({
   companies: [],
   switchingCompanyId: null,
   switchCompany: async () => {},
+  branding: null,
+  reloadBranding: async () => {},
 });
 
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const [switchingCompanyId, setSwitchingCompanyId] = useState<string | null>(null);
+  const [branding, setBranding] = useState<CompanyBranding | null>(null);
 
   const companies = session?.user?.companies ?? [];
   const activeCompany =
@@ -36,10 +42,55 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     null;
 
   useEffect(() => {
-    if (typeof document !== "undefined" && activeCompany) {
-      document.documentElement.setAttribute("data-company", activeCompany.slug);
-    }
+    if (!activeCompany) return;
+    document.documentElement.setAttribute("data-company", activeCompany.slug);
+    let cancelled = false;
+    fetch(`/api/company/${activeCompany.id}/settings`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Branding laden mislukt");
+        return response.json() as Promise<{ branding?: Partial<CompanyBranding> }>;
+      })
+      .then((data) => { if (!cancelled) setBranding(getBranding(activeCompany.slug, data.branding)); })
+      .catch(() => { if (!cancelled) setBranding(getBranding(activeCompany.slug)); });
+    return () => { cancelled = true; };
   }, [activeCompany]);
+
+  useEffect(() => {
+    if (!activeCompany || !branding) return;
+    const root = document.documentElement;
+    // Document colors and workbench tokens have separate roles. Tailwind's
+    // semantic colors must keep following the light/dark workbench theme.
+    for (const name of ["--color-primary", "--color-accent", "--color-background", "--color-text"]) root.style.removeProperty(name);
+    for (const [name, value] of Object.entries(cssVarsFromBranding(branding))) {
+      if (name.startsWith("--brand-")) root.style.setProperty(name, value);
+    }
+    root.style.setProperty("--primary", branding.accentColor);
+    root.style.setProperty("--primary-foreground", readableBrandText(branding.accentColor));
+    root.style.setProperty("--accent", "var(--muted)");
+    root.style.setProperty("--accent-foreground", "var(--foreground)");
+    root.style.setProperty("--ws-accent", branding.accentColor);
+    root.style.setProperty("--ws-accent-hover", `color-mix(in srgb, ${branding.accentColor}, #000 18%)`);
+    root.style.setProperty("--ws-accent-soft", `color-mix(in srgb, ${branding.accentColor}, transparent 88%)`);
+    root.style.setProperty("--brand-font", cssFontFromBranding(branding.font));
+    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", branding.primaryColor);
+    const favicon = brandAssetUrl(activeCompany.id, "favicon", branding.faviconUrl);
+    let icon = document.querySelector<HTMLLinkElement>('link[data-company-favicon="true"]');
+    if (!icon) {
+      icon = document.createElement("link");
+      icon.rel = "icon";
+      icon.dataset.companyFavicon = "true";
+      document.head.appendChild(icon);
+    }
+    icon.href = favicon;
+  }, [activeCompany, branding]);
+
+  async function reloadBranding() {
+    if (!activeCompany) return;
+    const response = await fetch(`/api/company/${activeCompany.id}/settings`);
+    if (!response.ok) throw new Error("Branding laden mislukt");
+    const data = await response.json() as { branding?: Partial<CompanyBranding> };
+    setBranding(getBranding(activeCompany.slug, data.branding));
+  }
 
   async function switchCompany(companyId: string) {
     if (companyId === activeCompany?.id || switchingCompanyId) return;
@@ -68,7 +119,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CompanyContext.Provider
-      value={{ activeCompany, companies, switchingCompanyId, switchCompany }}
+      value={{ activeCompany, companies, switchingCompanyId, switchCompany, branding, reloadBranding }}
     >
       {children}
     </CompanyContext.Provider>

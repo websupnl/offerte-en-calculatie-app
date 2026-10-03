@@ -127,9 +127,9 @@ export function ContractDetailClient({
 
       <div className="grid gap-5 p-5 lg:grid-cols-[1fr_320px] lg:p-8">
         <div className="space-y-5">
-          <div className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+          <div className="rounded-xl bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
             <div className="mb-3 flex items-center justify-between">
-              <Label htmlFor="contract-body" className="text-sm font-bold text-slate-900">Contracttekst</Label>
+              <Label htmlFor="contract-body" className="text-sm font-bold text-foreground">Contracttekst</Label>
               {locked && <Badge variant="secondary">Vergrendeld — al getekend</Badge>}
             </div>
             <Textarea
@@ -140,39 +140,39 @@ export function ContractDetailClient({
               onChange={(event) => setBody(event.target.value)}
               onBlur={() => body !== (contract.body ?? "") && patch({ body }, true)}
               placeholder={"## Wat ik voor je doe\n\n- Onderhoud en updates\n- Back-ups\n\n## Looptijd en opzeggen\n\nHet contract loopt…"}
-              className="font-mono text-[13px] leading-6"
+              className="font-mono text-sm leading-6"
             />
-            <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-400">
+            <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
               <Sparkles className="h-3 w-3" />
               Markdown: <code># kop</code>, <code>- lijstje</code>, <code>**vet**</code>. Wordt automatisch opgeslagen.
             </p>
           </div>
 
           {signatureUrl && (
-            <div className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
-              <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                <FileSignature className="h-4 w-4 text-slate-400" /> Handtekening
+            <div className="rounded-xl bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
+              <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
+                <FileSignature className="h-4 w-4 text-muted-foreground" /> Handtekening
               </h2>
-              <div className="mt-3 rounded-xl bg-slate-50 p-3">
+              <div className="mt-3 rounded-xl bg-muted/40 p-3">
                 <Image src={signatureUrl} alt="Handtekening" width={400} height={160} className="h-auto max-w-full" unoptimized />
               </div>
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-sm text-muted-foreground">
                 {contract.signedBy} · {contract.signedAt ? formatDate(contract.signedAt) : ""}
               </p>
             </div>
           )}
 
-          <div className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
-            <h2 className="text-sm font-bold text-slate-900">Geschiedenis</h2>
+          <div className="rounded-xl bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
+            <h2 className="text-sm font-bold text-foreground">Geschiedenis</h2>
             <div className="mt-3 space-y-2">
               {contract.events.map((event) => (
                 <div key={event.id} className="flex items-baseline justify-between gap-3 text-sm">
-                  <span className="text-slate-700">
+                  <span className="text-foreground">
                     <strong className="font-semibold">{EVENT_LABELS[event.type] ?? event.type}</strong>
-                    {event.detail && <span className="text-slate-500"> — {event.detail}</span>}
-                    {event.actor && <span className="text-slate-400"> · {event.actor}</span>}
+                    {event.detail && <span className="text-muted-foreground"> — {event.detail}</span>}
+                    {event.actor && <span className="text-muted-foreground"> · {event.actor}</span>}
                   </span>
-                  <span className="shrink-0 text-xs text-slate-400">
+                  <span className="shrink-0 text-sm text-muted-foreground">
                     {new Date(event.createdAt).toLocaleString("nl-NL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
@@ -182,9 +182,9 @@ export function ContractDetailClient({
         </div>
 
         <aside className="space-y-4">
-          <div className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+          <div className="rounded-xl bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-slate-900">Status</span>
+              <span className="text-sm font-bold text-foreground">Status</span>
               <Badge variant={CONTRACT_STATUS_COLORS[contract.status] ?? "outline"}>
                 {CONTRACT_STATUS_LABELS[contract.status]}
               </Badge>
@@ -203,9 +203,9 @@ export function ContractDetailClient({
           </div>
 
           {link && (
-            <div className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
-              <p className="text-sm font-bold text-slate-900">Tekenlink</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
+            <div className="rounded-xl bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
+              <p className="text-sm font-bold text-foreground">Tekenlink</p>
+              <p className="mt-1 text-sm leading-5 text-muted-foreground">
                 Stuur deze zelf door, dan staat er een persoonlijk bericht bij.
               </p>
               <div className="mt-3 flex gap-2">
@@ -213,35 +213,35 @@ export function ContractDetailClient({
                   readOnly
                   value={link}
                   onFocus={(event) => event.currentTarget.select()}
-                  className="min-w-0 flex-1 truncate rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200"
+                  className="min-w-0 flex-1 truncate rounded-lg bg-muted/40 px-3 py-2 text-sm text-muted-foreground ring-1 ring-slate-200"
                 />
                 <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(link); toast.success("Gekopieerd"); }}>
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
               {contract.viewedAt && (
-                <p className="mt-2 text-xs text-emerald-700">
+                <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">
                   Klant heeft &apos;m bekeken op {formatDate(contract.viewedAt)}
                 </p>
               )}
             </div>
           )}
 
-          <div className="space-y-3 rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
-            <p className="text-sm font-bold text-slate-900">Afspraken</p>
+          <div className="space-y-3 rounded-xl bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
+            <p className="text-sm font-bold text-foreground">Afspraken</p>
             {contract.recurringAmount && (
               <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Bedrag</span>
+                <span className="text-muted-foreground">Bedrag</span>
                 <strong className="tabular-nums">
                   {formatCurrency(Number(contract.recurringAmount))}{" "}
-                  <span className="text-xs font-normal text-slate-400">
+                  <span className="text-sm font-normal text-muted-foreground">
                     {contract.recurringPeriod ? CONTRACT_PERIOD_LABELS[contract.recurringPeriod] : ""}
                   </span>
                 </strong>
               </div>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="c-start" className="text-xs">Ingangsdatum</Label>
+              <Label htmlFor="c-start" className="text-sm">Ingangsdatum</Label>
               <Input
                 id="c-start"
                 type="date"
@@ -251,7 +251,7 @@ export function ContractDetailClient({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="c-end" className="text-xs">Loopt tot</Label>
+              <Label htmlFor="c-end" className="text-sm">Loopt tot</Label>
               <Input
                 id="c-end"
                 type="date"
@@ -261,14 +261,14 @@ export function ContractDetailClient({
               />
             </div>
             {contract.noticePeriodDays !== null && (
-              <p className="text-xs text-slate-400">
+              <p className="text-sm text-muted-foreground">
                 Opzegtermijn {contract.noticePeriodDays} dagen — je krijgt op tijd een taak.
               </p>
             )}
             {contract.project && (
               <Link
                 href={`/projects/${contract.project.id}`}
-                className="block truncate rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                className="block truncate rounded-lg bg-muted/40 px-3 py-2 text-sm font-semibold text-foreground hover:bg-muted"
               >
                 {contract.project.number} · {contract.project.title}
               </Link>
@@ -280,7 +280,7 @@ export function ContractDetailClient({
               <Trash2 className="h-4 w-4" /> Verwijderen
             </Button>
           )}
-          {saving && <p className="text-center text-xs text-slate-400">Opslaan…</p>}
+          {saving && <p className="text-center text-sm text-muted-foreground">Opslaan…</p>}
         </aside>
       </div>
     </div>

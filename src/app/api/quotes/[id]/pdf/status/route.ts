@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { pdfCacheState } from "@/lib/pdf/cache-state";
+import { isCurrentPdfCache } from "@/lib/pdf/cache";
 
 export const dynamic = "force-dynamic";
 
@@ -16,5 +18,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  return NextResponse.json({ pdfReady: !!quote.pdfUrl });
+  const state = await pdfCacheState("offerte", id);
+  return NextResponse.json({ pdfReady: !!state && isCurrentPdfCache(state.url, state.path) });
 }

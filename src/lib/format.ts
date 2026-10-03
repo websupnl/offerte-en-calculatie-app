@@ -98,14 +98,16 @@ export const WORKORDER_STATUS_COLORS: Record<string, string> = {
 
 export const WORKORDER_LINE_TYPES = ["MATERIAAL", "ARBEID"] as const;
 
-export function generateInvoiceNumber(companySlug: string, count: number): string {
+export function generateInvoiceNumber(companySlug: string, count: number, date = new Date()): string {
   const prefix = companySlug === "koolhaas" ? "KI" : "WU";
-  const year = new Date().getFullYear();
+  const year = date.getFullYear();
   return `${prefix}-${year}-F${String(count).padStart(3, "0")}`;
 }
 
 export const INVOICE_STATUS_LABELS: Record<string, string> = {
   CONCEPT: "Concept",
+  GEREED: "Definitief, niet verzonden",
+  VERZENDEN: "Wordt verzonden",
   VERZONDEN: "Verzonden",
   BETAALD: "Betaald",
   VERVALLEN: "Vervallen",
@@ -113,6 +115,8 @@ export const INVOICE_STATUS_LABELS: Record<string, string> = {
 
 export const INVOICE_STATUS_COLORS: Record<string, string> = {
   CONCEPT: "secondary",
+  GEREED: "secondary",
+  VERZENDEN: "secondary",
   VERZONDEN: "default",
   BETAALD: "default",
   VERVALLEN: "destructive",
@@ -165,6 +169,13 @@ export const CALCULATION_STATUS_COLORS: Record<string, string> = {
   COMPLETED: "default",
   QUOTED: "default",
 };
+
+/** Labels voor de archiveer-acties. Eén plek zodat offertes en calculaties gelijk lopen. */
+export const ARCHIVE_LABELS = {
+  archive: "Archiveren",
+  restore: "Herstellen",
+  archived: "Gearchiveerd",
+} as const;
 
 export const KOOLHAAS_CATEGORIES = [
   "Thuisbatterij",

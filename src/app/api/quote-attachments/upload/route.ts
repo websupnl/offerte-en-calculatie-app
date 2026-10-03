@@ -6,6 +6,7 @@ import {
   isStorageConfigured,
   presignDownload,
   uploadObject,
+  listObjects,
 } from "@/lib/storage";
 import {
   createQuoteAttachmentStorageRef,
@@ -13,6 +14,29 @@ import {
 } from "@/lib/quote-attachments";
 
 export const runtime = "nodejs";
+
+export async function GET() {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isStorageConfigured()) {
+    return NextResponse.json({ error: "S3-opslag is niet geconfigureerd" }, { status: 503 });
+  }
+
+  const prefix = `offertes/${session.user.activeCompanyId}/`;
+  const objects = await listObjects(prefix);
+  const images = await Promise.all(objects
+    .filter(({ key }) => /\.(jpe?g|png|webp|gif)$/i.test(key))
+    .sort((a, b) => (b.lastModified?.getTime() ?? 0) - (a.lastModified?.getTime() ?? 0))
+    .map(async ({ key, lastModified, size }) => ({
+      url: createQuoteAttachmentStorageRef(key),
+      previewUrl: await presignDownload(key, 3600),
+      title: key.split("/").pop()?.replace(/\.[^.]+$/, "") ?? "Afbeelding",
+      lastModified,
+      size,
+    })));
+
+  return NextResponse.json(images);
+}
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MIME_EXT: Record<string, string> = {

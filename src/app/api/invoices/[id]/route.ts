@@ -3,25 +3,27 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computeInvoiceTotals } from "@/lib/invoice-totals";
+import { invoiceLineSchema as lineSchema } from "../lines-schema";
+import { invoiceAmountMatches, invoiceMollieKey, mollieInvoiceRequest } from "@/lib/mollie-invoices";
 
-const lineSchema = z.object({
-  description: z.string().min(1),
-  qty: z.coerce.number().min(0).default(1),
-  unit: z.string().optional(),
-  unitPrice: z.coerce.number().default(0),
-  vatRate: z.coerce.number().default(21),
-});
 
 const schema = z.object({
-  status: z.enum(["CONCEPT", "VERZONDEN", "BETAALD", "VERVALLEN"]).optional(),
+  status: z.enum(["CONCEPT", "GEREED", "BETAALD", "VERVALLEN"]).optional(),
   reference: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
-  dueDate: z.string().datetime().nullable().optional().or(z.literal("")),
+  dueDate: z.string().nullable().optional(),
+  invoiceDate: z.string().optional(),
   lines: z.array(lineSchema).optional(),
 });
 
 async function getOwned(id: string, companyId: string) {
-  return prisma.salesInvoice.findFirst({ where: { id, companyId }, select: { id: true } });
+  return prisma.salesInvoice.findFirst({
+    where: { id, companyId },
+    select: {
+      id: true, status: true, totalIncVat: true, molliePaymentLinkId: true, molliePaymentMode: true,
+      company: { select: { slug: true } },
+    },
+  });
 }
 
 export async function GET(
@@ -52,7 +54,8 @@ export async function PATCH(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  if (!(await getOwned(id, session.user.activeCompanyId))) {
+  const owned = await getOwned(id, session.user.activeCompanyId);
+  if (!owned) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -61,16 +64,53 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const { lines, dueDate, ...rest } = parsed.data;
+  if (owned.status !== "CONCEPT") {
+    const onlyStatus = Object.keys(parsed.data).length === 1 && parsed.data.status;
+    const validTransition = ((owned.status === "VERZONDEN" || owned.status === "VERVALLEN")
+      && (parsed.data.status === "BETAALD" || parsed.data.status === "VERVALLEN"))
+      || (owned.status === "GEREED" && !owned.molliePaymentLinkId && parsed.data.status === "CONCEPT");
+    if (!onlyStatus || !validTransition) {
+      return NextResponse.json({ error: "Een definitieve factuur kan niet worden aangepast" }, { status: 409 });
+    }
+  } else if (parsed.data.status && !["CONCEPT", "GEREED"].includes(parsed.data.status)) {
+    return NextResponse.json({ error: "Maak de factuur eerst definitief" }, { status: 409 });
+  }
+  if (parsed.data.status === "GEREED") {
+    const amount = parsed.data.lines ? computeInvoiceTotals(parsed.data.lines).totalIncVat : owned.totalIncVat;
+    if (Number(amount) <= 0) return NextResponse.json({ error: "Een definitieve factuur moet een positief bedrag hebben" }, { status: 422 });
+  }
+  let molliePaidAt: Date | null = null;
+  if (parsed.data.status === "BETAALD" && owned.molliePaymentLinkId) {
+    const key = invoiceMollieKey(owned.company.slug);
+    if (!key) return NextResponse.json({ error: "Mollie-key ontbreekt: betaalstatus niet gewijzigd" }, { status: 503 });
+    try {
+      const link = await mollieInvoiceRequest(key, `payment-links/${owned.molliePaymentLinkId}`);
+      if (!invoiceAmountMatches(link, owned.totalIncVat, owned.molliePaymentMode ?? "")) {
+        return NextResponse.json({ error: "Betaallink komt niet overeen met de factuur" }, { status: 409 });
+      }
+      if (link.paidAt) {
+        molliePaidAt = new Date(link.paidAt);
+      } else {
+        // Handmatig ontvangen bankbetaling: voorkom dat de link daarna nog wordt gebruikt.
+        await mollieInvoiceRequest(key, `payment-links/${link.id}`, { method: "PATCH", body: { archived: true } });
+      }
+    } catch (error) {
+      console.error("Mollie-betaallink sluiten mislukt:", error);
+      return NextResponse.json({ error: "Mollie-betaallink kon niet worden afgesloten" }, { status: 502 });
+    }
+  }
+  const { lines, dueDate, invoiceDate, ...rest } = parsed.data;
 
   await prisma.$transaction(async (tx) => {
     await tx.salesInvoice.update({
       where: { id },
       data: {
         ...rest,
+        ...(molliePaidAt ? { molliePaidAt } : {}),
         ...(dueDate !== undefined
           ? { dueDate: dueDate ? new Date(dueDate) : null }
           : {}),
+        ...(invoiceDate ? { invoiceDate: new Date(invoiceDate) } : {}),
         // Totalen herberekenen wanneer regels meekomen.
         ...(lines ? computeInvoiceTotals(lines) : {}),
       },
@@ -104,8 +144,12 @@ export async function DELETE(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  await prisma.salesInvoice.deleteMany({
-    where: { id, companyId: session.user.activeCompanyId },
+  // Een verstuurde factuur hoort in de administratie te blijven; alleen concepten mogen weg.
+  const { count } = await prisma.salesInvoice.deleteMany({
+    where: { id, companyId: session.user.activeCompanyId, status: "CONCEPT" },
   });
+  if (count === 0) {
+    return NextResponse.json({ error: "Alleen concepten kunnen verwijderd worden" }, { status: 409 });
+  }
   return NextResponse.json({ ok: true });
 }

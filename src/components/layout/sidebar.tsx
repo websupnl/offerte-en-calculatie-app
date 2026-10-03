@@ -1,265 +1,121 @@
 "use client";
 
 import type React from "react";
+import { useSyncExternalStore } from "react";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { m } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useCompany } from "@/lib/company-context";
-import {
-  Brain,
-  Building2,
-  Calculator,
-  CalendarDays,
-  ChevronDown,
-  ChevronsLeft,
-  ChevronsRight,
-  ClipboardList,
-  Database,
-  Eye,
-  FileSignature,
-  FileText,
-  FolderKanban,
-  LayoutDashboard,
-  ListTodo,
-  LoaderCircle,
-  LogOut,
-  Package,
-  ReceiptText,
-  Settings,
-  ShieldCheck,
-  StickyNote,
-  TrendingUp,
-  Users,
-  X,
-} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { brandAssetUrl } from "@/lib/branding";
+import { Brain, Building2, Calculator, CalendarDays, ChevronDown, ClipboardList, Database, Eye, FileSignature, FileText, FolderKanban, LayoutDashboard, ListTodo, LoaderCircle, LogOut, Package, ReceiptText, Repeat, Settings, ShieldCheck, StickyNote, TrendingUp, Users, X } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-type NavItem = {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  koolhaasOnly?: boolean;
-};
-
-type NavGroup = { label: string | null; items: NavItem[] };
-
-const navGroups: NavGroup[] = [
-  {
-    label: null,
-    items: [
-      { href: "/dashboard", label: "Start", icon: LayoutDashboard },
-      { href: "/tasks", label: "Taken", icon: ListTodo },
-      { href: "/agenda", label: "Agenda", icon: CalendarDays },
-      { href: "/notes", label: "Notities", icon: StickyNote },
-    ],
-  },
-  {
-    label: "CRM",
-    items: [
-      { href: "/customers", label: "Klanten", icon: Users },
-      { href: "/calculations", label: "Calculaties", icon: Calculator },
-      { href: "/quotes", label: "Offertes", icon: FileText },
-      { href: "/quotes/tracker", label: "Verzendtracker", icon: Eye },
-      { href: "/contracts", label: "Contracten", icon: FileSignature },
-      { href: "/advice", label: "Adviesdocumenten", icon: ShieldCheck },
-    ],
-  },
-  {
-    label: "Operatie",
-    items: [
-      // Projecten staan bewust voor beide bedrijven aan: bij WebsUp zijn ze de
-      // drager van klantfeedback (zie PLAN-werkplek.md fase 5/6).
-      { href: "/projects", label: "Projecten", icon: FolderKanban },
-      { href: "/workorders", label: "Werkbonnen", icon: ClipboardList, koolhaasOnly: true },
-      { href: "/invoices", label: "Facturen", icon: ReceiptText, koolhaasOnly: true },
-    ],
-  },
-  {
-    label: "ERP",
-    items: [
-      { href: "/admin/products", label: "Artikelen", icon: Package },
-      { href: "/knowledge", label: "Kennisbank", icon: Brain },
-      { href: "/admin/dashboard", label: "Financieel inzicht", icon: TrendingUp },
-      { href: "/admin/settings", label: "Inrichting", icon: Database },
-      { href: "/settings/werkplek", label: "Werkplek & koppelingen", icon: Settings },
-    ],
-  },
+type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }>; koolhaasOnly?: boolean };
+const navGroups: { label: string; items: NavItem[] }[] = [
+  { label: "Werkplek", items: [
+    { href: "/dashboard", label: "Start", icon: LayoutDashboard },
+    { href: "/calculations", label: "Calculaties", icon: Calculator },
+    { href: "/quotes", label: "Offertes", icon: FileText },
+    { href: "/customers", label: "Klanten", icon: Users },
+    { href: "/projects", label: "Projecten", icon: FolderKanban },
+    { href: "/invoices", label: "Facturen", icon: ReceiptText },
+  ] },
+  { label: "Organiseren", items: [
+    { href: "/tasks", label: "Taken", icon: ListTodo },
+    { href: "/agenda", label: "Agenda", icon: CalendarDays },
+    { href: "/notes", label: "Notities", icon: StickyNote },
+    { href: "/workorders", label: "Werkbonnen", icon: ClipboardList, koolhaasOnly: true },
+    { href: "/contracts", label: "Contracten", icon: FileSignature },
+    { href: "/subscriptions", label: "Abonnementen", icon: Repeat },
+    { href: "/advice", label: "Adviesdocumenten", icon: ShieldCheck },
+    { href: "/quotes/tracker", label: "Verzendtracker", icon: Eye },
+  ] },
+  { label: "Beheer", items: [
+    { href: "/admin/products", label: "Artikelen", icon: Package },
+    { href: "/knowledge", label: "Kennisbank", icon: Brain },
+    { href: "/admin/dashboard", label: "Financieel inzicht", icon: TrendingUp },
+    { href: "/admin/settings", label: "Instellingen", icon: Database },
+    { href: "/settings/werkplek", label: "Koppelingen", icon: Settings },
+  ] },
 ];
 
-export function Sidebar({
-  collapsed,
-  mobileOpen,
-  onToggle,
-  onMobileClose,
-}: {
-  collapsed: boolean;
-  mobileOpen: boolean;
-  onToggle: () => void;
-  onMobileClose: () => void;
-}) {
+export function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; onMobileClose: () => void }) {
   const pathname = usePathname();
-  const { activeCompany, companies, switchingCompanyId, switchCompany } = useCompany();
-  const logoSrc =
-    activeCompany?.slug === "koolhaas"
-      ? "/logos/koolhaas-logo-tight.png"
-      : "/logos/websup-cover.png";
+  const { activeCompany, companies, switchingCompanyId, switchCompany, branding } = useCompany();
+  const storedLogo = branding?.logoUrl;
+  const logoSrc = storedLogo?.startsWith("s3://") && activeCompany
+    ? brandAssetUrl(activeCompany.id, "logo", storedLogo)
+    : storedLogo || (activeCompany?.slug === "koolhaas" ? "/logos/koolhaas-logo-tight.png" : "/logos/websup-cover.png");
+  const activeHref = navGroups.flatMap(group => group.items)
+    .filter(item => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
-  return (
-    <>
-      {mobileOpen && (
-        <button
-          type="button"
-          aria-label="Navigatie sluiten"
-          className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] lg:hidden"
-          onClick={onMobileClose}
-        />
-      )}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col rounded-r-2xl bg-[var(--ws-sidebar)] text-slate-200 shadow-xl transition-[width,transform] duration-200",
-          "lg:sticky lg:top-4 lg:z-30 lg:my-4 lg:ml-4 lg:h-[calc(100vh-32px)] lg:translate-x-0 lg:rounded-2xl",
-          collapsed ? "lg:w-[78px]" : "lg:w-[276px]",
-          mobileOpen ? "w-[292px] translate-x-0" : "w-[292px] -translate-x-full",
-        )}
-      >
-        <div className="flex h-[72px] items-center gap-3 border-b border-white/10 px-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label={`Bedrijf wisselen: ${activeCompany?.name ?? "selecteer bedrijf"}`}
-              className={cn(
-                "flex min-w-0 flex-1 items-center gap-3 rounded-md border border-transparent bg-transparent p-2 text-left hover:border-white/10 hover:bg-white/6",
-                collapsed && "lg:justify-center",
-              )}
-            >
-              <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-md bg-white p-1 shadow-sm">
-                <Image src={logoSrc} alt="" width={64} height={64} className="h-full w-full object-contain" />
-              </div>
-              <div className={cn("min-w-0 flex-1", collapsed && "lg:hidden")}>
-                <p className="truncate text-sm font-bold text-white">{activeCompany?.name ?? "Bedrijf"}</p>
-                <p className="truncate text-[11px] text-white/50">ERP & CRM werkplek</p>
-              </div>
-              <ChevronDown className={cn("h-4 w-4 shrink-0 text-white/45", collapsed && "lg:hidden")} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64">
-              {companies.map((company) => (
-                <DropdownMenuItem
-                  key={company.id}
-                  disabled={switchingCompanyId !== null}
-                  onClick={() => switchCompany(company.id)}
-                  className={cn(company.id === activeCompany?.id && "bg-muted")}
-                >
-                  {switchingCompanyId === company.id ? (
-                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Building2 className="mr-2 h-4 w-4" />
-                  )}
-                  {company.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <button
-            type="button"
-            aria-label="Navigatie sluiten"
-            onClick={onMobileClose}
-            className="grid h-9 w-9 place-items-center rounded-md text-white/60 hover:bg-white/8 hover:text-white lg:hidden"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-          {navGroups.map((group) => {
-            const visibleItems = group.items.filter(
-              (item) => !item.koolhaasOnly || activeCompany?.slug === "koolhaas",
-            );
-            if (visibleItems.length === 0) return null;
-            return (
-              <div key={group.label ?? "__home"} className="mb-5">
-                {group.label && (
-                  <p
-                    className={cn(
-                      "mb-1.5 px-4 text-[11px] font-bold uppercase tracking-[0.14em] text-white/40",
-                      collapsed && "lg:px-0 lg:text-center",
-                    )}
-                  >
-                    <span className={cn(collapsed && "lg:hidden")}>{group.label}</span>
-                    <span className={cn("hidden", collapsed && "lg:inline")}>-</span>
-                  </p>
-                )}
-                <div className="space-y-1">
-                  {visibleItems.map((item) => {
-                    const isActive =
-                      pathname === item.href ||
-                      (item.href !== "/dashboard" &&
-                        pathname.startsWith(`${item.href}/`) &&
-                        !navGroups.some((g) => g.items.some((other) => other.href !== item.href && other.href.startsWith(`${item.href}/`) && pathname.startsWith(other.href))));
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        title={collapsed ? item.label : undefined}
-                        onClick={onMobileClose}
-                        className={cn(
-                          "group flex h-10 items-center gap-3 rounded-full px-4 text-sm font-medium transition-colors",
-                          isActive
-                            ? "bg-[var(--ws-pill)] font-semibold text-[var(--ws-pill-fg)] shadow-sm"
-                            : "text-[var(--ws-sidebar-fg)] hover:bg-white/8 hover:text-white",
-                          collapsed && "lg:justify-center lg:rounded-xl lg:px-0",
-                        )}
-                      >
-                        <item.icon className="h-[18px] w-[18px] shrink-0" />
-                        <span className={cn("truncate", collapsed && "lg:hidden")}>{item.label}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </nav>
-
-        <div className="border-t border-white/10 p-3">
-          <Link
-            href="/admin/settings"
-            onClick={onMobileClose}
-            className={cn(
-              "mb-1 flex h-10 items-center gap-3 rounded-full px-4 text-sm font-medium text-[var(--ws-sidebar-fg)] hover:bg-white/8 hover:text-white",
-              pathname.startsWith("/admin/settings") && "bg-white/10 text-white",
-              collapsed && "lg:justify-center lg:rounded-xl lg:px-0",
-            )}
-          >
-            <Settings className="h-[18px] w-[18px] shrink-0" />
-            <span className={cn(collapsed && "lg:hidden")}>Instellingen</span>
-          </Link>
-          <button
-            type="button"
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className={cn(
-              "flex h-10 w-full items-center gap-3 rounded-full px-4 text-sm font-medium text-white/50 hover:bg-red-500/15 hover:text-red-200",
-              collapsed && "lg:justify-center lg:rounded-xl lg:px-0",
-            )}
-          >
-            <LogOut className="h-[18px] w-[18px] shrink-0" />
-            <span className={cn(collapsed && "lg:hidden")}>Uitloggen</span>
-          </button>
-          <button
-            type="button"
-            onClick={onToggle}
-            className="mt-2 hidden h-9 w-full items-center justify-center rounded-full border border-white/10 text-white/50 hover:bg-white/8 hover:text-white lg:flex"
-            aria-label={collapsed ? "Navigatie uitklappen" : "Navigatie inklappen"}
-          >
-            {collapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
-          </button>
-        </div>
-      </aside>
-    </>
+  const desktop = useSyncExternalStore(
+    (listener) => {
+      const query = window.matchMedia("(min-width: 1024px)");
+      query.addEventListener("change", listener);
+      return () => query.removeEventListener("change", listener);
+    },
+    () => window.matchMedia("(min-width: 1024px)").matches,
+    () => true,
   );
+  const content = <>
+      <div className="flex h-[72px] shrink-0 items-center gap-1 border-b border-border px-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger aria-label={`Bedrijf wisselen: ${activeCompany?.name ?? "selecteer bedrijf"}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md border border-border bg-white p-1">
+              <Image src={logoSrc} alt="" width={64} height={64} unoptimized className="size-full object-contain" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-foreground">{activeCompany?.name ?? "Mijn werkplek"}</span>
+              <span className="block text-sm text-muted-foreground">{activeCompany ? "Bedrijfswerkplek" : "Werkplek"}</span>
+            </span>
+            <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            {companies.map(company => <DropdownMenuItem key={company.id} disabled={switchingCompanyId !== null} onClick={() => switchCompany(company.id)} className={cn(company.id === activeCompany?.id && "bg-muted")}>
+              {switchingCompanyId === company.id ? <LoaderCircle className="size-4 animate-spin" /> : <Building2 className="size-4" />}
+              {company.name}
+            </DropdownMenuItem>)}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <button type="button" aria-label="Navigatie sluiten" onClick={onMobileClose} className="grid size-9 place-items-center rounded-lg text-muted-foreground hover:bg-muted lg:hidden"><X className="size-4" /></button>
+      </div>
+      <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-5" aria-label="Hoofdnavigatie">
+        {navGroups.map(group => <section key={group.label}>
+          <h2 className="mb-2 px-3 text-sm font-medium text-muted-foreground">{group.label}</h2>
+          <div className="space-y-0.5">
+            {group.items.filter(item => !item.koolhaasOnly || activeCompany?.slug === "koolhaas").map(item => {
+              const selected = activeHref === item.href;
+              return <Link key={item.href} href={item.href} prefetch={false} onClick={onMobileClose} aria-current={selected ? "page" : undefined} className={cn(
+                "relative isolate flex min-h-11 items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-9",
+                selected ? "font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+              )}>
+                {selected && <m.span layoutId="workspace-navigation" transition={{ type: "spring", stiffness: 480, damping: 40 }} className="absolute inset-0 -z-10 rounded-lg border border-border bg-muted" />}
+                <item.icon className={cn("size-[18px] shrink-0", selected && "text-primary")} />
+                <span className="truncate">{item.label}</span>
+                {selected && <span className="ml-auto size-1.5 shrink-0 rounded-full bg-primary" />}
+              </Link>;
+            })}
+          </div>
+        </section>)}
+      </nav>
+      <div className="shrink-0 border-t border-border p-3">
+        <button type="button" onClick={() => signOut({ callbackUrl: "/login" })} className="flex min-h-9 w-full items-center gap-3 rounded-lg px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <LogOut className="size-[18px]" />Uitloggen
+        </button>
+      </div>
+
+  </>;
+  if (desktop) return <aside aria-label="Werkpleknavigatie" className="workspace-sidebar sticky top-0 z-30 hidden h-dvh w-[240px] shrink-0 flex-col border-r border-border bg-card lg:flex">{content}</aside>;
+  return <Sheet open={mobileOpen} onOpenChange={open => { if (!open) onMobileClose(); }}>
+    <SheetContent side="left" showCloseButton={false} className="gap-0! w-[280px]! max-w-[calc(100vw-2rem)]! bg-card">
+      <SheetTitle className="sr-only">Werkpleknavigatie</SheetTitle>
+      {content}
+    </SheetContent>
+  </Sheet>;
 }

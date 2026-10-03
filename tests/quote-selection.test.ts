@@ -49,7 +49,14 @@ assert.deepEqual(totals, {
   totalExVat: 1850,
   totalVat: 388.5,
   totalIncVat: 2238.5,
-  recurring: { perMonthExVat: 0, perMonthIncVat: 0, perYearExVat: 0, perYearIncVat: 0 },
+  recurring: {
+    perMonthExVat: 0,
+    perMonthIncVat: 0,
+    perQuarterExVat: 0,
+    perQuarterIncVat: 0,
+    perYearExVat: 0,
+    perYearIncVat: 0,
+  },
 });
 
 assert.equal(getQuoteOptionPrice({ price: null, tag: "€495 excl. btw" }), 495);

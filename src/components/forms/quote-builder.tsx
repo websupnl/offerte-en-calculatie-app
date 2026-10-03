@@ -27,12 +27,12 @@ import {
   ChevronDown,
   ChevronUp,
   CornerDownRight,
-  FileText,
   Search,
   Package,
   Layers,
   PackagePlus,
   Upload,
+  SlidersHorizontal,
   Copy,
   Check,
   Calculator,
@@ -43,10 +43,16 @@ import { formatCurrency } from "@/lib/format";
 import { calculateTotals } from "@/lib/calculation";
 import { calculateQuotePriceSummary, type QuoteChoiceGroup } from "@/lib/quote-selection";
 import { estimateTravelDistanceKm, getTravelPrice, type TravelPricingTier } from "@/lib/travel";
-import { QuoteSheetPreview, type QuotePreviewData } from "@/components/quote-sheet-preview";
+import { QuoteSheetPreview, type QuotePageMeta, type QuotePreviewData } from "@/components/quote-sheet-preview";
 import { SheetScaler } from "@/components/sheet-scaler";
+import { SheetOverflowMonitor } from "@/components/forms/sheet-overflow-monitor";
+import { SectionToggles } from "@/components/forms/section-toggles";
+import { PageHeader } from "@/components/layout/page-header";
+import { QuotePageRail } from "@/components/forms/quote-page-rail";
+import { QuotePricePanel, type PanelCalculation } from "@/components/forms/quote-price-panel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useCompany } from "@/lib/company-context";
 
 type Customer = { id: string; name: string; email: string | null; address?: string | null; city?: string | null; zipCode?: string | null };
 type Product = {
@@ -128,7 +134,7 @@ type QuoteOption = {
   tag: string;
   price: number | null; // null = "Op aanvraag" (geen eenmalige prijs)
   recurringPrice?: number | null; // abonnement/onderhoud per interval, excl. btw
-  recurringInterval?: "maand" | "jaar" | null;
+  recurringInterval?: "maand" | "kwartaal" | "jaar" | null;
   vatRate: number;
   required?: boolean;
   defaultSelected?: boolean; // standaard aangevinkt in het klantportaal
@@ -162,9 +168,33 @@ type QuoteDocumentLink = {
 };
 
 type AvailableProductDocument = { id: string; name: string; type: string; productId: string; productName: string };
+type AvailableQuoteImage = { url: string; previewUrl: string; title: string; size: number };
+
+async function compressQuoteImage(file: File): Promise<File> {
+  // GIF kan animatie bevatten; die laten we intact. Andere formaten worden
+  // client-side naar compacte WebP omgezet voordat ze naar opslag gaan.
+  if (file.type === "image/gif" || typeof createImageBitmap === "undefined") return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 2200 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.82));
+    if (!blob || blob.size >= file.size || !["image/webp", "image/jpeg", "image/png"].includes(blob.type)) return file;
+    const extension = blob.type === "image/jpeg" ? "jpg" : blob.type === "image/png" ? "png" : "webp";
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.${extension}`, { type: blob.type });
+  } catch {
+    return file;
+  }
+}
 
 // Waar een afbeelding in de offerte terechtkomt. Bij een sectie staat hij onderaan
-// die pagina, in de vrije ruimte. "eigen-pagina" geeft een losse voorbeeldpagina.
+// die pagina, in de vrije ruimte. "eigen-pagina" geeft een losse afbeeldingspagina.
 const ATTACHMENT_SECTIONS: { value: string; label: string }[] = [
   { value: "intro", label: "Bij de toelichting (intro)" },
   { value: "werking", label: "Bij Werking van de installatie" },
@@ -241,6 +271,26 @@ type InitialQuote = Partial<Omit<QuotePreviewData, "items" | "customer" | "choic
   commercial?: Record<string, string | number>;
   batteryAdvice?: Record<string, unknown>;
   internalAdvice?: string | null;
+  status?: string;
+  /**
+   * De gekoppelde calculaties. Sinds de omslag is dit de bron van de prijs en de
+   * artikelen; `items` blijft alleen gevuld bij offertes van vóór die omslag.
+   */
+  usesCalculations?: boolean;
+  calculations?: {
+    id: string;
+    number: string;
+    title: string;
+    role?: string | null;
+    items?: {
+      optional?: boolean | null;
+      hiddenOnQuote?: boolean | null;
+      totalSalesPrice?: string | number | null;
+      totalCostPrice?: string | number | null;
+      type?: string | null;
+      recurringInterval?: string | null;
+    }[] | null;
+  }[] | null;
 };
 
 type InitialAdvice = {
@@ -390,6 +440,7 @@ export function QuoteBuilder({
   travelPricingTiers?: TravelPricingTier[];
 }) {
   const router = useRouter();
+  const { branding, activeCompany } = useCompany();
   const isKoolhaas = companySlug === "koolhaas";
 
   // ─── Core State ───
@@ -456,6 +507,7 @@ export function QuoteBuilder({
   const [customerResponsibilities, setCustomerResponsibilities] = useState<string[]>(initialQuote?.customerResponsibilities || []);
   const [planning, setPlanning] = useState(initialQuote?.planning || PLANNING_DEFAULTS);
   const [commercial, setCommercial] = useState(initialQuote?.commercial || COMMERCIAL_DEFAULTS);
+  const [hiddenSections, setHiddenSections] = useState<string[]>(initialQuote?.hiddenSections ?? []);
   const [batteryAdvice, setBatteryAdvice] = useState(initialQuote?.batteryAdvice || {
     nominalCapacityKwh: initialAdvice?.calculation?.resultKwh || 0,
     recommendedScenario: initialAdvice?.scenarios[1]?.name || ""
@@ -463,8 +515,55 @@ export function QuoteBuilder({
   const [choiceGroups, setChoiceGroups] = useState<ChoiceGroup[]>(initialQuote?.choiceGroups || []);
   const [internalAdvice, setInternalAdvice] = useState(initialQuote?.internalAdvice || initialAdvice?.analysis || "");
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  const [mediaPickerLoading, setMediaPickerLoading] = useState(false);
+  const [availableQuoteImages, setAvailableQuoteImages] = useState<AvailableQuoteImage[]>([]);
   const [attachmentDropActive, setAttachmentDropActive] = useState(false);
-  const [activeTab, setActiveTab] = useState("regels");
+  const [activeTab, setActiveTab] = useState("prijs");
+  const panelRef = useRef<HTMLElement>(null);
+  const [paginas, setPaginas] = useState<QuotePageMeta[]>([]);
+
+  // Prijs en artikelen komen uit de calculaties zodra er losse offerteregels
+  // meer zijn. Zie src/lib/quote-pricing.ts voor waarom die grens daar ligt.
+  const gekoppeldeCalculaties = initialQuote?.calculations ?? [];
+  const werktMetCalculaties = initialQuote?.usesCalculations === true
+    || (gekoppeldeCalculaties.length > 0 && (initialQuote?.items?.length ?? 0) === 0);
+
+  const paneelCalculaties: PanelCalculation[] = gekoppeldeCalculaties.map((calculatie) => {
+    const regels = calculatie.items ?? [];
+    const vast = regels.filter((regel) => !regel.optional);
+    const omzet = vast.reduce((som, regel) => som + Number(regel.totalSalesPrice ?? 0), 0);
+    const inkoop = vast
+      .filter((regel) => regel.type !== "LABOR")
+      .reduce((som, regel) => som + Number(regel.totalCostPrice ?? 0), 0);
+    return {
+      id: calculatie.id,
+      number: calculatie.number,
+      title: calculatie.title,
+      role: calculatie.role ?? "BASE",
+      totalExVat: omzet,
+      marginPercent: omzet > 0 ? ((omzet - inkoop) / omzet) * 100 : 0,
+      regels: vast.length,
+      extras: regels.length - vast.length,
+    };
+  });
+
+  // Optionele regels in een variant zouden alleen mogen tellen als die variant
+  // gekozen is, en dat kan het klantportaal niet. Ze verdwijnen dus stil van de
+  // offerte. Dat melden we, in plaats van het te laten gebeuren.
+  const variantExtraWaarschuwing = (() => {
+    const varianten = paneelCalculaties.filter((c) => c.role === "VARIANT");
+    if (varianten.length < 2) return null;
+    const stille = varianten.filter((c) => c.extras > 0);
+    if (stille.length === 0) return null;
+    return `Optionele regels in een variant verschijnen niet op de offerte. Zet ze in de `
+      + `basiscalculatie. Het gaat om: ${stille.map((c) => `${c.number} (${c.title})`).join(", ")}.`;
+  })();
+
+  const wisselSectie = (key: string) =>
+    setHiddenSections((vorige) =>
+      vorige.includes(key) ? vorige.filter((k) => k !== key) : [...vorige, key],
+    );
   const [uploadingChoiceImageId, setUploadingChoiceImageId] = useState<string | null>(null);
 
   // Calculatie-koppeling per systeemoptie
@@ -502,6 +601,8 @@ export function QuoteBuilder({
   // saving = bezig, saved = opgeslagen, error = mislukt.
   const [saveStatus, setSaveStatus] = useState<"idle" | "unsaved" | "saving" | "saved" | "error">("idle");
   const autosaveInFlight = useRef(false);
+  // Container van de gerenderde pagina's, zodat we kunnen meten of tekst overloopt.
+  const paperRef = useRef<HTMLDivElement>(null);
   const firstAutosaveRender = useRef(true);
   const savedSignatureRef = useRef<string | null>(null);
   const [aiInput, setAiInput] = useState("");
@@ -574,6 +675,12 @@ export function QuoteBuilder({
     approach,
     options,
     exclusions,
+    // Zonder deze drie kon de editor de bronnen, de inhoudsblokken en de
+    // offertedatum niet tonen, en dus ook niet laten aanpassen.
+    batteryAdvice,
+    hiddenSections,
+    contentBlocks: initialQuote?.contentBlocks ?? [],
+    createdAt: initialQuote?.createdAt ?? null,
     commercial: { ...commercial, priceDisplayMode },
     customer: {
       name: customer?.name || "Selecteer een klant",
@@ -582,7 +689,7 @@ export function QuoteBuilder({
       city: customer?.city || null,
       zipCode: customer?.zipCode || null,
     },
-    company: { slug: companySlug }
+    company: { id: activeCompany?.id, slug: companySlug, branding: branding ?? undefined }
   };
 
   async function handleAiMagic() {
@@ -748,44 +855,54 @@ export function QuoteBuilder({
       planning,
       commercial: { ...commercial, priceDisplayMode },
       batteryAdvice,
+      hiddenSections,
       internalAdvice,
-      choiceGroups: (overrideChoiceGroups ?? choiceGroups).map((group) => ({
-        ...group,
-        choices: group.choices.map((choice) => {
-          // imageUrl is een tijdelijke presigned URL; alleen `image` (ref) opslaan
-          const sanitized = { ...choice };
-          delete sanitized.imageUrl;
-          return sanitized;
-        }),
-      })),
       flow,
       approach,
-      options,
       exclusions,
       ...(includeAttachments ? { attachments: attachmentsPayload } : {}),
-      items: items.map(({ id, ...rest }) => ({
-        ...rest,
-        id: (initialQuote?.id && id.length > 20) ? id : undefined,
-      })),
+      // Prijs, artikelen, varianten en modules komen op het nieuwe pad uit de
+      // calculaties. Ze staan hier alleen in de state om het papier te kunnen
+      // tonen. Terugschrijven zou er echte offerteregels en modules van maken,
+      // en dan zijn er weer drie plekken waar een prijs kan ontstaan.
+      ...(werktMetCalculaties ? {} : {
+        choiceGroups: (overrideChoiceGroups ?? choiceGroups).map((group) => ({
+          ...group,
+          choices: group.choices.map((choice) => {
+            // imageUrl is een tijdelijke presigned URL; alleen `image` (ref) opslaan
+            const sanitized = { ...choice };
+            delete sanitized.imageUrl;
+            return sanitized;
+          }),
+        })),
+        options,
+        items: items.map(({ id, ...rest }) => ({
+          ...rest,
+          id: (initialQuote?.id && id.length > 20) ? id : undefined,
+        })),
+      }),
     };
   }
 
   // Is de offerte in een staat die opgeslagen kan worden?
   function canPersist() {
     if (!customerId) return false;
-    if (items.length === 0 && choiceGroups.length === 0) return false;
+    if (!werktMetCalculaties && items.length === 0 && choiceGroups.length === 0) return false;
     if (items.some((i) => !i.description)) return false;
     if (choiceGroups.some((group) => group.choices.length < 2)) return false;
     return true;
   }
 
   // Stille opslag voor autosave: PUT zonder navigatie of toast, met statusindicatie.
+  // Autosave is de enige opslagmanier voor een bestaande offerte; er is geen losse
+  // opslaan-knop meer. Afbeeldingen gaan mee, behalve terwijl er nog een upload
+  // loopt — dan wacht autosave één cyclus zodat de lijst niet half wordt weggeschreven.
   async function silentSave() {
     if (!initialQuote?.id) return;
     if (autosaveInFlight.current) return;
+    if (uploadingAttachment || uploadingChoiceImageId) return;
     if (!canPersist()) return;
-    // Autosave laat afbeeldingen ongemoeid (includeAttachments = false).
-    const payload = buildPayload(false);
+    const payload = buildPayload(true);
     const signature = JSON.stringify(payload);
     autosaveInFlight.current = true;
     setSaveStatus("saving");
@@ -806,8 +923,7 @@ export function QuoteBuilder({
   }
 
   // Debounce: 1,5s na de laatste wijziging automatisch opslaan (alleen bestaande offertes).
-  // Afbeeldingen tellen niet mee: die worden via de handmatige opslag bewaard.
-  const currentSignature = JSON.stringify(buildPayload(false));
+  const currentSignature = JSON.stringify(buildPayload(true));
   useEffect(() => {
     if (!initialQuote?.id) return;
     if (firstAutosaveRender.current) {
@@ -838,7 +954,9 @@ export function QuoteBuilder({
 
   async function handleSave() {
     if (!customerId) return toast.error("Selecteer een klant");
-    if (items.length === 0 && choiceGroups.length === 0) return toast.error("Voeg minimaal één offerteregel of configuratie toe");
+    if (!werktMetCalculaties && items.length === 0 && choiceGroups.length === 0) {
+      return toast.error("Maak eerst een calculatie, of voeg een offerteregel toe");
+    }
     if (items.some((i) => !i.description)) return toast.error("Vul alle omschrijvingen in");
     if (choiceGroups.some((group) => group.choices.length < 2)) return toast.error("Een configuratiekeuze heeft minimaal twee alternatieven nodig");
     if (choiceGroups.some((group) => group.choices.some((choice) => /^(optie\s*\d+|hoofdregel)$/i.test(choice.title)))) {
@@ -1088,7 +1206,9 @@ export function QuoteBuilder({
           {
             id: choiceId,
             label: "Alternatief",
-            title: `Configuratie ${group.choices.length + 1}`,
+            // Doortellen met letters, zodat de derde "Configuratie C" heet en niet
+            // "Configuratie 3" naast een bestaande "Configuratie A".
+            title: `Configuratie ${String.fromCharCode(65 + group.choices.length)}`,
             summary: "",
             items: [{ description: "Complete configuratie", qty: 1, unitPrice: 0, vatRate: 21, indent: 0 }],
           },
@@ -1122,8 +1242,9 @@ export function QuoteBuilder({
   async function uploadChoiceImage(groupId: string, choiceId: string, file: File) {
     setUploadingChoiceImageId(choiceId);
     try {
+      const compressedFile = await compressQuoteImage(file);
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", compressedFile);
       const response = await fetch("/api/quote-attachments/upload", {
         method: "POST",
         body: formData,
@@ -1482,8 +1603,9 @@ export function QuoteBuilder({
       // Eén voor één: de upload-route neemt per aanroep één bestand aan.
       for (const file of images) {
         try {
+          const compressedFile = await compressQuoteImage(file);
           const formData = new FormData();
-          formData.append("file", file);
+          formData.append("file", compressedFile);
 
           const response = await fetch("/api/quote-attachments/upload", {
             method: "POST",
@@ -1506,7 +1628,7 @@ export function QuoteBuilder({
             ...current,
             {
               id: genId(),
-              title: result.title || file.name.replace(/\.[^.]+$/, ""),
+            title: result.title || file.name.replace(/\.[^.]+$/, ""),
               imageUrl: previewUrl,
               storageRef,
               liveUrl: "",
@@ -1530,6 +1652,40 @@ export function QuoteBuilder({
       setActiveTab("media");
       toast.success(added === 1 ? "Afbeelding toegevoegd" : `${added} afbeeldingen toegevoegd`);
     }
+  }
+
+  async function openMediaPicker() {
+    setMediaPickerOpen(true);
+    setMediaPickerLoading(true);
+    try {
+      const response = await fetch("/api/quote-attachments/upload");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Ophalen van afbeeldingen mislukt");
+      setAvailableQuoteImages(data);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Ophalen van afbeeldingen mislukt");
+    } finally {
+      setMediaPickerLoading(false);
+    }
+  }
+
+  function selectExistingMedia(image: AvailableQuoteImage) {
+    if (attachments.some((attachment) => attachment.storageRef === image.url)) {
+      toast.info("Deze afbeelding staat al in de offerte");
+      return;
+    }
+    setAttachments((current) => [...current, {
+      id: genId(),
+      title: image.title,
+      imageUrl: image.previewUrl,
+      storageRef: image.url,
+      liveUrl: "",
+      caption: "",
+      section: "intro",
+    }]);
+    setActiveTab("media");
+    setMediaPickerOpen(false);
+    toast.success("Afbeelding toegevoegd aan de offerte");
   }
 
   // Een screenshot uit het klembord plakken werkt overal in de builder. Staat de
@@ -1617,6 +1773,9 @@ export function QuoteBuilder({
     if (updates.technicalNotes !== undefined) setTechnicalNotes(updates.technicalNotes ?? []);
     if (updates.customerResponsibilities !== undefined) setCustomerResponsibilities(updates.customerResponsibilities ?? []);
     if (updates.notes !== undefined) setNotes(updates.notes ?? "");
+    // Bronnen bij het advies. Zonder deze regel deed "Bron toevoegen" niets:
+    // de preview stuurde de wijziging wel, maar de builder ving hem niet op.
+    if (updates.batteryAdvice !== undefined) setBatteryAdvice(updates.batteryAdvice ?? {});
   };
 
   function buildQuoteImportPrompt(contract: QuoteContractResponse) {
@@ -1683,7 +1842,7 @@ export function QuoteBuilder({
     <DialogContent className="max-h-[90vh] max-w-2xl overflow-hidden">
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-orange-500" />
+          <Sparkles className="h-5 w-5 text-primary" />
           Offerte importeren
         </DialogTitle>
         <DialogDescription>
@@ -1693,11 +1852,11 @@ export function QuoteBuilder({
       <div className="max-h-[calc(90vh-120px)] space-y-4 overflow-y-auto py-4 pr-2">
         {!importPreview ? (
           <>
-            <div className="rounded-lg border border-orange-100 bg-orange-50/70 p-3">
+            <div className="rounded-lg border border-primary/25 bg-primary/10 p-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm font-bold text-slate-900">AI-prompt nodig?</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">
+                  <p className="text-sm font-bold text-foreground">AI-prompt nodig?</p>
+                  <p className="mt-1 text-sm leading-5 text-muted-foreground">
                     Kopieer de actuele schema-instructie, plak die in ChatGPT of Claude en plak de JSON daarna hier terug.
                   </p>
                 </div>
@@ -1706,7 +1865,7 @@ export function QuoteBuilder({
                   variant="outline"
                   onClick={copyQuoteImportPrompt}
                   disabled={copyPromptLoading}
-                  className="shrink-0 border-orange-200 bg-white text-orange-700 hover:bg-orange-50"
+                  className="shrink-0 border-primary/25 bg-card text-primary hover:bg-primary/10"
                 >
                   {copyPromptLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
                   Copy prompt
@@ -1718,7 +1877,7 @@ export function QuoteBuilder({
               rows={12}
               value={aiInput}
               onChange={(e) => setAiInput(e.target.value)}
-              className="h-[360px] max-h-[45vh] resize-none overflow-y-auto font-mono text-xs leading-relaxed"
+              className="h-[360px] max-h-[45vh] resize-none overflow-y-auto font-mono text-sm leading-relaxed"
             />
             {importErrors.length > 0 && (
               <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -1731,7 +1890,7 @@ export function QuoteBuilder({
             <Button
               onClick={handleAiMagic}
               disabled={aiLoading}
-              className="w-full bg-orange-600 hover:bg-orange-700 h-12 text-lg font-bold gap-2"
+              className="w-full bg-primary hover:bg-primary h-12 text-lg font-bold gap-2"
             >
               {aiLoading ? <Loader2 className="animate-spin h-5 w-5" /> : <Wand2 className="h-5 w-5" />}
               Offerte verwerken
@@ -1739,36 +1898,36 @@ export function QuoteBuilder({
           </>
         ) : (
           <div className="space-y-4">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="rounded-lg border border-border bg-muted/40 p-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
                     Preview ({importPreview.source === "json" ? "JSON" : "AI"})
                   </p>
-                  <h3 className="mt-1 text-lg font-bold text-slate-900">{importPreview.quote.title || "Zonder titel"}</h3>
+                  <h3 className="mt-1 text-lg font-bold text-foreground">{importPreview.quote.title || "Zonder titel"}</h3>
                   {importPreview.quote.intro && (
-                    <p className="mt-2 line-clamp-3 text-sm text-slate-600">{importPreview.quote.intro}</p>
+                    <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{importPreview.quote.intro}</p>
                   )}
                 </div>
                 <div className="text-right text-sm">
-                  <p className="font-bold text-slate-900">{formatCurrency(importPreview.totals.totalIncVat)}</p>
-                  <p className="text-xs text-slate-500">totaal incl. btw</p>
+                  <p className="font-bold text-foreground">{formatCurrency(importPreview.totals.totalIncVat)}</p>
+                  <p className="text-sm text-muted-foreground">totaal incl. btw</p>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-slate-500">Prijsregels:</span> <b>{importPreview.quote.items.length}</b></div>
-                <div><span className="text-slate-500">Inbegrepen:</span> <b>{importPreview.totals.includedItemCount}</b></div>
-                <div><span className="text-slate-500">Excl. btw:</span> <b>{formatCurrency(importPreview.totals.totalExVat)}</b></div>
-                <div><span className="text-slate-500">Btw:</span> <b>{formatCurrency(importPreview.totals.totalVat)}</b></div>
-                <div><span className="text-slate-500">Meerwerk:</span> <b>{importPreview.quote.optionalWork?.length ?? 0}</b></div>
-                <div><span className="text-slate-500">Configuraties:</span> <b>{importPreview.quote.configurations?.length ?? 0}</b></div>
-                <div><span className="text-slate-500">Uitsluitingen:</span> <b>{importPreview.quote.exclusions?.length ?? 0}</b></div>
+                <div><span className="text-muted-foreground">Prijsregels:</span> <b>{importPreview.quote.items.length}</b></div>
+                <div><span className="text-muted-foreground">Inbegrepen:</span> <b>{importPreview.totals.includedItemCount}</b></div>
+                <div><span className="text-muted-foreground">Excl. btw:</span> <b>{formatCurrency(importPreview.totals.totalExVat)}</b></div>
+                <div><span className="text-muted-foreground">Btw:</span> <b>{formatCurrency(importPreview.totals.totalVat)}</b></div>
+                <div><span className="text-muted-foreground">Meerwerk:</span> <b>{importPreview.quote.optionalWork?.length ?? 0}</b></div>
+                <div><span className="text-muted-foreground">Configuraties:</span> <b>{importPreview.quote.configurations?.length ?? 0}</b></div>
+                <div><span className="text-muted-foreground">Uitsluitingen:</span> <b>{importPreview.quote.exclusions?.length ?? 0}</b></div>
               </div>
-              <div className="mt-4 border-t border-slate-200 pt-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Bewerkbare inhoud</p>
-                <div className="mt-2 max-h-44 space-y-1 overflow-y-auto text-xs">
+              <div className="mt-4 border-t border-border pt-3">
+                <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Bewerkbare inhoud</p>
+                <div className="mt-2 max-h-44 space-y-1 overflow-y-auto text-sm">
                   {importPreview.quote.items.map((item, index) => (
-                    <div key={`base-${index}`} className="flex justify-between gap-3 rounded bg-white px-2 py-1.5">
+                    <div key={`base-${index}`} className="flex justify-between gap-3 rounded bg-card px-2 py-1.5">
                       <span className="truncate">Vaste regel · {item.description}</span>
                       <span className="shrink-0 font-semibold">
                         {formatCurrency(Number(item.qty ?? 1) * Number(item.unitPrice ?? item.unit_price ?? 0))}
@@ -1789,7 +1948,7 @@ export function QuoteBuilder({
                     )),
                   )}
                 </div>
-                <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                <p className="mt-2 text-sm leading-5 text-muted-foreground">
                   Import maakt vrije offerteregels, geen dubbele catalogusartikelen. Een regel kan later bewust als herbruikbaar artikel worden opgeslagen.
                 </p>
               </div>
@@ -1806,7 +1965,7 @@ export function QuoteBuilder({
                 {importPreview.unknownFields.length > 0 && (
                   <div className="mt-2">
                     <p className="font-semibold">Niet-herkende velden:</p>
-                    <p className="mt-1 break-words text-xs">{importPreview.unknownFields.join(", ")}</p>
+                    <p className="mt-1 break-words text-sm">{importPreview.unknownFields.join(", ")}</p>
                   </div>
                 )}
               </div>
@@ -1816,7 +1975,7 @@ export function QuoteBuilder({
               <Button variant="outline" className="flex-1" onClick={() => setImportPreview(null)}>
                 Terug naar invoer
               </Button>
-              <Button className="flex-1 bg-orange-600 hover:bg-orange-700" onClick={applyImportPreview}>
+              <Button className="flex-1 bg-primary hover:bg-primary" onClick={applyImportPreview}>
                 Offerte invullen
               </Button>
             </div>
@@ -1828,93 +1987,54 @@ export function QuoteBuilder({
 
   if (!creationMode) {
     return (
-      <div className="min-h-[calc(100vh-72px)] bg-slate-50">
-        <header className="sticky top-[72px] z-20 bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => router.back()}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Terug
-            </Button>
-            <div className="h-6 w-px bg-slate-200" />
-            <div className="leading-tight">
-              <h1 className="font-bold text-slate-900">Nieuwe offerte maken</h1>
-              <p className="text-xs text-slate-400">Kies hoe je wilt beginnen</p>
-            </div>
-          </div>
-        </header>
-
-        <main className="mx-auto flex min-h-[calc(100vh-64px)] max-w-5xl items-center px-6 py-10">
+      <div className="min-h-[calc(100dvh-56px)] bg-[var(--ws-bg)]">
+        <PageHeader eyebrow="Offertes" title="Nieuwe conceptofferte" description="Begin met een calculatie of zet je voorstel uit ChatGPT klaar voor review." actions={<Button variant="outline" onClick={() => router.back()}><ArrowLeft />Terug</Button>} />
+        <div className="mx-auto max-w-5xl px-5 py-8 lg:px-8">
           <div className="w-full">
-            <div className="mb-6 max-w-2xl">
-              <p className="text-sm font-black uppercase tracking-widest text-slate-400">Startpunt</p>
-              <h2 className="mt-2 text-3xl font-black text-slate-950">Hoe wil je de offerte opbouwen?</h2>
-            </div>
             <div className="grid gap-4 md:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setCreationMode("manual")}
-                className="group rounded-lg border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md"
-              >
-                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                  <FileText className="h-5 w-5" />
-                </div>
-                <h3 className="text-xl font-black text-slate-950">Handmatig starten</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Open de normale editor met standaardregels, teksten en opties.
-                </p>
-                <div className="mt-6 inline-flex items-center text-sm font-bold text-slate-900">
-                  Editor openen <ChevronRight className="ml-2 h-4 w-4 transition group-hover:translate-x-0.5" />
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setImportErrors([]);
-                  setImportPreview(null);
-                  setShowAiModal(true);
-                }}
-                className="group rounded-lg border border-orange-200 bg-orange-50/60 p-6 text-left shadow-sm transition hover:border-orange-300 hover:bg-orange-50 hover:shadow-md"
-              >
-                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-orange-100 text-orange-700">
-                  <Wand2 className="h-5 w-5" />
-                </div>
-                <h3 className="text-xl font-black text-slate-950">Via ChatGPT plakken</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Plak een complete JSON-offerte of gewone tekst. Na de preview wordt de editor automatisch ingevuld.
-                </p>
-                <div className="mt-6 inline-flex items-center text-sm font-bold text-orange-700">
-                  Offerte plakken <ChevronRight className="ml-2 h-4 w-4 transition group-hover:translate-x-0.5" />
-                </div>
+              <Link href="/calculations?create=1" className="group rounded-xl border border-border bg-card p-6 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Calculator className="mb-5 size-6 text-primary" />
+                <h2 className="text-xl font-semibold text-foreground">Vanuit een calculatie</h2>
+                <p className="mt-2 text-base leading-6 text-muted-foreground">Werk materialen, arbeid en alternatieven uit. Maak daarna een conceptofferte met deze calculatie als prijsbron.</p>
+                <span className="mt-5 inline-flex items-center text-sm font-semibold text-foreground">Calculatie maken<ChevronRight className="ml-2 size-4 transition-transform group-hover:translate-x-1" /></span>
+              </Link>
+              <button type="button" onClick={() => { setImportErrors([]); setImportPreview(null); setShowAiModal(true); }} className="group rounded-xl border border-border bg-card p-6 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Wand2 className="mb-5 size-6 text-primary" />
+                <h2 className="text-xl font-semibold text-foreground">Samen met ChatGPT</h2>
+                <p className="mt-2 text-base leading-6 text-muted-foreground">Kopieer de actuele offerte-instructies en plak je voorstel terug. Bekijk de inhoud voordat je het concept bewaart.</p>
+                <span className="mt-5 inline-flex items-center text-sm font-semibold text-foreground">Voorstel importeren<ChevronRight className="ml-2 size-4 transition-transform group-hover:translate-x-1" /></span>
               </button>
             </div>
+            <div className="mt-5 flex flex-wrap items-center gap-3"><p className="text-base text-muted-foreground">Je kunt ook zelf tekst en regels invullen.</p><Button variant="ghost" onClick={() => setCreationMode("manual")}><Plus />Handmatig starten</Button></div>
             <Dialog open={showAiModal} onOpenChange={setShowAiModal}>
               {importDialogContent}
             </Dialog>
           </div>
-        </main>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[calc(100vh-72px)] bg-slate-50">
+    <div className="min-h-[calc(100vh-72px)] bg-muted/40">
       {/* ── Top Toolbar ── */}
-      <header className="sticky top-[72px] z-20 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-200 bg-white px-4 py-3 shadow-sm lg:px-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => router.back()}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Terug
-          </Button>
-          <div className="hidden h-6 w-px bg-slate-200 sm:block" />
-          <div className="min-w-0 leading-tight">
-            <h1 className="truncate font-bold text-slate-900">
-              {initialQuote ? `${title || initialQuote.number} bewerken` : "Nieuwe offerte"}
-            </h1>
-            {initialQuote && <p className="text-xs text-slate-400">{initialQuote.number}</p>}
+      <header className="sticky top-[56px] z-20 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border bg-card px-4 py-3 shadow-none lg:px-6">
+        {/* Bij een bestaande offerte staan titel, nummer en een terugknop al in de
+            paginakop erboven. Alleen een nieuwe offerte heeft hier een eigen kop nodig. */}
+        {initialQuote ? (
+          <div className="min-w-0" />
+        ) : (
+          <div className="flex min-w-0 items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => router.back()}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Terug
+            </Button>
+            <div className="hidden h-6 w-px bg-border sm:block" />
+            <h1 className="truncate font-bold text-foreground">Nieuwe offerte</h1>
           </div>
-        </div>
+        )}
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <label className="inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50/50 px-2.5 text-sm font-bold text-blue-600 transition-colors hover:bg-blue-50">
+        <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-2">
+          <label className="inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-lg border border-primary/25 bg-primary/10 px-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary/10">
             {visionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
             Scan Situatie
             <input type="file" accept="image/*" className="sr-only" onChange={handleVisionScan} disabled={visionLoading} />
@@ -1923,7 +2043,7 @@ export function QuoteBuilder({
           {initialQuote && (
             <Dialog open={showAiModal} onOpenChange={setShowAiModal}>
               <DialogTrigger render={
-                <Button variant="outline" className="text-orange-600 border-orange-200 hover:bg-orange-50 bg-orange-50/50 font-bold gap-2">
+                <Button variant="outline" className="text-primary border-primary/25 hover:bg-primary/10 bg-primary/10 font-bold gap-2">
                   <Wand2 className="h-4 w-4" /> Importeer
                 </Button>
               } />
@@ -1931,20 +2051,21 @@ export function QuoteBuilder({
             </Dialog>
           )}
 
-          {initialQuote && <div className="hidden h-6 w-px bg-slate-200 xl:block" />}
+          {initialQuote && <div className="hidden h-6 w-px bg-border xl:block" />}
 
           <div className="flex items-center gap-2">
-            <Label className="hidden text-xs font-bold uppercase tracking-wider text-slate-500 2xl:block">Naam:</Label>
+            <Label className="hidden text-sm font-bold uppercase tracking-wider text-muted-foreground 2xl:block">Naam:</Label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Naam van de offerte"
+              aria-label="Naam van de offerte"
               className="h-9 w-[150px] xl:w-[200px]"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <Label className="hidden text-xs font-bold uppercase tracking-wider text-slate-500 2xl:block">Klant:</Label>
+            <Label className="hidden text-sm font-bold uppercase tracking-wider text-muted-foreground 2xl:block">Klant:</Label>
             <Popover open={customerPickerOpen} onOpenChange={setCustomerPickerOpen}>
               <PopoverTrigger render={
                 <Button variant="outline" className="h-9 w-[160px] justify-between font-normal xl:w-[190px]">
@@ -1953,7 +2074,7 @@ export function QuoteBuilder({
                 </Button>
               } />
               <PopoverContent align="start" className="z-[200] w-[240px] p-0 gap-0">
-                <div className="p-2 border-b border-slate-100">
+                <div className="p-2 border-b border-border">
                   <Input
                     autoFocus
                     value={customerSearch}
@@ -1964,7 +2085,7 @@ export function QuoteBuilder({
                 </div>
                 <div className="max-h-64 overflow-y-auto p-1">
                   {filteredCustomers.length === 0 ? (
-                    <p className="text-xs text-slate-400 px-2 py-3 text-center">Geen klant gevonden</p>
+                    <p className="text-sm text-muted-foreground px-2 py-3 text-center">Geen klant gevonden</p>
                   ) : (
                     filteredCustomers.map((c) => (
                       <button
@@ -1975,8 +2096,8 @@ export function QuoteBuilder({
                           setCustomerPickerOpen(false);
                           setCustomerSearch("");
                         }}
-                        className={`w-full text-left px-2 py-1.5 rounded-md text-sm hover:bg-slate-100 ${
-                          c.id === customerId ? "bg-slate-100 font-semibold" : ""
+                        className={`w-full text-left px-2 py-1.5 rounded-md text-sm hover:bg-muted ${
+                          c.id === customerId ? "bg-muted font-semibold" : ""
                         }`}
                       >
                         {c.name}
@@ -1989,63 +2110,129 @@ export function QuoteBuilder({
           </div>
 
           <div className="flex items-center gap-2">
-            <Label className="hidden text-xs font-bold uppercase tracking-wider text-slate-500 2xl:block">Geldig tot:</Label>
+            <Label className="hidden text-sm font-bold uppercase tracking-wider text-muted-foreground 2xl:block">Geldig tot:</Label>
             <Input
               type="date"
+              aria-label="Geldig tot"
               className="h-9 w-[140px] xl:w-[150px]"
               value={validUntil}
               onChange={(e) => setValidUntil(e.target.value)}
             />
           </div>
 
-          <div className="flex min-w-[130px] items-center justify-end gap-1.5 text-xs font-medium" aria-live="polite">
-            {saveStatus === "saving" && (
-              <><Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" /><span className="text-slate-500">Bezig met opslaan…</span></>
-            )}
-            {saveStatus === "saved" && (
-              <><Check className="h-3.5 w-3.5 text-emerald-600" /><span className="text-emerald-600">Opgeslagen</span></>
-            )}
-            {saveStatus === "unsaved" && (
-              <span className="text-amber-600">Wijzigingen worden opgeslagen…</span>
-            )}
-            {saveStatus === "error" && (
-              <span className="text-red-600">Opslaan mislukt, klik Opslaan</span>
-            )}
-          </div>
+          {/* Eén opslagmanier: een bestaande offerte slaat zichzelf op. Alleen bij
+              een nieuwe offerte of een fout is er een knop. */}
+          {initialQuote?.id && (
+            <div className="flex items-center justify-end gap-1.5 text-sm font-medium" aria-live="polite">
+              {saveStatus === "saving" && (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /><span className="text-muted-foreground">Bezig met opslaan</span></>
+              )}
+              {saveStatus === "saved" && (
+                <><Check className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-400" /><span className="text-emerald-700 dark:text-emerald-400">Opgeslagen</span></>
+              )}
+              {saveStatus === "unsaved" && (
+                <span className="text-muted-foreground">Wijzigingen worden opgeslagen</span>
+              )}
+              {saveStatus === "idle" && (
+                <span className="text-muted-foreground">Slaat automatisch op</span>
+              )}
+            </div>
+          )}
 
-          <Button onClick={handleSave} disabled={saving} className="bg-orange-600 hover:bg-orange-700">
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Offerte Opslaan
-          </Button>
+          <div className="h-6 w-px bg-border" />
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("prijs");
+              panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            className="flex items-center gap-2.5 rounded-lg border border-border px-3 py-1.5 text-left transition-colors hover:bg-muted/40"
+            title="Prijs, media en documenten"
+          >
+            <span className="leading-tight">
+              <span className="block text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                {priceDisplayMode === "incl" ? "Incl. btw" : "Excl. btw"}
+              </span>
+              <span className="block text-sm font-semibold tabular-nums text-foreground">
+                {formatCurrency(displayedTotal)}
+              </span>
+            </span>
+            <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+          </button>
+
+          {!initialQuote?.id ? (
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Offerte opslaan
+            </Button>
+          ) : saveStatus === "error" ? (
+            <Button onClick={handleSave} disabled={saving} className="bg-red-600 hover:bg-red-700">
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Opnieuw opslaan
+            </Button>
+          ) : null}
         </div>
       </header>
 
-      <div className="flex w-full max-w-[1920px] flex-col gap-6 p-4 lg:flex-row lg:gap-8 lg:p-6 2xl:px-10 mx-auto items-start">
-        {/* ── Visual Editor (The Paper) ── */}
-        <div className="w-full min-w-0 flex-1">
+      <div className="mx-auto flex w-full max-w-[1800px] flex-col items-start gap-5 p-4 lg:p-6 xl:flex-row">
+        <QuotePageRail
+          pages={paginas}
+          hiddenSections={hiddenSections}
+          onToggleSection={wisselSectie}
+          paperRef={paperRef}
+        />
+
+        {/* ── Het papier. Alles wat de klant leest bewerk je hier, niet ernaast. ── */}
+        <div className="w-full min-w-0 flex-1" ref={paperRef}>
+          <SheetOverflowMonitor containerRef={paperRef} />
           <SheetScaler>
             <QuoteSheetPreview
               quote={quoteData}
               companySlug={companySlug}
               isEditable={true}
               onUpdate={handleUpdate}
-              onUpdateItem={handlePreviewItemUpdate}
-              onAddItem={addItem}
-              onRemoveItem={removeItem}
+              {...(werktMetCalculaties
+                // Regels bewerk je in de calculatie. Hier zou je aan een kopie
+                // zitten te typen die nooit wordt opgeslagen.
+                ? {}
+                : {
+                    onUpdateItem: handlePreviewItemUpdate,
+                    onAddItem: addItem,
+                    onRemoveItem: removeItem,
+                  })}
+              priceSource={
+                werktMetCalculaties && paneelCalculaties[0]
+                  ? { label: paneelCalculaties[0].number, href: `/calculations/${paneelCalculaties[0].id}` }
+                  : null
+              }
+              onPagesChange={setPaginas}
             />
           </SheetScaler>
         </div>
 
-        {/* ── Right Panel (Controls) ── */}
-        <aside className="w-full space-y-6 pb-2 lg:w-[360px] lg:shrink-0 xl:sticky xl:top-[132px] xl:max-h-[calc(100vh-148px)] xl:w-[400px] xl:overflow-y-auto xl:overscroll-contain xl:pr-2 [scrollbar-gutter:stable] 2xl:w-[440px]">
+        <aside ref={panelRef} aria-label="Instellingen voor deze offerte" className="w-full min-w-0 overflow-hidden rounded-xl border border-border bg-card xl:sticky xl:top-[132px] xl:max-h-[calc(100dvh-9rem)] xl:w-[340px] xl:shrink-0 xl:overflow-y-auto">
+            <div className="sticky top-0 z-10 border-b border-border bg-card px-4 py-3">
+              <h2 className="text-base font-semibold">Offerte bewerken</h2>
+            </div>
+            <div className="space-y-5 px-4 pb-5 pt-4">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="w-full bg-white shadow-sm">
-              <TabsTrigger value="regels" className="flex-1">Regels</TabsTrigger>
-              <TabsTrigger value="configuraties" className="flex-1">Configuraties</TabsTrigger>
-              <TabsTrigger value="modules" className="flex-1">Modules</TabsTrigger>
-              <TabsTrigger value="media" className="flex-1">Media</TabsTrigger>
-              <TabsTrigger value="documenten" className="flex-1">Documenten</TabsTrigger>
+            <TabsList aria-label="Offerteonderdelen" className="mb-3 grid h-auto! w-full! grid-cols-2 gap-1">
+              {[
+                ["prijs", "Prijs"], ["pagina", "Pagina’s"], ["media", "Media"], ["documenten", "Documenten"],
+                ...(werktMetCalculaties ? [] : [["regels", "Regels"], ["configuraties", "Configuraties"], ["modules", "Modules"]]),
+              ].map(([value, label]) => <TabsTrigger key={value} value={value} className="min-h-8">{label}</TabsTrigger>)}
             </TabsList>
+
+            <TabsContent value="prijs" className="space-y-6">
+              <QuotePricePanel
+                quoteId={initialQuote?.id ?? ""}
+                calculations={paneelCalculaties}
+                legacyItemCount={werktMetCalculaties ? 0 : items.length}
+                isDraft={(initialQuote?.status ?? "DRAFT") === "DRAFT"}
+                waarschuwing={variantExtraWaarschuwing}
+              />
+            </TabsContent>
 
             <TabsContent value="regels" className="space-y-6">
               <Card>
@@ -2065,21 +2252,21 @@ export function QuoteBuilder({
                 <CardContent className="space-y-4">
                   {(catalogProducts.length > 0 || productSets.length > 0) && (
                     <details
-                      className="group rounded-xl border border-slate-200 bg-white"
+                      className="group rounded-xl border border-border bg-card"
                       onToggle={(event) => {
                         if (!(event.currentTarget as HTMLDetailsElement).open) setCatalogSearch("");
                       }}
                     >
-                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm font-semibold text-slate-700">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm font-semibold text-foreground">
                         <span className="flex items-center gap-2">
-                          <PackagePlus className="h-4 w-4 text-slate-400" />
+                          <PackagePlus className="h-4 w-4 text-muted-foreground" />
                           Regel uit catalogus toevoegen
                         </span>
-                        <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
+                        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
                       </summary>
-                      <div className="space-y-3 border-t border-slate-100 p-3">
+                      <div className="space-y-3 border-t border-border p-3">
                         <div className="relative">
-                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                           <Input
                             value={catalogSearch}
                             onChange={(event) => setCatalogSearch(event.target.value)}
@@ -2088,14 +2275,14 @@ export function QuoteBuilder({
                           />
                         </div>
                         {!catalogQuery ? (
-                          <p className="text-xs leading-relaxed text-slate-400">
+                          <p className="text-sm leading-relaxed text-muted-foreground">
                             Zoek een bestaand artikel of een vaste set. Alleen wat je aanklikt wordt aan deze offerte toegevoegd.
                           </p>
                         ) : (
                           <div className="max-h-64 space-y-3 overflow-y-auto">
                             {filteredSets.length > 0 && (
                               <div>
-                                <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                <p className="mb-1.5 flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider text-muted-foreground">
                                   <Layers className="h-3 w-3" /> Sets
                                 </p>
                                 <div className="space-y-1">
@@ -2104,13 +2291,13 @@ export function QuoteBuilder({
                                       key={set.id}
                                       type="button"
                                       onClick={() => addProductSet(set)}
-                                      className="flex w-full items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-left hover:border-slate-300 hover:bg-slate-50"
+                                      className="flex w-full items-center justify-between rounded-lg border border-border px-3 py-2 text-left hover:border-border hover:bg-muted/40"
                                     >
                                       <span className="min-w-0">
                                         <span className="block truncate text-sm font-semibold">{set.name}</span>
-                                        <span className="block text-xs text-slate-400">{set.items.length} artikelen</span>
+                                        <span className="block text-sm text-muted-foreground">{set.items.length} artikelen</span>
                                       </span>
-                                      <Plus className="h-4 w-4 shrink-0 text-slate-400" />
+                                      <Plus className="h-4 w-4 shrink-0 text-muted-foreground" />
                                     </button>
                                   ))}
                                 </div>
@@ -2118,7 +2305,7 @@ export function QuoteBuilder({
                             )}
                             {filteredProducts.length > 0 && (
                               <div>
-                                <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                <p className="mb-1.5 flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider text-muted-foreground">
                                   <Package className="h-3 w-3" /> Artikelen en diensten
                                 </p>
                                 <div className="space-y-1">
@@ -2127,11 +2314,11 @@ export function QuoteBuilder({
                                       key={product.id}
                                       type="button"
                                       onClick={() => addProduct(product)}
-                                      className="grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-lg border border-slate-100 px-3 py-2 text-left hover:border-slate-300 hover:bg-slate-50"
+                                      className="grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-lg border border-border px-3 py-2 text-left hover:border-border hover:bg-muted/40"
                                     >
                                       <span className="min-w-0">
                                         <span className="block truncate text-sm font-medium">{product.name}</span>
-                                        <span className="block truncate text-xs text-slate-400">{product.category} · per {product.unit}</span>
+                                        <span className="block truncate text-sm text-muted-foreground">{product.category} · per {product.unit}</span>
                                       </span>
                                       <span className="text-sm font-bold tabular-nums">{formatCurrency(Number(product.basePrice))}</span>
                                     </button>
@@ -2140,7 +2327,7 @@ export function QuoteBuilder({
                               </div>
                             )}
                             {filteredProducts.length === 0 && filteredSets.length === 0 && (
-                              <p className="py-3 text-center text-sm text-slate-400">Geen artikelen of sets gevonden.</p>
+                              <p className="py-3 text-center text-sm text-muted-foreground">Geen artikelen of sets gevonden.</p>
                             )}
                           </div>
                         )}
@@ -2152,7 +2339,7 @@ export function QuoteBuilder({
                       <div key={item.id}>
                         {dropTarget?.id === item.id && dropTarget.position === "before" && (
                           <div
-                            className="h-0.5 rounded-full bg-orange-500 mb-1"
+                            className="h-0.5 rounded-full bg-primary mb-1"
                             style={{ marginLeft: dropTarget.indent ? 28 : 0 }}
                           />
                         )}
@@ -2161,7 +2348,7 @@ export function QuoteBuilder({
                           onDrop={(e) => handleItemDrop(e, item.id)}
                           onDragEnd={() => { setDragItemId(null); setDropTarget(null); }}
                           className={`flex gap-2 p-3 rounded-lg border space-y-0 relative group transition-colors ${
-                            item.indent ? "bg-white border-slate-200" : "bg-slate-50 border-slate-200"
+                            item.indent ? "bg-card border-border" : "bg-muted/40 border-border"
                           } ${dragItemId === item.id ? "opacity-40" : ""}`}
                           style={{ marginLeft: item.indent ? 28 : 0 }}
                         >
@@ -2171,7 +2358,7 @@ export function QuoteBuilder({
                               setDragItemId(item.id);
                               e.dataTransfer.effectAllowed = "move";
                             }}
-                            className="flex shrink-0 cursor-grab items-center self-stretch text-slate-300 hover:text-slate-500 active:cursor-grabbing"
+                            className="flex shrink-0 cursor-grab items-center self-stretch text-muted-foreground hover:text-muted-foreground active:cursor-grabbing"
                           >
                             <GripVertical className="h-4 w-4" />
                           </div>
@@ -2179,11 +2366,11 @@ export function QuoteBuilder({
                           <div className="flex-1 min-w-0 space-y-2">
                             <div className="flex items-center justify-between gap-2">
                               {item.indent ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                <span className="inline-flex items-center gap-1 text-sm font-bold uppercase tracking-wider text-muted-foreground">
                                   <CornerDownRight className="h-3 w-3" /> Sub-regel
                                 </span>
                               ) : (
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                                   {item.productId ? "Catalogusartikel" : "Vrije offerteregel"}
                                 </span>
                               )}
@@ -2194,17 +2381,17 @@ export function QuoteBuilder({
                                     title="Opslaan als catalogusartikel"
                                     disabled={savingCatalogItemId === item.id}
                                     onClick={() => saveItemToCatalog(item)}
-                                    className="rounded-full border border-slate-200 bg-white p-1 text-slate-400 shadow-sm hover:bg-slate-50 hover:text-[#167f88] disabled:opacity-50"
+                                    className="rounded-full border border-border bg-card p-1 text-muted-foreground shadow-none hover:bg-muted/40 hover:text-[var(--ws-accent)] disabled:opacity-50"
                                   >
                                     {savingCatalogItemId === item.id
                                       ? <Loader2 className="h-3 w-3 animate-spin" />
                                       : <PackagePlus className="h-3 w-3" />}
                                   </button>
                                 )}
-                                <button type="button" onClick={() => setItemIndent(item.id, item.indent ? 0 : 1)} className="bg-white border border-slate-200 rounded-full p-1 shadow-sm text-slate-400 hover:bg-slate-50">
+                                <button type="button" onClick={() => setItemIndent(item.id, item.indent ? 0 : 1)} className="bg-card border border-border rounded-full p-1 shadow-none text-muted-foreground hover:bg-muted/40">
                                   {item.indent ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                                 </button>
-                                <button type="button" onClick={() => removeItem(item.id)} className="bg-white border border-slate-200 rounded-full p-1 shadow-sm text-red-500 hover:bg-red-50">
+                                <button type="button" onClick={() => removeItem(item.id)} className="bg-card border border-border rounded-full p-1 shadow-none text-red-500 hover:bg-red-50">
                                   <Trash2 className="h-3 w-3" />
                                 </button>
                               </div>
@@ -2218,11 +2405,11 @@ export function QuoteBuilder({
                             />
                             <div className="grid grid-cols-2 gap-2">
                               <div className="space-y-1">
-                                <Label className="text-[10px] uppercase font-bold text-slate-400">Aantal</Label>
+                                <Label className="text-sm uppercase font-bold text-muted-foreground">Aantal</Label>
                                 <Input type="number" value={item.qty} onChange={(e) => updateItem(item.id, { qty: Number(e.target.value) })} className="h-8 text-sm" />
                               </div>
                               <div className="space-y-1">
-                                <Label className="text-[10px] uppercase font-bold text-slate-400">Stukprijs (Verk)</Label>
+                                <Label className="text-sm uppercase font-bold text-muted-foreground">Stukprijs (Verk)</Label>
                                 <Input type="number" value={item.unitPrice} onChange={(e) => updateItem(item.id, { unitPrice: Number(e.target.value) })} className="h-8 text-sm" />
                               </div>
                             </div>
@@ -2230,7 +2417,7 @@ export function QuoteBuilder({
                         </div>
                         {dropTarget?.id === item.id && dropTarget.position === "after" && (
                           <div
-                            className="h-0.5 rounded-full bg-orange-500 mt-1"
+                            className="h-0.5 rounded-full bg-primary mt-1"
                             style={{ marginLeft: dropTarget.indent ? 28 : 0 }}
                           />
                         )}
@@ -2253,12 +2440,12 @@ export function QuoteBuilder({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {choiceGroups.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
+                    <div className="rounded-lg border border-dashed border-border bg-muted/40 p-4 text-center text-sm text-muted-foreground">
                       Voeg alleen volwaardige alternatieven toe, zoals SolarEdge of Sigenergy. De klant kiest er één bij het accepteren.
                     </div>
                   ) : (
                     choiceGroups.map((group) => (
-                      <div key={group.id} className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
+                      <div key={group.id} className="rounded-xl border border-border bg-card p-3 space-y-3">
                         <div className="flex items-start gap-2">
                           <div className="grid flex-1 grid-cols-2 gap-2">
                             <Input
@@ -2268,7 +2455,14 @@ export function QuoteBuilder({
                               placeholder="Bijv. Kies uw batterijsysteem"
                             />
                             <Select value={group.recommendedChoiceId || ""} onValueChange={(value) => updateChoiceGroup(group.id, { recommendedChoiceId: value || undefined })}>
-                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Aanbevolen configuratie" /></SelectTrigger>
+                              <SelectTrigger className="h-8 text-sm">
+                                {/* Expliciet de titel tonen; anders valt de trigger terug
+                                    op de waarde en staat er een technische id op het scherm. */}
+                                <SelectValue placeholder="Aanbevolen configuratie">
+                                  {group.choices.find((choice) => choice.id === group.recommendedChoiceId)?.title
+                                    || "Aanbevolen configuratie"}
+                                </SelectValue>
+                              </SelectTrigger>
                               <SelectContent>
                                 {group.choices.map((choice) => (
                                   <SelectItem key={choice.id} value={choice.id}>{choice.title}</SelectItem>
@@ -2292,19 +2486,19 @@ export function QuoteBuilder({
                             const choiceExVat = choice.items.reduce((acc, item) => acc + choiceItemTotal(item), 0);
                             const choiceVat = choice.items.reduce((acc, item) => acc + choiceItemTotal(item) * (Number(item.vatRate) / 100), 0);
                             return (
-                              <div key={choice.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3 space-y-3">
+                              <div key={choice.id} className="rounded-lg border border-border bg-muted/40 p-3 space-y-3">
                                 <div className="flex items-start gap-2">
                                   <div className="grid flex-1 grid-cols-[1fr_110px] gap-2">
                                     <Input
                                       value={choice.title}
                                       onChange={(e) => updateChoice(group.id, choice.id, { title: e.target.value })}
-                                      className="h-8 bg-white text-sm font-bold"
+                                      className="h-8 bg-card text-sm font-bold"
                                       placeholder="Bijv. Sigenergy 8 kWh"
                                     />
                                     <Input
                                       value={choice.label || ""}
                                       onChange={(e) => updateChoice(group.id, choice.id, { label: e.target.value })}
-                                      className="h-8 bg-white text-xs"
+                                      className="h-8 bg-card text-sm"
                                       placeholder="Aanbevolen"
                                     />
                                   </div>
@@ -2316,25 +2510,25 @@ export function QuoteBuilder({
                                   value={choice.summary || ""}
                                   onChange={(e) => updateChoice(group.id, choice.id, { summary: e.target.value })}
                                   rows={2}
-                                  className="resize-none bg-white text-sm"
+                                  className="resize-none bg-card text-sm"
                                   placeholder="Waarom deze keuze logisch is"
                                 />
                                 <div className="flex items-center gap-3">
                                   {(choice.imageUrl || choice.image) && (
-                                    <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white">
+                                    <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-md border border-border bg-card">
                                       {/* eslint-disable-next-line @next/next/no-img-element */}
                                       <img src={choice.imageUrl || choice.image} alt="" className="h-full w-full object-cover" />
                                       <button
                                         type="button"
                                         onClick={() => removeChoiceImage(group.id, choice.id)}
-                                        className="absolute right-0.5 top-0.5 rounded-full bg-white/90 p-0.5 text-red-500 shadow"
+                                        className="absolute right-0.5 top-0.5 rounded-full bg-card/90 p-0.5 text-red-500 shadow"
                                         aria-label="Foto verwijderen"
                                       >
                                         <X className="h-3 w-3" />
                                       </button>
                                     </div>
                                   )}
-                                  <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400 ${uploadingChoiceImageId === choice.id ? "pointer-events-none opacity-60" : ""}`}>
+                                  <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-border bg-card px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:border-slate-400 ${uploadingChoiceImageId === choice.id ? "pointer-events-none opacity-60" : ""}`}>
                                     {uploadingChoiceImageId === choice.id ? (
                                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                     ) : (
@@ -2355,7 +2549,7 @@ export function QuoteBuilder({
                                   </label>
                                 </div>
 
-                                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                                <div className="rounded-lg border border-border bg-card p-3">
                                   {choice.calculationId ? (
                                     (() => {
                                       const summary = calculationSummaries[choice.calculationId!];
@@ -2363,18 +2557,18 @@ export function QuoteBuilder({
                                       return (
                                         <div className="space-y-2">
                                           <div className="min-w-0">
-                                            <p className="truncate text-xs font-bold text-slate-900">
+                                            <p className="truncate text-sm font-bold text-foreground">
                                               {summary ? `${summary.number} · ${summary.title}` : "Calculatie gekoppeld"}
                                             </p>
                                             {summary && (
-                                              <p className="text-[11px] text-slate-500">
+                                              <p className="text-sm text-muted-foreground">
                                                 Marge {summary.marginPercent.toFixed(1)}% · {formatCurrency(summary.totalSalesPrice)} verkoop excl. btw
                                               </p>
                                             )}
                                           </div>
                                           <div className="flex flex-wrap items-center gap-2">
                                             <Link href={`/calculations/${choice.calculationId}`} target="_blank" rel="noopener noreferrer">
-                                              <Button type="button" size="sm" variant="outline" className="h-7 text-xs">
+                                              <Button type="button" size="sm" variant="outline" className="h-7 text-sm">
                                                 <Calculator className="h-3 w-3 mr-1" /> Open in Calculatie
                                               </Button>
                                             </Link>
@@ -2382,7 +2576,7 @@ export function QuoteBuilder({
                                               type="button"
                                               size="sm"
                                               variant="outline"
-                                              className="h-7 text-xs"
+                                              className="h-7 text-sm"
                                               disabled={busy}
                                               onClick={() => void syncChoiceFromCalculation(group.id, choice.id, choice.calculationId!)}
                                             >
@@ -2393,7 +2587,7 @@ export function QuoteBuilder({
                                               type="button"
                                               size="sm"
                                               variant="ghost"
-                                              className="h-7 text-xs text-red-500"
+                                              className="h-7 text-sm text-red-500"
                                               onClick={() => unlinkCalculation(group.id, choice.id)}
                                             >
                                               Ontkoppelen
@@ -2408,7 +2602,7 @@ export function QuoteBuilder({
                                         type="button"
                                         size="sm"
                                         variant="outline"
-                                        className="h-7 text-xs"
+                                        className="h-7 text-sm"
                                         disabled={linkingChoiceId === choice.id}
                                         onClick={() => void createCalculationForChoice(group.id, choice.id)}
                                       >
@@ -2423,7 +2617,7 @@ export function QuoteBuilder({
                                         type="button"
                                         size="sm"
                                         variant="ghost"
-                                        className="h-7 text-xs"
+                                        className="h-7 text-sm"
                                         onClick={() => void openCalculationPicker(group.id, choice.id)}
                                       >
                                         Bestaande koppelen
@@ -2434,13 +2628,21 @@ export function QuoteBuilder({
 
                                 {!choice.calculationId && (
                                 <div className="space-y-2">
+                                  {/* Zonder koppen zijn de drie getalvelden niet te onderscheiden. */}
+                                  <div className="grid grid-cols-[1fr_54px_78px_58px_32px] gap-2 px-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                                    <span>Omschrijving</span>
+                                    <span>Aantal</span>
+                                    <span>Prijs</span>
+                                    <span>Btw %</span>
+                                    <span className="sr-only">Verwijderen</span>
+                                  </div>
                                   {choice.items.map((item, itemIndex) => (
                                     <div key={itemIndex} className="grid grid-cols-[1fr_54px_78px_58px_32px] gap-2">
                                       <div className="relative">
                                         <Input
                                           value={item.description}
                                           onChange={(e) => updateChoiceItem(group.id, choice.id, itemIndex, { description: e.target.value })}
-                                          className={`h-8 bg-white text-xs ${item.productId ? "pr-8" : ""}`}
+                                          className={`h-8 bg-card text-sm ${item.productId ? "pr-8" : ""}`}
                                           placeholder="Regel"
                                           title={item.productId
                                             ? `Gekoppeld aan ${catalogProducts.find((product) => product.id === item.productId)?.name ?? "catalogusproduct"}`
@@ -2448,7 +2650,7 @@ export function QuoteBuilder({
                                         />
                                         {item.productId && (
                                           <Package
-                                            className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-emerald-600"
+                                            className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-emerald-700 dark:text-emerald-400"
                                             aria-label="Gekoppeld catalogusproduct"
                                           />
                                         )}
@@ -2457,20 +2659,20 @@ export function QuoteBuilder({
                                         type="number"
                                         value={item.qty}
                                         onChange={(e) => updateChoiceItem(group.id, choice.id, itemIndex, { qty: Number(e.target.value) })}
-                                        className="h-8 bg-white px-2 text-xs"
+                                        className="h-8 bg-card px-2 text-sm"
                                       />
                                       <Input
                                         type="number"
                                         value={item.unitPrice}
                                         onChange={(e) => updateChoiceItem(group.id, choice.id, itemIndex, { unitPrice: Number(e.target.value) })}
-                                        className="h-8 bg-white px-2 text-xs"
+                                        className="h-8 bg-card px-2 text-sm"
                                         title="Stukprijs excl. btw"
                                       />
                                       <Input
                                         type="number"
                                         value={item.vatRate}
                                         onChange={(e) => updateChoiceItem(group.id, choice.id, itemIndex, { vatRate: Number(e.target.value) })}
-                                        className="h-8 bg-white px-2 text-xs"
+                                        className="h-8 bg-card px-2 text-sm"
                                       />
                                       <Button size="icon" variant="ghost" onClick={() => removeChoiceItem(group.id, choice.id, itemIndex)} className="h-8 w-8 text-red-500">
                                         <Trash2 className="h-3 w-3" />
@@ -2481,12 +2683,12 @@ export function QuoteBuilder({
                                 )}
                                 <div className="flex items-center justify-between gap-3">
                                   {!choice.calculationId ? (
-                                    <Button size="sm" variant="outline" onClick={() => addChoiceItem(group.id, choice.id)} className="h-7 text-xs">
+                                    <Button size="sm" variant="outline" onClick={() => addChoiceItem(group.id, choice.id)} className="h-7 text-sm">
                                       <Plus className="h-3 w-3 mr-1" /> Regel
                                     </Button>
                                   ) : <span />}
-                                  <div className="text-right text-xs text-slate-500">
-                                    <span className="font-bold text-slate-900">{formatCurrency(choiceExVat + choiceVat)}</span> incl. btw
+                                  <div className="text-right text-sm text-muted-foreground">
+                                    <span className="font-bold text-foreground">{formatCurrency(choiceExVat + choiceVat)}</span> incl. btw
                                   </div>
                                 </div>
                               </div>
@@ -2516,14 +2718,14 @@ export function QuoteBuilder({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {options.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
+                    <div className="rounded-lg border border-dashed border-border bg-muted/40 p-4 text-center text-sm text-muted-foreground">
                       Losse bouwstenen die de klant in het portaal aan- of uitzet. Bijvoorbeeld &ldquo;Twitch-embed&rdquo;, &ldquo;Basis SEO&rdquo; of &ldquo;Technisch onderhoud &euro; 15 per maand&rdquo;. Zet een prijs bij eenmalig, bij abonnement, of allebei.
                     </div>
                   ) : (
                     options.map((option, index) => {
                       const moduleKind = option.required ? "verplicht" : option.defaultSelected ? "standaard" : "optioneel";
                       return (
-                        <div key={option.id} className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
+                        <div key={option.id} className="rounded-xl border border-border bg-card p-3 space-y-3">
                           <div className="flex items-start gap-2">
                             <Input
                               value={option.t}
@@ -2554,7 +2756,7 @@ export function QuoteBuilder({
 
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <Label className="text-[11px] text-slate-500">In het portaal</Label>
+                              <Label className="text-sm text-muted-foreground">In het portaal</Label>
                               <Select
                                 value={moduleKind}
                                 onValueChange={(value) =>
@@ -2564,7 +2766,7 @@ export function QuoteBuilder({
                                   })
                                 }
                               >
-                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="optioneel">Optioneel (uit)</SelectItem>
                                   <SelectItem value="standaard">Standaard aangevinkt</SelectItem>
@@ -2573,11 +2775,11 @@ export function QuoteBuilder({
                               </Select>
                             </div>
                             <div>
-                              <Label className="text-[11px] text-slate-500">Label</Label>
+                              <Label className="text-sm text-muted-foreground">Label</Label>
                               <Input
                                 value={option.tag ?? ""}
                                 onChange={(e) => updateModule(index, { tag: e.target.value })}
-                                className="h-8 text-xs"
+                                className="h-8 text-sm"
                                 placeholder="Optioneel"
                               />
                             </div>
@@ -2585,33 +2787,33 @@ export function QuoteBuilder({
 
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <Label className="text-[11px] text-slate-500">Eenmalig &euro; excl. btw</Label>
+                              <Label className="text-sm text-muted-foreground">Eenmalig &euro; excl. btw</Label>
                               <Input
                                 type="number"
                                 min="0"
                                 step="0.01"
                                 value={option.price ?? ""}
                                 onChange={(e) => updateModule(index, { price: e.target.value === "" ? null : Number(e.target.value) })}
-                                className="h-8 text-xs"
+                                className="h-8 text-sm"
                                 placeholder="Op aanvraag"
                               />
                             </div>
                             <div>
-                              <Label className="text-[11px] text-slate-500">BTW %</Label>
+                              <Label className="text-sm text-muted-foreground">BTW %</Label>
                               <Input
                                 type="number"
                                 min="0"
                                 max="100"
                                 value={option.vatRate}
                                 onChange={(e) => updateModule(index, { vatRate: Number(e.target.value) })}
-                                className="h-8 text-xs"
+                                className="h-8 text-sm"
                               />
                             </div>
                           </div>
 
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <Label className="text-[11px] text-slate-500">Abonnement</Label>
+                              <Label className="text-sm text-muted-foreground">Abonnement</Label>
                               <Select
                                 value={option.recurringInterval ?? "geen"}
                                 onValueChange={(value) =>
@@ -2621,7 +2823,7 @@ export function QuoteBuilder({
                                   })
                                 }
                               >
-                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="geen">Geen abonnement</SelectItem>
                                   <SelectItem value="maand">Per maand</SelectItem>
@@ -2631,14 +2833,14 @@ export function QuoteBuilder({
                             </div>
                             {option.recurringInterval && (
                               <div>
-                                <Label className="text-[11px] text-slate-500">Bedrag &euro; excl. btw</Label>
+                                <Label className="text-sm text-muted-foreground">Bedrag &euro; excl. btw</Label>
                                 <Input
                                   type="number"
                                   min="0"
                                   step="0.01"
                                   value={option.recurringPrice ?? ""}
                                   onChange={(e) => updateModule(index, { recurringPrice: e.target.value === "" ? null : Number(e.target.value) })}
-                                  className="h-8 text-xs"
+                                  className="h-8 text-sm"
                                   placeholder="0,00"
                                 />
                               </div>
@@ -2646,12 +2848,12 @@ export function QuoteBuilder({
                           </div>
 
                           <div>
-                            <Label className="text-[11px] text-slate-500">Details, &eacute;&eacute;n regel per punt</Label>
+                            <Label className="text-sm text-muted-foreground">Details, &eacute;&eacute;n regel per punt</Label>
                             <Textarea
                               value={(option.details ?? []).join("\n")}
                               onChange={(e) => updateModule(index, { details: e.target.value.split("\n").map((line) => line.trim()).filter(Boolean) })}
                               rows={2}
-                              className="resize-none text-xs"
+                              className="resize-none text-sm"
                               placeholder={"Inclusief installatie\nInclusief korte uitleg"}
                             />
                           </div>
@@ -2659,7 +2861,7 @@ export function QuoteBuilder({
                           <Input
                             value={option.technicalCondition ?? ""}
                             onChange={(e) => updateModule(index, { technicalCondition: e.target.value })}
-                            className="h-8 text-xs"
+                            className="h-8 text-sm"
                             placeholder="Technische voorwaarde (optioneel)"
                           />
                         </div>
@@ -2670,14 +2872,44 @@ export function QuoteBuilder({
               </Card>
             </TabsContent>
 
+            <TabsContent value="pagina" className="space-y-6">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-bold">Welke secties tonen</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="mb-3 text-sm leading-relaxed text-muted-foreground">
+                    Zet uit wat deze offerte niet nodig heeft. De inhoud blijft bewaard, dus je kunt een
+                    sectie later weer aanzetten zonder opnieuw te schrijven.
+                  </p>
+                  <SectionToggles
+                    hidden={hiddenSections}
+                    onChange={setHiddenSections}
+                    beschikbaar={{
+                      content: (initialQuote?.contentBlocks?.length ?? 0) > 0,
+                      approach: approach.length > 0,
+                      visuals: attachments.length > 0,
+                      modules: options.length > 0,
+                      terms: exclusions.length > 0 || assumptions.length > 0 || technicalNotes.length > 0,
+                      sources: Array.isArray((batteryAdvice as { sources?: unknown[] })?.sources)
+                        && ((batteryAdvice as { sources?: unknown[] }).sources?.length ?? 0) > 0,
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="media" className="space-y-6">
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-bold flex items-center justify-between">
                     Afbeeldingen en ontwerpen
                     <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={() => void openMediaPicker()} className="h-8">
+                        <ImageIcon className="mr-1 h-3 w-3" /> Bestaand kiezen
+                      </Button>
                       <label
-                        className={`inline-flex h-8 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-xs font-medium shadow-xs transition-colors hover:bg-slate-50 ${
+                        className={`inline-flex h-8 cursor-pointer items-center justify-center rounded-md border border-border bg-card px-3 text-sm font-medium shadow-xs transition-colors hover:bg-muted/40 ${
                           uploadingAttachment ? "pointer-events-none opacity-60" : ""
                         }`}
                       >
@@ -2732,22 +2964,22 @@ export function QuoteBuilder({
                   }
                 >
                   {attachments.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
-                      Sleep afbeeldingen hierheen, plak een screenshot met Ctrl+V of gebruik Uploaden. Kies daarna bij welke sectie de afbeelding hoort; hij komt onderaan die pagina in de vrije ruimte.
+                    <div className="rounded-lg border border-dashed border-border bg-muted/40 p-4 text-center text-sm text-muted-foreground">
+                      Upload afbeeldingen, kies eerder gebruikte bestanden of plak een screenshot met Ctrl+V. Je kunt een afbeelding onder een onderdeel plaatsen of op een eigen pagina zetten.
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <p className="text-xs leading-relaxed text-slate-500">
-                        Kies per afbeelding bij welke sectie hij hoort. Hij staat dan onderaan die pagina en schaalt automatisch mee, zodat de opmaak altijd heel blijft.
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        Kies per afbeelding waar hij in de offerte komt. Een eigen pagina wordt automatisch toegevoegd. Grote uploads worden vóór opslag verkleind.
                       </p>
                       {attachments.map((attachment) => (
-                        <div key={attachment.id} className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+                        <div key={attachment.id} className="rounded-lg border border-border bg-card p-3 space-y-2">
                           {attachment.imageUrl && (
                             // eslint-disable-next-line @next/next/no-img-element -- directe preview van een upload/blob-URL
                             <img
                               src={attachment.imageUrl}
                               alt=""
-                              className="h-28 w-full rounded-md border border-slate-200 object-cover"
+                              className="h-28 w-full rounded-md border border-border object-cover"
                             />
                           )}
                           <div className="flex items-center gap-2">
@@ -2755,47 +2987,47 @@ export function QuoteBuilder({
                               value={attachment.title}
                               onChange={(e) => updateAttachment(attachment.id, { title: e.target.value })}
                               placeholder="Titel (bijv. Homepagina)"
-                              className="h-8 text-sm flex-1"
+                              className="h-8 flex-1 !bg-card !text-foreground placeholder:!text-muted-foreground"
                             />
                             <Button size="icon" variant="ghost" onClick={() => removeAttachment(attachment.id)} className="h-8 w-8 text-red-500 shrink-0">
                               <X className="h-4 w-4" />
                             </Button>
                           </div>
                           <fieldset className="space-y-2">
-                            <legend className="text-xs font-medium text-slate-700">Plaatsing in de offerte</legend>
+                                <legend className="text-sm font-medium !text-foreground">Plaatsing in de offerte</legend>
                             <div className="grid grid-cols-2 gap-2">
                               <button
                                 type="button"
                                 onClick={() => updateAttachment(attachment.id, { section: "intro" })}
-                                className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                                className={`rounded-md border px-3 py-2 text-left text-sm transition-colors ${
                                   attachment.section !== "eigen-pagina"
-                                    ? "border-violet-300 bg-violet-50 text-violet-950 ring-1 ring-violet-200"
-                                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                    ? "border-primary/25 bg-primary/10 text-primary ring-1 ring-primary/25"
+                                    : "border-border !bg-card !text-foreground hover:bg-muted/40"
                                 }`}
                               >
                                 <span className="block font-semibold">In de offerte</span>
-                                <span className="block text-[11px] opacity-75">Onder een gekozen onderdeel</span>
+                                <span className="block text-sm opacity-75">Onder een gekozen onderdeel</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => updateAttachment(attachment.id, { section: "eigen-pagina" })}
-                                className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                                className={`rounded-md border px-3 py-2 text-left text-sm transition-colors ${
                                   attachment.section === "eigen-pagina"
-                                    ? "border-violet-300 bg-violet-50 text-violet-950 ring-1 ring-violet-200"
-                                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                    ? "border-primary/25 bg-primary/10 text-primary ring-1 ring-primary/25"
+                                    : "border-border !bg-card !text-foreground hover:bg-muted/40"
                                 }`}
                               >
                                 <span className="block font-semibold">Eigen ontwerppagina</span>
-                                <span className="block text-[11px] opacity-75">Groot, met uitleg en link</span>
+                                <span className="block text-sm opacity-75">Groot, met uitleg en link</span>
                               </button>
                             </div>
                             {attachment.section !== "eigen-pagina" && (
-                              <label className="flex items-center gap-2 text-xs text-slate-600">
+                              <label className="flex items-center gap-2 text-sm !text-foreground">
                                 <span className="shrink-0">Onderdeel</span>
                                 <select
                                   value={ATTACHMENT_INLINE_SECTIONS.some((option) => option.value === attachment.section) ? attachment.section : "intro"}
                                   onChange={(e) => updateAttachment(attachment.id, { section: e.target.value })}
-                                  className="h-8 flex-1 rounded-md border border-slate-200 bg-white px-2 text-sm"
+                                  className="h-8 flex-1 rounded-md border border-border !bg-card px-2 text-sm !text-foreground"
                                 >
                                   {ATTACHMENT_INLINE_SECTIONS.map((option) => (
                                     <option key={option.value} value={option.value}>{option.label.replace("Bij ", "")}</option>
@@ -2809,19 +3041,19 @@ export function QuoteBuilder({
                             onChange={(e) => updateAttachment(attachment.id, { imageUrl: e.target.value })}
                             placeholder={attachment.storageRef ? "Opgeslagen in S3" : "Afbeelding URL (screenshot of https://...)"}
                             disabled={Boolean(attachment.storageRef)}
-                            className="h-8 text-xs font-mono"
+                            className="h-8 font-mono !bg-card !text-foreground placeholder:!text-muted-foreground"
                           />
                           <Input
                             value={attachment.liveUrl}
                             onChange={(e) => updateAttachment(attachment.id, { liveUrl: e.target.value })}
                             placeholder="Live URL — klikbaar in de offerte (optioneel)"
-                            className="h-8 text-xs font-mono"
+                            className="h-8 font-mono !bg-card !text-foreground placeholder:!text-muted-foreground"
                           />
                           <Input
                             value={attachment.caption}
                             onChange={(e) => updateAttachment(attachment.id, { caption: e.target.value })}
                             placeholder="Bijschrift (optioneel)"
-                            className="h-8 text-sm"
+                            className="h-8 !bg-card !text-foreground placeholder:!text-muted-foreground"
                           />
                         </div>
                       ))}
@@ -2844,16 +3076,16 @@ export function QuoteBuilder({
                   </CardHeader>
                   <CardContent>
                     {documents.length === 0 ? (
-                      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
+                      <div className="rounded-lg border border-dashed border-border bg-muted/40 p-4 text-center text-sm text-muted-foreground">
                         Koppel een datasheet of brochure van een artikel (upload die eerst bij het artikel in Beheer &rarr; Artikelen).
                       </div>
                     ) : (
                       <div className="space-y-2">
                         {documents.map((doc) => (
-                          <div key={doc.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
+                          <div key={doc.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium">{doc.productDocument.name}</p>
-                              <p className="text-xs text-slate-400">
+                              <p className="text-sm text-muted-foreground">
                                 {doc.productDocument.type === "BROCHURE" ? "Brochure" : "Datasheet"}
                               </p>
                             </div>
@@ -2878,6 +3110,30 @@ export function QuoteBuilder({
             </TabsContent>
           </Tabs>
 
+          <Dialog open={mediaPickerOpen} onOpenChange={setMediaPickerOpen}>
+            <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+              <DialogHeader>
+                <DialogTitle>Afbeelding kiezen</DialogTitle>
+                <DialogDescription>Kies een eerder geüploade afbeelding om aan deze offerte toe te voegen.</DialogDescription>
+              </DialogHeader>
+              {mediaPickerLoading ? (
+                <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>
+              ) : availableQuoteImages.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">Er zijn nog geen opgeslagen afbeeldingen.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 overflow-y-auto sm:grid-cols-3">
+                  {availableQuoteImages.map((image) => (
+                    <button key={image.url} type="button" onClick={() => selectExistingMedia(image)} className="overflow-hidden rounded-lg border border-border bg-card text-left hover:border-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- signed media preview URL */}
+                      <img src={image.previewUrl} alt="" className="h-28 w-full object-cover" />
+                      <span className="block truncate px-2 py-2 text-sm font-medium text-foreground">{image.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
           <Dialog open={docPickerOpen} onOpenChange={setDocPickerOpen}>
             <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
               <DialogHeader>
@@ -2891,7 +3147,7 @@ export function QuoteBuilder({
               />
               <div className="flex-1 overflow-y-auto space-y-1">
                 {docPickerLoading ? (
-                  <div className="py-8 text-center text-sm text-slate-400">Laden...</div>
+                  <div className="py-8 text-center text-sm text-muted-foreground">Laden...</div>
                 ) : (
                   (() => {
                     const q = docPickerQuery.trim().toLowerCase();
@@ -2901,17 +3157,17 @@ export function QuoteBuilder({
                         (!q || d.name.toLowerCase().includes(q) || d.productName.toLowerCase().includes(q)),
                     );
                     if (filtered.length === 0) {
-                      return <div className="py-8 text-center text-sm text-slate-400">Geen documenten gevonden.</div>;
+                      return <div className="py-8 text-center text-sm text-muted-foreground">Geen documenten gevonden.</div>;
                     }
                     return filtered.map((d) => (
                       <button
                         key={d.id}
                         type="button"
                         onClick={() => attachDocument(d.id)}
-                        className="w-full rounded-md p-2 text-left text-sm hover:bg-slate-100"
+                        className="w-full rounded-md p-2 text-left text-sm hover:bg-muted"
                       >
                         <span className="block font-medium">{d.name}</span>
-                        <span className="block text-xs text-slate-400">{d.productName} · {d.type === "BROCHURE" ? "Brochure" : "Datasheet"}</span>
+                        <span className="block text-sm text-muted-foreground">{d.productName} · {d.type === "BROCHURE" ? "Brochure" : "Datasheet"}</span>
                       </button>
                     ));
                   })()
@@ -2933,7 +3189,7 @@ export function QuoteBuilder({
               />
               <div className="flex-1 overflow-y-auto space-y-1">
                 {calcPickerLoading ? (
-                  <div className="py-8 text-center text-sm text-slate-400">Laden...</div>
+                  <div className="py-8 text-center text-sm text-muted-foreground">Laden...</div>
                 ) : (
                   (() => {
                     const q = calcPickerQuery.trim().toLowerCase();
@@ -2945,17 +3201,17 @@ export function QuoteBuilder({
                         (c.customerName ?? "").toLowerCase().includes(q),
                     );
                     if (filtered.length === 0) {
-                      return <div className="py-8 text-center text-sm text-slate-400">Geen calculaties gevonden.</div>;
+                      return <div className="py-8 text-center text-sm text-muted-foreground">Geen calculaties gevonden.</div>;
                     }
                     return filtered.map((c) => (
                       <button
                         key={c.id}
                         type="button"
                         onClick={() => linkExistingCalculation(c.id)}
-                        className="w-full rounded-md p-2 text-left text-sm hover:bg-slate-100"
+                        className="w-full rounded-md p-2 text-left text-sm hover:bg-muted"
                       >
                         <span className="block font-medium">{c.number} · {c.title}</span>
-                        {c.customerName && <span className="block text-xs text-slate-400">{c.customerName}</span>}
+                        {c.customerName && <span className="block text-sm text-muted-foreground">{c.customerName}</span>}
                       </button>
                     ));
                   })()
@@ -2964,29 +3220,13 @@ export function QuoteBuilder({
             </DialogContent>
           </Dialog>
 
-          <Card className={`relative overflow-hidden border-none text-white shadow-xl ${isKoolhaas ? "bg-[#08111f]" : "bg-[#06040c]"}`}>
-            <div className="pointer-events-none absolute inset-0">
-              {isKoolhaas ? (
-                <>
-                  <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#1f9ba3]/45 blur-3xl" />
-                  <div className="absolute left-1/2 -top-20 h-44 w-44 -translate-x-1/2 rounded-full bg-[#1f7295]/35 blur-3xl" />
-                  <div className="absolute -bottom-20 -left-16 h-44 w-44 rounded-full bg-[#5bbfb0]/30 blur-3xl" />
-                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1f9ba3] via-[#1f7295] to-[#5bbfb0]" />
-                </>
-              ) : (
-                <>
-                  <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-orange-500/45 blur-3xl" />
-                  <div className="absolute left-1/2 -top-20 h-44 w-44 -translate-x-1/2 rounded-full bg-pink-500/35 blur-3xl" />
-                  <div className="absolute -bottom-20 -left-16 h-44 w-44 rounded-full bg-purple-400/30 blur-3xl" />
-                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500 via-pink-500 to-purple-400" />
-                </>
-              )}
-            </div>
-            <CardContent className="relative z-10 space-y-4 pt-6">
+          <Card className="relative border-border bg-muted/40 py-4">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5" style={{ backgroundColor: branding?.accentColor || "#ec4899" }} />
+            <CardContent className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">Totale investering</p>
+                <p className="text-sm font-medium text-muted-foreground">Totale investering</p>
                 <Select value={priceDisplayMode} onValueChange={(value) => setPriceDisplayMode(value as "incl" | "excl")}>
-                  <SelectTrigger className="h-8 w-[118px] border-white/15 bg-white/10 px-3 text-xs font-bold text-white shadow-none focus:ring-white/30">
+                  <SelectTrigger className="h-8 w-[118px] text-sm" aria-label="Prijs inclusief of exclusief btw">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -2996,13 +3236,14 @@ export function QuoteBuilder({
                 </Select>
               </div>
               <div className="flex flex-wrap items-baseline gap-2">
-                <span className="text-3xl font-black tracking-tight text-white">{formatCurrency(displayedTotal)}</span>
-                <span className="text-xs font-bold text-white/65">
+                <span className="text-3xl font-semibold tracking-tight tabular-nums text-foreground">{formatCurrency(displayedTotal)}</span>
+                <span className="text-sm text-muted-foreground">
                   {choiceGroups.length > 0 ? "bij aanbevolen/goedkoopste keuze · " : ""}{priceDisplayMode === "incl" ? "incl. btw" : "excl. btw"}
                 </span>
               </div>
             </CardContent>
           </Card>
+            </div>
         </aside>
       </div>
     </div>

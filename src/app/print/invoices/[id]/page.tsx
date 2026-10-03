@@ -1,18 +1,29 @@
+import "@/app/q/[token]/portal.css";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { PrintOnLoad } from "@/components/print-on-load";
-import { formatCurrency, formatDate, INVOICE_STATUS_LABELS } from "@/lib/format";
+import { InvoicePdfDownload } from "@/components/invoices/invoice-pdf-download";
+import { getInvoiceSettings } from "@/lib/branding";
+import { formatCurrency, formatDate } from "@/lib/format";
+import { invoiceCustomerPaymentUrl } from "@/lib/mollie-invoice-validation";
+import * as QRCode from "qrcode";
+
+/**
+ * Factuur in dezelfde huisstijl als de offerte: dezelfde portal.css, dezelfde
+ * kleurverlopen, logo's, koppen, tabel en voettekst. Verander je het
+ * offertedesign, dan beweegt de factuur mee.
+ */
+const BRAND = {
+  websup: { website: "websup.nl", email: "info@websup.nl", phone: "06 82 20 21 48" },
+  koolhaas: { website: "koolhaasinstallaties.nl", email: "info@koolhaasinstallaties.nl", phone: "06 82 20 21 48" },
+} as const;
 
 export default async function InvoicePrintPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ auto?: string }>;
 }) {
   const { id } = await params;
-  const { auto } = await searchParams;
   const session = await auth();
   const companyId = session?.user?.activeCompanyId;
   if (!companyId) notFound();
@@ -28,6 +39,10 @@ export default async function InvoicePrintPage({
   });
   if (!invoice) notFound();
 
+  const isKoolhaas = invoice.company.slug === "koolhaas";
+  const brand = isKoolhaas ? BRAND.koolhaas : BRAND.websup;
+  const s = getInvoiceSettings(invoice.company.settings);
+
   // Btw groeperen per tarief voor de specificatie.
   const vatGroups = new Map<number, { base: number; vat: number }>();
   for (const l of invoice.lines) {
@@ -39,114 +54,252 @@ export default async function InvoicePrintPage({
     vatGroups.set(rate, g);
   }
   const c = invoice.customer;
+  const paid = invoice.status === "BETAALD";
+  const livePaymentUrl = invoiceCustomerPaymentUrl(invoice);
+  const paymentQr = livePaymentUrl
+    ? await QRCode.toDataURL(livePaymentUrl, { errorCorrectionLevel: "M", margin: 3, width: 360 })
+    : null;
+  const qty = (n: number) => n.toLocaleString("nl-NL", { maximumFractionDigits: 2 });
+  const missing = <span className="inv-warn">ontbreekt</span>;
 
   return (
-    <main className="inv-print">
-      <PrintOnLoad enabled={auto === "1"} />
+    <main className="print-document-page">
       <style>{`
-        .inv-print { font-family: Arial, Helvetica, sans-serif; color: #111827; max-width: 800px; margin: 0 auto; padding: 40px; font-size: 13px; }
-        .inv-print h1 { font-size: 22px; margin: 0; }
-        .inv-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111827; padding-bottom: 16px; margin-bottom: 20px; }
-        .inv-meta { text-align: right; font-size: 12px; color: #374151; }
-        .inv-meta div { margin-bottom: 2px; }
-        .inv-grid { display: flex; justify-content: space-between; gap: 40px; margin-bottom: 24px; }
-        .inv-grid h3 { font-size: 11px; text-transform: uppercase; color: #6b7280; margin: 0 0 4px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-        th { text-align: left; font-size: 11px; text-transform: uppercase; color: #6b7280; border-bottom: 1px solid #d1d5db; padding: 6px 4px; }
-        td { padding: 6px 4px; border-bottom: 1px solid #f3f4f6; }
-        .num { text-align: right; white-space: nowrap; }
-        .inv-totals { display: flex; justify-content: flex-end; }
-        .inv-totals table { width: 280px; }
-        .inv-totals td { border: none; padding: 3px 4px; }
-        .inv-totals .grand { font-weight: bold; font-size: 15px; border-top: 2px solid #111827; padding-top: 8px; }
-        .inv-notes { margin-top: 24px; color: #374151; white-space: pre-wrap; }
-        @media print { .inv-print { padding: 20px; } }
+        .inv-toolbar { width: 210mm; margin: 20px auto 16px; display: flex; justify-content: flex-end; gap: 8px; font-family: var(--font-body), system-ui, sans-serif; }
+        .inv-toolbar a, .inv-toolbar button { border: 0; border-radius: 9999px; padding: 10px 18px; font-weight: 700; font-size: 16px; cursor: pointer; text-decoration: none; background: #fff; color: #0b1526; box-shadow: inset 0 0 0 1px rgba(11,21,38,.14); display: inline-flex; align-items: center; gap: 8px; }
+        .inv-toolbar button { background: #0b1526; color: #fff; box-shadow: none; }
+
+        .sheet.inv-sheet { height: auto; min-height: 297mm; overflow: visible; }
+        .inv-sheet .pad { min-height: 297mm; height: auto; }
+        .inv-sheet .bar { height: 6px; }
+
+        .inv-hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin: 18px 0 22px; }
+        .inv-hero > :first-child { min-width: 0; }
+        .inv-h1 { font: 800 64px/.9 var(--display); letter-spacing: -.04em; margin: 8px 0 0; padding-bottom: 4px;
+          background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .inv-meta { margin: 0; display: grid; grid-template-columns: auto max-content; gap: 4px 16px; font-size: 16px; padding-left: 16px; border-left: 1px solid var(--border-str); flex: none; }
+        .inv-meta dt { color: var(--on-s); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 13px; align-self: center; }
+        .inv-meta dd { margin: 0; color: var(--on); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+        .inv-parties { margin-bottom: 24px; }
+        .inv-party { width: min(100%, 390px); box-sizing: border-box; background: var(--surface-in); border-radius: var(--r-lg); padding: 16px 18px; font-size: 16px; color: var(--on-m); line-height: 1.5; white-space: pre-line; }
+        .inv-party small { display: block; font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+        .inv-party b { display: block; font: 800 18px/1.2 var(--display); color: var(--on); margin-bottom: 4px; letter-spacing: -.01em; }
+        .inv-sheet .doc-foot-meta { margin-left: auto; max-width: 100%; }
+        .inv-sheet .doc-foot-meta-row { justify-content: flex-end; flex-wrap: wrap; }
+        .inv-sheet .doc-foot-meta-row span { white-space: normal; overflow-wrap: anywhere; }
+
+        .inv-table { width: 100%; border-collapse: collapse; font-size: 16px; }
+        .inv-table th { padding: 8px 10px; text-align: left; font: 800 13px/1 var(--text); letter-spacing: .1em; text-transform: uppercase; color: var(--on-m); border-bottom: 1px solid var(--border-str); }
+        .inv-table td { padding: 11px 10px; border-bottom: 1px solid var(--border); color: var(--on); line-height: 1.4; vertical-align: top; }
+        .inv-table th:first-child, .inv-table td:first-child { padding-left: 16px; }
+        .inv-table th:last-child, .inv-table td:last-child { padding-right: 16px; }
+        .inv-table tbody tr { break-inside: avoid; }
+        .inv-desc { white-space: pre-line; color: var(--on-m); }
+        .inv-desc::first-line { color: var(--on); font-weight: 700; }
+        .inv-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .inv-soft { color: var(--on-s); }
+        .inv-table th.inv-num { text-align: right; }
+        .inv-table tfoot td { border: 0; padding-top: 6px; padding-bottom: 6px; font-variant-numeric: tabular-nums; }
+        .inv-table tfoot .inv-first td { padding-top: 16px; }
+        .inv-table tfoot .grand-total td { padding-top: 14px; padding-bottom: 14px; font: 800 20px/1 var(--display); background: var(--accent-bg); color: var(--on); }
+
+        .inv-pay { margin-top: 22px; display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center;
+          background: var(--grad-soft); border-radius: var(--r-lg); padding: 18px 20px; break-inside: avoid; }
+        .inv-pay p { margin: 8px 0 0; font-size: 16px; color: var(--on-m); line-height: 1.5; }
+        .inv-pay-online { grid-template-columns: minmax(0, 1fr) auto; }
+        .inv-pay-online p { font-size: 16px; }
+        .inv-pay-link { display: inline-block; margin-top: 12px; border-radius: 9999px; padding: 13px 20px; background: var(--on); color: #fff !important;
+          font: 800 16px/1.2 var(--text); text-decoration: none; white-space: nowrap; }
+        .inv-pay-url { display: block; margin-top: 9px; font-size: 14px; color: var(--on-m); overflow-wrap: anywhere; }
+        .inv-pay-qr-wrap { margin: 0; text-align: center; }
+        .inv-pay-qr { width: 108px; height: 108px; background: #fff; border-radius: 8px; flex: none; }
+        .inv-pay-qr-wrap figcaption { margin-top: 4px; font-size: 14px; color: var(--on-m); white-space: nowrap; }
+        .inv-pay-pending { display: block; }
+        .inv-pay-pending p { color: var(--on); font-weight: 700; }
+        .inv-notes { margin-top: 18px; font-size: 16px; color: var(--on-m); white-space: pre-line; line-height: 1.55; }
+        .inv-custom { margin-top: auto; padding: 18px 0 10px; font-size: 14px; color: var(--on-s); white-space: pre-line; }
+        .inv-sheet .doc-foot-meta { font-size: 14px; }
+        .inv-stamp { position: absolute; top: 150px; right: 64px; transform: rotate(-8deg); border: 3px solid #12b76a; color: #12b76a;
+          font: 800 28px/1 var(--display); letter-spacing: .14em; padding: 8px 18px; border-radius: 10px; opacity: .85; }
+        .inv-warn { color: #d92d20; font-weight: 700; }
+        @media screen and (max-width: 820px) { .inv-toolbar { width: auto; margin: 12px; } }
+        @media print {
+          .inv-toolbar { display: none; }
+          /* De gedeelde offerte-styles bevatten later ook mobiele regels.
+             Print altijd op de echte A4-breedte, ongeacht de viewport. */
+          .print-document-page .portal-container,
+          .print-document-page .doc-viewer {
+            width: 210mm !important;
+            min-width: 210mm !important;
+            max-width: none !important;
+            overflow: visible !important;
+          }
+          .print-document-page .sheet.inv-sheet {
+            width: 210mm !important;
+            min-width: 210mm !important;
+            max-width: none !important;
+            height: auto !important;
+            min-height: 297mm !important;
+            margin: 0 !important;
+            break-after: auto !important;
+          }
+          .print-document-page .inv-sheet .pad {
+            width: 210mm !important;
+            max-width: none !important;
+            min-height: 297mm !important;
+            height: auto !important;
+            padding: 15mm 16mm 12mm !important;
+            box-sizing: border-box;
+          }
+          .inv-sheet * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
       `}</style>
 
-      <div className="inv-head">
-        <div>
-          <h1>Factuur</h1>
-          <p style={{ margin: "4px 0 0", color: "#374151" }}>{invoice.company.name}</p>
-        </div>
-        <div className="inv-meta">
-          <div><strong>{invoice.number}</strong></div>
-          <div>{INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}</div>
-          <div>Factuurdatum: {formatDate(invoice.invoiceDate)}</div>
-          {invoice.dueDate && <div>Vervaldatum: {formatDate(invoice.dueDate)}</div>}
-          {invoice.reference && <div>Referentie: {invoice.reference}</div>}
+      <div className="inv-toolbar">
+        <a href={`/invoices/${invoice.id}`}>Terug naar bewerken</a>
+        <InvoicePdfDownload invoiceId={invoice.id} toolbar />
+      </div>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `document.title=${JSON.stringify(`Factuur ${invoice.number} - ${c?.name ?? ""}`)};`,
+        }}
+      />
+
+      <div className={`portal-container ${isKoolhaas ? "portal-koolhaas" : "portal-websup"}`} style={{ minHeight: "auto", backgroundColor: "transparent" }}>
+        <div className="doc-viewer" style={{ paddingBottom: 0 }}>
+          <section className="sheet inv-sheet">
+            <div className="bar"></div>
+            {paid && <div className="inv-stamp">BETAALD</div>}
+            <div className="pad">
+              <div className="ph">
+                {isKoolhaas ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout, zelfde als de offerte
+                  <img src="/logos/koolhaas-logo-tight.png" alt="Koolhaas Installaties" className="brand-logo" />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout, zelfde als de offerte
+                  <img src="/logos/websup-cover.png" alt="WebsUp" className="brand-logo" />
+                )}
+                <div className="ph-meta">
+                  {invoice.number} &nbsp;&middot;&nbsp; {c?.name ?? "Klant"}
+                </div>
+              </div>
+
+              <div className="inv-hero">
+                <div>
+                  <span className="eyebrow">{invoice.project ? invoice.project.title : isKoolhaas ? "Installatie" : "Diensten"}</span>
+                  <h1 className="inv-h1">Factuur</h1>
+                </div>
+                <dl className="inv-meta">
+                  <dt>Factuurnummer</dt><dd>{invoice.number}</dd>
+                  <dt>Factuurdatum</dt><dd>{formatDate(invoice.invoiceDate)}</dd>
+                  {invoice.dueDate && <><dt>Vervaldatum</dt><dd>{formatDate(invoice.dueDate)}</dd></>}
+                  {invoice.project && <><dt>Project</dt><dd>{invoice.project.number}</dd></>}
+                </dl>
+              </div>
+
+              <div className="inv-parties">
+                <div className="inv-party">
+                  <small>Factuur aan</small>
+                  <b>{c?.name ?? "—"}</b>
+                  {[c?.address, [c?.zipCode, c?.city].filter(Boolean).join(" ")].filter(Boolean).join("\n")}
+                  {c?.kvk ? `\nKvK ${c.kvk}` : ""}
+                  {c?.vatNumber ? `\nBtw-id ${c.vatNumber}` : ""}
+                </div>
+              </div>
+
+              {invoice.reference && (
+                <p style={{ margin: "0 0 14px", fontSize: 16, color: "var(--on-m)" }}>
+                  <b style={{ color: "var(--on)" }}>Betreft:</b> {invoice.reference}
+                </p>
+              )}
+
+              <table className="inv-table">
+                <thead>
+                  <tr>
+                    <th>Omschrijving</th>
+                    <th className="inv-num">Aantal</th>
+                    <th className="inv-num">Prijs</th>
+                    <th className="inv-num">Btw</th>
+                    <th className="inv-num">Bedrag</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoice.lines.map((l) => (
+                    <tr key={l.id}>
+                      <td className="inv-desc">{l.description}</td>
+                      <td className="inv-num">{qty(Number(l.qty))} <span className="inv-soft">{l.unit ?? ""}</span></td>
+                      <td className="inv-num">{formatCurrency(Number(l.unitPrice))}</td>
+                      <td className="inv-num inv-soft">{Number(l.vatRate)}%</td>
+                      <td className="inv-num">{formatCurrency(Number(l.qty) * Number(l.unitPrice))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="inv-first">
+                    <td colSpan={4} className="inv-num inv-soft">Subtotaal excl. btw</td>
+                    <td className="inv-num">{formatCurrency(Number(invoice.totalExVat))}</td>
+                  </tr>
+                  {[...vatGroups.entries()].sort((a, b) => b[0] - a[0]).map(([rate, g]) => (
+                    <tr key={rate}>
+                      <td colSpan={4} className="inv-num inv-soft">Btw {rate}% over {formatCurrency(g.base)}</td>
+                      <td className="inv-num">{formatCurrency(g.vat)}</td>
+                    </tr>
+                  ))}
+                  <tr className="grand-total">
+                    <td colSpan={4} className="inv-num">{paid ? "Totaal betaald" : "Te betalen"}</td>
+                    <td className="inv-num">{formatCurrency(Number(invoice.totalIncVat))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+
+              <div className={`inv-pay${livePaymentUrl ? " inv-pay-online" : " inv-pay-pending"}`}>
+                <div>
+                  <span className="eyebrow">{paid ? "Betaald" : "Betalen"}</span>
+                  {paid ? (
+                    <p>Deze factuur is betaald. Bedankt!</p>
+                  ) : livePaymentUrl ? (
+                    <>
+                      <p>Betaal deze factuur via Mollie{invoice.dueDate ? <> vóór <b>{formatDate(invoice.dueDate)}</b></> : ` binnen ${s.paymentDays} dagen`}.</p>
+                      <a className="inv-pay-link" href={livePaymentUrl}>Betaal online</a>
+                      <span className="inv-pay-url">{livePaymentUrl}</span>
+                    </>
+                  ) : (
+                    <p>Online betalen is nog niet beschikbaar. Deze factuur is niet klaar om naar de klant te sturen.</p>
+                  )}
+                </div>
+                {paymentQr && (
+                  <figure className="inv-pay-qr-wrap">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- QR-data-URL moet exact in de PDF worden afgedrukt */}
+                    <img className="inv-pay-qr" src={paymentQr} alt="QR-code om deze factuur via Mollie te betalen" />
+                    <figcaption>Scan om te betalen</figcaption>
+                  </figure>
+                )}
+              </div>
+
+              {invoice.notes && <div className="inv-notes">{invoice.notes}</div>}
+              <div className="inv-custom">{s.footer}</div>
+
+              <div className="doc-foot">
+                <div className="doc-foot-meta">
+                  <div className="doc-foot-meta-row">
+                    <span>{s.address ? s.address.replace(/\s+/g, " ").trim() : <span className="inv-warn">Bedrijfsadres ontbreekt</span>}</span>
+                  </div>
+                  <div className="doc-foot-meta-row">
+                    {!isKoolhaas && <span>{brand.website}</span>}
+                    <span>{brand.email}</span>
+                    <span>{brand.phone}</span>
+                  </div>
+                  <div className="doc-foot-meta-row">
+                    <span>KVK {s.kvk || missing}</span>
+                    <span>Btw-id {s.vatNumber || missing}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
-
-      <div className="inv-grid">
-        <div>
-          <h3>Factuuradres</h3>
-          <div>{c?.name ?? "—"}</div>
-          {c?.address && <div>{c.address}</div>}
-          {(c?.zipCode || c?.city) && <div>{[c?.zipCode, c?.city].filter(Boolean).join(" ")}</div>}
-          {c?.vatNumber && <div>Btw: {c.vatNumber}</div>}
-        </div>
-        {invoice.project && (
-          <div style={{ textAlign: "right" }}>
-            <h3>Project</h3>
-            <div>{invoice.project.number}</div>
-            <div>{invoice.project.title}</div>
-          </div>
-        )}
-      </div>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Omschrijving</th>
-            <th className="num">Aantal</th>
-            <th className="num">Eenheid</th>
-            <th className="num">Prijs</th>
-            <th className="num">Btw</th>
-            <th className="num">Totaal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {invoice.lines.map((l) => (
-            <tr key={l.id}>
-              <td>{l.description}</td>
-              <td className="num">{Number(l.qty)}</td>
-              <td className="num">{l.unit ?? ""}</td>
-              <td className="num">{formatCurrency(Number(l.unitPrice))}</td>
-              <td className="num">{Number(l.vatRate)}%</td>
-              <td className="num">{formatCurrency(Number(l.qty) * Number(l.unitPrice))}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <div className="inv-totals">
-        <table>
-          <tbody>
-            <tr>
-              <td>Subtotaal (excl. btw)</td>
-              <td className="num">{formatCurrency(Number(invoice.totalExVat))}</td>
-            </tr>
-            {[...vatGroups.entries()].map(([rate, g]) => (
-              <tr key={rate}>
-                <td>Btw {rate}% over {formatCurrency(g.base)}</td>
-                <td className="num">{formatCurrency(g.vat)}</td>
-              </tr>
-            ))}
-            <tr className="grand">
-              <td>Te betalen</td>
-              <td className="num">{formatCurrency(Number(invoice.totalIncVat))}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {invoice.notes && <div className="inv-notes">{invoice.notes}</div>}
-      {invoice.dueDate && (
-        <p style={{ marginTop: 24, color: "#374151" }}>
-          Gelieve het bedrag voor {formatDate(invoice.dueDate)} over te maken onder vermelding
-          van factuurnummer {invoice.number}.
-        </p>
-      )}
     </main>
   );
 }

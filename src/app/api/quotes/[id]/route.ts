@@ -10,6 +10,8 @@ import {
 } from "@/lib/quote-selection";
 import { calculateLine, calculateTotals } from "@/lib/calculation";
 import { normalizeQuoteCopyValue } from "@/lib/quote-copy";
+import { saveQuoteModules } from "@/lib/quote-modules";
+import { usesCalculationPricing } from "@/lib/quote-pricing";
 import {
   getQuoteAttachmentStorageKey,
   resolveQuoteAttachmentImages,
@@ -63,6 +65,7 @@ const schema = z.object({
   commercial: z.any().optional(),
   batteryAdvice: z.any().optional(),
   choiceGroups: z.array(quoteChoiceGroupSchema).optional(),
+  hiddenSections: z.array(z.string()).optional(),
   internalAdvice: z.string().nullable().optional(),
   items: z.array(itemSchema).optional(),
   attachments: z.array(attachmentSchema).optional(),
@@ -102,6 +105,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     select: {
       status: true,
       sentAt: true,
+      calculations: { where: { archivedAt: null }, select: { id: true } },
       choiceGroups: true,
       items: {
         orderBy: { sortOrder: "asc" },
@@ -134,15 +138,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  // Ook oudere editors kunnen previewregels terugsturen. Bij een offerte met
+  // calculatiebron mogen die nooit nieuwe losse prijsregels worden.
+  if (usesCalculationPricing(existingQuote)) {
+    delete parsed.data.items;
+    delete parsed.data.choiceGroups;
+    delete parsed.data.options;
+  }
+
   const effectiveItemCount = parsed.data.items === undefined ? existingQuote.items.length : parsed.data.items.length;
   const effectiveChoiceGroups = parsed.data.choiceGroups === undefined
     ? (Array.isArray(existingQuote.choiceGroups) ? existingQuote.choiceGroups : [])
     : parsed.data.choiceGroups;
-  if (effectiveItemCount === 0 && effectiveChoiceGroups.length === 0) {
-    return NextResponse.json({ error: "Voeg minimaal één offerteregel of configuratie toe." }, { status: 400 });
-  }
+  // Een offerte zonder losse regels is normaal geworden: de prijs komt dan uit
+  // de gekoppelde calculaties. Alleen een offerte zonder allebei is echt leeg,
+  // en dat mag als concept.
+  void effectiveItemCount;
+  void effectiveChoiceGroups;
 
-  const { items, attachments, ...rest } = parsed.data;
+  // Modules gaan naar hun eigen tabel, niet meer als blob mee in de Quote-update.
+  const { items, attachments, options, ...rest } = parsed.data;
   const attachmentPrefix = `offertes/${session.user.activeCompanyId}/`;
   if (attachments?.some((attachment) => {
     const key = getQuoteAttachmentStorageKey(attachment.imageUrl);
@@ -188,12 +203,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   }
 
-  // "Verstuurd" wordt uitsluitend gezet door een echte e-mail via de app
-  // (send-email). Handmatig de status op SENT zetten mag niet — dat zou een
-  // verzending suggereren die niet heeft plaatsgevonden.
+  // Verzending via send-email of mark-sent registreert ook nummer en historie.
+  // Een losse statuswijziging mag die registratie niet overslaan.
   if (parsed.data.status === "SENT" && existingQuote.status !== "SENT") {
     return NextResponse.json(
-      { error: "Een offerte wordt 'Verstuurd' door hem via 'Verstuur offerte' te mailen, niet handmatig." },
+      { error: "Gebruik 'Verstuur offerte' of 'Markeer als verstuurd' om verzending te registreren." },
       { status: 400 },
     );
   }
@@ -285,6 +299,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     where: { id, companyId: session.user.activeCompanyId },
     data: updateData,
   });
+
+  if (options !== undefined) {
+    await saveQuoteModules(id, options);
+  }
 
   if (isStorageConfigured() && removedAttachmentKeys.length > 0) {
     await Promise.all(

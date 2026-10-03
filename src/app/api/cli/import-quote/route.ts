@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { saveQuoteModules } from "@/lib/quote-modules";
 import { prisma } from "@/lib/prisma";
 import { validateQuoteImportInput } from "@/lib/quote-import";
-import { generateQuoteNumber } from "@/lib/format";
 import { z } from "zod";
 import { calculateLine, calculateTotals } from "@/lib/calculation";
 import { calculateQuotePriceSummary } from "@/lib/quote-selection";
+import { createDocumentProject } from "@/lib/document-project";
 
 function authorized(req: NextRequest) {
   const key = req.headers.get("x-cli-key");
@@ -90,9 +91,10 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Offertenummer genereren
-  const count = await prisma.quote.count({ where: { companyId: company.id } });
-  const number = generateQuoteNumber(company.slug, count + 1);
+  const projectId = typeof body.projectId === "string" && body.projectId !== "none" ? body.projectId : null;
+  const selectedProject = projectId ? await prisma.project.findFirst({ where: { id: projectId, companyId: company.id, customerId: customer.id } }) : null;
+  if (projectId && !selectedProject) return NextResponse.json({ error: "Kies een project van deze klant binnen dit bedrijf." }, { status: 400 });
+  const customerId = customer.id;
 
   // validUntil berekenen
   const validDays = data.validDays ?? 30;
@@ -105,12 +107,16 @@ export async function POST(req: NextRequest) {
     return { ...item, total: calculateLine(item).revenueExVat, sortOrder: i };
   });
 
-  const quote = await prisma.quote.create({
+  const quote = await prisma.$transaction(async (tx) => {
+    const project = selectedProject ?? await createDocumentProject(tx, {
+      companyId: company.id, customerId, title: data.title?.trim() || data.category?.trim() || "Nieuw voorstel",
+    });
+    const importedQuote = await tx.quote.create({
     data: {
       companyId: company.id,
-      customerId: customer.id,
+      customerId,
+      projectId: project.id,
       createdById: companyUser.userId,
-      number,
       title: data.title ?? null,
       category: data.category ?? null,
       tagline: data.tagline ?? null,
@@ -130,8 +136,6 @@ export async function POST(req: NextRequest) {
       planning: data.planning ?? {},
       commercial: data.commercial ?? {},
       batteryAdvice: data.batteryAdvice ?? {},
-      // optionalWork → options JSON
-      options: data.optionalWork ?? [],
       // configurations → choiceGroups JSON
       choiceGroups: data.configurations ?? [],
       totalExVat: "totalExVat" in totals ? totals.totalExVat : totals.revenueExVat,
@@ -155,6 +159,10 @@ export async function POST(req: NextRequest) {
       items: true,
       attachments: { orderBy: { sortOrder: "asc" } },
     },
+    });
+    // Project, offerte en modules worden samen bewaard.
+    if (data.optionalWork?.length) await saveQuoteModules(importedQuote.id, data.optionalWork, tx);
+    return importedQuote;
   });
 
   return NextResponse.json(

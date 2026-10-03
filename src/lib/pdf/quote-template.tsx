@@ -6,8 +6,15 @@ import {
   Page,
   Text,
   View,
+  Svg,
+  Defs,
+  LinearGradient,
+  Stop,
+  Rect,
 } from "@react-pdf/renderer";
 import { readFileSync } from "node:fs";
+import { getBranding, type BrandGradient, type CompanyBranding } from "@/lib/branding";
+import { quotePersonalProfile } from "@/lib/quote-personal";
 import {
   getQuoteOptionPrice,
   getQuoteOptionRecurringInterval,
@@ -58,6 +65,7 @@ type QuotePDFProps = {
   companyName: string;
   companySlug: string;
   companyTagline?: string;
+  brandOverrides?: Partial<CompanyBranding>;
   quoteNumber: string;
   quoteDate: string;
   validUntil?: string;
@@ -82,7 +90,7 @@ type QuotePDFProps = {
   acceptedAt?: string;
   flow?: { n: number; t: string; d: string }[];
   approach?: { n: string; t: string; d: string }[];
-  options?: { id?: string; t: string; d: string; tag: string; price?: number | null; recurringPrice?: number | null; recurringInterval?: "maand" | "jaar" | null; vatRate?: number; defaultSelected?: boolean; details?: string[] }[];
+  options?: { id?: string; t: string; d: string; tag: string; price?: number | null; recurringPrice?: number | null; recurringInterval?: "maand" | "kwartaal" | "jaar" | null; vatRate?: number; defaultSelected?: boolean; details?: string[] }[];
   selectedOptionIds?: string[];
   signerName?: string;
   exclusions?: string[];
@@ -179,7 +187,7 @@ type BrandConfig = {
   };
   flow: { n: number; t: string; d: string }[];
   approach: { n: string; t: string; d: string }[];
-  options: { t: string; d: string; tag: string; price?: number | null; recurringPrice?: number | null; recurringInterval?: "maand" | "jaar" | null; vatRate?: number }[];
+  options: { t: string; d: string; tag: string; price?: number | null; recurringPrice?: number | null; recurringInterval?: "maand" | "kwartaal" | "jaar" | null; vatRate?: number }[];
   exclusions: string[];
 };
 
@@ -322,6 +330,27 @@ function getBrand(slug: string): BrandConfig {
   return slug === "koolhaas" ? BRANDS.koolhaas : BRANDS.websup;
 }
 
+function BrandStripe({ gradient }: { gradient: BrandGradient }) {
+  const width = 595.28;
+  const height = 4;
+  const radians = (gradient.angle - 90) * Math.PI / 180;
+  const dx = Math.cos(radians);
+  const dy = Math.sin(radians);
+  const length = Math.abs(width * dx) + Math.abs(height * dy);
+  return <View style={{ position: "absolute", top: 0, left: 0, right: 0, height }}>
+    <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+      <Defs><LinearGradient id="brand-gradient" gradientUnits="userSpaceOnUse"
+        x1={(width - dx * length) / 2} y1={(height - dy * length) / 2}
+        x2={(width + dx * length) / 2} y2={(height + dy * length) / 2}>
+        <Stop offset="0%" stopColor={gradient.from} />
+        <Stop offset={`${gradient.viaPosition}%`} stopColor={gradient.via} />
+        <Stop offset="100%" stopColor={gradient.to} />
+      </LinearGradient></Defs>
+      <Rect width={width} height={height} fill="url(#brand-gradient)" />
+    </Svg>
+  </View>;
+}
+
 function formatEur(amount: number): string {
   return new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(amount);
 }
@@ -396,6 +425,7 @@ function PageFooter({ tag, customerName }: { tag: string; customerName: string }
 
 export function QuotePDF({
   companySlug,
+  brandOverrides,
   quoteNumber,
   quoteDate,
   validUntil,
@@ -426,7 +456,24 @@ export function QuotePDF({
   planning: planningProp,
   commercial: commercialProp,
 }: QuotePDFProps) {
-  const brand = getBrand(companySlug);
+  const baseBrand = getBrand(companySlug);
+  const resolvedBranding = getBranding(companySlug, brandOverrides);
+  const personalProfile = quotePersonalProfile(resolvedBranding);
+  const customLogo = brandOverrides?.logoUrl ? publicImageDataUri(brandOverrides.logoUrl) : undefined;
+  const brand = {
+    ...baseBrand,
+    ...(customLogo ? { logoColor: customLogo, logoWhite: customLogo } : {}),
+    colors: {
+      ...baseBrand.colors,
+      primary: resolvedBranding.primaryColor,
+      accent: resolvedBranding.accentColor,
+      accent2: resolvedBranding.gradient.via,
+      accent3: resolvedBranding.gradient.to,
+      bg: resolvedBranding.backgroundColor,
+      surface: resolvedBranding.backgroundColor,
+      text: resolvedBranding.textColor,
+    },
+  };
   const isKoolhaas = companySlug === "koolhaas";
 
   const flow = flowProp;
@@ -455,11 +502,9 @@ export function QuotePDF({
   const standaloneAttachments = introVisual
     ? attachments.filter((attachment) => attachment !== introVisual)
     : attachments;
-  const attachmentPairs = Array.from({ length: Math.ceil(standaloneAttachments.length / 2) }, (_, i) =>
-    standaloneAttachments.slice(i * 2, i * 2 + 2)
-  );
+  const attachmentPairs = standaloneAttachments.map((attachment) => [attachment]);
   // Cover uses dark left panel for WebsUp, light for Koolhaas
-  const coverDark = !isKoolhaas;
+  const coverDark = !isKoolhaas && !customLogo;
   const coverText = coverDark ? "#FFFFFF" : brand.colors.text;
   const coverMuted = coverDark ? "rgba(255,255,255,0.50)" : brand.colors.muted;
   const coverBorder = coverDark ? "rgba(255,255,255,0.13)" : brand.colors.border;
@@ -556,13 +601,14 @@ export function QuotePDF({
           </View>
 
         </View>
+        <BrandStripe gradient={resolvedBranding.gradient} />
       </Page>
 
       {/* ════════════════════════════════════════════════════════
           PAGE 2: INTRO + DELIVERABLES
       ════════════════════════════════════════════════════════ */}
       <Page size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
-        <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
+        <BrandStripe gradient={resolvedBranding.gradient} />
         <PageHeader brand={brand} quoteNumber={quoteNumber} customerName={customerName} />
 
         {/* Intro */}
@@ -607,7 +653,7 @@ export function QuotePDF({
       ════════════════════════════════════════════════════════ */}
       {(flow.length > 0 || approach.length > 0) && (
       <Page size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
-        <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
+        <BrandStripe gradient={resolvedBranding.gradient} />
         <PageHeader brand={brand} quoteNumber={quoteNumber} customerName={customerName} />
 
         {flow.length > 0 && (
@@ -665,13 +711,12 @@ export function QuotePDF({
 
       {attachmentPairs.map((pair, pageIndex) => (
         <Page key={pageIndex} size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
-          <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
+          <BrandStripe gradient={resolvedBranding.gradient} />
           <PageHeader brand={brand} quoteNumber={quoteNumber} customerName={customerName} />
 
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 10 }}>
             <View>
-              <Eyebrow text="Ontwerp & uitwerking" color={brand.colors.accent} />
-              <H2 text={isKoolhaas ? "Technische indruk en plaatsing." : "Zo ziet de richting eruit."} />
+              {pair[0]?.title && <H2 text={pair[0].title} />}
             </View>
             <View style={{ backgroundColor: brand.colors.surface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}>
               <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: brand.colors.muted }}>{pageIndex + 1} / {attachmentPairs.length}</Text>
@@ -690,17 +735,12 @@ export function QuotePDF({
                     <Image src={publicImageDataUri(attachment.imageUrl)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   )}
                 </View>
-                {(attachment.title || attachment.caption) && (
+                {(attachment.title || (attachment.caption && attachment.caption.trim().toLowerCase() !== "voorbeeld") || attachment.liveUrl) && (
                   <View style={{ marginTop: 7, minHeight: 32 }}>
-                    <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: brand.colors.accent, textTransform: "uppercase", letterSpacing: 0.7 }}>
-                      {attachment.liveUrl ? "Werkend ontwerp" : "Ontwerpimpressie"}
-                    </Text>
-                    <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.3, marginTop: 3 }}>
-                      {attachment.caption ||
-                        (attachment.liveUrl
-                          ? "Bekijk het ontwerp online om de interactie en volledige pagina te ervaren."
-                          : "Een visuele indruk van de voorgestelde uitwerking.")}
-                    </Text>
+                    {attachment.title && <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", marginBottom: 3 }}>{attachment.title}</Text>}
+                    {attachment.caption && attachment.caption.trim().toLowerCase() !== "voorbeeld" && (
+                      <Text style={{ fontSize: 8, color: brand.colors.muted, lineHeight: 1.3, marginTop: 3 }}>{attachment.caption}</Text>
+                    )}
                     {attachment.liveUrl && (
                       <Link
                         src={attachment.liveUrl}
@@ -717,7 +757,7 @@ export function QuotePDF({
                           textDecoration: "none",
                         }}
                       >
-                        Bekijk voorbeeld
+                        Open de pagina
                       </Link>
                     )}
                   </View>
@@ -734,7 +774,7 @@ export function QuotePDF({
           PAGE 4: INVESTMENT + OPTIONS
       ════════════════════════════════════════════════════════ */}
       <Page size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
-        <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
+        <BrandStripe gradient={resolvedBranding.gradient} />
         <PageHeader brand={brand} quoteNumber={quoteNumber} customerName={customerName} />
 
         <Eyebrow text="De investering" color={brand.colors.accent} />
@@ -1035,7 +1075,7 @@ export function QuotePDF({
           PAGE 5: EXCLUSIONS + OUTRO + SIGN
       ════════════════════════════════════════════════════════ */}
       <Page size="A4" style={{ fontFamily: "Helvetica", fontSize: 9, backgroundColor: "#FFFFFF", ...innerPage }}>
-        <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: brand.colors.accent }} />
+        <BrandStripe gradient={resolvedBranding.gradient} />
         <PageHeader brand={brand} quoteNumber={quoteNumber} customerName={customerName} />
 
         {/* Technical notes */}
@@ -1093,6 +1133,17 @@ export function QuotePDF({
         <Text style={{ fontSize: 9.5, lineHeight: 1.65, color: "#334155", marginBottom: 4 }}>
           {outro || "Heb je vragen over deze offerte of wil je iets aanpassen? Stuur een bericht via WhatsApp of e-mail. Ik loop het graag samen met je door."}
         </Text>
+        <View wrap={false} style={{ marginTop: 12, marginBottom: 12, padding: 14, borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 8 }}>
+          <View style={{ flexDirection: "row", gap: 10, alignItems: "center", marginBottom: 10 }}>
+            {PROFILE_PHOTO && <Image src={PROFILE_PHOTO} style={{ width: 36, height: 36, borderRadius: 18, objectFit: "cover", objectPositionY: "20%" }} />}
+            <View>
+              <Text style={{ fontSize: 14, fontFamily: "Helvetica-Bold", marginBottom: 3 }}>Mijn voorstel voor jou</Text>
+              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold" }}>{personalProfile.name}</Text>
+            </View>
+          </View>
+          <Text style={{ fontSize: 12, lineHeight: 1.55, color: "#334155", marginBottom: 8 }}>{personalProfile.message}</Text>
+          {personalProfile.whatsappUrl && <Link src={personalProfile.whatsappUrl} style={{ fontSize: 12, color: brand.colors.primary }}>Stuur me een bericht</Link>}
+        </View>
 
         {(planningProp || commercialProp) && (
           <>

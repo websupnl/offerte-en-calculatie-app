@@ -1,14 +1,28 @@
 # Offerte App — WebsUp & Koolhaas Installaties
 gebruik .claude\commands\maak-offerte.md bij het maken van offertesm werkt dit bestand ook bij bij nieuwe mogelijkheden
 
+## Database: je werkt in de live database
+
+`.env.local` wijst naar dezelfde Neon-database als productie. Dat is bewust zo,
+want offertes maken vanaf de CLI werkt daardoor meteen tegen de echte klanten en
+artikelen. Het betekent wel dat er geen oefenomgeving is.
+
+- **Lezen mag altijd.** Alles opvragen, tellen, analyseren: prima.
+- **Schrijven alleen als Daan er expliciet om vraagt.** Dus geen testofferte,
+  geen seed, geen opruimscript, geen `UPDATE` of `DELETE` op eigen initiatief.
+- Dit geldt ook voor wat er indirect uit volgt: een offerte aanmaken of een
+  klantportaal openen stuurt echte Telegram-meldingen naar Daans telefoon.
+
+Twijfel je of iets schrijven is? Dan is het schrijven. Vraag het even.
+
 ## Stack
-- Next.js 14 (App Router), React, TypeScript, Tailwind CSS, shadcn/ui
+- Next.js 16 (App Router, Turbopack), React, TypeScript, Tailwind CSS, shadcn/ui
 - Database: PostgreSQL via Prisma ORM
 - Auth: NextAuth.js v5 (credentials, JWT)
 - AI: OpenAI GPT-4o
 - PDF: @react-pdf/renderer
 - Email: Resend
-- Deployment: Docker + Coolify op VPS
+- Deployment: Vercel (project `offerte-en-calculatie-app`), database op Neon
 
 ## Multi-tenant
 Eén app, twee bedrijven (company switcher bij login).
@@ -19,20 +33,29 @@ Eén app, twee bedrijven (company switcher bij login).
 ## Starten
 ```bash
 npm install
-cp .env.example .env  # Vul DATABASE_URL etc. in
-npm run db:push       # Maak tabellen aan
-npm run db:seed       # Seed bedrijven + admin user
-npm run dev
+npm run dev           # draait op :3001
 ```
+`.env.local` staat er al en wijst naar de live database, dus `db:push` en
+`db:seed` niet draaien. Zie de waarschuwing bij Migraties.
 
 Login: `info@websup.nl` / `Admin123!`
 
-## Deploy (Coolify)
-1. Push naar Git repo
-2. In Coolify: New Service → Dockerfile → koppel repo
-3. Stel env vars in (DATABASE_URL, NEXTAUTH_SECRET, OPENAI_API_KEY)
-4. Deploy
-5. Eerste keer: run `npm run db:seed` in de container
+## Deploy (Vercel)
+Pushen naar `master` rolt vanzelf uit naar productie.
+
+```bash
+npx vercel env ls production          # welke variabelen staan er
+npx vercel env add NAAM production    # variabele toevoegen
+npx vercel redeploy <deployment-url>  # zelfde code, nieuwe variabelen oppikken
+```
+
+Een nieuwe variabele werkt pas na een redeploy. Meldingen vielen maandenlang
+stil omdat `TELEGRAM_TOKEN` en `TELEGRAM_CHAT_ID` alleen lokaal stonden: de
+app logt dan `[Telegram] Missing ...` en stuurt niets. Controleer bij een
+"het werkt lokaal wel"-probleem dus eerst `vercel env ls production`.
+
+Ontbreekt nog steeds op productie: `VAPID_*` (web push werkt daardoor nergens),
+`AI_RELAY_KEY` en `CLI_API_KEY`.
 
 ## Sleutelbestanden
 - `src/lib/auth.ts` — NextAuth configuratie + JWT callbacks
@@ -43,6 +66,111 @@ Login: `info@websup.nl` / `Admin123!`
 - `prisma/seed.ts` — Seed data (bedrijven, gebruiker, producten)
 - `src/middleware.ts` — Route bescherming
 - `src/lib/company-context.tsx` — Company switcher context
+
+## Prijzen: de calculatie is de bron
+
+Sinds september 2026 komt de prijs van een offerte uit gekoppelde calculaties.
+Daarvoor kon een prijs op vier plekken ontstaan (losse `QuoteItem`-regels, een
+`choiceGroups`-blob, `QuoteModule`, en de calculatie), met kopieën die je met de
+hand moest synchroniseren.
+
+```
+Quote ──< Calculation      role = BASE     telt altijd mee in de prijs
+                           role = VARIANT  de klant kiest er een uit
+          └──< CalculationItem
+                 gewoon                 bepaalt de prijs
+                 optional = true        de klant vinkt het aan als extra
+                 hiddenOnQuote = true   alleen intern
+                 recurringInterval      abonnement per maand of per jaar
+                 quoteNote              wat de klant bij een extra leest
+```
+
+### Oud en nieuw naast elkaar
+`usesCalculationPricing()` in `src/lib/quote-pricing.ts` bepaalt het pad:
+**een calculatie gekoppeld én geen `QuoteItem`-regels meer = nieuw pad.**
+Offertes van voor de omslag houden hun regels en renderen onveranderd. Verstuurde
+offertes worden nooit omgezet.
+
+### Sleutelbestanden
+| Bestand | Wat |
+|---|---|
+| `src/lib/quote-pricing.ts` | Calculaties -> wat de klant ziet, plus de grens oud/nieuw |
+| `src/lib/quote-with-pricing.ts` | `applyCalculationPricing()`, gebruik dit bij elke offerte die je laadt om te tonen |
+| `src/lib/quote-totals.ts` | `Quote.total*` gelijktrekken na elke calculatiewijziging |
+| `src/lib/calculation-number.ts` | Volgend nummer op basis van het hoogste bestaande, niet op het aantal records |
+| `src/app/api/quotes/[id]/calculations` | Calculatie maken bij een offerte, ook varianten en het omzetten van oude regels |
+| `src/components/forms/quote-price-panel.tsx` | Waar de prijs vandaan komt, in de bouwer |
+| `src/components/forms/quote-page-rail.tsx` | De paginastrip die de zijkolom verving |
+
+### Regels bij het bouwen
+- De preview, het klantportaal en de PDF renderen nog steeds `items`,
+  `choiceGroups` en `options`. Die vorm wordt afgeleid uit de calculaties door
+  `pricingToPreviewShape()`. Nooit rechtstreeks wegschrijven op het nieuwe pad.
+- `CalculationItem.id` is stabiel: het klantportaal onthoudt aangevinkte extra's
+  op dat id. De PUT van een calculatie werkt regels daarom bij op id in plaats
+  van ze weg te gooien en opnieuw aan te maken.
+- Optionele regels in een `VARIANT` verschijnen niet op de offerte. Zet extra's
+  in de basiscalculatie. `variantExtraWaarschuwing()` meldt dit in de editor.
+- Een calculatieregel is eenmalig of terugkerend. `recurringInterval`
+  (`maand` | `kwartaal` | `jaar`) is het veld dat je in de bouwer zet; de PUT
+  leidt daar `lineType` (`ONE_OFF` | `RECURRING`) en `billingCycle`
+  (`MONTHLY` | `QUARTERLY` | `YEARLY`) uit af. Nooit `lineType`/`billingCycle`
+  los wegschrijven.
+
+## Abonnementen, akkoorden & offerte verlengen
+
+De app is de source of truth voor hosting-/domein-/service-abonnementen.
+
+```
+Quote ──akkoord──> AgreementLog   (onveranderbaar juridisch record, methode + IP + av_version + snapshot)
+              └──> Subscription   (één per RECURRING calculatieregel die de klant accepteert)
+                     └──< SubscriptionEvent   (CREATED, INVOICED, PRICE_CHANGED, PAUSED/RESUMED/CANCELLED, NOTE)
+```
+
+- **Bedragen in `Subscription`/`SubscriptionEvent`: hele centen (Int), ex btw.**
+  Converteren gebeurt alleen in `src/lib/money.ts`; formatteren alleen in de UI.
+- **Akkoord (portaal én handmatig-mondeling)** schrijft een `AgreementLog` in
+  dezelfde transactie als de statuswissel, en maakt daarna de abonnementen aan.
+  Idempotent op `sourceQuoteId` + `sourceCalculationItemId`.
+- **"Te factureren"** = actieve abonnementen met `nextBillingDate` binnen 30 dagen
+  die voor die periode nog niet gefactureerd zijn. De knop "Gefactureerd" zet
+  `lastInvoicedAt` en schuift `nextBillingDate` één cyclus vooruit. Een tweede
+  klik binnen dezelfde cyclus doet niets.
+- **Offerte verlengen** (`POST /api/quotes/[id]/extend`): nieuwe `validUntil`,
+  status terug naar `SENT`, `QuoteEvent` "EXTENDED", en een mail naar de klant
+  met de portaallink. Voor een klant die "kom er op terug" zei en de offerte
+  liet verlopen.
+
+### Sleutelbestanden
+| Bestand | Wat |
+|---|---|
+| `src/lib/money.ts` | Euro ⇄ centen, de enige conversieplek |
+| `src/lib/subscriptions/cycle.ts` | Cyclus-rekenwerk (maandeinde-clamp, idempotentie) |
+| `src/lib/subscriptions/from-quote.ts` | Geaccepteerde offerte -> abonnementsrijen (puur + DB-laag) |
+| `src/lib/subscriptions/service.ts` | Gedeelde CRUD/invoiced-logica voor UI én Donna-gateway |
+| `src/lib/agreements.ts` | `AgreementLog` schrijven, av_version, IP uit headers |
+| `src/app/(dashboard)/subscriptions/` | De pagina "Abonnementen" + detail |
+| `docs/donna-subscriptions-gateway.md` | Het exacte contract van de nieuwe Donna-endpoints |
+
+### Donna-gateway (`/api/donna/v1`)
+`GET /subscriptions`, `GET /subscriptions/:id`, `POST /subscriptions`,
+`PATCH /subscriptions/:id`, `POST /subscriptions/:id/invoiced`,
+`GET /billing/due`, `GET /agreements/gaps`. Zelfde bearer-auth en
+`donnaResponse`/`DonnaError`-stijl. Details: `docs/donna-subscriptions-gateway.md`.
+
+## Migraties
+`npm run db:push` is **verboden**: schema en database zijn uit elkaar gelopen
+(`QuoteTemplate` en `Quote.document` staan wel in de database, niet in het
+schema). Push zou die droppen. Altijd handgeschreven SQL met
+`ADD COLUMN IF NOT EXISTS`, daarna `npx prisma generate`.
+
+Genummerde migraties staan in `scripts/migrations/`. Draaien:
+`node scripts/run-migration.mjs scripts/migrations/<bestand>.sql` (draait de SQL
+in één transactie tegen `DATABASE_URL`). Rollback-notities staan bovenaan elk
+SQL-bestand.
+
+Na `prisma generate` moet de dev-server herstart worden. Hij houdt anders de
+oude client vast en geeft `PrismaClientValidationError` op nieuwe velden.
 
 ## AI Features
 - Offertetekst genereren: `POST /api/ai/quote-text`

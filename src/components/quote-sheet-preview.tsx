@@ -1,4 +1,6 @@
 "use client";
+import { QuotePersonalNote } from "@/components/quote-personal-note";
+import { quotePersonalProfile } from "@/lib/quote-personal";
 
 import {
   Check,
@@ -10,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { brandAssetUrl, getBranding, portalVarsFromBranding, type CompanyBranding } from "@/lib/branding";
 import "@/app/q/[token]/portal.css";
 import { useRef, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -119,6 +122,59 @@ const quoteAttachmentSection = (attachment: QuoteAttachment) =>
   attachment.section?.trim().toLowerCase() || "intro";
 type QuoteSource = { id?: string; label: string; description?: string; url: string };
 
+export type QuoteContentBlock = {
+  id?: string;
+  type: "heading" | "text" | "list" | "steps" | "callout" | "specs" | "image";
+  title?: string | null;
+  body?: string | null;
+  items?: unknown;
+  tone?: string | null;
+  imageUrl?: string | null;
+  caption?: string | null;
+};
+
+/**
+ * Hoeveel regels een blok ongeveer inneemt. Zelfde ruwe maat als estimateTermLines
+ * hieronder: genoeg om te bepalen wanneer een pagina vol is, zonder echt te meten.
+ */
+const estimateBlockLines = (block: QuoteContentBlock): number => {
+  const textLines = (value?: string | null) =>
+    value ? Math.max(1, Math.ceil(value.length / 90)) : 0;
+  const list = Array.isArray(block.items) ? block.items : [];
+
+  switch (block.type) {
+    case "heading": return 2;
+    case "image": return 12;
+    case "list": return 2 + list.length;
+    case "steps": return 2 + list.length * 3;
+    case "specs": return 2 + Math.ceil(list.length / 2) * 2;
+    case "callout": return 2 + textLines(block.body);
+    default: return 1 + textLines(block.body);
+  }
+};
+
+/** Verdeelt de blokken over pagina's op basis van dat regelbudget. */
+const paginateContentBlocks = (blocks: QuoteContentBlock[], budget = 34): QuoteContentBlock[][] => {
+  const pages: QuoteContentBlock[][] = [];
+  let current: QuoteContentBlock[] = [];
+  let used = 0;
+
+  for (const block of blocks) {
+    const cost = estimateBlockLines(block);
+    // Een kop onderaan een pagina hoort bij wat erna komt, dus die schuift mee.
+    const startsSection = block.type === "heading";
+    if (current.length > 0 && (used + cost > budget || (startsSection && used > budget - 8))) {
+      pages.push(current);
+      current = [];
+      used = 0;
+    }
+    current.push(block);
+    used += cost;
+  }
+  if (current.length > 0) pages.push(current);
+  return pages;
+};
+
 // Een kort label ("Easee: ERE") zegt de lezer meer dan de hostname. Alleen als het
 // label ontbreekt of te lang is voor een inline chip vallen we terug op het domein.
 const SOURCE_LABEL_MAX = 28;
@@ -133,6 +189,48 @@ const sourceShortName = (source: QuoteSource) => {
     /* geen geldige URL — val terug op label */
   }
   return label || source.url;
+};
+
+const sourceHost = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+};
+
+/**
+ * Het logo van de bron, afgeleid uit de URL. Geen veld om in te vullen en geen
+ * instructie voor de AI nodig: het domein staat al in de bron.
+ *
+ * De browser van de klant haalt het icoon bij DuckDuckGo op. Die ziet daarmee
+ * welke domeinen in de offerte staan, maar niet wie de offerte leest of wat
+ * erin staat. Laadt het icoon niet, dan blijft het nummer staan.
+ */
+const SourceIcon = ({ url, index, bare }: { url: string; index: number; bare?: boolean }) => {
+  const [gefaald, setGefaald] = useState(false);
+
+  const host = (() => {
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return null;
+    }
+  })();
+
+  if (!host || gefaald) return bare ? null : <span className="source-number">{index + 1}</span>;
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`https://icons.duckduckgo.com/ip3/${host}.ico`}
+      alt=""
+      aria-hidden="true"
+      className="source-icon"
+      loading="lazy"
+      onError={() => setGefaald(true)}
+    />
+  );
 };
 
 const CitedText = ({
@@ -197,6 +295,7 @@ export type QuotePreviewData = {
   outro: string | null;
   notes?: string | null;
   validUntil: string | null;
+  createdAt?: string | null;
   acceptedAt?: string | null;
   totalExVat: string | number;
   totalVat: string | number;
@@ -210,9 +309,11 @@ export type QuotePreviewData = {
   assumptions?: string[];
   technicalNotes?: string[];
   customerResponsibilities?: string[];
+  contentBlocks?: QuoteContentBlock[];
+  hiddenSections?: string[];
   attachments?: QuoteAttachment[];
   adviceDocuments?: { id: string; type: string }[];
-  company?: { name?: string | null; slug?: string | null };
+  company?: { id?: string; name?: string | null; slug?: string | null; branding?: Partial<CompanyBranding> };
   choiceGroups?: QuoteChoiceGroup[];
   commercial?: { priceDisplayMode?: "incl" | "excl"; [key: string]: unknown };
   batteryAdvice?: { sources?: QuoteSource[]; [key: string]: unknown };
@@ -237,9 +338,18 @@ const stripPersonalSignOff = (value: string) =>
     )
     .trimEnd();
 
+export type QuotePageMeta = {
+  id: string;
+  nr: number;
+  label: string;
+  /** Sectiesleutel uit SCHAKELBARE_SECTIES, of leeg als de pagina niet uit te zetten is. */
+  section: string;
+};
+
 interface QuoteSheetPreviewProps {
   quote: QuotePreviewData;
   companySlug?: string;
+  branding?: Partial<CompanyBranding>;
   isEditable?: boolean;
   onUpdate?: (updates: Partial<QuotePreviewData>) => void;
   onUpdateItem?: (id: string, updates: Partial<QuoteItem>) => void;
@@ -247,6 +357,10 @@ interface QuoteSheetPreviewProps {
   onRemoveItem?: (id: string) => void;
   selectedChoiceIds?: Record<string, string>;
   selectedOptionIds?: string[];
+  /** De editor gebruikt dit voor de paginastrip; hier telt de offerte zijn pagina's. */
+  onPagesChange?: (pages: QuotePageMeta[]) => void;
+  /** Waar de prijs vandaan komt. Alleen in de editor, zodat je weet waar je moet zijn. */
+  priceSource?: { label: string; href: string } | null;
   // Statische render (PDF/print): geen "kies hieronder"-teksten, want er is
   // geen interactieve keuze-UI beschikbaar zoals in het klantportaal.
   isPrint?: boolean;
@@ -325,6 +439,7 @@ const COMPANY_COPY = {
 export function QuoteSheetPreview({
   quote,
   companySlug,
+  branding: brandingOverride,
   isEditable = false,
   onUpdate,
   onUpdateItem,
@@ -332,6 +447,8 @@ export function QuoteSheetPreview({
   onRemoveItem,
   selectedChoiceIds: externalSelectedChoiceIds,
   selectedOptionIds = [],
+  onPagesChange,
+  priceSource,
   isPrint = false,
 }: QuoteSheetPreviewProps) {
   const defaultSelectedChoiceIds = useMemo(() => {
@@ -353,10 +470,21 @@ export function QuoteSheetPreview({
     return merged;
   }, [externalSelectedChoiceIds, defaultSelectedChoiceIds, quote.choiceGroups]);
 
-  const today = new Date().toISOString();
+  // De offertedatum komt uit de offerte zelf. Eerder stond hier new Date(), waardoor
+  // de server een andere datum kon renderen dan de browser (hydration-mismatch) en de
+  // klant elke dag een nieuwe datum zag in plaats van de datum van het aanbod.
+  const today = quote.createdAt ?? new Date().toISOString();
   const activeSlug = companySlug || quote.company?.slug || "websup";
   const brand = activeSlug === "koolhaas" ? COMPANY_COPY.koolhaas : COMPANY_COPY.websup;
   const isKoolhaas = brand.slug === "koolhaas";
+  const documentBranding = getBranding(activeSlug, brandingOverride ?? quote.company?.branding);
+  const personalProfile = quotePersonalProfile(documentBranding);
+  const customLogo = documentBranding.logoUrl.startsWith("s3://")
+    ? (quote.company?.id ? brandAssetUrl(quote.company.id, "logo", documentBranding.logoUrl) : null)
+    : documentBranding.logoUrl;
+  const documentLogo = customLogo === "/logos/koolhaas-logo.png"
+    ? "/logos/koolhaas-logo-tight.png"
+    : customLogo || (isKoolhaas ? "/logos/koolhaas-logo-tight.png" : "/logos/websup-cover.png");
   
   // Choice Logic
   const choiceGroups = quote.choiceGroups || [];
@@ -376,6 +504,12 @@ export function QuoteSheetPreview({
     recurringTotalLines.push({
       interval: "per maand",
       amount: showExVat ? totals.recurring.perMonthExVat : totals.recurring.perMonthIncVat,
+    });
+  }
+  if (totals.recurring.perQuarterExVat > 0) {
+    recurringTotalLines.push({
+      interval: "per kwartaal",
+      amount: showExVat ? totals.recurring.perQuarterExVat : totals.recurring.perQuarterIncVat,
     });
   }
   if (totals.recurring.perYearExVat > 0) {
@@ -401,8 +535,11 @@ export function QuoteSheetPreview({
   const technicalNotes = [...assumptionsOwn, ...technicalNotesOwn];
   const customerResponsibilities = isKoolhaas ? (quote.customerResponsibilities ?? []).filter(Boolean) : [];
   const attachments = quote.attachments ?? [];
+  // De klant ziet alleen complete bronnen. Tijdens bewerken blijven onvolledige
+  // regels staan, anders verdwijnt een net toegevoegde bron voordat je hem invult.
   const sources = Array.isArray(quote.batteryAdvice?.sources)
-    ? quote.batteryAdvice.sources.filter((source) => source.label && source.url)
+    ? quote.batteryAdvice.sources.filter((source) =>
+        isEditable ? source : source.label && source.url)
     : [];
   // Een afbeelding hoort bij een sectie (staat onderaan die pagina) of krijgt een eigen pagina.
   const SECTION_KEYS = ["intro", "werking", "items", "terms", "sign", "opties"];
@@ -410,8 +547,7 @@ export function QuoteSheetPreview({
     Boolean(a.imageUrl) && SECTION_KEYS.includes(quoteAttachmentSection(a));
   const sectionImages = (key: string) =>
     attachments.filter((a) => isSectionImage(a) && quoteAttachmentSection(a) === key);
-  const standaloneAttachments = attachments.filter((a) => !isSectionImage(a));
-  const attachmentPages = standaloneAttachments.length;
+  const standaloneAttachmentsAlle = attachments.filter((a) => !isSectionImage(a));
   // Rendert de afbeelding(en) van een sectie in de vrije ruimte onderaan die pagina,
   // of een lege spacer als er geen afbeelding is. Nooit overloop dankzij max-height.
   const renderSectionSpace = (key: string) => {
@@ -437,22 +573,54 @@ export function QuoteSheetPreview({
     );
   };
   const validUntilLabel = quote.validUntil ? formatDate(quote.validUntil) : null;
-  const hasOptionsPage = options.length > 0;
-  const hasTermsPage = Boolean(exclusions.length || technicalNotes.length || customerResponsibilities.length || quote.outro);
-  const hasSourcesPage = sources.length > 0;
-  // Werking van de installatie (approach-stappen) krijgt een eigen pagina na de intro.
-  const hasApproachPage = approach.length > 0;
-  const approachPageOffset = hasApproachPage ? 1 : 0;
+  // Secties die je bewust hebt uitgezet. De inhoud blijft staan, hij wordt
+  // alleen niet getoond en telt niet mee in de paginanummering.
+  const uit = new Set(quote.hiddenSections ?? []);
+  const standaloneAttachments = uit.has("visuals") ? [] : standaloneAttachmentsAlle;
+  const hasOptionsPage = options.length > 0 && !uit.has("modules");
+  const hasTermsPage = !uit.has("terms") && Boolean(exclusions.length || technicalNotes.length || customerResponsibilities.length || quote.outro);
+  // Tijdens bewerken blijft de bronnenpagina staan, ook als hij nog leeg is.
+  // Anders kun je een eerste bron niet toevoegen omdat de pagina er niet is.
+  const hasSourcesPage = !uit.has("sources") && (sources.length > 0 || Boolean(isEditable));
+
+  // Een A4 heeft `overflow: hidden`, dus wat niet past valt er stil af. Bij door
+  // AI geschreven stappen gebeurde dat: acht blokken liepen over de pagina heen.
+  // Daarom verdelen we ze vooraf over zoveel pagina's als nodig.
+  const approachPages: typeof approach[] = (() => {
+    if (approach.length === 0 || uit.has("approach")) return [];
+    // Zelfde model als src/lib/quote-layout-estimate.ts: titel- en tekstregels
+    // apart tellen. De oude schatting (alleen /68) telde te laag, waardoor acht
+    // stappen op één pagina overliepen.
+    const kosten = (step: { t?: string; d?: string }) =>
+      1 +
+      Math.max(1, Math.ceil((step.t?.length ?? 0) / 34)) +
+      Math.max(1, Math.ceil((step.d?.length ?? 0) / 58));
+    // Regelbudget van een inhoudspagina, na kop en voettekst.
+    const BUDGET = 36;
+    const pages: typeof approach[] = [];
+    let huidig: typeof approach = [];
+    let gebruikt = 0;
+    for (const step of approach) {
+      const kost = kosten(step);
+      if (huidig.length > 0 && gebruikt + kost > BUDGET) {
+        pages.push(huidig);
+        huidig = [];
+        gebruikt = 0;
+      }
+      huidig.push(step);
+      gebruikt += kost;
+    }
+    if (huidig.length > 0) pages.push(huidig);
+    return pages;
+  })();
 
   // Bij keuze-configuraties krijgt de inbegrepen-tabel een eigen pagina, zodat
   // de keuze-kaarten een volle pagina houden en niets afgesneden wordt.
   const splitItemsPage = choiceGroups.length > 0 && visibleItems.length > 0;
-  const itemsPageOffset = splitItemsPage ? 1 : 0;
 
   // Elke systeemoptie krijgt een eigen volle pagina i.p.v. samen op één pagina
   // gepropt te worden — anders wordt de langste checklist afgesneden.
   const choiceEntries = choiceGroups.flatMap((group) => group.choices.map((choice) => ({ group, choice })));
-  const choicePagesOffset = choiceEntries.length > 0 ? choiceEntries.length - 1 : 0;
 
   // Voorwaarden-pagina opsplitsen als de tekst te vol wordt: technische
   // uitgangspunten op pagina 1, voorbereiding + niet-inbegrepen op pagina 2.
@@ -469,12 +637,118 @@ export function QuoteSheetPreview({
     technicalNotes.length > 0 &&
     customerResponsibilities.length + exclusions.length > 0 &&
     termsLineLoad > 24;
-  const termsPageOffset = splitTermsPage ? 1 : 0;
 
-  const totalPages =
-    4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0) + (hasTermsPage ? 1 : 0) + termsPageOffset + (hasSourcesPage ? 1 : 0);
-  const pageLabel = (page: number) =>
-    `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
+  // Bronnen kregen één vaste pagina; een lange lijst liep er stil vanaf. Nu
+  // verdelen we ze over zoveel pagina's als nodig, zelfde model als de
+  // werkwijze en als src/lib/quote-layout-estimate.ts.
+  const sourcePages: (typeof sources)[] = (() => {
+    if (!hasSourcesPage) return [];
+    if (sources.length === 0) return [[]]; // lege pagina in bewerkmodus
+    // Twee kolommen op de pagina, dus er passen ongeveer twee keer zoveel
+    // bronnen als bij een enkele lijst.
+    const kosten = (s: QuoteSource) =>
+      2 +
+      Math.max(1, Math.ceil((s.label?.length ?? 0) / 34)) +
+      (s.description ? Math.max(1, Math.ceil(s.description.length / 40)) : 0);
+    const BUDGET = 62;
+    const pages: (typeof sources)[] = [];
+    let huidig: typeof sources = [];
+    let gebruikt = 0;
+    for (const s of sources) {
+      const kost = kosten(s);
+      if (huidig.length > 0 && gebruikt + kost > BUDGET) {
+        pages.push(huidig);
+        huidig = [];
+        gebruikt = 0;
+      }
+      huidig.push(s);
+      gebruikt += kost;
+    }
+    if (huidig.length > 0) pages.push(huidig);
+    return pages;
+  })();
+
+  const contentBlocks = uit.has("content") ? [] : (quote.contentBlocks ?? []).filter(Boolean);
+  const contentPages = paginateContentBlocks(contentBlocks);
+
+  // De paginavolgorde staat hier één keer, in plaats van als rekensom bij elke
+  // voettekst. Een sectie toevoegen of verplaatsen is nu één regel in deze lijst;
+  // voorheen moest je acht optellingen bijwerken en dat ging telkens mis.
+  const pageOrder: string[] = [
+    "cover",
+    "intro",
+    ...contentPages.map((_, i) => `content-${i}`),
+    ...approachPages.map((_, i) => `approach-${i}`),
+    ...standaloneAttachments.map((_, i) => `attachment-${i}`),
+    ...choiceEntries.map((_, i) => `choice-${i}`),
+    ...(splitItemsPage ? ["items"] : []),
+    ...(choiceEntries.length === 0 ? ["investering"] : []),
+    ...(hasOptionsPage ? ["options"] : []),
+    ...(hasTermsPage ? ["terms"] : []),
+    ...(splitTermsPage ? ["terms-2"] : []),
+    ...sourcePages.map((_, i) => `sources-${i}`),
+    "sign",
+  ];
+  const totalPages = pageOrder.length;
+
+  // Zelfde lijst, maar met een naam en de sectie waar de pagina bij hoort. De
+  // paginastrip in de editor leest dit, zodat er maar één plek is die weet uit
+  // welke pagina's een offerte bestaat.
+  const pageLabels: Record<string, string> = {
+    cover: "Voorblad",
+    intro: "Begeleidende brief",
+    items: "Onderdelen",
+    investering: "Investering",
+    options: "Modules",
+    terms: "Afspraken",
+    "terms-2": "Afspraken (2)",
+    sources: "Bronnen",
+    sign: "Akkoord",
+  };
+  const pageSecties: Record<string, string> = {
+    content: "content",
+    approach: "approach",
+    attachment: "visuals",
+    choice: "",
+    items: "",
+    investering: "",
+    options: "modules",
+    terms: "terms",
+    "terms-2": "terms",
+    sources: "sources",
+  };
+  const pageMeta = pageOrder.map((id, index) => {
+    const stam = id.replace(/-\d+$/, "");
+    const genummerd = /-\d+$/.test(id);
+    const nummer = genummerd ? Number(id.slice(stam.length + 1)) + 1 : 0;
+    const namen: Record<string, string> = {
+      content: "Toelichting",
+      approach: "Werkwijze",
+      attachment: "Ontwerp",
+      choice: "Keuze",
+      sources: "Bronnen",
+    };
+    return {
+      id,
+      nr: index + 1,
+      label: pageLabels[id] ?? `${namen[stam] ?? stam}${nummer > 1 ? ` ${nummer}` : ""}`,
+      section: pageSecties[id] ?? pageSecties[stam] ?? "",
+    };
+  });
+
+  // De strip in de editor moet weten welke pagina's er zijn. Serialiseren
+  // voorkomt dat een nieuwe array bij elke render een update losmaakt.
+  const paginaSleutel = pageMeta.map((p) => `${p.id}:${p.label}`).join("|");
+  useEffect(() => {
+    onPagesChange?.(pageMeta);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paginaSleutel]);
+
+  const pageNr = (id: string) => {
+    const index = pageOrder.indexOf(id);
+    const page = index === -1 ? totalPages : index + 1;
+    return `${String(page).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
+  };
   const coverHeading = isKoolhaas ? (quote.title || brand.defaultTitle) : "Offerte";
   const introText = quote.intro?.trim() && !isMisplacedIntroLine(quote.intro, quote.customer.name)
     ? stripPersonalSignOff(quote.intro)
@@ -548,23 +822,13 @@ export function QuoteSheetPreview({
   };
 
   const renderHeaderLogo = (cover = false) => {
-    if (isKoolhaas) {
-      // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout gebruikt intrinsieke CSS-afmetingen
-      return <img src="/logos/koolhaas-logo-tight.png" alt="Koolhaas Installaties" className={cover ? "brand-logo brand-logo-cover" : "brand-logo"} />;
-    }
     // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout gebruikt intrinsieke CSS-afmetingen
-    return <img src="/logos/websup-cover.png" alt="WebsUp" className={cover ? "brand-logo brand-logo-cover" : "brand-logo"} />;
+    return <img src={documentLogo} alt={quote.company?.name || brand.name} className={cover ? "brand-logo brand-logo-cover" : "brand-logo"} />;
   };
 
   const renderPageFooter = (pageNo: string) => (
     <div className="doc-foot">
-      {isKoolhaas ? (
-        // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout gebruikt intrinsieke CSS-afmetingen
-        <img src="/logos/koolhaas-logo-tight.png" alt="Koolhaas Installaties" className="brand-logo doc-foot-brand-logo" />
-      ) : (
-        // eslint-disable-next-line @next/next/no-img-element -- vaste documentlayout gebruikt intrinsieke CSS-afmetingen
-        <img src="/logos/websup-icon.png" alt="WebsUp" className="doc-foot-icon" />
-      )}
+      {renderHeaderLogo()}
       <div className="doc-foot-meta">
         <div className="doc-foot-meta-row">
           {!isKoolhaas && <span>{brand.website}</span>}
@@ -594,6 +858,28 @@ export function QuoteSheetPreview({
         { id: `morework-${Date.now()}`, t: "Nieuw optioneel meerwerk", d: "Korte omschrijving van deze uitbreiding.", tag: "Optioneel", price: 0, recurringPrice: null, recurringInterval: null, vatRate: 21, defaultSelected: false, details: [] },
       ],
     });
+  };
+
+  // De id van een bron is het nummer waarnaar de tekst verwijst ([1], [2], ...).
+  // Bij bewerken blijft die id staan, zodat bestaande verwijzingen blijven kloppen.
+  const writeSources = (next: QuoteSource[]) => {
+    onUpdate?.({ batteryAdvice: { ...(quote.batteryAdvice ?? {}), sources: next } });
+  };
+
+  const updateSource = (index: number, updates: Partial<QuoteSource>) => {
+    writeSources(sources.map((source, i) => (i === index ? { ...source, ...updates } : source)));
+  };
+
+  const addSource = () => {
+    const highest = sources.reduce((max, source) => Math.max(max, Number(source.id) || 0), 0);
+    writeSources([
+      ...sources,
+      { id: String(highest + 1), label: "Nieuwe bron", description: "", url: "" },
+    ]);
+  };
+
+  const removeSource = (index: number) => {
+    writeSources(sources.filter((_, i) => i !== index));
   };
 
   const removeOption = (index: number) => {
@@ -751,6 +1037,16 @@ export function QuoteSheetPreview({
                     <PlusCircle size={14} />
                     Regel
                   </button>
+                </td>
+              </tr>
+            )}
+            {isEditable && !onAddItem && priceSource && (
+              <tr>
+                <td>
+                  <a href={priceSource.href} className="doc-edit-btn doc-list-add">
+                    <Layers size={14} />
+                    Regels en prijzen staan in {priceSource.label}
+                  </a>
                 </td>
               </tr>
             )}
@@ -926,7 +1222,11 @@ export function QuoteSheetPreview({
                       value={o.recurringInterval ?? ""}
                       onChange={(event) =>
                         updateOption(idx, {
-                          recurringInterval: (event.target.value || null) as "maand" | "jaar" | null,
+                          recurringInterval: (event.target.value || null) as
+                            | "maand"
+                            | "kwartaal"
+                            | "jaar"
+                            | null,
                           ...(event.target.value ? {} : { recurringPrice: null }),
                         })
                       }
@@ -935,6 +1235,7 @@ export function QuoteSheetPreview({
                     >
                       <option value="">geen abonnement</option>
                       <option value="maand">maand</option>
+                      <option value="kwartaal">kwartaal</option>
                       <option value="jaar">jaar</option>
                     </select>
                     {o.recurringInterval && (
@@ -1005,7 +1306,7 @@ export function QuoteSheetPreview({
   );
 
   return (
-    <div className={`portal-container ${isKoolhaas ? "portal-koolhaas" : "portal-websup"}`} style={{ minHeight: 'auto', backgroundColor: 'transparent' }}>
+    <div className={`portal-container ${isKoolhaas ? "portal-koolhaas" : "portal-websup"}`} style={{ ...portalVarsFromBranding(documentBranding), minHeight: 'auto', backgroundColor: 'transparent' }}>
       <div className="doc-viewer" style={{ paddingBottom: 0 }}>
         
         {/* ── PAGINA 1: COVER ── */}
@@ -1021,7 +1322,7 @@ export function QuoteSheetPreview({
                       <dt>Offertenummer</dt> <dd>{quote.number || "CONCEPT"}</dd>
                       <dt>Datum</dt>         <dd>{formatDate(today)}</dd>
                       {validUntilLabel && <><dt>Geldig tot</dt><dd>{validUntilLabel}</dd></>}
-                      <dt>Contactpersoon</dt><dd>Daan Koolhaas</dd>
+                      <dt>Opgesteld door</dt><dd>{personalProfile.name}</dd>
                     </dl>
                   </div>
                 </div>
@@ -1109,18 +1410,126 @@ export function QuoteSheetPreview({
                 <img src="/logos/daan-koolhaas.jpg" alt="Daan Koolhaas" />
               </div>
               <div>
-                <div className="sig-name">Daan Koolhaas</div>
-                <div className="sig-role">{brand.role}</div>
+                <div className="sig-name">{personalProfile.name}</div>
+                <div className="sig-role">{brand.name}</div>
               </div>
             </div>
             {renderSectionSpace("intro")}
-            {renderPageFooter(pageLabel(2))}
+            {renderPageFooter(pageNr("intro"))}
           </div>
         </section>
 
+        {/* ── INHOUDSBLOKKEN: vrije uitleg tussen intro en prijzen ── */}
+        {contentPages.map((page, pageIndex) => (
+          <section className="sheet" key={`content-${pageIndex}`}>
+            <div className="bar"></div>
+            <div className="pad">
+              <div className="ph">
+                {renderHeaderLogo()}
+                <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
+              </div>
+
+              <div className="content-blocks">
+                {page.map((block, blockIndex) => {
+                  const key = block.id ?? `${pageIndex}-${blockIndex}`;
+                  const list = Array.isArray(block.items) ? block.items : [];
+
+                  if (block.type === "heading") {
+                    return (
+                      <div className="row-badge" key={key}>
+                        <div>
+                          {block.body && <span className="eyebrow">{block.body}</span>}
+                          <h2 className="h2">{block.title}</h2>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (block.type === "list") {
+                    return (
+                      <div className="content-block" key={key}>
+                        {block.title && <h3 className="content-block-title">{block.title}</h3>}
+                        <ul className="content-list">
+                          {(list as string[]).map((entry, i) => <li key={i}>{entry}</li>)}
+                        </ul>
+                      </div>
+                    );
+                  }
+
+                  if (block.type === "steps") {
+                    return (
+                      <div className="content-block" key={key}>
+                        {block.title && <h3 className="content-block-title">{block.title}</h3>}
+                        <div className="flow">
+                          {(list as { t?: string; d?: string }[]).map((step, i) => (
+                            <div className="flow-item" key={i}>
+                              <div className="flow-num">{String(i + 1).padStart(2, "0")}</div>
+                              <div>
+                                <div className="flow-title">{step.t}</div>
+                                <div className="flow-desc">{step.d}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (block.type === "specs") {
+                    return (
+                      <div className="content-block" key={key}>
+                        {block.title && <h3 className="content-block-title">{block.title}</h3>}
+                        <div className="content-specs">
+                          {(list as { k?: string; v?: string }[]).map((spec, i) => (
+                            <div className="content-spec" key={i}>
+                              <span className="content-spec-key">{spec.k}</span>
+                              <span className="content-spec-value">{spec.v}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (block.type === "callout") {
+                    return (
+                      <div className={`content-callout content-callout-${block.tone || "info"}`} key={key}>
+                        {block.title && <strong>{block.title}</strong>}
+                        {block.body && <CitedText value={block.body} sources={sources} paragraphs />}
+                      </div>
+                    );
+                  }
+
+                  if (block.type === "image") {
+                    return (
+                      <figure className="content-image" key={key}>
+                        {block.imageUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element -- offerte-afbeeldingen kunnen tijdelijke opslag-URL's zijn
+                          <img src={block.imageUrl} alt={block.title || block.caption || "Afbeelding"} />
+                        )}
+                        {block.caption && <figcaption>{block.caption}</figcaption>}
+                      </figure>
+                    );
+                  }
+
+                  return (
+                    <div className="content-block" key={key}>
+                      {block.title && <h3 className="content-block-title">{block.title}</h3>}
+                      {block.body && <CitedText value={block.body} sources={sources} className="letter" paragraphs />}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="spacer"></div>
+              {renderPageFooter(pageNr(`content-${pageIndex}`))}
+            </div>
+          </section>
+        ))}
+
         {/* ── WERKING VAN DE INSTALLATIE ── */}
-        {hasApproachPage && (
-          <section className="sheet">
+        {approachPages.map((paginaStappen, paginaIndex) => (
+          <section className="sheet" key={`approach-${paginaIndex}`}>
             <div className="bar"></div>
             <div className="pad">
               <div className="ph">
@@ -1130,11 +1539,13 @@ export function QuoteSheetPreview({
               <div className="row-badge">
                 <div>
                   <span className="eyebrow">Werking van de installatie</span>
-                  <h2 className="h2">Zo werkt het in de praktijk.</h2>
+                  <h2 className="h2">{paginaIndex === 0 ? "Zo werkt het in de praktijk." : "Zo werkt het in de praktijk, vervolg."}</h2>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "10px", marginTop: "12px" }}>
-                {approach.map((step, index) => (
+              <div className="flow-grid">
+                {paginaStappen.map((step) => {
+                  const index = approach.indexOf(step);
+                  return (
                   <div className="flow-item" key={index} style={{ position: "relative" }}>
                     <div className="fn">{step.n ?? index + 1}</div>
                     <div style={{ flex: 1 }}>
@@ -1172,8 +1583,9 @@ export function QuoteSheetPreview({
                       </button>
                     )}
                   </div>
-                ))}
-                {isEditable && (
+                  );
+                })}
+                {isEditable && paginaIndex === approachPages.length - 1 && (
                   <button
                     type="button"
                     className="doc-edit-btn doc-list-add"
@@ -1192,12 +1604,12 @@ export function QuoteSheetPreview({
                 )}
               </div>
               {renderSectionSpace("werking")}
-              {renderPageFooter(pageLabel(3))}
+              {renderPageFooter(pageNr(`approach-${paginaIndex}`))}
             </div>
           </section>
-        )}
+        ))}
 
-        {/* ── ONTWERPVOORBEELDEN ── */}
+        {/* ── EXTRA ONTWERPPAGINA'S ── */}
         {standaloneAttachments.map((attachment, index) => (
           <section className="sheet design-sheet" key={attachment.id ?? `${attachment.imageUrl}-${index}`}>
             <div className="bar"></div>
@@ -1207,12 +1619,11 @@ export function QuoteSheetPreview({
                 <div className="ph-meta">{quote.number || "CONCEPT"} &nbsp;&middot;&nbsp; {quote.customer.name || "Klant"}</div>
               </div>
 
-              <div className="row-badge">
-                <div>
-                  <span className="eyebrow">Ontwerpvoorbeeld {index + 1}</span>
-                  <h2 className="h2">{attachment.title || "Voorbeeld van de uitwerking"}</h2>
+              {attachment.title && (
+                <div className="row-badge">
+                  <div><h2 className="h2">{attachment.title}</h2></div>
                 </div>
-              </div>
+              )}
 
               <figure className="design-full design-full-preview">
                 <div className="design-full-frame">
@@ -1223,19 +1634,19 @@ export function QuoteSheetPreview({
                         target="_blank"
                         rel="noopener noreferrer"
                         className="attachment-image-link"
-                        aria-label={`Open ${attachment.title || "het ontwerpvoorbeeld"} in een nieuw tabblad`}
+                        aria-label={`Open ${attachment.title || "de afbeelding"} in een nieuw tabblad`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element -- offerte-afbeeldingen kunnen tijdelijke opslag-URL's zijn */}
                         <img
                           src={attachment.imageUrl}
-                          alt={attachment.title || `Ontwerpvoorbeeld ${index + 1}`}
+                          alt={attachment.title || "Afbeelding bij de offerte"}
                         />
                       </a>
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element -- offerte-afbeeldingen kunnen tijdelijke opslag-URL's zijn
                       <img
                         src={attachment.imageUrl}
-                        alt={attachment.title || `Ontwerpvoorbeeld ${index + 1}`}
+                        alt={attachment.title || "Afbeelding bij de offerte"}
                       />
                     )
                   ) : (
@@ -1245,22 +1656,14 @@ export function QuoteSheetPreview({
                       rel="noopener noreferrer"
                       className="design-live-frame"
                     >
-                      <span>Werkend voorbeeld</span>
-                      <b>{attachment.liveUrl || "Open het voorbeeld online"}</b>
+                      <span>Live website</span>
+                      <b>{attachment.liveUrl || "Open de pagina"}</b>
                     </a>
                   )}
                 </div>
-                <figcaption className="design-full-caption">
+                {(attachment.caption?.trim().toLowerCase() !== "voorbeeld" && attachment.caption?.trim() || attachment.liveUrl) && <figcaption className="design-full-caption">
                   <div className="design-caption-copy">
-                    <span className="design-caption-label">
-                      {attachment.liveUrl ? "Werkend ontwerp" : "Ontwerpimpressie"}
-                    </span>
-                    <p>
-                      {attachment.caption ||
-                        (attachment.liveUrl
-                          ? "Bekijk het ontwerp op ware grootte en ervaar hoe de pagina straks werkt."
-                          : "Een visuele indruk van de voorgestelde uitwerking.")}
-                    </p>
+                    {attachment.caption?.trim() && attachment.caption.trim().toLowerCase() !== "voorbeeld" && <p>{attachment.caption}</p>}
                   </div>
                   {attachment.liveUrl && (
                     <a
@@ -1269,13 +1672,13 @@ export function QuoteSheetPreview({
                       rel="noopener noreferrer"
                       className="design-open-link"
                     >
-                      Open het interactieve ontwerp
+                      Open de pagina
                     </a>
                   )}
-                </figcaption>
+                </figcaption>}
               </figure>
 
-              {renderPageFooter(pageLabel(3 + approachPageOffset + index))}
+              {renderPageFooter(pageNr(`attachment-${index}`))}
             </div>
           </section>
         ))}
@@ -1293,7 +1696,7 @@ export function QuoteSheetPreview({
               {!splitItemsPage && itemsTableBlock}
 
               {renderSectionSpace("items")}
-              {renderPageFooter(pageLabel(3 + approachPageOffset + attachmentPages))}
+              {renderPageFooter(pageNr("investering"))}
             </div>
           </section>
         )}
@@ -1396,7 +1799,7 @@ export function QuoteSheetPreview({
                 {isLast && !splitItemsPage && visibleItems.length > 0 && itemsTableBlock}
 
                 {isLast ? renderSectionSpace("items") : <div className="spacer"></div>}
-                {renderPageFooter(pageLabel(3 + approachPageOffset + attachmentPages + entryIndex))}
+                {renderPageFooter(pageNr(`choice-${entryIndex}`))}
               </div>
             </section>
           );
@@ -1414,7 +1817,7 @@ export function QuoteSheetPreview({
               {itemsTableBlock}
 
               {renderSectionSpace("items")}
-              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + choicePagesOffset))}
+              {renderPageFooter(pageNr("items"))}
             </div>
           </section>
         )}
@@ -1431,7 +1834,7 @@ export function QuoteSheetPreview({
               {optionsBlock}
 
               {renderSectionSpace("opties")}
-              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset))}
+              {renderPageFooter(pageNr("options"))}
             </div>
           </section>
         )}
@@ -1462,7 +1865,7 @@ export function QuoteSheetPreview({
               )}
 
               {renderSectionSpace("terms")}
-              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0)))}
+              {renderPageFooter(pageNr("terms"))}
             </div>
           </section>
         )}
@@ -1483,13 +1886,13 @@ export function QuoteSheetPreview({
               {exclusionsBlock}
 
               <div className="spacer"></div>
-              {renderPageFooter(pageLabel(4 + approachPageOffset + attachmentPages + choicePagesOffset + itemsPageOffset + (hasOptionsPage ? 1 : 0) + 1))}
+              {renderPageFooter(pageNr("terms-2"))}
             </div>
           </section>
         )}
 
-        {hasSourcesPage && (
-          <section className="sheet">
+        {sourcePages.map((paginaBronnen, paginaIndex) => (
+          <section className="sheet" key={`sources-${paginaIndex}`}>
             <div className="bar"></div>
             <div className="pad">
               <div className="ph">
@@ -1500,36 +1903,91 @@ export function QuoteSheetPreview({
               <div className="row-badge">
                 <div>
                   <span className="eyebrow">Technische onderbouwing</span>
-                  <h2 className="h2">Bronnen bij dit advies.</h2>
+                  <h2 className="h2">
+                    {paginaIndex === 0 ? "Bronnen bij dit advies." : "Bronnen bij dit advies, vervolg."}
+                  </h2>
                 </div>
               </div>
-              <p className="source-intro">
-                De belangrijkste technische uitgangspunten in deze offerte zijn gecontroleerd aan de hand van onderstaande informatie van fabrikanten en aanbieders.
-              </p>
+              {paginaIndex === 0 && (
+                <p className="source-intro">
+                  De belangrijkste technische uitgangspunten in deze offerte zijn gecontroleerd aan de hand van onderstaande informatie van fabrikanten en aanbieders.
+                </p>
+              )}
               <div className="source-grid">
-                {sources.map((source, index) => (
-                  <a
-                    key={source.id ?? source.url}
-                    href={source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="source-card"
-                  >
-                    <span className="source-number">{index + 1}</span>
-                    <span className="source-copy">
-                      <strong>{source.label}</strong>
-                      {source.description && <small>{source.description}</small>}
-                      <span className="source-link">Open officiële bron <ExternalLink size={12} /></span>
-                    </span>
-                  </a>
-                ))}
+                {paginaBronnen.map((source) => {
+                  const index = sources.indexOf(source);
+                  return isEditable ? (
+                    // Bewerkbaar: label, toelichting en link. AI vult deze bronnen,
+                    // dus je moet ze zonder omweg kunnen corrigeren.
+                    <div key={source.id ?? index} className="source-card source-card-edit group relative">
+                      <span className="source-number">{index + 1}</span>
+                      <span className="source-copy">
+                        <InlineInput
+                          isEditable
+                          value={source.label}
+                          onChange={(value) => updateSource(index, { label: value })}
+                          placeholder="Merk: onderwerp"
+                          className="font-bold"
+                        />
+                        <InlineInput
+                          isEditable
+                          value={source.description ?? ""}
+                          onChange={(value) => updateSource(index, { description: value })}
+                          placeholder="Wat deze bron onderbouwt"
+                          className="text-xs"
+                        />
+                        <InlineInput
+                          isEditable
+                          value={source.url}
+                          onChange={(value) => updateSource(index, { url: value })}
+                          placeholder="https://..."
+                          className="text-xs"
+                        />
+                      </span>
+                      <button
+                        type="button"
+                        className="inline-delete"
+                        onClick={() => removeSource(index)}
+                        aria-label="Bron verwijderen"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <a
+                      key={source.id ?? source.url}
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="source-card"
+                    >
+                      <span className="source-num">{index + 1}</span>
+                      <span className="source-copy">
+                        <strong>{source.label}</strong>
+                        {source.description && <small>{source.description}</small>}
+                        {sourceHost(source.url) && (
+                          <span className="source-host">
+                            <SourceIcon url={source.url} index={index} bare />
+                            {sourceHost(source.url)}
+                            <ExternalLink size={11} />
+                          </span>
+                        )}
+                      </span>
+                    </a>
+                  );
+                })}
               </div>
+              {isEditable && paginaIndex === sourcePages.length - 1 && (
+                <button type="button" className="doc-edit-btn doc-list-add" onClick={addSource}>
+                  <PlusCircle size={14} /> Bron toevoegen
+                </button>
+              )}
 
               <div className="spacer"></div>
-              {renderPageFooter(pageLabel(totalPages - 1))}
+              {renderPageFooter(pageNr(`sources-${paginaIndex}`))}
             </div>
           </section>
-        )}
+        ))}
 
         {/* ── PAGINA 5: SIGN ── */}
         <section className="sheet">
@@ -1560,6 +2018,7 @@ export function QuoteSheetPreview({
               </div>
             )}
             
+            <QuotePersonalNote branding={documentBranding} />
             <div className="sign-grid">
               <div className="sign-box">
                 <div className="sign-who">Namens opdrachtgever</div>
@@ -1578,7 +2037,7 @@ export function QuoteSheetPreview({
             </div>
 
             {renderSectionSpace("sign")}
-            {renderPageFooter(pageLabel(totalPages))}
+            {renderPageFooter(pageNr("sign"))}
           </div>
         </section>
       </div>

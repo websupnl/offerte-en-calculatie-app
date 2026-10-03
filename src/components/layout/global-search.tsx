@@ -1,21 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { FileText, FolderKanban, Package, Search, Users, Loader2, ArrowRight } from "lucide-react";
+import { Calculator, FileText, FolderKanban, Package, Search, Users, Loader2, ArrowRight } from "lucide-react";
 
 type SearchResult = {
   id: string;
-  type: "quote" | "project" | "customer" | "product";
+  type: "calculation" | "quote" | "project" | "customer" | "product";
   title: string;
   subtitle: string;
   href: string;
 };
 
 const icons = {
+  calculation: Calculator,
   quote: FileText,
   project: FolderKanban,
   customer: Users,
@@ -23,8 +24,9 @@ const icons = {
 };
 
 const quickLinks = [
+  { title: "Nieuwe calculatie", subtitle: "Bereken een nieuwe uitvoering", href: "/calculations?create=1", type: "calculation" as const },
   { title: "Nieuwe offerte", subtitle: "Start een nieuw voorstel", href: "/quotes/new", type: "quote" as const },
-  { title: "Nieuwe klant", subtitle: "Open klantenbeheer", href: "/customers", type: "customer" as const },
+  { title: "Nieuwe klant", subtitle: "Voeg een relatie toe", href: "/customers?create=1", type: "customer" as const },
   { title: "Artikelen & prijzen", subtitle: "Beheer catalogus en sets", href: "/admin/products", type: "product" as const },
 ];
 
@@ -39,6 +41,8 @@ export function GlobalSearch({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activeResultIndex, setActiveResultIndex] = useState(0);
+  const searchId = useId();
 
   useEffect(() => {
     if (!open || query.trim().length < 2) return;
@@ -96,22 +100,34 @@ export function GlobalSearch({
           )}
           <Input
             autoFocus
+            role="combobox"
+            aria-label="Zoek calculaties, offertes, klanten, projecten en artikelen"
+            aria-autocomplete="list"
+            aria-expanded={open}
+            aria-controls={`${searchId}-results`}
+            aria-activedescendant={visibleResults[activeResultIndex] ? `${searchId}-result-${activeResultIndex}` : undefined}
             value={query}
             onChange={(event) => {
               const value = event.target.value;
               setQuery(value);
+              setActiveResultIndex(0);
               if (value.trim().length < 2) setResults([]);
             }}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && visibleResults[0]) navigate(visibleResults[0].href);
+              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault();
+                const direction = event.key === "ArrowDown" ? 1 : -1;
+                setActiveResultIndex(index => visibleResults.length ? (index + direction + visibleResults.length) % visibleResults.length : 0);
+              }
+              if (event.key === "Enter" && visibleResults[activeResultIndex]) navigate(visibleResults[activeResultIndex].href);
             }}
-            placeholder="Zoek klant, project, offerte of artikel…"
+            placeholder="Zoek calculatie, klant, offerte of artikel…"
             className="h-16 rounded-none border-0 bg-transparent pl-14 pr-16 text-base shadow-none focus-visible:ring-0"
           />
-          <kbd className="absolute right-4 top-1/2 -translate-y-1/2 rounded border bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">ESC</kbd>
+          <kbd className="absolute right-4 top-1/2 -translate-y-1/2 rounded border bg-muted px-2 py-1 text-sm font-medium text-muted-foreground">ESC</kbd>
         </div>
-        <div className="max-h-[55vh] overflow-y-auto p-2">
-          <p className="px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.13em] text-muted-foreground">
+        <div id={`${searchId}-results`} role="listbox" aria-label="Zoekresultaten" className="max-h-[55vh] overflow-y-auto p-2">
+          <p className="px-3 pb-2 pt-1 text-sm font-bold uppercase tracking-[0.13em] text-muted-foreground">
             {query.trim().length < 2 ? "Snel starten" : `${results.length} resultaten`}
           </p>
           {visibleResults.length === 0 && !loading ? (
@@ -123,20 +139,24 @@ export function GlobalSearch({
               const Icon = icons[result.type];
               return (
                 <Link
+                  id={`${searchId}-result-${index}`}
+                  role="option"
+                  aria-selected={index === activeResultIndex}
                   key={"id" in result ? `${result.type}-${result.id}` : result.href}
                   href={result.href}
                   onClick={() => onOpenChange(false)}
-                  className="group flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-muted"
+                  onMouseEnter={() => setActiveResultIndex(index)}
+                  className={`group flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-muted ${index === activeResultIndex ? "bg-muted" : ""}`}
                 >
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md border bg-background text-muted-foreground">
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{result.title}</p>
-                    <p className="truncate text-xs text-muted-foreground">{result.subtitle}</p>
+                    <p className="truncate text-base font-semibold">{result.title}</p>
+                    <p className="truncate text-sm text-muted-foreground">{result.subtitle}</p>
                   </div>
-                  {index === 0 ? (
-                    <span className="hidden text-[10px] text-muted-foreground sm:block">Enter</span>
+                  {index === activeResultIndex ? (
+                    <span className="hidden text-sm text-muted-foreground sm:block">Enter</span>
                   ) : (
                     <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                   )}
@@ -145,7 +165,7 @@ export function GlobalSearch({
             })
           )}
         </div>
-        <div className="flex items-center justify-between border-t bg-muted/40 px-4 py-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center justify-between border-t bg-muted/40 px-4 py-2 text-sm text-muted-foreground">
           <span>Zoekt binnen het actieve bedrijf</span>
           <span>⌘/Ctrl + K</span>
         </div>

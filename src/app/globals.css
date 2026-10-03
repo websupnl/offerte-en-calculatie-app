@@ -72,7 +72,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -120,9 +120,9 @@
 /* Company branding themes + workspace (admin UI) tokens.
    --ws-* stuurt de app-schil: achtergrond, sidebar, actieve pill en accentkleur. */
 :root {
-  --ws-bg: #edf2f1;
-  --ws-sidebar: #0d3b41;
-  --ws-sidebar-fg: rgba(255, 255, 255, 0.62);
+  --ws-bg: #f5f6f7;
+  --ws-sidebar: #1c1e22;
+  --ws-sidebar-fg: #afb4bd;
   --ws-pill: #99f6e4;
   --ws-pill-fg: #0f3f3a;
   --ws-accent: #116b73;
@@ -138,9 +138,9 @@
   --brand-primary: #0F172A;
   --brand-accent: #f97316;
 
-  --ws-bg: #f2f0f3;
-  --ws-sidebar: #0d0916;
-  --ws-sidebar-fg: rgba(255, 255, 255, 0.6);
+  --ws-bg: #f5f6f7;
+  --ws-sidebar: #1c1e22;
+  --ws-sidebar-fg: #afb4bd;
   --ws-pill: #fed7aa;
   --ws-pill-fg: #7c2d12;
   --ws-accent: #c2410c;
@@ -156,14 +156,79 @@
   --brand-primary: #0d3b41;
   --brand-accent: #167f88;
 
-  --ws-bg: #edf2f1;
-  --ws-sidebar: #0d3b41;
-  --ws-sidebar-fg: rgba(255, 255, 255, 0.62);
+  --ws-bg: #f5f6f7;
+  --ws-sidebar: #1c1e22;
+  --ws-sidebar-fg: #afb4bd;
   --ws-pill: #99f6e4;
   --ws-pill-fg: #0f3f3a;
   --ws-accent: #116b73;
   --ws-accent-hover: #0d565c;
   --ws-accent-soft: #d9edee;
+}
+
+[data-company] {
+  --ws-bg: var(--brand-background, #f5f6f7);
+}
+
+.dark[data-company="websup"],
+.dark[data-company="koolhaas"],
+.dark {
+  --ws-bg: #141415;
+  --ws-sidebar: #19191b;
+  --ws-sidebar-fg: #aebbc8;
+  --ws-accent-soft: #20333a;
+  --background: #141415;
+  --foreground: #ededee;
+  --card: #1c1c1e;
+  --card-foreground: #ededee;
+  --popover: #222225;
+  --popover-foreground: #ededee;
+  --muted: #29292c;
+  --muted-foreground: #aaaab2;
+  --secondary: #29292c;
+  --secondary-foreground: #ededee;
+  --border: #36363b;
+  --input: #36363b;
+}
+
+.dark[data-company="websup"] {
+  --primary: #f97316;
+  --primary-foreground: #17110d;
+  --ws-accent: #f97316;
+  --ws-accent-hover: #ea580c;
+  --ws-accent-soft: #3a2419;
+}
+
+.dark[data-company="koolhaas"] {
+  --primary: #58c2bf;
+  --primary-foreground: #0d2226;
+  --ws-accent: #58c2bf;
+  --ws-accent-hover: #42aaa7;
+  --ws-accent-soft: #173b3d;
+}
+
+.dark .workspace-shell {
+  color-scheme: dark;
+}
+
+.workspace-shell {
+  font-family: var(--brand-font, var(--font-sans)), system-ui, sans-serif;
+}
+
+/* Shared workbench language. Paper previews retain their own document styles. */
+.workspace-shell { font-size: 16px; line-height: 1.5; }
+.workspace-sidebar { scrollbar-width: thin; }
+.workspace-shell * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--foreground), transparent 70%) transparent; }
+.workspace-title { animation: workspace-title-reveal 240ms cubic-bezier(.22,1,.36,1) both; }
+.workspace-tab-panel { animation: workspace-panel-enter 160ms ease-out both; }
+@keyframes workspace-title-reveal { from { transform: translateY(105%); } to { transform: translateY(0); } }
+@keyframes workspace-panel-enter { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .workspace-title, .workspace-tab-panel { animation: none; }
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+@media (max-width: 767px) {
+  .workspace-shell [data-slot="button"], .workspace-shell [data-slot="tabs-trigger"] { min-height: 44px; }
 }
 
 @layer base {

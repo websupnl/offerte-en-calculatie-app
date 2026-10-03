@@ -2,31 +2,18 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { ArrowLeft, CheckCircle2, CreditCard, Eye, Loader2, Save, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, Loader2, Save, Printer } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { INVOICE_STATUS_LABELS, formatCurrency, formatDate } from "@/lib/format";
 import { computeInvoiceTotals } from "@/lib/invoice-totals";
-
-type Line = {
-  description: string;
-  qty: number;
-  unit: string;
-  unitPrice: number;
-  vatRate: number;
-};
+import { InvoiceLinesEditor, stripKeys, toEditable, type EditableLine } from "@/components/invoices/invoice-lines-editor";
+import { InvoicePdfDownload } from "@/components/invoices/invoice-pdf-download";
 
 type Invoice = {
   id: string;
@@ -36,60 +23,74 @@ type Invoice = {
   notes: string | null;
   invoiceDate: string;
   dueDate: string | null;
-  lines: {
-    id: string;
-    description: string;
-    qty: string | number;
-    unit: string | null;
-    unitPrice: string | number;
-    vatRate: string | number;
-  }[];
-  customer: { name: string; address: string | null; city: string | null; zipCode: string | null } | null;
+  molliePaymentUrl: string | null;
+  molliePaymentMode: string | null;
+  molliePaidAt: string | null;
+  lines: { id: string; description: string; qty: string | number; unit: string | null; unitPrice: string | number; vatRate: string | number }[];
+  customer: { id: string; name: string; email: string | null; address: string | null; city: string | null; zipCode: string | null } | null;
   project: { id: string; number: string; title: string } | null;
+  quote: { id: string; number: string } | null;
+  workOrder: { id: string; number: string } | null;
 };
 
-const STATUSES = ["CONCEPT", "VERZONDEN", "BETAALD", "VERVALLEN"];
+const STATUS_STYLE: Record<string, string> = {
+  CONCEPT: "bg-muted text-foreground",
+  GEREED: "bg-amber-100 text-amber-900",
+  VERZENDEN: "bg-amber-100 text-amber-900",
+  VERZONDEN: "bg-primary/10 text-primary",
+  BETAALD: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  VERVALLEN: "bg-red-100 text-red-700",
+};
 
-export function InvoiceDetailClient({ invoice }: { invoice: Invoice }) {
+const toDateInput = (iso: string | null) => (iso ? iso.slice(0, 10) : "");
+
+export function InvoiceDetailClient({ invoice, missingCompanyData, mollieConfigured, mollieLive, emailConfigured }: { invoice: Invoice; missingCompanyData: string[]; mollieConfigured: boolean; mollieLive: boolean; emailConfigured: boolean }) {
+  const router = useRouter();
   const [status, setStatus] = useState(invoice.status);
   const [reference, setReference] = useState(invoice.reference ?? "");
   const [notes, setNotes] = useState(invoice.notes ?? "");
-  const [lines, setLines] = useState<Line[]>(
-    invoice.lines.map((l) => ({
-      description: l.description,
-      qty: Number(l.qty),
-      unit: l.unit ?? "stuk",
-      unitPrice: Number(l.unitPrice),
-      vatRate: Number(l.vatRate),
-    })),
-  );
+  const [invoiceDate, setInvoiceDate] = useState(toDateInput(invoice.invoiceDate));
+  const [dueDate, setDueDate] = useState(toDateInput(invoice.dueDate));
+  const [lines, setLines] = useState<EditableLine[]>(() => toEditable(invoice.lines));
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState(invoice.molliePaymentUrl);
+  const [paymentMode, setPaymentMode] = useState(invoice.molliePaymentMode);
+  const [creatingLink, setCreatingLink] = useState(false);
+  const [sending, setSending] = useState(false);
 
+  const locked = status !== "CONCEPT";
   const totals = computeInvoiceTotals(lines);
+  const overdue = status === "VERZONDEN" && dueDate && new Date(dueDate) < new Date(new Date().toDateString());
 
-  function addLine() {
-    setLines((prev) => [
-      ...prev,
-      { description: "", qty: 1, unit: "stuk", unitPrice: 0, vatRate: 21 },
-    ]);
-  }
-  function updateLine(i: number, patch: Partial<Line>) {
-    setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
-  }
-  function removeLine(i: number) {
-    setLines((prev) => prev.filter((_, idx) => idx !== i));
-  }
+  const touch = <T,>(setter: (v: T) => void) => (v: T) => {
+    setter(v);
+    setDirty(true);
+  };
 
-  async function save() {
+  async function save(nextStatus?: string) {
     setSaving(true);
     try {
       const res = await fetch(`/api/invoices/${invoice.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, reference, notes, lines }),
+        body: JSON.stringify(locked && nextStatus ? { status: nextStatus } : {
+          status: nextStatus ?? status,
+          reference,
+          notes,
+          invoiceDate: invoiceDate || undefined,
+          dueDate: dueDate || null,
+          lines: stripKeys(lines),
+        }),
       });
-      if (!res.ok) throw new Error("Opslaan mislukt");
-      toast.success("Factuur opgeslagen");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(typeof body?.error === "string" ? body.error : "Opslaan mislukt");
+      }
+      if (nextStatus) setStatus(nextStatus);
+      setDirty(false);
+      toast.success(nextStatus ? `Gemarkeerd als ${INVOICE_STATUS_LABELS[nextStatus].toLowerCase()}` : "Factuur opgeslagen");
+      router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Er ging iets mis");
     } finally {
@@ -97,142 +98,231 @@ export function InvoiceDetailClient({ invoice }: { invoice: Invoice }) {
     }
   }
 
+  async function createPaymentLink() {
+    setCreatingLink(true);
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}/payment-link`, { method: "POST" });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Betaallink maken mislukt");
+      setPaymentUrl(body.url);
+      setPaymentMode(body.mode);
+      toast.success("Betaallink toegevoegd aan de factuur");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Betaallink maken mislukt");
+    } finally {
+      setCreatingLink(false);
+    }
+  }
+
+  async function sendInvoice() {
+    if (dirty) return toast.error("Sla de factuur eerst op voordat je hem verstuurt");
+    if (!c?.email) return toast.error("Vul eerst een e-mailadres bij de klant in");
+    if (!confirm(`Factuur ${invoice.number} naar ${c.email} versturen?`)) return;
+    setSending(true);
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}/send-email`, { method: "POST" });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Factuur versturen mislukt");
+      setStatus("VERZONDEN");
+      setPaymentUrl(body.paymentUrl);
+      setPaymentMode("live");
+      toast.success(`Factuur met PDF en betaallink verstuurd naar ${body.to}`);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Factuur versturen mislukt");
+      const current = await fetch(`/api/invoices/${invoice.id}`).then((res) => res.ok ? res.json() : null).catch(() => null);
+      if (current) {
+        setStatus(current.status);
+        setPaymentUrl(current.molliePaymentUrl);
+        setPaymentMode(current.molliePaymentMode);
+      }
+      router.refresh();
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function remove() {
+    if (!confirm(`Concept ${invoice.number} verwijderen?`)) return;
+    const res = await fetch(`/api/invoices/${invoice.id}`, { method: "DELETE" });
+    if (!res.ok) return toast.error("Alleen concepten kunnen verwijderd worden");
+    toast.success("Concept verwijderd");
+    router.push("/invoices");
+  }
+
+  const c = invoice.customer;
+
   return (
-    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-5">
-      {invoice.project && (
-        <Link
-          href={`/projects/${invoice.project.id}`}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" /> {invoice.project.number} · {invoice.project.title}
-        </Link>
+    <div className="mx-auto max-w-7xl space-y-5 p-4 sm:p-5 lg:p-8">
+      <Link
+        href={invoice.project ? `/projects/${invoice.project.id}` : "/invoices"}
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" /> {invoice.project ? `${invoice.project.number} · ${invoice.project.title}` : "Facturen"}
+      </Link>
+
+      {/* Kop met het bedrag als hoofdzaak */}
+      <header className="overflow-hidden rounded-xl border border-border bg-card text-foreground">
+        <div className="flex flex-col gap-6 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-6">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-sm text-muted-foreground">{invoice.number}</span>
+              <span className={cn("rounded-full px-2.5 py-0.5 text-sm font-semibold", STATUS_STYLE[status])}>
+                {INVOICE_STATUS_LABELS[status] ?? status}
+              </span>
+              {overdue && <span className="rounded-full bg-red-500 px-2.5 py-0.5 text-sm font-semibold text-white">Over de vervaldatum</span>}
+            </div>
+            <h1 className="workspace-title mt-2 text-2xl font-semibold tracking-tight">{c?.name ?? "Onbekende klant"}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {[c?.address, [c?.zipCode, c?.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "Geen adres bekend"}
+            </p>
+          </div>
+          <div className="sm:text-right">
+            <p className="text-sm uppercase tracking-[0.14em] text-muted-foreground">Te betalen</p>
+            <p className="text-3xl font-bold tabular-nums sm:text-4xl">{formatCurrency(totals.totalIncVat)}</p>
+            <p className="text-sm text-muted-foreground">{formatCurrency(totals.totalExVat)} excl. btw</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 border-t border-border bg-muted/40 px-5 py-3 sm:px-6">
+          {["CONCEPT", "GEREED", "VERZONDEN"].includes(status) && (
+            <Button size="sm" onClick={sendInvoice} disabled={saving || sending || dirty || !mollieLive || !emailConfigured || !c?.email || missingCompanyData.length > 0} className="bg-primary text-primary-foreground hover:bg-primary/90">
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {sending ? "Factuur wordt verstuurd" : status === "VERZONDEN" ? "Factuur mailen" : "Verstuur factuur"}
+            </Button>
+          )}
+          {status === "CONCEPT" && (
+            <Button size="sm" variant="secondary" onClick={() => save("GEREED")} disabled={saving || sending}>
+              Maak definitief
+            </Button>
+          )}
+          {(status === "VERZONDEN" || status === "VERVALLEN") && (
+            <Button size="sm" onClick={() => save("BETAALD")} disabled={saving} className="bg-emerald-500 text-white hover:bg-emerald-600">
+              <CheckCircle2 className="h-4 w-4" /> Handmatig betaald
+            </Button>
+          )}
+          {["GEREED", "VERZONDEN", "VERVALLEN"].includes(status) && paymentMode !== "live" && mollieLive && (
+            <Button size="sm" variant="secondary" onClick={createPaymentLink} disabled={creatingLink || dirty}>
+              {creatingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+              Betaallink maken
+            </Button>
+          )}
+          {paymentUrl && paymentMode === "live" && status !== "BETAALD" && (
+            <a href={paymentUrl} target="_blank" rel="noopener noreferrer">
+              <Button size="sm" variant="secondary"><CreditCard className="h-4 w-4" /> Betaallink</Button>
+            </a>
+          )}
+          <a href={`/print/invoices/${invoice.id}`} target="_blank" rel="noopener noreferrer">
+            <Button size="sm" variant="secondary"><Eye className="h-4 w-4" /> Bekijken</Button>
+          </a>
+          <InvoicePdfDownload invoiceId={invoice.id} />
+          {status === "GEREED" && !paymentUrl && (
+            <Button size="sm" variant="ghost" onClick={() => save("CONCEPT")} disabled={saving || sending}>Terug naar concept</Button>
+          )}
+          {status === "CONCEPT" && (
+            <Button size="sm" variant="ghost" onClick={remove} className="ml-auto text-muted-foreground hover:bg-card/10 hover:text-white">
+              <Trash2 className="h-4 w-4" /> Verwijderen
+            </Button>
+          )}
+        </div>
+      </header>
+
+      {missingCompanyData.length > 0 && (
+        <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
+          Op de factuur ontbreekt nog: <strong>{missingCompanyData.join(", ")}</strong>. Dat is wettelijk verplicht.{" "}
+          <Link href="/admin/settings" className="font-semibold underline">Vul het in bij Inrichting</Link>.
+        </div>
       )}
 
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <span className="text-xs font-mono text-muted-foreground">{invoice.number}</span>
-          <h1 className="text-xl font-bold">Factuur</h1>
-          <p className="text-sm text-muted-foreground">
-            {invoice.customer?.name ?? ""} · {formatDate(invoice.invoiceDate)}
-            {invoice.dueDate ? ` · vervalt ${formatDate(invoice.dueDate)}` : ""}
-          </p>
+      {!mollieConfigured && status !== "BETAALD" && (
+        <div className="rounded-xl bg-muted/40 px-4 py-3 text-sm text-foreground ring-1 ring-slate-200">
+          Online betalen is voor dit bedrijf nog niet ingesteld. Voeg de bijbehorende Mollie-key toe aan de serverconfiguratie.
         </div>
-        <Badge variant="secondary">{INVOICE_STATUS_LABELS[status] ?? status}</Badge>
+      )}
+      {mollieConfigured && !mollieLive && status !== "BETAALD" && (
+        <div className="rounded-xl bg-amber-50 px-4 py-3 text-base text-amber-950 ring-1 ring-amber-200">
+          Facturen mailen kan pas met een live Mollie-key voor dit bedrijf. Testbetalingen gaan niet naar klanten.
+        </div>
+      )}
+      {!emailConfigured && status !== "BETAALD" && (
+        <div className="rounded-xl bg-amber-50 px-4 py-3 text-base text-amber-950 ring-1 ring-amber-200">
+          Facturen mailen kan pas nadat de mailserver is ingesteld. Controleer de Brevo SMTP-instellingen op Vercel.
+        </div>
+      )}
+      {!c?.email && status !== "BETAALD" && (
+        <div className="rounded-xl bg-amber-50 px-4 py-3 text-base text-amber-950 ring-1 ring-amber-200">
+          Deze klant heeft nog geen e-mailadres. {c && <Link href={`/customers/${c.id}`} className="font-semibold underline">Vul het e-mailadres in</Link>}
+        </div>
+      )}
+      {paymentMode === "test" && status !== "BETAALD" && (
+        <div className="rounded-xl bg-amber-50 px-4 py-3 text-base text-amber-950 ring-1 ring-amber-200">
+          Er staat nog een oude testbetaallink op deze factuur. Bij versturen wordt die vervangen door een live Mollie-link.
+        </div>
+      )}
+      {dirty && <p className="text-base text-foreground">Sla je wijzigingen op voordat je de factuur verstuurt.</p>}
+      {status === "VERZENDEN" && (
+        <div className="rounded-xl bg-amber-50 px-4 py-3 text-base text-amber-950 ring-1 ring-amber-200">
+          De verzending wordt verwerkt. Blijft dit staan? Controleer dan eerst in Brevo of de mail is verzonden.
+        </div>
+      )}
+      {paymentMode === "test" && invoice.molliePaidAt && (
+        <div className="rounded-xl bg-muted/40 px-4 py-3 text-sm text-foreground ring-1 ring-slate-200">
+          Testbetaling gelukt. Deze factuur blijft open totdat er een echte betaling is ontvangen.
+        </div>
+      )}
+
+      {locked && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-primary/10 px-4 py-3 text-sm text-primary ring-1 ring-primary/25">
+          <span>Deze factuur is {INVOICE_STATUS_LABELS[status].toLowerCase()}. De regels zijn vergrendeld zodat hij gelijk blijft aan wat de klant heeft.</span>
+        </div>
+      )}
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <section className="min-w-0 overflow-hidden rounded-xl bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
+          <InvoiceLinesEditor lines={lines} onChange={touch(setLines)} readOnly={locked} />
+        </section>
+
+        <aside className="space-y-4">
+          <section className="space-y-3 rounded-xl bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <p className="text-base font-semibold text-foreground">{INVOICE_STATUS_LABELS[status] ?? status}</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Factuurdatum</Label>
+              <Input type="date" value={invoiceDate} disabled={locked} onChange={(e) => touch(setInvoiceDate)(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Vervaldatum</Label>
+              <Input type="date" value={dueDate} disabled={locked} onChange={(e) => touch(setDueDate)(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Referentie</Label>
+              <Input value={reference} disabled={locked} onChange={(e) => touch(setReference)(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Opmerking op factuur</Label>
+              <Textarea rows={3} value={notes} disabled={locked} onChange={(e) => touch(setNotes)(e.target.value)} placeholder="Optioneel" />
+            </div>
+          </section>
+
+          {(invoice.quote || invoice.workOrder || invoice.project) && (
+            <section className="space-y-1.5 rounded-xl bg-card p-4 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
+              <p className="text-sm font-bold uppercase tracking-[0.14em] text-muted-foreground">Gekoppeld</p>
+              {invoice.quote && <Link className="block hover:text-[var(--ws-accent)]" href={`/quotes/${invoice.quote.id}`}>Offerte {invoice.quote.number}</Link>}
+              {invoice.workOrder && <Link className="block hover:text-[var(--ws-accent)]" href={`/workorders/${invoice.workOrder.id}`}>Werkbon {invoice.workOrder.number}</Link>}
+              {invoice.project && <Link className="block hover:text-[var(--ws-accent)]" href={`/projects/${invoice.project.id}`}>Project {invoice.project.number}</Link>}
+            </section>
+          )}
+          <p className="px-1 text-sm text-muted-foreground">Aangemaakt op {formatDate(invoice.invoiceDate)}</p>
+        </aside>
       </div>
 
-      <Card>
-        <CardContent className="p-4 grid sm:grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <Select value={status} onValueChange={(v) => { if (v) setStatus(v); }}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>{INVOICE_STATUS_LABELS[s]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Referentie / PO</Label>
-            <Input value={reference} onChange={(e) => setReference(e.target.value)} />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Regels</h2>
-            <Button type="button" variant="outline" size="sm" onClick={addLine}>
-              <Plus className="h-4 w-4 mr-1" /> Regel
-            </Button>
-          </div>
-
-          {lines.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              Nog geen regels.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {lines.map((l, i) => (
-                <div key={i} className="rounded-md border p-3 space-y-2">
-                  <div className="flex items-start gap-2">
-                    <Input
-                      placeholder="Omschrijving"
-                      value={l.description}
-                      onChange={(e) => updateLine(i, { description: e.target.value })}
-                    />
-                    <Button type="button" variant="ghost" size="icon" onClick={() => removeLine(i)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    <div>
-                      <Label className="text-xs">Aantal</Label>
-                      <Input type="number" step="0.01" value={l.qty}
-                        onChange={(e) => updateLine(i, { qty: Number(e.target.value) })} />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Eenheid</Label>
-                      <Input value={l.unit} onChange={(e) => updateLine(i, { unit: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Prijs</Label>
-                      <Input type="number" step="0.01" value={l.unitPrice}
-                        onChange={(e) => updateLine(i, { unitPrice: Number(e.target.value) })} />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Btw %</Label>
-                      <Input type="number" step="1" value={l.vatRate}
-                        onChange={(e) => updateLine(i, { vatRate: Number(e.target.value) })} />
-                    </div>
-                  </div>
-                  <p className="text-right text-sm text-muted-foreground">
-                    {formatCurrency(l.qty * l.unitPrice)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="border-t pt-3 space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Subtotaal (excl. btw)</span>
-              <span>{formatCurrency(totals.totalExVat)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Btw</span>
-              <span>{formatCurrency(totals.totalVat)}</span>
-            </div>
-            <div className="flex justify-between font-semibold text-base">
-              <span>Totaal</span>
-              <span>{formatCurrency(totals.totalIncVat)}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="p-4 space-y-2">
-          <Label>Opmerkingen</Label>
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)}
-            placeholder="Tekst onderaan de factuur (optioneel)" />
-        </CardContent>
-      </Card>
-
-      <div className="flex gap-2 flex-wrap">
-        <Button onClick={save} disabled={saving}>
-          {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-          Opslaan
+      <div className="sticky bottom-4 flex justify-end">
+        <Button size="lg" onClick={() => save()} disabled={saving || !dirty} className="shadow-lg">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {dirty ? "Wijzigingen opslaan" : "Opgeslagen"}
         </Button>
-        <a href={`/print/invoices/${invoice.id}`} target="_blank" rel="noopener noreferrer">
-          <Button variant="outline">
-            <Printer className="h-4 w-4 mr-1" /> PDF / print
-          </Button>
-        </a>
       </div>
     </div>
   );

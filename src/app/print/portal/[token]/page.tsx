@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
 import { PrintOnLoad } from "@/components/print-on-load";
 import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
+import { modulesToOptions } from "@/lib/quote-modules";
+import { applyCalculationPricing } from "@/lib/quote-with-pricing";
+import { publicQuoteItems } from "@/lib/public-quote-items";
 
 export default async function PortalPrintPage({
   params,
@@ -22,6 +25,13 @@ export default async function PortalPrintPage({
         include: {
           customer: true,
           items: { orderBy: { sortOrder: "asc" } },
+          modules: { orderBy: { sortOrder: "asc" } },
+          calculations: {
+            where: { archivedAt: null },
+            orderBy: { sortOrder: "asc" },
+            include: { items: { orderBy: { sortOrder: "asc" } } },
+          },
+          contentBlocks: { orderBy: { sortOrder: "asc" } },
           attachments: { orderBy: { sortOrder: "asc" } },
           company: true,
         },
@@ -41,10 +51,16 @@ export default async function PortalPrintPage({
     }>,
     { expiresIn: 21600 },
   );
-  const serialized = JSON.parse(JSON.stringify({
+  const quoteForPrint = applyCalculationPricing({
     ...share.quote,
+    // Modules staan in hun eigen tabel; de preview leest ze als `options`.
+    options: modulesToOptions(share.quote.modules),
     attachments,
     choiceGroups,
+  });
+  const serialized = JSON.parse(JSON.stringify({
+    ...quoteForPrint,
+    items: publicQuoteItems(quoteForPrint),
   }));
   const selectedChoiceIds = (share.selectedChoiceIds as Record<string, string> | null)
     ?? parseJsonParam<Record<string, string>>(choices, {});

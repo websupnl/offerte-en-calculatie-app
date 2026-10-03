@@ -84,7 +84,7 @@ function LineRow({ line, intern }: { line: Line; intern: boolean }) {
       <td className="py-1.5 text-right">{formatCurrency(t.verkoopExcl)}</td>
       {intern && (
         <td className="py-1.5 text-right">
-          {formatCurrency(t.marge)} <span className="text-xs text-muted-foreground">({t.margePercent.toFixed(0)}%)</span>
+          {formatCurrency(t.marge)} <span className="text-sm text-muted-foreground">({t.margePercent.toFixed(0)}%)</span>
         </td>
       )}
       <td className="py-1.5 text-right font-medium">{formatCurrency(t.verkoopIncl)}</td>
@@ -99,7 +99,7 @@ function SectionTable({ title, lines, intern }: { title: string; lines: Line[]; 
       <h3 className="mb-2 font-semibold">{title}</h3>
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b text-xs uppercase text-muted-foreground">
+          <tr className="border-b text-sm uppercase text-muted-foreground">
             <th className="pb-1.5 pl-3 text-left font-medium">Omschrijving</th>
             <th className="pb-1.5 text-right font-medium">Aantal</th>
             {intern && <th className="pb-1.5 text-right font-medium">Inkoop</th>}
@@ -122,7 +122,7 @@ function SectionTable({ title, lines, intern }: { title: string; lines: Line[]; 
             {intern && (
               <td className="py-2 text-right">
                 {formatCurrency(totals.marge)}{" "}
-                <span className="text-xs text-muted-foreground">
+                <span className="text-sm text-muted-foreground">
                   ({totals.inkoop > 0 ? ((totals.marge / totals.inkoop) * 100).toFixed(0) : 0}%)
                 </span>
               </td>
@@ -184,7 +184,7 @@ export function CalculatieExportClient({ quote }: { quote: QuoteForExport }) {
 
       <div className="rounded-xl border bg-card p-5 print:border-0 print:p-0">
         <div className="mb-5">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+          <p className="text-sm uppercase tracking-wide text-muted-foreground">
             {intern ? "Interne calculatie, niet voor de klant" : "Prijsoverzicht"}
           </p>
           <h2 className="text-lg font-bold">{quote.title} — {quote.number}</h2>
@@ -200,7 +200,7 @@ export function CalculatieExportClient({ quote }: { quote: QuoteForExport }) {
 
         {choiceGroups.map((group) => (
           <div key={group.id} className="mb-6">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.title}</p>
+            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{group.title}</p>
             {group.choices.map((choice) => (
               <SectionTable
                 key={choice.id}

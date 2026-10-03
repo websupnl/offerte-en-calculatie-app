@@ -2,15 +2,29 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { QuotesListClient } from "./quotes-list-client";
 import { calculateQuotePriceSummary, quoteChoiceGroupSchema } from "@/lib/quote-selection";
+import { markExpiredQuotes } from "@/lib/quote-expiry";
 import { z } from "zod";
+import { applyCalculationPricing } from "@/lib/quote-with-pricing";
 
-export default async function QuotesPage() {
+export default async function QuotesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ archived?: string; status?: string }>;
+}) {
   const session = await auth();
   const companyId = session?.user?.activeCompanyId;
+  const filters = await searchParams;
+  const showArchived = filters.archived === "1";
+
+  if (companyId) await markExpiredQuotes(companyId);
 
   const quotes = companyId
     ? await prisma.quote.findMany({
-        where: { companyId },
+        where: {
+          companyId,
+          archivedAt: showArchived ? { not: null } : null,
+          ...(!showArchived && filters.status === "EXPIRED" ? { status: "EXPIRED" as const } : {}),
+        },
         orderBy: { createdAt: "desc" },
         include: {
           customer: { select: { id: true, name: true, email: true } },
@@ -25,6 +39,11 @@ export default async function QuotesPage() {
               total: true,
             },
           },
+          calculations: {
+            where: { archivedAt: null },
+            orderBy: { sortOrder: "asc" },
+            include: { items: { orderBy: { sortOrder: "asc" } } },
+          },
           _count: { select: { items: true } },
         },
         take: 200,
@@ -32,7 +51,10 @@ export default async function QuotesPage() {
     : [];
 
   const serialized = JSON.parse(JSON.stringify(quotes));
-  const quotesWithPricing = serialized.map((quote: (typeof serialized)[number]) => {
+  const quotesWithPricing = serialized.map((rij: (typeof serialized)[number]) => {
+    // Op het nieuwe pad komen regels en varianten uit de calculaties. Zonder deze
+    // vertaling rekende de lijst met een lege regellijst en stond er € 0.
+    const quote = applyCalculationPricing(rij);
     const parsedGroups = z.array(quoteChoiceGroupSchema).safeParse(quote.choiceGroups ?? []);
     const choiceGroups = parsedGroups.success ? parsedGroups.data : [];
     return {
@@ -42,5 +64,7 @@ export default async function QuotesPage() {
     };
   });
 
-  return <QuotesListClient initialQuotes={quotesWithPricing} />;
+  const initialStatusFilter = (["DRAFT", "SENT", "VIEWED", "EXPIRED", "ACCEPTED", "DECLINED"] as const)
+    .find((status) => status === filters.status) ?? "all";
+  return <QuotesListClient key={`${showArchived}-${initialStatusFilter}`} initialQuotes={quotesWithPricing} showArchived={showArchived} initialStatusFilter={initialStatusFilter} />;
 }

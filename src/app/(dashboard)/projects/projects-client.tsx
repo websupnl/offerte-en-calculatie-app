@@ -103,20 +103,20 @@ export function ProjectsClient({
       />
       <div className="space-y-4 p-4 sm:p-5 lg:p-8">
         <div className="relative max-w-xl">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Zoek project, nummer of klant..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            className="h-10 rounded-full border-transparent bg-white pl-9 shadow-sm"
+            className="h-10 rounded-lg border-border bg-card pl-9 shadow-none"
           />
         </div>
 
-        <div className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
+        <div className="overflow-hidden rounded-xl bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-border">
           {filtered.length === 0 ? (
-            <div className="grid min-h-72 place-items-center p-8 text-center text-slate-500">
+            <div className="grid min-h-72 place-items-center p-8 text-center text-muted-foreground">
               <div>
-                <FolderKanban className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                <FolderKanban className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
                 Geen projecten gevonden.
               </div>
             </div>
@@ -124,20 +124,20 @@ export function ProjectsClient({
             <>
               <div className="divide-y md:hidden">
                 {filtered.map((project) => (
-                  <Link key={project.id} href={`/projects/${project.id}`} className="block p-4 active:bg-slate-50">
+                  <Link key={project.id} href={`/projects/${project.id}`} className="block p-4 active:bg-muted/40">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate font-semibold text-slate-950">{project.title}</p>
-                        <p className="mt-1 font-mono text-xs text-slate-500">{project.number}</p>
+                        <p className="truncate font-semibold text-foreground">{project.title}</p>
+                        <p className="mt-1 font-mono text-sm text-muted-foreground">{project.number}</p>
                       </div>
                       <Badge variant="secondary">{PROJECT_STATUS_LABELS[project.status] ?? project.status}</Badge>
                     </div>
                     <div className="mt-3 flex items-center justify-between gap-3 text-sm">
                       <div className="min-w-0">
                         <p className="truncate font-medium">{project.customer?.name ?? "Geen klant"}</p>
-                        <p className="truncate text-xs text-slate-500">{project.city || "Geen plaats"}</p>
+                        <p className="truncate text-sm text-muted-foreground">{project.city || "Geen plaats"}</p>
                       </div>
-                      <div className="flex shrink-0 gap-3 text-xs text-slate-500">
+                      <div className="flex shrink-0 gap-3 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{project._count.quotes}</span>
                         <span className="flex items-center gap-1"><Paperclip className="h-3.5 w-3.5" />{project._count.files}</span>
                       </div>
@@ -148,7 +148,7 @@ export function ProjectsClient({
 
               <div className="hidden md:block">
                 <Table>
-                  <TableHeader className="bg-slate-50">
+                  <TableHeader className="bg-muted/40">
                     <TableRow>
                       <TableHead className="pl-4">Project</TableHead>
                       <TableHead>Klant</TableHead>
@@ -172,25 +172,25 @@ export function ProjectsClient({
                             router.push(`/projects/${project.id}`);
                           }
                         }}
-                        className="cursor-pointer focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ws-accent)]"
+                        className="cursor-pointer focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ws-accent)]"
                       >
                         <TableCell className="pl-4">
                           <Link href={`/projects/${project.id}`} onClick={(event) => event.stopPropagation()}>
                             <p className="font-semibold">{project.title}</p>
-                            <p className="font-mono text-xs text-slate-400">{project.number}</p>
+                            <p className="font-mono text-sm text-muted-foreground">{project.number}</p>
                           </Link>
                         </TableCell>
                         <TableCell className="font-medium">{project.customer?.name ?? "Geen klant"}</TableCell>
                         <TableCell><Badge variant="secondary">{PROJECT_STATUS_LABELS[project.status] ?? project.status}</Badge></TableCell>
                         <TableCell>
-                          <div className="flex gap-3 text-xs text-slate-500">
+                          <div className="flex gap-3 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{project._count.quotes}</span>
                             <span className="flex items-center gap-1"><Paperclip className="h-3.5 w-3.5" />{project._count.files}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-slate-500">{project.city || "-"}</TableCell>
+                        <TableCell className="text-muted-foreground">{project.city || "-"}</TableCell>
                         <TableCell>
-                          <Link href={`/projects/${project.id}`} onClick={(event) => event.stopPropagation()} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900">
+                          <Link href={`/projects/${project.id}`} onClick={(event) => event.stopPropagation()} className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
                             <ArrowUpRight className="h-4 w-4" />
                           </Link>
                         </TableCell>

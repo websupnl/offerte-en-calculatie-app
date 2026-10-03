@@ -1,5 +1,9 @@
 "use client";
 
+import { PageHeader } from "@/components/layout/page-header";
+import { PERSONAL_QUOTE_MESSAGE } from "@/lib/quote-personal";
+import { BrandPaletteEditor } from "@/components/forms/brand-palette-editor";
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { brandAssetUrl, getBranding, type CompanyBranding as BrandSettings, type InvoiceSettings } from "@/lib/branding";
+import { useCompany } from "@/lib/company-context";
 import { Loader2, Save, Settings, Palette, Bot, Key, FileText, ExternalLink, Upload, Trash2 } from "lucide-react";
 
 type TravelPricingTier = {
@@ -28,13 +34,10 @@ type CompanySettings = {
   aiSystemPrompts: Record<string, string>;
   homeBaseZipCode: string;
   travelPricingTiers: TravelPricingTier[];
+  invoice: InvoiceSettings;
 };
 
-type CompanyBranding = {
-  primaryColor: string;
-  accentColor: string;
-  tagline: string;
-};
+type CompanyBranding = BrandSettings;
 
 type LegalDocumentState = {
   terms: { name: string | null; size: number | null };
@@ -69,8 +72,12 @@ export function SettingsClient({
 }) {
   const [settings, setSettings] = useState(initialSettings);
   const [branding, setBranding] = useState(initialBranding);
+  const [uploadingBrandAsset, setUploadingBrandAsset] = useState<"logo" | "favicon" | null>(null);
+  const { reloadBranding } = useCompany();
   const [legalDocuments, setLegalDocuments] = useState(initialLegalDocuments);
   const [saving, setSaving] = useState(false);
+  const setInvoice = (patch: Partial<InvoiceSettings>) =>
+    setSettings((s) => ({ ...s, invoice: { ...s.invoice, ...patch } }));
   const [uploadingLegal, setUploadingLegal] = useState<"terms" | "privacy" | null>(null);
 
   async function saveSettings() {
@@ -83,16 +90,48 @@ export function SettingsClient({
         openaiApiKey: isMasked ? initialSettings.openaiApiKey : settings.openaiApiKey,
       };
 
-      await fetch(`/api/company/${companyId}/settings`, {
+      const response = await fetch(`/api/company/${companyId}/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ settings: finalSettings, branding }),
       });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "Instellingen konden niet worden opgeslagen");
+      }
+      await reloadBranding();
       toast.success("Instellingen opgeslagen");
-    } catch {
-      toast.error("Opslaan mislukt");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Opslaan mislukt");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function uploadBrandAsset(kind: "logo" | "favicon", file: File | undefined) {
+    if (!file) return;
+    setUploadingBrandAsset(kind);
+    try {
+      const formData = new FormData();
+      formData.set("kind", kind);
+      formData.set("file", file);
+      const response = await fetch(`/api/company/${companyId}/branding-asset`, { method: "POST", body: formData });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error ?? "Uploaden mislukt");
+      const uploadedBranding = getBranding(companySlug, body.branding);
+      const field = kind === "logo" ? "logoUrl" : "faviconUrl";
+      setBranding((current) => ({ ...current, [field]: uploadedBranding[field] }));
+      try {
+        await reloadBranding();
+      } catch {
+        toast.warning("Afbeelding opgeslagen. Vernieuw de pagina om de huisstijl overal bij te werken.");
+        return;
+      }
+      toast.success(kind === "logo" ? "Logo bijgewerkt" : "Favicon bijgewerkt");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Uploaden mislukt");
+    } finally {
+      setUploadingBrandAsset(null);
     }
   }
 
@@ -180,18 +219,14 @@ export function SettingsClient({
     },
   ];
 
+  const brandAssetSrc = (kind: "logo" | "favicon") => {
+    const value = kind === "logo" ? branding.logoUrl : branding.faviconUrl;
+    return brandAssetUrl(companyId, kind, value);
+  };
+
   return (
     <div className="w-full max-w-[1400px] space-y-6 p-6 lg:p-8 2xl:px-10">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Instellingen</h1>
-          <p className="text-muted-foreground">{companyName}</p>
-        </div>
-        <Button onClick={saveSettings} disabled={saving}>
-          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          Opslaan
-        </Button>
-      </div>
+      <PageHeader className="px-0! pt-0!" eyebrow="Beheer" title="Instellingen" description={companyName} actions={<Button onClick={saveSettings} disabled={saving || uploadingBrandAsset !== null}>{saving ? <Loader2 className="animate-spin" /> : <Save />}Opslaan</Button>} />
 
       <Tabs defaultValue="general">
         <TabsList>
@@ -257,6 +292,57 @@ export function SettingsClient({
 
           <Card className="mt-6">
             <CardHeader>
+              <CardTitle>Factuurgegevens</CardTitle>
+              <CardDescription>
+                Deze gegevens komen onderaan elke factuur. KvK, btw-id en IBAN zijn wettelijk verplicht.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Bedrijfsadres</Label>
+                <Textarea
+                  rows={2}
+                  placeholder={"Straat 1\n1234 AB Plaats"}
+                  value={settings.invoice.address}
+                  onChange={(e) => setInvoice({ address: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>KvK-nummer</Label>
+                  <Input value={settings.invoice.kvk} onChange={(e) => setInvoice({ kvk: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Btw-id</Label>
+                  <Input placeholder="NL000000000B01" value={settings.invoice.vatNumber} onChange={(e) => setInvoice({ vatNumber: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>IBAN</Label>
+                  <Input placeholder="NL00 BANK 0000 0000 00" value={settings.invoice.iban} onChange={(e) => setInvoice({ iban: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Ten name van</Label>
+                  <Input placeholder={companyName} value={settings.invoice.accountHolder} onChange={(e) => setInvoice({ accountHolder: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Betaaltermijn (dagen)</Label>
+                  <Input type="number" value={settings.invoice.paymentDays} onChange={(e) => setInvoice({ paymentDays: Number(e.target.value) || 14 })} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Voettekst factuur (optioneel)</Label>
+                <Textarea
+                  rows={2}
+                  placeholder="Bijvoorbeeld: op al mijn werk zijn de algemene voorwaarden van toepassing."
+                  value={settings.invoice.footer}
+                  onChange={(e) => setInvoice({ footer: e.target.value })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-6">
+            <CardHeader>
               <CardTitle>Voorrijkosten</CardTitle>
               <CardDescription>
                 Vertrekpostcode en prijsschijven voor de knop &quot;Reiskosten berekenen&quot; in de offerte-editor.
@@ -278,7 +364,7 @@ export function SettingsClient({
                 <div className="space-y-2">
                   {settings.travelPricingTiers.map((tier, i) => (
                     <div key={i} className="flex items-center gap-2">
-                      <span className="text-sm text-slate-500 w-16 shrink-0">t/m</span>
+                      <span className="text-sm text-muted-foreground w-16 shrink-0">t/m</span>
                       <Input
                         type="number"
                         placeholder="km"
@@ -294,7 +380,7 @@ export function SettingsClient({
                         }
                         className="w-24"
                       />
-                      <span className="text-sm text-slate-500 shrink-0">km =</span>
+                      <span className="text-sm text-muted-foreground shrink-0">km =</span>
                       <Input
                         type="number"
                         placeholder="euro"
@@ -309,12 +395,12 @@ export function SettingsClient({
                         }
                         className="w-24"
                       />
-                      <span className="text-sm text-slate-500 shrink-0">euro</span>
+                      <span className="text-sm text-muted-foreground shrink-0">euro</span>
                       {settings.travelPricingTiers.length > 1 && (
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="h-8 w-8 text-slate-400 hover:text-red-600"
+                          className="h-8 w-8 text-muted-foreground hover:text-red-600"
                           onClick={() =>
                             setSettings((s) => ({
                               ...s,
@@ -353,50 +439,58 @@ export function SettingsClient({
           <Card>
             <CardHeader>
               <CardTitle>Branding</CardTitle>
-              <CardDescription>Aanpassen van kleuren en teksten</CardDescription>
+              <CardDescription>Deze huisstijl wordt gebruikt in de werkplek, offertes, PDF en e-mails.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Primaire kleur</Label>
-                  <div className="flex gap-2">
-                    <input
-                      type="color"
-                      value={branding.primaryColor || (isKoolhaas ? "#0E2344" : "#0F172A")}
-                      onChange={(e) => setBranding((b) => ({ ...b, primaryColor: e.target.value }))}
-                      className="h-10 w-16 rounded cursor-pointer border"
-                    />
-                    <Input
-                      value={branding.primaryColor}
-                      onChange={(e) => setBranding((b) => ({ ...b, primaryColor: e.target.value }))}
-                      placeholder="#0F172A"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Accent kleur</Label>
-                  <div className="flex gap-2">
-                    <input
-                      type="color"
-                      value={branding.accentColor || (isKoolhaas ? "#1F9BA3" : "#6366F1")}
-                      onChange={(e) => setBranding((b) => ({ ...b, accentColor: e.target.value }))}
-                      className="h-10 w-16 rounded cursor-pointer border"
-                    />
-                    <Input
-                      value={branding.accentColor}
-                      onChange={(e) => setBranding((b) => ({ ...b, accentColor: e.target.value }))}
-                      placeholder="#6366F1"
-                    />
-                  </div>
-                </div>
-              </div>
+              <BrandPaletteEditor companySlug={companySlug} companyName={companyName} branding={branding} onChange={setBranding} />
               <div className="space-y-2">
-                <Label>Tagline</Label>
+                <Label htmlFor="brand-font">Lettertype</Label>
+                <select id="brand-font" value={branding.font} onChange={(e) => setBranding((b) => ({ ...b, font: e.target.value }))}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base sm:text-sm">
+                  {["Inter", "Nunito", "Sora", "Bricolage Grotesque", "Arial"].map((font) => <option key={font} value={font}>{font}</option>)}
+                </select>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {([ ["logo", "Logo"], ["favicon", "Favicon"] ] as const).map(([kind, label]) => (
+                  <div key={kind} className="space-y-2">
+                    <Label htmlFor={`brand-${kind}`}>{label}</Label>
+                    <div className="flex min-h-20 items-center gap-3 rounded-lg border border-border p-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- afbeelding is door de gebruiker gekozen */}
+                      <img src={brandAssetSrc(kind)} alt={`Huidig ${label.toLowerCase()}`} className={kind === "logo" ? "h-12 max-w-40 object-contain" : "h-10 w-10 object-contain"} />
+                      <Input id={`brand-${kind}`} type="file" accept="image/png,image/jpeg,image/webp" className="min-w-0"
+                        disabled={saving || uploadingBrandAsset !== null} onChange={(e) => { void uploadBrandAsset(kind, e.target.files?.[0]); e.currentTarget.value = ""; }} />
+                    </div>
+                    {uploadingBrandAsset === kind && <p className="text-sm text-muted-foreground">Uploaden…</p>}
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground">PNG, JPG of WebP, maximaal 4 MB. Een vierkante PNG werkt het best als favicon.</p>
+              <div className="space-y-2">
+                <Label htmlFor="brand-tagline">Tagline</Label>
                 <Input
+                  id="brand-tagline"
                   value={branding.tagline}
                   onChange={(e) => setBranding((b) => ({ ...b, tagline: e.target.value }))}
                   placeholder="Jouw tagline..."
                 />
+              </div>
+              <div className="space-y-4 border-t border-border pt-4">
+                <h3 className="text-lg font-semibold">Mijn voorstel voor jou</h3>
+                <p className="text-base text-muted-foreground">Jouw persoonlijke blok in offertes, PDF en het offerteportaal van dit bedrijf.</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="personal-name">Naam</Label>
+                    <Input id="personal-name" value={branding.personalName ?? "Daan Koolhaas"} maxLength={100} onChange={(e) => setBranding((b) => ({ ...b, personalName: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="personal-whatsapp">WhatsApp-nummer</Label>
+                    <Input id="personal-whatsapp" type="tel" value={branding.personalWhatsapp ?? "06 82 20 21 48"} maxLength={30} onChange={(e) => setBranding((b) => ({ ...b, personalWhatsapp: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="personal-message">Persoonlijke tekst</Label>
+                  <Textarea id="personal-message" rows={4} maxLength={400} value={branding.personalMessage ?? PERSONAL_QUOTE_MESSAGE} onChange={(e) => setBranding((b) => ({ ...b, personalMessage: e.target.value }))} />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -474,7 +568,7 @@ export function SettingsClient({
                   onChange={(e) => setSettings((s) => ({ ...s, openaiApiKey: e.target.value }))}
                   placeholder="sk-..."
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Laat leeg om de globale OPENAI_API_KEY omgevingsvariabele te gebruiken
                 </p>
               </div>
@@ -486,7 +580,7 @@ export function SettingsClient({
                   onChange={(e) => setSettings((s) => ({ ...s, emailFrom: e.target.value }))}
                   placeholder="offerte@jouwbedrijf.nl"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   E-mailadres waarmee offertes worden verstuurd via Resend
                 </p>
               </div>
@@ -498,7 +592,7 @@ export function SettingsClient({
                   onChange={(e) => setSettings((s) => ({ ...s, notifyEmail: e.target.value }))}
                   placeholder="info@websup.nl"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Ontvang een melding wanneer een klant een offerte accepteert of afwijst
                 </p>
               </div>
@@ -532,7 +626,7 @@ export function SettingsClient({
                             href={`/api/legal/${companySlug}/${document.type}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                            className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
                           >
                             <ExternalLink className="h-3 w-3" />
                             Bekijk PDF
@@ -546,7 +640,7 @@ export function SettingsClient({
                           <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium">{current.name}</p>
-                              {fileSize && <p className="text-xs text-muted-foreground">{fileSize}</p>}
+                              {fileSize && <p className="text-sm text-muted-foreground">{fileSize}</p>}
                             </div>
                             <Button
                               type="button"
@@ -583,7 +677,7 @@ export function SettingsClient({
                             event.target.value = "";
                           }}
                         />
-                        <span className="text-xs text-muted-foreground">PDF, max. 15 MB</span>
+                        <span className="text-sm text-muted-foreground">PDF, max. 15 MB</span>
                       </div>
                     </CardContent>
                   </Card>

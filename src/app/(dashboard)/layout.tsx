@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { WorkspaceShell } from "@/components/layout/workspace-shell";
+import { ConfirmProvider } from "@/components/confirm-provider";
 
 export default async function DashboardLayout({
   children,
@@ -10,5 +11,9 @@ export default async function DashboardLayout({
   const session = await auth();
   if (!session) redirect("/login");
 
-  return <WorkspaceShell userName={session.user.name}>{children}</WorkspaceShell>;
+  return (
+    <ConfirmProvider>
+      <WorkspaceShell userName={session.user.name}>{children}</WorkspaceShell>
+    </ConfirmProvider>
+  );
 }

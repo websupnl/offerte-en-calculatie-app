@@ -45,6 +45,11 @@ async function launchBrowser() {
         candidates.push(path.join(playwrightDir, entry, "chrome-win", "chrome.exe"));
       }
     } catch { /* dir doesn't exist */ }
+    candidates.push(
+      "C:/Program Files/Google/Chrome/Application/chrome.exe",
+      "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+      "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe",
+    );
   }
   candidates.push("/usr/bin/google-chrome", "/usr/bin/chromium-browser", "/usr/bin/chromium");
 
@@ -52,7 +57,7 @@ async function launchBrowser() {
     try { return fs.existsSync(p); } catch { return false; }
   });
 
-  if (!executablePath) throw new Error("No Chromium found. Run: npx playwright install chromium  — or set CHROMIUM_EXECUTABLE_PATH.");
+  if (!executablePath) throw new Error("No Chromium found. Run: npx playwright install chromium, or set CHROMIUM_EXECUTABLE_PATH.");
 
   return puppeteer.launch({
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
@@ -65,14 +70,26 @@ async function launchBrowser() {
  * Renders a Next.js print page as PDF via headless Chromium.
  * @param url     Full URL of the print page (e.g. http://localhost:3001/print/portal/abc123)
  * @param cookie  Optional session cookie string for authenticated pages
+ * @param expectedSelector  Element that must exist before accepting the PDF
  */
-export async function renderPageAsPdf(url: string, cookie?: string): Promise<Buffer | null> {
+export async function renderPageAsPdf(url: string, cookie?: string, expectedSelector?: string): Promise<Buffer | null> {
   let browser: Awaited<ReturnType<typeof launchBrowser>> | null = null;
   try {
     browser = await launchBrowser();
     const page = await browser.newPage();
     if (cookie) await page.setExtraHTTPHeaders({ cookie });
-    await page.goto(url, { waitUntil: "networkidle0", timeout: 30000 });
+    const response = await page.goto(url, { waitUntil: "networkidle0", timeout: 30000 });
+    if (!response?.ok() || new URL(page.url()).pathname !== new URL(url).pathname) {
+      const requested = new URL(url);
+      const landed = new URL(page.url());
+      // Geen querystring of cookies loggen: print-URL's kunnen geheime tokens bevatten.
+      throw new Error(
+        `Print page is unavailable or redirected (HTTP ${response?.status() ?? "no response"}; ` +
+        `${requested.host}${requested.pathname} -> ${landed.host}${landed.pathname})`,
+      );
+    }
+    if (expectedSelector) await page.waitForSelector(expectedSelector, { timeout: 5000 });
+    await page.evaluate(() => document.fonts.ready);
     // Extra settle time for fonts / images
     await new Promise((r) => setTimeout(r, 800));
     const buffer = await page.pdf({

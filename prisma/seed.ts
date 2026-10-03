@@ -2,6 +2,7 @@ import { config } from "dotenv";
 import { PrismaClient } from "../src/generated/prisma";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
+import { DEFAULT_BRANDING } from "../src/lib/branding";
 
 config({ path: ".env.local" });
 config();
@@ -19,13 +20,7 @@ async function main() {
     create: {
       name: "WebsUp.nl",
       slug: "websup",
-      branding: {
-        primaryColor: "#0F172A",
-        accentColor: "#6366F1",
-        backgroundColor: "#F8FAFC",
-        font: "Inter",
-        tagline: "Websites, apps & systemen die groeien",
-      },
+      branding: DEFAULT_BRANDING.websup,
       settings: {
         defaultVatRate: 21,
         quoteValidDays: 30,
@@ -40,15 +35,6 @@ async function main() {
   const koolhaas = await prisma.company.upsert({
     where: { slug: "koolhaas" },
     update: {
-      branding: {
-        primaryColor: "#0E2344",
-        accentColor: "#1F9BA3",
-        backgroundColor: "#F4F8F8",
-        textColor: "#0E2344",
-        font: "Sora",
-        tagline: "Techniek die eerst goed doordacht wordt en daarna netjes wordt uitgevoerd.",
-        logoUrl: "/logos/koolhaas-logo.png",
-      },
       settings: {
         defaultVatRate: 21,
         quoteValidDays: 30,
@@ -61,15 +47,7 @@ async function main() {
     create: {
       name: "Koolhaas Installaties",
       slug: "koolhaas",
-      branding: {
-        primaryColor: "#0E2344",
-        accentColor: "#1F9BA3",
-        backgroundColor: "#F4F8F8",
-        textColor: "#0E2344",
-        font: "Sora",
-        tagline: "Techniek die eerst goed doordacht wordt en daarna netjes wordt uitgevoerd.",
-        logoUrl: "/logos/koolhaas-logo.png",
-      },
+      branding: DEFAULT_BRANDING.koolhaas,
       settings: {
         defaultVatRate: 21,
         quoteValidDays: 30,

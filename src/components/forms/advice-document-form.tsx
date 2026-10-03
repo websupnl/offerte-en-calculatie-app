@@ -112,7 +112,7 @@ export function AdviceDocumentForm({
                     <span className="text-lg">{typeInfo?.icon}</span>
                     <div>
                       <p className="font-medium text-sm">{typeInfo?.label ?? doc.type}</p>
-                      <p className="text-xs text-muted-foreground">{formatDate(doc.createdAt)}</p>
+                      <p className="text-sm text-muted-foreground">{formatDate(doc.createdAt)}</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -167,7 +167,7 @@ export function AdviceDocumentForm({
               <div className="grid grid-cols-2 gap-4">
                 {adviceType.fields.map((field) => (
                   <div key={field} className="space-y-1.5">
-                    <Label className="text-xs">{FIELD_LABELS[field] ?? field}</Label>
+                    <Label className="text-sm">{FIELD_LABELS[field] ?? field}</Label>
                     <Input
                       placeholder={FIELD_LABELS[field]}
                       value={formData[field] ?? ""}
@@ -182,7 +182,7 @@ export function AdviceDocumentForm({
               {/* Product selection */}
               {products.length > 0 && (
                 <div className="space-y-2">
-                  <Label className="text-xs">Producten meenemen in advies (optioneel)</Label>
+                  <Label className="text-sm">Producten meenemen in advies (optioneel)</Label>
                   <div className="flex flex-wrap gap-2">
                     {products.map((p) => (
                       <button
@@ -192,7 +192,7 @@ export function AdviceDocumentForm({
                             prev.includes(p.id) ? prev.filter((id) => id !== p.id) : [...prev, p.id]
                           )
                         }
-                        className={`px-3 py-1.5 rounded-full text-xs border transition-all ${
+                        className={`px-3 py-1.5 rounded-full text-sm border transition-all ${
                           selectedProductIds.includes(p.id)
                             ? "bg-primary text-primary-foreground border-primary"
                             : "border-border hover:border-primary/50"

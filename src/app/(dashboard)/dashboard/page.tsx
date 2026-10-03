@@ -2,188 +2,242 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/format";
-import { isOpenQuote } from "@/lib/stats";
+import { markExpiredQuotes } from "@/lib/quote-expiry";
+import { markOverdueInvoices } from "@/lib/invoice-overdue";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, Users, Euro, TrendingUp, FolderKanban, Plus, ArrowUpRight, Clock3 } from "lucide-react";
+import { ArrowRight, Calculator, FileText, Plus, ReceiptText } from "lucide-react";
 
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  DRAFT: "secondary",
-  SENT: "outline",
-  VIEWED: "outline",
-  ACCEPTED: "default",
-  DECLINED: "destructive",
-  EXPIRED: "secondary",
+type AttentionItem = {
+  id: string;
+  href: string;
+  kind: "Vervallen factuur" | "Verlopen offerte" | "Factuur klaar";
+  title: string;
+  customer: string;
+  date: Date | null;
+  amount?: number;
+  tone: "urgent" | "normal";
 };
 
 export default async function DashboardPage() {
   const session = await auth();
   const companyId = session?.user?.activeCompanyId;
-
   if (!companyId) {
-    return <div className="p-8 text-slate-500">Selecteer een bedrijf in de navigatie.</div>;
+    return <div className="p-8 text-base text-muted-foreground">Selecteer een bedrijf in de navigatie.</div>;
   }
 
-  const [quoteStats, recentQuotes, customerCount, projectCount] = await Promise.all([
+  await Promise.all([markExpiredQuotes(companyId), markOverdueInvoices(companyId)]);
+
+  const [quoteStats, invoiceStats, overdueInvoices, expiredQuotes, readyInvoices, recentQuotes] = await Promise.all([
     prisma.quote.groupBy({
+      by: ["status"],
+      where: { companyId, archivedAt: null },
+      _count: true,
+    }),
+    prisma.salesInvoice.groupBy({
       by: ["status"],
       where: { companyId },
       _count: true,
       _sum: { totalIncVat: true },
     }),
-    prisma.quote.findMany({
-      where: { companyId },
-      orderBy: { updatedAt: "desc" },
-      take: 10,
-      select: {
-        id: true,
-        number: true,
-        title: true,
-        status: true,
-        totalIncVat: true,
-        updatedAt: true,
-        customer: { select: { name: true } },
-      },
+    prisma.salesInvoice.findMany({
+      where: { companyId, status: "VERVALLEN" },
+      orderBy: { dueDate: "asc" },
+      take: 5,
+      select: { id: true, number: true, dueDate: true, totalIncVat: true, customer: { select: { name: true } } },
     }),
-    prisma.customer.count({ where: { companyId } }),
-    prisma.project.count({ where: { companyId, status: { not: "ARCHIVED" } } }),
+    prisma.quote.findMany({
+      where: { companyId, archivedAt: null, status: "EXPIRED" },
+      orderBy: { validUntil: "asc" },
+      take: 5,
+      select: { id: true, number: true, title: true, validUntil: true, customer: { select: { name: true } } },
+    }),
+    prisma.salesInvoice.findMany({
+      where: { companyId, status: "GEREED" },
+      orderBy: { invoiceDate: "asc" },
+      take: 3,
+      select: { id: true, number: true, invoiceDate: true, totalIncVat: true, customer: { select: { name: true } } },
+    }),
+    prisma.quote.findMany({
+      where: { companyId, archivedAt: null },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+      select: { id: true, number: true, title: true, status: true, updatedAt: true, customer: { select: { name: true } } },
+    }),
   ]);
 
-  const stat = (status: string) => quoteStats.find((item) => item.status === status);
-  // Concepten tellen niet mee in bedragen — alleen wat daadwerkelijk bij de klant ligt.
-  const totalOpen = quoteStats
-    .filter((item) => isOpenQuote(item.status))
-    .reduce((sum, item) => sum + Number(item._sum.totalIncVat ?? 0), 0);
-  const openCount = quoteStats
-    .filter((item) => isOpenQuote(item.status))
-    .reduce((sum, item) => sum + item._count, 0);
-  const totalAccepted = Number(stat("ACCEPTED")?._sum.totalIncVat ?? 0);
-  const sentCount = (stat("SENT")?._count ?? 0) + (stat("VIEWED")?._count ?? 0) + (stat("ACCEPTED")?._count ?? 0) + (stat("DECLINED")?._count ?? 0);
-  const acceptedCount = stat("ACCEPTED")?._count ?? 0;
-  const conversionRate = sentCount > 0 ? Math.round((acceptedCount / sentCount) * 100) : 0;
+  const quoteCount = (status: string) => quoteStats.find((row) => row.status === status)?._count ?? 0;
+  const invoiceRow = (status: string) => invoiceStats.find((row) => row.status === status);
+  const invoiceCount = (status: string) => invoiceRow(status)?._count ?? 0;
+  const invoiceAmount = (status: string) => Number(invoiceRow(status)?._sum.totalIncVat ?? 0);
+  const overdueCount = invoiceCount("VERVALLEN");
+  const expiredCount = quoteCount("EXPIRED");
+  const readyCount = invoiceCount("GEREED");
+  const attentionCount = overdueCount + expiredCount + readyCount;
 
   const metrics = [
-    { label: "Open offertewaarde", value: formatCurrency(totalOpen), meta: `${openCount} bij de klant`, icon: Euro, color: "text-amber-600", surface: "bg-amber-50" },
-    { label: "Geaccepteerd", value: formatCurrency(totalAccepted), meta: `${acceptedCount} opdrachten`, icon: TrendingUp, color: "text-emerald-600", surface: "bg-emerald-50" },
-    { label: "Actieve projecten", value: String(projectCount), meta: "Niet gearchiveerd", icon: FolderKanban, color: "text-sky-600", surface: "bg-sky-50" },
-    { label: "Conversie", value: `${conversionRate}%`, meta: `${customerCount} klanten`, icon: Users, color: "text-violet-600", surface: "bg-violet-50" },
+    {
+      label: "Openstaande facturen",
+      value: formatCurrency(invoiceAmount("VERZONDEN") + invoiceAmount("VERVALLEN")),
+      detail: `${invoiceCount("VERZONDEN") + overdueCount} nog niet betaald`,
+      href: "/invoices",
+    },
+    {
+      label: "Over de vervaldatum",
+      value: formatCurrency(invoiceAmount("VERVALLEN")),
+      detail: `${overdueCount} factuur${overdueCount === 1 ? "" : "en"} opvolgen`,
+      href: "/invoices?view=overdue",
+      urgent: overdueCount > 0,
+    },
+    {
+      label: "Offertes bij klant",
+      value: String(quoteCount("SENT") + quoteCount("VIEWED")),
+      detail: "Verstuurd of bekeken",
+      href: "/quotes",
+    },
+    {
+      label: "Verlopen offertes",
+      value: String(expiredCount),
+      detail: "Prijs en inhoud opnieuw controleren",
+      href: "/quotes?status=EXPIRED",
+      urgent: expiredCount > 0,
+    },
   ];
 
+  const attention: AttentionItem[] = [
+    ...overdueInvoices.map((invoice) => ({
+      id: `invoice-${invoice.id}`,
+      href: `/invoices/${invoice.id}`,
+      kind: "Vervallen factuur" as const,
+      title: invoice.number,
+      customer: invoice.customer.name,
+      date: invoice.dueDate,
+      amount: Number(invoice.totalIncVat),
+      tone: "urgent" as const,
+    })),
+    ...expiredQuotes.map((quote) => ({
+      id: `quote-${quote.id}`,
+      href: `/quotes/${quote.id}`,
+      kind: "Verlopen offerte" as const,
+      title: quote.title || quote.number || "Conceptofferte",
+      customer: `${quote.number ?? "Concept"} · ${quote.customer.name}`,
+      date: quote.validUntil,
+      tone: "urgent" as const,
+    })),
+    ...readyInvoices.map((invoice) => ({
+      id: `ready-${invoice.id}`,
+      href: `/invoices/${invoice.id}`,
+      kind: "Factuur klaar" as const,
+      title: invoice.number,
+      customer: invoice.customer.name,
+      date: invoice.invoiceDate,
+      amount: Number(invoice.totalIncVat),
+      tone: "normal" as const,
+    })),
+  ].slice(0, 8);
+
   return (
-    <div>
+    <div className="mx-auto max-w-[1600px]">
       <PageHeader
-        eyebrow="Werkoverzicht"
-        title={`Goedemorgen${session.user.name ? `, ${session.user.name.split(" ")[0]}` : ""}`}
-        description="Alles wat aandacht nodig heeft, direct vanuit één werkplek."
+        eyebrow="Start"
+        title="Werkoverzicht"
+        description="Wat aandacht vraagt, met bedragen en vervaldatums uit je administratie."
         actions={
-          <>
-            <Button nativeButton={false} variant="outline" render={<Link href="/projects" />}>
-              <FolderKanban className="h-4 w-4" /> Projecten
-            </Button>
-            <Button nativeButton={false} render={<Link href="/quotes/new" />}>
-              <Plus className="h-4 w-4" /> Nieuwe offerte
-            </Button>
-          </>
+          <Button nativeButton={false} render={<Link href="/calculations?create=1" />}>
+            <Plus className="h-4 w-4" /> Nieuwe calculatie
+          </Button>
         }
       />
 
-      <div className="space-y-6 p-5 lg:p-8">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="space-y-5 p-4 sm:p-5 lg:px-8 lg:py-5">
+        <section aria-label="Van calculatie naar klantakkoord" className="grid gap-px overflow-hidden rounded-xl border border-border bg-border md:grid-cols-3">
+          {[
+            { href: "/calculations", icon: Calculator, label: "Calculeren", detail: "Materialen, arbeid en alternatieven" },
+            { href: "/quotes?status=DRAFT", icon: FileText, label: "Concept beoordelen", detail: "Tekst, media en prijs samenbrengen" },
+            { href: "/quotes/tracker", icon: ArrowRight, label: "Opvolgen", detail: "Bekijk verzending en klantreacties" },
+          ].map(step => <Link key={step.href} href={step.href} className="group flex items-center gap-3 bg-card px-5 py-4 transition-colors hover:bg-muted">
+            <step.icon className="size-5 shrink-0 text-primary" /><span className="min-w-0 flex-1"><span className="block text-base font-semibold">{step.label}</span><span className="block text-sm text-muted-foreground">{step.detail}</span></span><ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+          </Link>)}
+        </section>
+        <section aria-label="Kerncijfers" className="grid overflow-hidden rounded-xl border border-border bg-card sm:grid-cols-2 xl:grid-cols-4">
           {metrics.map((metric) => (
-            <div key={metric.label} className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
-              <div className="flex items-center gap-3">
-                <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${metric.surface} ${metric.color}`}>
-                  <metric.icon className="h-5 w-5" />
-                </div>
-                <p className="text-sm font-semibold text-slate-500">{metric.label}</p>
-              </div>
-              <p className="mt-4 text-[26px] font-bold leading-none tracking-tight text-slate-950">{metric.value}</p>
-              <p className="mt-2 text-[13px] text-slate-400">{metric.meta}</p>
-            </div>
+            <Link key={metric.label} href={metric.href} className="group min-w-0 border-b border-border p-4 transition-colors hover:bg-muted/50 sm:border-r sm:p-5 xl:border-b-0">
+              <p className="text-sm font-semibold text-muted-foreground">{metric.label}</p>
+              <p className={`mt-2 truncate text-[26px] font-bold leading-tight tabular-nums tracking-tight ${metric.urgent ? "text-red-600 dark:text-red-400" : "text-foreground"}`}>
+                {metric.value}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">{metric.detail}</p>
+            </Link>
           ))}
-        </div>
+        </section>
 
-        <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
-          <section className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
+          <section className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
               <div>
-                <h2 className="text-base font-bold text-slate-900">Recent bijgewerkt</h2>
-                <p className="text-[13px] text-slate-400">Laatste offertes binnen het actieve bedrijf</p>
+                <h2 className="text-lg font-bold text-foreground">Nu opvolgen</h2>
+                <p className="text-sm text-muted-foreground">{attentionCount} {attentionCount === 1 ? "post vraagt" : "posten vragen"} aandacht</p>
               </div>
-              <Link href="/quotes" className="rounded-full border border-slate-200 px-3 py-1.5 text-[13px] font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900">Alle offertes</Link>
+              <Link href="/invoices?view=overdue" className="text-sm font-semibold text-[var(--ws-accent)] hover:underline">Vervallen facturen</Link>
             </div>
-            <div className="divide-y md:hidden">
-              {recentQuotes.map((quote) => (
-                <Link key={quote.id} href={`/quotes/${quote.id}`} className="block p-4 active:bg-slate-50">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold text-slate-950">{quote.title || quote.number}</p>
-                      <p className="mt-1 truncate text-xs text-slate-500">{quote.number} · {quote.customer.name}</p>
-                    </div>
-                    <Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>{QUOTE_STATUS_LABELS[quote.status]}</Badge>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between gap-3 text-sm">
-                    <p className="text-slate-500">{formatDate(quote.updatedAt)}</p>
-                    <p className="font-bold tabular-nums">{formatCurrency(Number(quote.totalIncVat))}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-            <div className="hidden md:block">
-            <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead className="pl-4">Offerte</TableHead>
-                  <TableHead>Klant</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Waarde</TableHead>
-                  <TableHead className="w-12" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentQuotes.map((quote) => (
-                  <TableRow key={quote.id}>
-                    <TableCell className="pl-4">
-                      <p className="max-w-72 truncate font-semibold">{quote.title || quote.number}</p>
-                      <p className="text-xs text-slate-400">{quote.number} · {formatDate(quote.updatedAt)}</p>
-                    </TableCell>
-                    <TableCell className="font-medium">{quote.customer.name}</TableCell>
-                    <TableCell><Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>{QUOTE_STATUS_LABELS[quote.status]}</Badge></TableCell>
-                    <TableCell className="text-right font-bold tabular-nums">{formatCurrency(Number(quote.totalIncVat))}</TableCell>
-                    <TableCell><Link href={`/quotes/${quote.id}`} className="grid h-8 w-8 place-items-center rounded-md hover:bg-slate-100"><ArrowUpRight className="h-4 w-4" /></Link></TableCell>
-                  </TableRow>
+            {attention.length === 0 ? (
+              <div className="px-5 py-10 text-base text-muted-foreground">
+                Geen vervallen posten of facturen klaar voor verzending. Je werkvoorraad is bijgewerkt.
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {attention.map((item) => (
+                  <Link key={item.id} href={item.href} className="group flex min-w-0 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50 sm:px-5">
+                    <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${item.tone === "urgent" ? "bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300" : "bg-muted text-foreground"}`}>
+                      {item.kind === "Verlopen offerte" ? <FileText className="h-4 w-4" /> : <ReceiptText className="h-4 w-4" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-base font-semibold text-foreground">{item.title}</span>
+                      <span className="block truncate text-sm text-muted-foreground">{item.customer}</span>
+                    </span>
+                    <span className="hidden shrink-0 text-right sm:block">
+                      <span className={`block text-sm font-semibold ${item.tone === "urgent" ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>{item.kind}</span>
+                      <span className="block text-sm text-muted-foreground">{item.date ? formatDate(item.date) : "Geen datum"}</span>
+                    </span>
+                    {item.amount !== undefined && <strong className="hidden min-w-28 text-right text-base tabular-nums text-foreground md:block">{formatCurrency(item.amount)}</strong>}
+                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                  </Link>
                 ))}
-              </TableBody>
-            </Table>
-            </div>
-            {recentQuotes.length === 0 && (
-              <div className="grid min-h-56 place-items-center text-center text-sm text-slate-400">
-                <div><FileText className="mx-auto mb-2 h-8 w-8" />Nog geen offertes.</div>
+              </div>
+            )}
+            {attentionCount > attention.length && (
+              <div className="border-t border-border px-5 py-3 text-sm text-muted-foreground">
+                Nog {attentionCount - attention.length} posten. Bekijk de gefilterde offerte- en factuurlijsten voor het volledige overzicht.
               </div>
             )}
           </section>
 
-          <aside className="space-y-4">
-            <div className="rounded-2xl bg-[var(--ws-sidebar)] p-5 text-white shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--ws-pill)]">Snel starten</p>
-              <h2 className="mt-2 text-lg font-bold">Van aanvraag naar opdracht</h2>
-              <p className="mt-1 text-sm leading-6 text-white/60">Maak eerst de relatie en het project aan. Voeg daarna artikelen toe aan de offerte.</p>
-              <div className="mt-4 space-y-2">
-                <Link href="/customers" className="flex items-center justify-between rounded-full bg-white/8 px-4 py-2 text-sm hover:bg-white/14"><span>1. Klant kiezen</span><ArrowUpRight className="h-4 w-4" /></Link>
-                <Link href="/projects" className="flex items-center justify-between rounded-full bg-white/8 px-4 py-2 text-sm hover:bg-white/14"><span>2. Project openen</span><ArrowUpRight className="h-4 w-4" /></Link>
-                <Link href="/quotes/new" className="flex items-center justify-between rounded-full bg-[var(--ws-pill)] px-4 py-2 text-sm font-semibold text-[var(--ws-pill-fg)] hover:opacity-90"><span>3. Offerte maken</span><ArrowUpRight className="h-4 w-4" /></Link>
-              </div>
+          <aside className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="border-b border-border px-4 py-3 sm:px-5">
+              <h2 className="text-lg font-bold text-foreground">Recent bijgewerkt</h2>
+              <p className="text-sm text-muted-foreground">De laatste offertes binnen dit bedrijf</p>
             </div>
-            <div className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-950/[0.06]">
-              <div className="flex items-center gap-2 text-sm font-semibold"><Clock3 className="h-4 w-4 text-slate-400" /> Werkvoorraad</div>
-              <div className="mt-3 space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-slate-500">Conceptoffertes</span><strong>{stat("DRAFT")?._count ?? 0}</strong></div>
-                <div className="flex justify-between"><span className="text-slate-500">Verstuurd</span><strong>{stat("SENT")?._count ?? 0}</strong></div>
-                <div className="flex justify-between"><span className="text-slate-500">Bekeken</span><strong>{stat("VIEWED")?._count ?? 0}</strong></div>
+            {recentQuotes.length === 0 ? (
+              <p className="px-5 py-6 text-base text-muted-foreground">Nog geen offertes.</p>
+            ) : (
+              <div className="divide-y divide-border">
+                {recentQuotes.map((quote) => (
+                  <Link key={quote.id} href={`/quotes/${quote.id}`} className="block px-4 py-3 hover:bg-muted/50 sm:px-5">
+                    <span className="flex items-start justify-between gap-2">
+                      <span className="min-w-0 truncate text-base font-semibold text-foreground">{quote.title || quote.number || "Conceptofferte"}</span>
+                      <Badge variant={quote.status === "EXPIRED" || quote.status === "DECLINED" ? "destructive" : "outline"} className="shrink-0">
+                        {QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
+                      </Badge>
+                    </span>
+                    <span className="mt-1 block truncate text-sm text-muted-foreground">{quote.number ?? "Concept zonder nummer"} · {quote.customer.name} · {formatDate(quote.updatedAt)}</span>
+                  </Link>
+                ))}
               </div>
-            </div>
+            )}
+            <Link href="/quotes" className="flex items-center justify-between border-t border-border px-4 py-3 text-sm font-semibold text-[var(--ws-accent)] hover:bg-muted/50 sm:px-5">
+              Alle offertes <ArrowRight className="h-4 w-4" />
+            </Link>
           </aside>
         </div>
       </div>

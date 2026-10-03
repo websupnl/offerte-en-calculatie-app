@@ -1,67 +1,116 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
+import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateCalculationNumber } from "@/lib/format";
+import { nextCalculationNumber } from "@/lib/calculation-number";
+import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
+import { createDocumentProject } from "@/lib/document-project";
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+class ForkError extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
+}
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
   const companyId = session.user.activeCompanyId;
-
-  const source = await prisma.calculation.findFirst({
-    where: { id, companyId },
-    include: { items: { orderBy: { sortOrder: "asc" } } },
-  });
-  if (!source) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const count = await prisma.calculation.count({ where: { companyId } });
+  const body = await req.json().catch(() => ({}));
+  const asAlternative = body?.asAlternative === true;
+  const asVariant = body?.asVariant === true;
   const company = await prisma.company.findUnique({ where: { id: companyId } });
-  const number = generateCalculationNumber(company?.slug ?? "xx", count + 1);
 
-  const duplicate = await prisma.calculation.create({
-    data: {
-      companyId,
-      customerId: source.customerId,
-      projectId: source.projectId,
-      // quoteId is uniek per Calculation — een kopie mag niet aan dezelfde offerte hangen
-      quoteId: null,
-      number,
-      title: source.title,
-      description: source.description,
-      status: "DRAFT",
-      vatRate: source.vatRate,
-      totalCostPrice: source.totalCostPrice,
-      totalSalesPrice: source.totalSalesPrice,
-      marginAmount: source.marginAmount,
-      marginPercent: source.marginPercent,
-      notes: source.notes,
-      items: source.items.length
-        ? {
-            create: source.items.map((item) => ({
-              productId: item.productId,
-              type: item.type,
-              supplier: item.supplier,
-              sku: item.sku,
-              description: item.description,
-              qty: item.qty,
-              unit: item.unit,
-              costPrice: item.costPrice,
-              markupPercent: item.markupPercent,
-              unitPrice: item.unitPrice,
-              totalCostPrice: item.totalCostPrice,
-              totalSalesPrice: item.totalSalesPrice,
-              vatRate: item.vatRate,
-              optional: item.optional,
-              hiddenOnQuote: item.hiddenOnQuote,
-              sortOrder: item.sortOrder,
-            })),
-          }
-        : undefined,
-    },
-    include: { customer: true, project: true, items: true },
-  });
-
-  return NextResponse.json(duplicate, { status: 201 });
+  try {
+    const duplicate = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Company" WHERE id = ${companyId} FOR UPDATE`;
+      const number = await nextCalculationNumber(companyId, company?.slug ?? "xx", tx);
+      // Serialize forks of this calculation so a concurrent fork cannot create
+      // multiple concept quotes for the same source.
+      await tx.$queryRaw`SELECT id FROM "Calculation" WHERE id = ${id} AND "companyId" = ${companyId} FOR UPDATE`;
+      const source = await tx.calculation.findFirst({
+        where: { id, companyId },
+        include: { items: { orderBy: { sortOrder: "asc" } } },
+      });
+      if (!source) throw new ForkError("Calculatie niet gevonden", 404);
+      let quoteId = source.quoteId;
+      const linkedCopy = asAlternative || (asVariant && Boolean(quoteId));
+      if (linkedCopy && quoteId) {
+        await tx.$queryRaw`SELECT id FROM "Quote" WHERE id = ${quoteId} AND "companyId" = ${companyId} FOR UPDATE`;
+        const quote = await tx.quote.findFirst({
+          where: { id: quoteId, companyId },
+          select: { status: true, items: { select: { id: true }, take: 1 } },
+        });
+        if (!quote || quote.status !== "DRAFT") throw new ForkError("Alternatieven kunnen alleen aan een conceptofferte worden toegevoegd. Maak een losse kopie voor een nieuwe offerte.", 409);
+        if (asAlternative && quote.items.length) throw new ForkError("Zet de losse offerteregels eerst om naar calculaties voordat je alternatieven toevoegt.", 409);
+      }
+      if (asAlternative && !quoteId) {
+        if (!source.customerId) throw new ForkError("Koppel eerst een klant aan deze calculatie", 400);
+        if (!source.projectId) source.projectId = (await createDocumentProject(tx, {
+          companyId, customerId: source.customerId, title: source.title, description: source.description,
+        })).id;
+        const quote = await tx.quote.create({ data: {
+          companyId, customerId: source.customerId, createdById: session.user.id,
+          title: source.title, notes: source.notes, vatRate: source.vatRate, projectId: source.projectId,
+        } });
+        quoteId = quote.id;
+      }
+      // Two full executions are alternatives. Turning only the copy into a
+      // variant would add the original BASE price to every customer choice.
+      if (asAlternative) await tx.calculation.update({
+        where: { id: source.id }, data: { quoteId, projectId: source.projectId, role: "VARIANT", status: "QUOTED" },
+      });
+      const highestOrder = linkedCopy ? await tx.calculation.aggregate({
+        where: { quoteId, companyId }, _max: { sortOrder: true },
+      }) : null;
+      const copiedItems = asAlternative ? source.items.filter(item => !item.optional) : source.items;
+      const duplicate = await tx.calculation.create({
+        data: {
+          companyId, customerId: source.customerId, projectId: source.projectId,
+          quoteId: linkedCopy ? quoteId : null,
+          role: linkedCopy ? "VARIANT" : "BASE",
+          sortOrder: linkedCopy ? (highestOrder?._max.sortOrder ?? 0) + 1 : 0,
+          number, title: linkedCopy ? `${source.title} (alternatief)` : `${source.title} (kopie)`,
+          description: source.description, status: "DRAFT", vatRate: source.vatRate,
+          totalCostPrice: source.totalCostPrice, totalSalesPrice: source.totalSalesPrice,
+          marginAmount: source.marginAmount, marginPercent: source.marginPercent, notes: source.notes,
+          items: copiedItems.length ? { create: copiedItems.map(item => ({
+            productId: item.productId, type: item.type, supplier: item.supplier, sku: item.sku,
+            description: item.description, qty: item.qty, unit: item.unit, costPrice: item.costPrice,
+            markupPercent: item.markupPercent, unitPrice: item.unitPrice,
+            totalCostPrice: item.totalCostPrice, totalSalesPrice: item.totalSalesPrice,
+            vatRate: item.vatRate, optional: item.optional, hiddenOnQuote: item.hiddenOnQuote,
+            recurringInterval: item.recurringInterval, lineType: item.lineType, billingCycle: item.billingCycle,
+            quoteNote: item.quoteNote, sortOrder: item.sortOrder,
+          })) } : undefined,
+        },
+        include: { customer: true, project: true, items: true },
+      });
+      if (asAlternative && source.items.some(item => item.optional)) {
+        // Optional work belongs beside the alternatives. Variant pricing does
+        // not expose optional rows, so preserve them once as a common BASE.
+        const extrasNumber = await nextCalculationNumber(companyId, company?.slug ?? "xx", tx);
+        const extras = await tx.calculation.create({ data: {
+          companyId, customerId: source.customerId, projectId: source.projectId, quoteId,
+          number: extrasNumber, title: `${source.title} (optionele extra's)`, role: "BASE",
+          status: "DRAFT", vatRate: source.vatRate, sortOrder: duplicate.sortOrder + 1,
+        } });
+        await tx.calculationItem.updateMany({
+          where: { calculationId: source.id, optional: true }, data: { calculationId: extras.id },
+        });
+      }
+      await syncQuoteTotalsFromCalculations(duplicate.quoteId, tx);
+      return duplicate;
+    });
+    if (duplicate.quoteId) {
+      const quoteId = duplicate.quoteId;
+      const host = req.headers.get("host") ?? "localhost:3001";
+      const cookie = req.headers.get("cookie") ?? "";
+      after(async () => { await generateAndStorePdf(quoteId, host, cookie); });
+    }
+    return NextResponse.json(duplicate, { status: 201 });
+  } catch (error) {
+    if (error instanceof ForkError) return NextResponse.json({ error: error.message }, { status: error.status });
+    console.error("Calculation fork failed", error);
+    return NextResponse.json({ error: "Calculatie kopiëren mislukt" }, { status: 500 });
+  }
 }

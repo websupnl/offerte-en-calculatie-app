@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
@@ -6,11 +6,16 @@ import { renderPageAsPdf } from "@/lib/pdf/render-page-as-pdf";
 // Fallback if Chromium not available
 import { renderToBuffer } from "@react-pdf/renderer";
 import { QuotePDF } from "@/lib/pdf/quote-template";
+import { modulesToOptions } from "@/lib/quote-modules";
+import { applyCalculationPricing } from "@/lib/quote-with-pricing";
 import { formatDate } from "@/lib/format";
 import { createElement } from "react";
-import { DEFAULT_BRANDING } from "@/lib/branding";
-import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
+import { getBranding } from "@/lib/branding";
+import { getQuoteAttachmentStorageKey, resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
+import { presignDownload, isStorageConfigured } from "@/lib/storage";
 import { pdfFilename } from "@/lib/pdf/filename";
+import { isCurrentPdfCache } from "@/lib/pdf/cache";
+import { cachedPdfBuffer, pdfCacheState } from "@/lib/pdf/cache-state";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,21 +29,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const quoteCheck = await prisma.quote.findFirst({
     where: { id, companyId: session.user.activeCompanyId },
-    select: { pdfUrl: true, number: true, customer: { select: { name: true } } },
+    select: { pdfUrl: true, number: true, customer: { select: { name: true } }, company: { select: { slug: true, branding: true } } },
   });
 
   if (!quoteCheck) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const filename = pdfFilename("Offerte", quoteCheck.number || id, quoteCheck.customer?.name);
 
-  // 1. Cached blob PDF
-  if (quoteCheck.pdfUrl) {
-    const res = await fetch(quoteCheck.pdfUrl);
-    if (res.ok) {
-      const buffer = await res.arrayBuffer();
+  // 1. Actuele opgeslagen PDF
+  const cacheState = await pdfCacheState("offerte", id);
+  if (cacheState && isCurrentPdfCache(cacheState.url, cacheState.path)) {
+    const buffer = await cachedPdfBuffer(cacheState.url);
+    if (buffer) {
       return new NextResponse(new Uint8Array(buffer), {
         headers: {
           "Content-Type": "application/pdf",
+          "Cache-Control": "private, no-store",
           "Content-Disposition": `attachment; filename="${filename}"`,
         },
       });
@@ -53,13 +59,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const pdfBuffer = await renderPageAsPdf(printUrl, cookie);
 
   if (pdfBuffer) {
-    // Cache via blob if configured
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      generateAndStorePdf(id, host, cookie).catch(() => {});
-    }
+    // Bewaar dezelfde render in MinIO of Blob na de response
+    after(async () => { await generateAndStorePdf(id, host, cookie, pdfBuffer, cacheState?.path); });
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
+          "Cache-Control": "private, no-store",
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
@@ -67,17 +72,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   // 3. Fallback: @react-pdf/renderer (if Chromium not available)
   console.warn("[PDF] Chromium unavailable — falling back to react-pdf for admin PDF");
-  const quote = await prisma.quote.findFirst({
+  const rawQuote = await prisma.quote.findFirst({
     where: { id, companyId: session.user.activeCompanyId },
     include: {
       customer: true,
       items: { orderBy: { sortOrder: "asc" } },
+      modules: { orderBy: { sortOrder: "asc" } },
+      calculations: { where: { archivedAt: null }, orderBy: { sortOrder: "asc" }, include: { items: { orderBy: { sortOrder: "asc" } } } },
       attachments: { orderBy: { sortOrder: "asc" } },
       company: true,
     },
   });
 
-  if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!rawQuote) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Nieuwe offertes halen prijs en artikelen uit hun calculaties.
+  const quote = applyCalculationPricing(rawQuote);
 
   const attachments = await resolveQuoteAttachmentImages(quote.attachments, { expiresIn: 3600 });
   const resolvedChoiceGroups = await resolveChoiceGroupImages(
@@ -96,13 +105,28 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     { expiresIn: 3600 },
   );
   const companySlug = quote.company.slug;
-  const branding = DEFAULT_BRANDING[companySlug] ?? DEFAULT_BRANDING.websup;
+  const storedBranding = (quote.company.branding ?? {}) as Record<string, string>;
+  const branding = getBranding(companySlug, storedBranding);
+  const logoKey = storedBranding.logoUrl ? getQuoteAttachmentStorageKey(storedBranding.logoUrl) : null;
+  const customLogoUrl = logoKey && isStorageConfigured()
+    ? await presignDownload(logoKey, 300)
+    : branding.logoUrl;
 
   const element = createElement(QuotePDF, {
     companyName: quote.company.name,
     companySlug,
     companyTagline: branding.tagline,
-    quoteNumber: quote.number,
+    brandOverrides: {
+      primaryColor: branding.primaryColor,
+      accentColor: branding.accentColor,
+      gradient: branding.gradient,
+      backgroundColor: branding.backgroundColor,
+      textColor: branding.textColor,
+      // Laat de bestaande witte variant op de donkere WebsUp-cover staan als
+      // er geen afwijkend logo is ingesteld.
+      ...(storedBranding.logoUrl ? { logoUrl: customLogoUrl } : {}),
+    },
+    quoteNumber: quote.number ?? "CONCEPT",
     quoteDate: formatDate(quote.createdAt),
     validUntil: quote.validUntil ? formatDate(quote.validUntil) : undefined,
     customerName: quote.customer.name,
@@ -119,7 +143,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     notes: quote.notes ?? undefined,
     flow: (quote.flow as Array<{ n: number; t: string; d: string }> | null) || [],
     approach: (quote.approach as Array<{ n: string; t: string; d: string }> | null) || [],
-    options: (quote.options as Array<{ id?: string; t: string; d: string; tag: string; price?: number | null; recurringPrice?: number | null; recurringInterval?: "maand" | "jaar" | null; vatRate?: number; defaultSelected?: boolean; details?: string[] }> | null) || [],
+    options: quote.usesCalculations
+      ? (quote.options as ReturnType<typeof modulesToOptions>)
+      : modulesToOptions(quote.modules),
     selectedOptionIds: [],
     exclusions: (quote.exclusions as string[]) || [],
     choiceGroups: resolvedChoiceGroups.map((group) => ({
@@ -159,9 +185,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fallbackBuffer: Buffer = await renderToBuffer(element as any);
+  after(async () => { await generateAndStorePdf(id, host, cookie, fallbackBuffer, cacheState?.path); });
   return new NextResponse(new Uint8Array(fallbackBuffer), {
     headers: {
       "Content-Type": "application/pdf",
+          "Cache-Control": "private, no-store",
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });

@@ -12,10 +12,23 @@ export async function GET(request: NextRequest) {
   if (!query || query.length < 2) return NextResponse.json({ results: [] });
 
   const companyId = session.user.activeCompanyId;
-  const [quotes, projects, customers, products] = await Promise.all([
+  const [calculations, quotes, projects, customers, products] = await Promise.all([
+    prisma.calculation.findMany({
+      where: {
+        companyId, archivedAt: null,
+        OR: [
+          { number: { contains: query, mode: "insensitive" } },
+          { title: { contains: query, mode: "insensitive" } },
+          { customer: { name: { contains: query, mode: "insensitive" } } },
+        ],
+      },
+      select: { id: true, number: true, title: true, customer: { select: { name: true } } },
+      orderBy: { updatedAt: "desc" }, take: 6,
+    }),
     prisma.quote.findMany({
       where: {
         companyId,
+        archivedAt: null,
         OR: [
           { number: { contains: query, mode: "insensitive" } },
           { title: { contains: query, mode: "insensitive" } },
@@ -70,11 +83,16 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     results: [
+      ...calculations.map(calculation => ({
+        id: calculation.id, type: "calculation", title: calculation.title,
+        subtitle: `${calculation.number} · ${calculation.customer?.name ?? "Nog geen klant"}`,
+        href: `/calculations/${calculation.id}`,
+      })),
       ...quotes.map((quote) => ({
         id: quote.id,
         type: "quote",
-        title: quote.title || quote.number,
-        subtitle: `${quote.number} · ${quote.customer.name}`,
+        title: quote.title || quote.number || "Conceptofferte",
+        subtitle: `${quote.number ?? "Concept zonder nummer"} · ${quote.customer.name}`,
         href: `/quotes/${quote.id}`,
       })),
       ...projects.map((project) => ({

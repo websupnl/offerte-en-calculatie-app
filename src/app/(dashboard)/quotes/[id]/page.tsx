@@ -5,6 +5,8 @@ import { QuoteDetailClient } from "./quote-detail-client";
 import { resolveQuoteAttachmentImages, resolveChoiceGroupImages } from "@/lib/quote-attachments";
 import { isStorageConfigured, presignDownload } from "@/lib/storage";
 import { DEFAULT_SETTINGS, type TravelPricingTier } from "@/lib/branding";
+import { modulesToOptions } from "@/lib/quote-modules";
+import { applyCalculationPricing } from "@/lib/quote-with-pricing";
 
 export default async function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,12 +14,15 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
   const companyId = session?.user?.activeCompanyId;
   if (!companyId) notFound();
 
-  const [quote, company, products, productSets] = await Promise.all([
+  const [quote, company] = await Promise.all([
     prisma.quote.findFirst({
       where: { id, companyId },
       include: {
         customer: true,
         items: { orderBy: { sortOrder: "asc" } },
+        modules: { orderBy: { sortOrder: "asc" } },
+        calculations: { where: { archivedAt: null }, orderBy: { sortOrder: "asc" }, include: { items: { orderBy: { sortOrder: "asc" } } } },
+        contentBlocks: { orderBy: { sortOrder: "asc" } },
         attachments: { orderBy: { sortOrder: "asc" } },
         adviceDocuments: { orderBy: { createdAt: "desc" } },
         documents: { include: { productDocument: true }, orderBy: { sortOrder: "asc" } },
@@ -26,11 +31,6 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
       },
     }),
     prisma.company.findUnique({ where: { id: companyId } }),
-    prisma.product.findMany({ where: { companyId, active: true }, orderBy: [{ category: "asc" }, { name: "asc" }], take: 500 }),
-    prisma.productSet.findMany({
-      where: { companyId, active: true },
-      include: { items: { include: { product: true }, orderBy: { sortOrder: "asc" } } },
-    }),
   ]);
 
   if (!quote) notFound();
@@ -39,7 +39,6 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
   const companySettings = (company?.settings ?? {}) as Record<string, unknown>;
   const homeBaseZipCode = (companySettings.homeBaseZipCode as string) ?? DEFAULT_SETTINGS.homeBaseZipCode;
   const travelPricingTiers = (companySettings.travelPricingTiers as TravelPricingTier[]) ?? DEFAULT_SETTINGS.travelPricingTiers;
-  const customers = await prisma.customer.findMany({ where: { companyId }, orderBy: { name: "asc" }, take: 500 });
   const attachments = await resolveQuoteAttachmentImages(quote.attachments, {
     expiresIn: 21600,
     includeStorageRef: true,
@@ -61,11 +60,16 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
   );
 
   const serialized = JSON.parse(JSON.stringify({
-    quote: { ...quote, attachments, choiceGroups, documents },
+    // Modules komen uit de QuoteModule-tabel, maar de editor en preview verwachten
+    // nog steeds een `options`-array. Die vorm bouwen we hier op.
+    quote: applyCalculationPricing({
+      ...quote,
+      options: modulesToOptions(quote.modules),
+      attachments,
+      choiceGroups,
+      documents,
+    }, { internal: true }),
     company,
-    customers,
-    products,
-    productSets,
   }));
 
   return (
@@ -75,9 +79,6 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
       companySlug={companySlug}
       homeBaseZipCode={homeBaseZipCode}
       travelPricingTiers={travelPricingTiers}
-      customers={serialized.customers}
-      products={serialized.products}
-      productSets={serialized.productSets}
     />
   );
 }

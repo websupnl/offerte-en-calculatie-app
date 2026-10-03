@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateQuoteNumber } from "@/lib/format";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
+import { nextCalculationNumber } from "@/lib/calculation-number";
+import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
+import { remapChoiceCalculationIds } from "@/lib/quote-revision";
+import type { Prisma } from "@/generated/prisma/client";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -15,21 +18,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     where: { id, companyId },
     include: {
       items: { orderBy: { sortOrder: "asc" } },
+      modules: { orderBy: { sortOrder: "asc" } },
+      contentBlocks: { orderBy: { sortOrder: "asc" } },
+      calculations: {
+        where: { archivedAt: null },
+        orderBy: { sortOrder: "asc" },
+        include: { items: { orderBy: { sortOrder: "asc" } } },
+      },
       attachments: { orderBy: { sortOrder: "asc" } },
     },
   });
   if (!source) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const count = await prisma.quote.count({ where: { companyId } });
   const company = await prisma.company.findUnique({ where: { id: companyId } });
-  const number = generateQuoteNumber(company?.slug ?? "xx", count + 1);
 
   const duplicate = await prisma.quote.create({
     data: {
       companyId,
       customerId: source.customerId,
       createdById: session.user.id,
-      number,
       title: source.title,
       category: source.category,
       tagline: source.tagline,
@@ -75,6 +82,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             })),
           }
         : undefined,
+      modules: source.modules.length
+        ? {
+            create: source.modules.map((m) => ({
+              key: m.key, title: m.title, summary: m.summary, tag: m.tag,
+              price: m.price, recurringPrice: m.recurringPrice, recurringInterval: m.recurringInterval,
+              vatRate: m.vatRate, required: m.required, defaultSelected: m.defaultSelected,
+              details: m.details as object, technicalCondition: m.technicalCondition, sortOrder: m.sortOrder,
+            })),
+          }
+        : undefined,
+      contentBlocks: source.contentBlocks.length
+        ? {
+            create: source.contentBlocks.map((blok) => ({
+              type: blok.type, title: blok.title, body: blok.body,
+              items: blok.items as object, tone: blok.tone,
+              imageUrl: blok.imageUrl, caption: blok.caption, sortOrder: blok.sortOrder,
+            })),
+          }
+        : undefined,
       attachments: source.attachments.length
         ? {
             create: source.attachments.map((attachment) => ({
@@ -90,6 +116,59 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     },
     include: { customer: true, items: true, attachments: { orderBy: { sortOrder: "asc" } } },
   });
+
+  // Calculaties krijgen elk een eigen nummer, dus die kunnen niet als geneste
+  // create mee. Zonder deze kopie zou een gedupliceerde offerte op het nieuwe
+  // pad helemaal geen prijs hebben.
+  const calculationIdMap = new Map<string, string>();
+  for (const bron of source.calculations) {
+    const calculatieNummer = await nextCalculationNumber(companyId, company?.slug ?? "xx");
+    const copiedCalculation = await prisma.calculation.create({
+      data: {
+        companyId,
+        customerId: bron.customerId,
+        projectId: bron.projectId,
+        quoteId: duplicate.id,
+        number: calculatieNummer,
+        title: bron.title,
+        description: bron.description,
+        status: "DRAFT",
+        role: bron.role,
+        sortOrder: bron.sortOrder,
+        vatRate: bron.vatRate,
+        totalCostPrice: bron.totalCostPrice,
+        totalSalesPrice: bron.totalSalesPrice,
+        marginAmount: bron.marginAmount,
+        marginPercent: bron.marginPercent,
+        notes: bron.notes,
+        items: bron.items.length
+          ? {
+              create: bron.items.map((regel) => ({
+                productId: regel.productId, type: regel.type, supplier: regel.supplier,
+                sku: regel.sku, description: regel.description, qty: regel.qty, unit: regel.unit,
+                costPrice: regel.costPrice, markupPercent: regel.markupPercent,
+                unitPrice: regel.unitPrice, totalCostPrice: regel.totalCostPrice,
+                totalSalesPrice: regel.totalSalesPrice, vatRate: regel.vatRate,
+                optional: regel.optional, hiddenOnQuote: regel.hiddenOnQuote,
+                recurringInterval: regel.recurringInterval, quoteNote: regel.quoteNote,
+                sortOrder: regel.sortOrder,
+              })),
+            }
+          : undefined,
+      },
+    });
+    calculationIdMap.set(bron.id, copiedCalculation.id);
+  }
+  if (calculationIdMap.size > 0 && source.choiceGroups) {
+    const remappedChoices = remapChoiceCalculationIds(source.choiceGroups, calculationIdMap);
+    await prisma.quote.update({
+      where: { id: duplicate.id },
+      data: { choiceGroups: remappedChoices as Prisma.InputJsonValue },
+    });
+  }
+  if (source.calculations.length) {
+    await syncQuoteTotalsFromCalculations(duplicate.id);
+  }
 
   const host = req.headers.get("host") ?? "localhost:3000";
   const cookie = req.headers.get("cookie") ?? "";

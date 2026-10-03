@@ -108,7 +108,7 @@ export function KnowledgeClient({
                         </CardTitle>
                         <div className="flex items-center gap-2 mt-1">
                           {d.category && (
-                            <Badge variant="secondary" className="text-xs">
+                            <Badge variant="secondary" className="text-sm">
                               {d.category}
                             </Badge>
                           )}
@@ -131,7 +131,7 @@ export function KnowledgeClient({
                             <ExternalLink className="h-4 w-4" />
                           </a>
                         )}
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-sm text-muted-foreground">
                           {new Date(d.updatedAt).toLocaleDateString("nl-NL")}
                         </span>
                       </div>
@@ -141,7 +141,7 @@ export function KnowledgeClient({
                     {Object.keys(d.specs).length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {Object.entries(d.specs).map(([k, v]) => (
-                          <Badge key={k} variant="outline" className="text-xs font-normal">
+                          <Badge key={k} variant="outline" className="text-sm font-normal">
                             {k}: {String(v)}
                           </Badge>
                         ))}
@@ -179,14 +179,14 @@ export function KnowledgeClient({
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-4">
                       <CardTitle className="text-base">{f.topic}</CardTitle>
-                      <span className="text-xs text-muted-foreground shrink-0">
+                      <span className="text-sm text-muted-foreground shrink-0">
                         {new Date(f.createdAt).toLocaleDateString("nl-NL")}
                       </span>
                     </div>
                     {f.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {f.tags.map((t) => (
-                          <Badge key={t} variant="secondary" className="text-xs">
+                          <Badge key={t} variant="secondary" className="text-sm">
                             {t}
                           </Badge>
                         ))}
@@ -198,7 +198,7 @@ export function KnowledgeClient({
                     {f.quote && (
                       <Link
                         href={`/quotes/${f.quote.id}`}
-                        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                        className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
                       >
                         <FileText className="h-3 w-3" />
                         {f.quote.number} — {f.quote.title}

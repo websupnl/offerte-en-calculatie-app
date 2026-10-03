@@ -5,6 +5,7 @@ import { z } from "zod";
 import pg from "pg";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { estimateQuoteLayout, layoutWarningText } from "./quote-layout-estimate.js";
 
 const { Pool } = pg;
 
@@ -86,6 +87,64 @@ function normalizeOptionalWork(options: z.infer<typeof optionalWorkInputSchema>[
   }));
 }
 
+// Modules staan sinds september 2026 in de tabel QuoteModule. Per module bijwerken
+// in plaats van de hele JSON-array vervangen: zo kan een schrijver die een veld niet
+// meestuurt het niet meer wissen, wat eerder een maandbedrag en een required-vlag kostte.
+type NormalizedModule = ReturnType<typeof normalizeOptionalWork>[number];
+
+async function saveQuoteModules(quoteId: string, modules: NormalizedModule[]): Promise<void> {
+  const keys = modules.map((m) => m.id).filter(Boolean);
+  if (keys.length > 0) {
+    await query(
+      `DELETE FROM "QuoteModule" WHERE "quoteId" = $1 AND key <> ALL($2::text[])`,
+      [quoteId, keys]
+    );
+  } else {
+    await query(`DELETE FROM "QuoteModule" WHERE "quoteId" = $1`, [quoteId]);
+  }
+
+  for (const [index, m] of modules.entries()) {
+    const now = new Date().toISOString();
+    await query(
+      `INSERT INTO "QuoteModule" (id,"quoteId",key,title,summary,tag,price,"recurringPrice","recurringInterval",
+         "vatRate",required,"defaultSelected",details,"technicalCondition","sortOrder","createdAt","updatedAt")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15,$16,$16)
+       ON CONFLICT ("quoteId", key) DO UPDATE SET
+         title = EXCLUDED.title, summary = EXCLUDED.summary, tag = EXCLUDED.tag,
+         price = EXCLUDED.price, "recurringPrice" = EXCLUDED."recurringPrice",
+         "recurringInterval" = EXCLUDED."recurringInterval", "vatRate" = EXCLUDED."vatRate",
+         -- required staat niet in het MCP-schema. Niet overschrijven, anders wist een
+         -- update die het veld niet kent alsnog het verplicht-vinkje.
+         "defaultSelected" = EXCLUDED."defaultSelected",
+         details = EXCLUDED.details, "technicalCondition" = EXCLUDED."technicalCondition",
+         "sortOrder" = EXCLUDED."sortOrder", "updatedAt" = EXCLUDED."updatedAt"`,
+      [crypto.randomUUID(), quoteId, m.id, m.t, m.d, m.tag, m.price, m.recurringPrice,
+       m.recurringInterval, m.vatRate, false, m.defaultSelected,
+       JSON.stringify(m.details ?? []), m.technicalCondition ?? null, index, now]
+    );
+  }
+}
+
+async function readQuoteModules(quoteId: string) {
+  const rows = await query<Record<string, unknown>>(
+    `SELECT key, title, summary, tag, price, "recurringPrice", "recurringInterval", "vatRate",
+            required, "defaultSelected", details, "technicalCondition"
+     FROM "QuoteModule" WHERE "quoteId" = $1 ORDER BY "sortOrder"`,
+    [quoteId]
+  );
+  return rows.map((r) => ({
+    id: r.key, t: r.title, d: r.summary, tag: r.tag,
+    price: r.price === null ? null : Number(r.price),
+    recurringPrice: r.recurringPrice === null ? null : Number(r.recurringPrice),
+    recurringInterval: r.recurringInterval,
+    vatRate: Number(r.vatRate),
+    required: r.required,
+    defaultSelected: r.defaultSelected,
+    details: r.details,
+    technicalCondition: r.technicalCondition,
+  }));
+}
+
 function normalizeConfigurations(groups: z.infer<typeof configurationInputSchema>[]) {
   return groups.map((group) => ({
     id: group.id,
@@ -131,6 +190,18 @@ function appUrl(): string {
 // Als SQL-literal, zodat de UNION-query de links direct kan samenstellen.
 const appUrlSql = `'${appUrl().replace(/'/g, "''")}' || `;
 
+const contentBlockInputSchema = z.object({
+  type: z.enum(["heading", "text", "list", "steps", "callout", "specs", "image"])
+    .describe("heading = sectiekop, text = alinea's, list = opsomming, steps = genummerde stappen, callout = kader dat opvalt, specs = twee kolommen kenmerk/waarde, image = afbeelding met bijschrift"),
+  title: z.string().optional().describe("Kop boven het blok"),
+  body: z.string().optional().describe("Tekst; lege regels scheiden alinea's. Bij een heading is dit het kleine label erboven."),
+  items: z.array(z.unknown()).optional()
+    .describe("list: [\"regel\", ...] · steps: [{t, d}, ...] · specs: [{k, v}, ...]"),
+  tone: z.enum(["info", "warning", "success"]).optional().describe("Alleen voor callout"),
+  image_url: z.string().optional().describe("Alleen voor image"),
+  caption: z.string().optional().describe("Bijschrift onder een afbeelding"),
+});
+
 const calculationItemInputSchema = z.object({
   type: z.enum(["MATERIAL", "LABOR", "CUSTOM", "SET"]).default("MATERIAL")
     .describe("MATERIAL voor artikelen, LABOR voor eigen uren, CUSTOM voor posten zoals voorrijkosten"),
@@ -170,6 +241,40 @@ async function insertCalculationItems(
        item.hidden_on_quote, startSortOrder + i]
     );
   }
+}
+
+/**
+ * Een offerte met gekoppelde calculaties en geen losse regels haalt zijn prijs
+ * uit die calculaties (zie src/lib/quote-pricing.ts). Er dan toch een QuoteItem
+ * bij schrijven zet hem stil terug op het oude pad: de calculatieprijzen
+ * verdwijnen dan van de offerte zonder dat iemand het merkt.
+ *
+ * Geeft een uitlegtekst terug als de tool moet weigeren, anders null.
+ */
+async function weigerAlsCalculatieDePrijsBepaalt(quoteId: string): Promise<string | null> {
+  const telling = await queryOne<{ regels: string; calculaties: string }>(
+    `SELECT
+       (SELECT COUNT(*) FROM "QuoteItem" WHERE "quoteId" = $1) AS regels,
+       (SELECT COUNT(*) FROM "Calculation" WHERE "quoteId" = $1 AND "archivedAt" IS NULL) AS calculaties`,
+    [quoteId]
+  );
+  if (!telling) return null;
+  if (Number(telling.regels) > 0 || Number(telling.calculaties) === 0) return null;
+
+  return `Deze offerte haalt prijs en artikelen uit gekoppelde calculaties. Losse `
+    + `offerteregels toevoegen zou die prijzen van de offerte laten verdwijnen.
+
+`
+    + `Gebruik in plaats daarvan:
+`
+    + `- add_calculation_items om artikelen aan de basiscalculatie toe te voegen
+`
+    + `- een tweede calculatie met role VARIANT als de klant moet kiezen
+`
+    + `- optional: true op een calculatieregel voor aanvinkbaar meerwerk
+
+`
+    + `get_quote toont welke calculaties eraan hangen.`;
 }
 
 // Kostprijs volgt de app-conventie uit src/app/api/calculations/route.ts: eigen uren
@@ -212,13 +317,20 @@ async function nextCalculationNumber(companyId: string, companySlug: string): Pr
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function generateQuoteNumber(companySlug = "websup"): string {
-  const now = new Date();
-  const yy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const rand = String(Math.floor(Math.random() * 9000) + 1000);
-  const prefix = companySlug === "koolhaas" ? "KI" : "WU";
-  return `${prefix}-${yy}-${mm}-${rand}`;
+/**
+ * Volgend offertenummer, doortellend op het hoogste bestaande nummer van dit
+ * jaar (niet op het aantal records — dat gaf dubbele nummers). Zelfde format en
+ * aanpak als `nextQuoteNumber` in de Next-app.
+ */
+async function nextQuoteNumber(companyId: string, companySlug = "websup"): Promise<string> {
+  const prefix = `${companySlug === "koolhaas" ? "KI" : "WU"}-${new Date().getFullYear()}-`;
+  const last = await queryOne<{ number: string }>(
+    `SELECT number FROM "Quote" WHERE "companyId" = $1 AND number LIKE $2 ORDER BY number DESC LIMIT 1`,
+    [companyId, `${prefix}%`]
+  );
+  const highest = last ? Number(last.number.slice(prefix.length)) : 0;
+  const next = (Number.isFinite(highest) ? highest : 0) + 1;
+  return `${prefix}${String(next).padStart(4, "0")}`;
 }
 
 function generateToken(): string {
@@ -615,6 +727,8 @@ function createMcpServer() {
         `SELECT id FROM "Quote" WHERE id = $1`, [quote_id]
       );
       if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+      const weigering = await weigerAlsCalculatieDePrijsBepaalt(quote_id);
+      if (weigering) return { content: [{ type: "text", text: weigering }] };
 
       const items = await query<{ productId: string; name: string; basePrice: string; costPrice: string; vatRate: string; unit: string; qty: string }>(
         `SELECT p.id AS "productId", p.name, p."basePrice", p."costPrice", p."vatRate", p.unit, psi.qty
@@ -762,23 +876,26 @@ function createMcpServer() {
       const now = new Date().toISOString();
       const validUntilDate = new Date(Date.now() + (valid_days ?? 30) * 86400000).toISOString();
       const quoteId = crypto.randomUUID();
-      const number = generateQuoteNumber(company_slug);
+      const number = await nextQuoteNumber(co.id, company_slug);
 
       await query(
         `INSERT INTO "Quote" (id, "companyId", "customerId", "createdById", number, title, category, tagline,
-          "itemsHeader", intro, outro, notes, flow, approach, options, exclusions, status, "validUntil",
+          "itemsHeader", intro, outro, notes, flow, approach, exclusions, status, "validUntil",
           "totalExVat", "totalVat", "totalIncVat", "quoteType", assumptions, "technicalNotes", 
           "customerResponsibilities", planning, commercial, "batteryAdvice", "choiceGroups", "internalAdvice",
           "createdAt", "updatedAt")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,$16::jsonb,'DRAFT',$17,$18,$19,$20,$21,$22::jsonb,$23::jsonb,$24::jsonb,$25::jsonb,$26::jsonb,$27::jsonb,$28::jsonb,$29,$30,$30)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,'DRAFT',$16,$17,$18,$19,$20,$21::jsonb,$22::jsonb,$23::jsonb,$24::jsonb,$25::jsonb,$26::jsonb,$27::jsonb,$28,$29,$29)`,
         [quoteId, co.id, customer_id, user.id, number, quoteTitle, quoteCategory,
          quoteTagline, quoteItemsHeader, normalizeQuoteValue(intro ?? null), normalizeQuoteValue(outro ?? null), normalizeQuoteValue(notes ?? null),
-         JSON.stringify(quoteFlow), JSON.stringify(quoteApproach), JSON.stringify(quoteOptions), JSON.stringify(quoteExclusions),
+         JSON.stringify(quoteFlow), JSON.stringify(quoteApproach), JSON.stringify(quoteExclusions),
          validUntilDate, totalExVat.toFixed(2), totalVat.toFixed(2), totalIncVat.toFixed(2),
          quote_type ?? 'GENERAL', JSON.stringify(normalizeQuoteValue(assumptions ?? [])), JSON.stringify(normalizeQuoteValue(technical_notes ?? [])),
          JSON.stringify(normalizeQuoteValue(customer_responsibilities ?? [])), JSON.stringify(normalizeQuoteValue(planning ?? {})), JSON.stringify(normalizeQuoteValue(commercial ?? {})),
          JSON.stringify(normalizeQuoteValue(battery_advice ?? {})), JSON.stringify(quoteConfigurations), normalizeQuoteValue(internal_advice ?? null), now]
       );
+
+      // Modules horen in hun eigen tabel, niet in de Quote-rij.
+      if (quoteOptions.length) await saveQuoteModules(quoteId, quoteOptions);
 
       for (let i = 0; i < normalizedItems.length; i++) {
         const item = normalizedItems[i];
@@ -823,21 +940,23 @@ function createMcpServer() {
     {
       company_slug: z.string().describe("Bedrijfsslug"),
       status: z.enum(["DRAFT", "SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"]).optional().describe("Filter op status"),
+      include_archived: z.boolean().optional().describe("Ook gearchiveerde offertes tonen (standaard niet)"),
       limit: z.number().optional().default(20).describe("Max aantal resultaten"),
     },
-    async ({ company_slug, status, limit }) => {
+    async ({ company_slug, status, include_archived, limit }) => {
       const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
       if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
 
       let sql = `
-        SELECT q.id, q.number, q.title, q.status, q."totalIncVat", q."createdAt", q."validUntil",
+        SELECT q.id, q.number, q.title, q.status, q."totalIncVat", q."createdAt", q."validUntil", q."archivedAt",
                c.name AS customer_name, c.email AS customer_email
         FROM "Quote" q
         JOIN "Customer" c ON c.id = q."customerId"
         WHERE q."companyId" = $1
       `;
       const params: unknown[] = [co.id];
-      if (status) { sql += ` AND q.status = $2`; params.push(status); }
+      if (!include_archived) sql += ` AND q."archivedAt" IS NULL`;
+      if (status) { sql += ` AND q.status = $${params.length + 1}`; params.push(status); }
       sql += ` ORDER BY q."createdAt" DESC LIMIT $${params.length + 1}`;
       params.push(limit ?? 20);
 
@@ -848,7 +967,7 @@ function createMcpServer() {
 
   server.tool(
     "get_quote",
-    "Haal alle details van een offerte op, inclusief regels en klantgegevens",
+    "Haal alle details van een offerte op, inclusief regels, gekoppelde calculaties en klantgegevens. Let op `prijsbron`: staat daar 'calculaties', dan bepaalt de calculatie de prijs en werk je met de calculatietools, niet met add_quote_item.",
     { quote_id: z.string().describe("Quote ID") },
     async ({ quote_id }) => {
       const quote = await queryOne(
@@ -878,7 +997,44 @@ function createMcpServer() {
         [quote_id]
       );
 
-      return { content: [{ type: "text", text: JSON.stringify({ ...quote, items, attachments, share }, null, 2) }] };
+      // Modules komen uit QuoteModule; onder de sleutel `options` blijft de vorm
+      // gelijk aan wat de rest van de app en eerdere sessies gewend zijn.
+      const options = await readQuoteModules(quote_id);
+
+      // Loopt de werkwijze of de bronnenlijst over de A4? De preview meet dat in
+      // de DOM; hier schatten we het zodat een AI het ook ziet.
+      const q = quote as { approach?: unknown; batteryAdvice?: { sources?: unknown } };
+      const layoutWarnings = estimateQuoteLayout({
+        approach: Array.isArray(q.approach) ? (q.approach as { t?: string; d?: string }[]) : [],
+        sources: Array.isArray(q.batteryAdvice?.sources)
+          ? (q.batteryAdvice!.sources as { label?: string; description?: string }[])
+          : [],
+      });
+
+      // Gekoppelde calculaties, plus in één woord waar de prijs vandaan komt.
+      // Zonder dat zou een AI `items: []` zien en denken dat de offerte leeg is.
+      const calculaties = await query(
+        `SELECT c.id, c.number, c.title, c.role, c."sortOrder", c."totalSalesPrice", c."marginPercent",
+                (SELECT COUNT(*) FROM "CalculationItem" ci
+                  WHERE ci."calculationId" = c.id AND ci.optional = false AND ci."hiddenOnQuote" = false) AS regels,
+                (SELECT COUNT(*) FROM "CalculationItem" ci
+                  WHERE ci."calculationId" = c.id AND ci.optional = true AND ci."hiddenOnQuote" = false) AS extras
+           FROM "Calculation" c
+          WHERE c."quoteId" = $1 AND c."archivedAt" IS NULL
+          ORDER BY c."sortOrder", c.number`,
+        [quote_id]
+      );
+      const prijsbron = calculaties.length > 0 && items.length === 0
+        ? "calculaties"
+        : "offerteregels";
+
+      const payload = JSON.stringify(
+        { ...quote, prijsbron, calculaties, options, items, attachments, share, layoutWarnings },
+        null,
+        2,
+      );
+      const notice = layoutWarningText(layoutWarnings);
+      return { content: [{ type: "text", text: notice ? `${notice}\n\n${payload}` : payload }] };
     }
   );
 
@@ -985,14 +1141,26 @@ function createMcpServer() {
       if (updates.technical_notes !== undefined) { map["technicalNotes"] = updates.technical_notes; delete map.technical_notes; }
       if (updates.customer_responsibilities !== undefined) { map["customerResponsibilities"] = updates.customer_responsibilities; delete map.customer_responsibilities; }
       if (updates.battery_advice !== undefined) { map["batteryAdvice"] = updates.battery_advice; delete map.battery_advice; }
-      if (updates.optional_work !== undefined) { map.options = normalizeOptionalWork(updates.optional_work); delete map.optional_work; }
+      const modulesToSave = updates.optional_work !== undefined ? normalizeOptionalWork(updates.optional_work) : null;
+      if (updates.optional_work !== undefined) { delete map.optional_work; }
       if (updates.configurations !== undefined) { map["choiceGroups"] = normalizeConfigurations(updates.configurations); delete map.configurations; }
       if (updates.internal_advice !== undefined) { map["internalAdvice"] = updates.internal_advice; delete map.internal_advice; }
 
-      const fields = Object.entries(map).filter(([, v]) => v !== undefined);
-      if (fields.length === 0) return { content: [{ type: "text", text: "Geen velden om bij te werken." }] };
+      if (modulesToSave) await saveQuoteModules(quote_id, modulesToSave);
 
-      const jsonFields = new Set(["flow", "approach", "options", "exclusions", "assumptions", "technicalNotes", "customerResponsibilities", "planning", "commercial", "batteryAdvice", "choiceGroups"]);
+      const fields = Object.entries(map).filter(([, v]) => v !== undefined);
+      if (fields.length === 0) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: modulesToSave
+              ? `Modules van offerte ${quote_id} bijgewerkt.`
+              : "Geen velden om bij te werken.",
+          }],
+        };
+      }
+
+      const jsonFields = new Set(["flow", "approach", "exclusions", "assumptions", "technicalNotes", "customerResponsibilities", "planning", "commercial", "batteryAdvice", "choiceGroups"]);
       const setClauses = fields.map(([k], i) => `"${k}" = $${i + 2}${jsonFields.has(k) ? "::jsonb" : ""}`);
       const values = [
         quote_id,
@@ -1004,7 +1172,20 @@ function createMcpServer() {
         values
       );
 
-      return { content: [{ type: "text", text: `Offerte ${quote_id} bijgewerkt.` }] };
+      // Direct terugkoppelen of de werkwijze of bronnenlijst nu over de A4 loopt.
+      const after = await queryOne<{ approach?: unknown; batteryAdvice?: { sources?: unknown } }>(
+        `SELECT approach, "batteryAdvice" FROM "Quote" WHERE id = $1`,
+        [quote_id]
+      );
+      const warnings = estimateQuoteLayout({
+        approach: Array.isArray(after?.approach) ? (after!.approach as { t?: string; d?: string }[]) : [],
+        sources: Array.isArray(after?.batteryAdvice?.sources)
+          ? (after!.batteryAdvice!.sources as { label?: string; description?: string }[])
+          : [],
+      });
+      const notice = layoutWarningText(warnings);
+
+      return { content: [{ type: "text", text: notice ? `Offerte ${quote_id} bijgewerkt.\n\n${notice}` : `Offerte ${quote_id} bijgewerkt.` }] };
     }
   );
 
@@ -1034,10 +1215,8 @@ function createMcpServer() {
         `INSERT INTO "QuoteShare" (id, "quoteId", token, "createdAt") VALUES ($1, $2, $3, $4)`,
         [crypto.randomUUID(), quote_id, token, now]
       );
-      await query(
-        `UPDATE "Quote" SET status = 'SENT', "updatedAt" = NOW() WHERE id = $1 AND status = 'DRAFT'`,
-        [quote_id]
-      );
+      // Een deellink maken is geen verzenden. De status verandert pas als de
+      // offerte echt via e-mail de deur uit gaat (zelfde regel als de app-route).
 
       return { content: [{ type: "text", text: `Deellink aangemaakt!\nPortaal: /q/${token}` }] };
     }
@@ -1058,6 +1237,8 @@ function createMcpServer() {
     async ({ quote_id, description, qty, unit_price, cost_price, vat_rate, indent }) => {
       const quote = await queryOne<{ id: string }>(`SELECT id FROM "Quote" WHERE id = $1`, [quote_id]);
       if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+      const weigering = await weigerAlsCalculatieDePrijsBepaalt(quote_id);
+      if (weigering) return { content: [{ type: "text", text: weigering }] };
 
       const lineTotal = qty * unit_price;
       const lineVat = lineTotal * (vat_rate / 100);
@@ -1097,6 +1278,8 @@ function createMcpServer() {
     async ({ quote_id, items }) => {
       const quote = await queryOne<{ id: string }>(`SELECT id FROM "Quote" WHERE id = $1`, [quote_id]);
       if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+      const weigering = await weigerAlsCalculatieDePrijsBepaalt(quote_id);
+      if (weigering) return { content: [{ type: "text", text: weigering }] };
 
       const maxSort = await queryOne<{ max: number }>(
         `SELECT COALESCE(MAX("sortOrder"), -1) AS max FROM "QuoteItem" WHERE "quoteId" = $1`,
@@ -1931,20 +2114,22 @@ function createMcpServer() {
       company_slug: z.string().describe("Bedrijfsslug"),
       customer_id: z.string().optional().describe("Filter op klant"),
       status: z.enum(["DRAFT", "COMPLETED", "QUOTED"]).optional().describe("Filter op status"),
+      include_archived: z.boolean().optional().describe("Ook gearchiveerde calculaties tonen (standaard niet)"),
       limit: z.number().default(20).describe("Max aantal resultaten"),
     },
-    async ({ company_slug, customer_id, status, limit }) => {
+    async ({ company_slug, customer_id, status, include_archived, limit }) => {
       const co = await queryOne<{ id: string }>(`SELECT id FROM "Company" WHERE slug = $1`, [company_slug]);
       if (!co) return { content: [{ type: "text", text: `Bedrijf '${company_slug}' niet gevonden.` }] };
 
       const params: unknown[] = [co.id];
       let sql = `SELECT c.id, c.number, c.title, c.status, c."totalCostPrice", c."totalSalesPrice",
-                        c."marginAmount", c."marginPercent", c."quoteId", q.number AS quote_number,
+                        c."marginAmount", c."marginPercent", c."quoteId", c."archivedAt", q.number AS quote_number,
                         cu.name AS customer_name, c."updatedAt"
                  FROM "Calculation" c
                  LEFT JOIN "Quote" q ON q.id = c."quoteId"
                  LEFT JOIN "Customer" cu ON cu.id = c."customerId"
                  WHERE c."companyId" = $1`;
+      if (!include_archived) sql += ` AND c."archivedAt" IS NULL`;
       if (customer_id) { sql += ` AND c."customerId" = $${params.length + 1}`; params.push(customer_id); }
       if (status) { sql += ` AND c.status = $${params.length + 1}`; params.push(status); }
       sql += ` ORDER BY c."updatedAt" DESC LIMIT $${params.length + 1}`;
@@ -2218,6 +2403,57 @@ function createMcpServer() {
       await query(`UPDATE "Quote" SET "pdfUrl" = NULL, "updatedAt" = NOW() WHERE id = $1`, [att.quoteId]);
 
       return { content: [{ type: "text", text: "Bijlage bijgewerkt." }] };
+    }
+  );
+
+  // ─── Inhoudsblokken ─────────────────────────────────────────────────────────
+
+  server.tool(
+    "set_quote_content",
+    "Vervang de inhoudsblokken van een offerte: vrije uitleg die tussen de intro en de prijzen komt, verdeeld over zoveel pagina's als nodig. Gebruik dit voor verhaal en onderbouwing; harde regels horen in de calculatie, losse keuzes in modules.",
+    {
+      quote_id: z.string().describe("Quote ID"),
+      blocks: z.array(contentBlockInputSchema).describe("De blokken op volgorde. Een lege lijst wist alle blokken."),
+    },
+    async ({ quote_id, blocks }) => {
+      const quote = await queryOne<{ number: string }>(`SELECT number FROM "Quote" WHERE id = $1`, [quote_id]);
+      if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
+
+      await query(`DELETE FROM "QuoteContentBlock" WHERE "quoteId" = $1`, [quote_id]);
+      for (const [index, block] of blocks.entries()) {
+        const now = new Date().toISOString();
+        await query(
+          `INSERT INTO "QuoteContentBlock" (id,"quoteId",type,title,body,items,tone,"imageUrl",caption,"sortOrder","createdAt","updatedAt")
+           VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$11)`,
+          [crypto.randomUUID(), quote_id, block.type, block.title ?? null, block.body ?? null,
+           JSON.stringify(block.items ?? []), block.tone ?? null, block.image_url ?? null,
+           block.caption ?? null, index, now]
+        );
+      }
+      await query(`UPDATE "Quote" SET "pdfUrl" = NULL, "updatedAt" = NOW() WHERE id = $1`, [quote_id]);
+
+      return {
+        content: [{
+          type: "text",
+          text: blocks.length === 0
+            ? `Inhoudsblokken van ${quote.number} gewist.`
+            : `${blocks.length} inhoudsblokken opgeslagen bij ${quote.number}.`,
+        }],
+      };
+    }
+  );
+
+  server.tool(
+    "get_quote_content",
+    "Haal de inhoudsblokken van een offerte op, op volgorde",
+    { quote_id: z.string().describe("Quote ID") },
+    async ({ quote_id }) => {
+      const blocks = await query(
+        `SELECT id, type, title, body, items, tone, "imageUrl", caption, "sortOrder"
+         FROM "QuoteContentBlock" WHERE "quoteId" = $1 ORDER BY "sortOrder"`,
+        [quote_id]
+      );
+      return { content: [{ type: "text", text: JSON.stringify(blocks, null, 2) }] };
     }
   );
 

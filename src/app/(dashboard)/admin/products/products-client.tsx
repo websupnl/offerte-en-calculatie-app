@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "@/components/confirm-provider";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -115,6 +116,7 @@ export function ProductsClient({
   initialProductId?: string;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const initialSelectedProduct = initialProducts.find((product) => product.id === initialProductId);
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [sets, setSets] = useState<ProductSet[]>(initialSets);
@@ -398,7 +400,7 @@ export function ProductsClient({
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Weet je zeker dat je dit product wilt verwijderen?")) return;
+    if (!(await confirm({ title: "Product verwijderen?", body: "Dit product wordt definitief verwijderd.", confirmLabel: "Verwijderen", destructive: true }))) return;
     const response = await fetch(`/api/products/${id}`, { method: "DELETE" });
     if (!response.ok) return toast.error("Product verwijderen mislukt");
     setProducts((prev) => prev.filter((p) => p.id !== id));
@@ -493,7 +495,7 @@ export function ProductsClient({
   }
 
   async function handleDeleteSet(id: string) {
-    if (!confirm("Weet je zeker dat je deze set wilt verwijderen?")) return;
+    if (!(await confirm({ title: "Set verwijderen?", body: "Deze productset wordt definitief verwijderd.", confirmLabel: "Verwijderen", destructive: true }))) return;
     const response = await fetch(`/api/product-sets/${id}`, { method: "DELETE" });
     if (!response.ok) return toast.error("Set verwijderen mislukt");
     setSets((prev) => prev.filter((s) => s.id !== id));
@@ -520,7 +522,7 @@ export function ProductsClient({
   }
 
   async function handleDeleteDs(id: string) {
-    if (!confirm("Datasheet-entry verwijderen?")) return;
+    if (!(await confirm({ title: "Datasheet-entry verwijderen?", confirmLabel: "Verwijderen", destructive: true }))) return;
     const response = await fetch(`/api/knowledge/datasheets/${id}`, { method: "DELETE" });
     if (!response.ok) return toast.error("Entry verwijderen mislukt");
     setDatasheets((prev) => prev.filter((d) => d.id !== id));
@@ -536,7 +538,7 @@ export function ProductsClient({
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setCliDialogOpen(true)}>
-              <Terminal className="mr-2 h-4 w-4 text-emerald-600" />
+              <Terminal className="mr-2 h-4 w-4 text-emerald-700 dark:text-emerald-400" />
               Sync Leverancier (CLI)
             </Button>
             <Button onClick={openCreate}>
@@ -548,7 +550,7 @@ export function ProductsClient({
       />
       <div className="space-y-6 p-5 lg:p-8">
       <Tabs defaultValue="products">
-        <TabsList className="bg-white shadow-sm">
+        <TabsList className="bg-card shadow-none">
           <TabsTrigger value="products">
             <Package className="mr-2 h-4 w-4" />
             Artikelen ({products.length})
@@ -567,18 +569,18 @@ export function ProductsClient({
           {products.length > 0 && (
             <div className="flex gap-2 flex-wrap">
               <div className="relative flex-1 min-w-[240px]">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
                   placeholder="Zoek op naam, omschrijving, EAN, artikelcode of leverancier..."
-                  className="pl-8 bg-white"
+                  className="pl-8 bg-card"
                 />
               </div>
               {productSuppliers.length > 0 && (
                 <Select value={productSupplierFilter} onValueChange={(v) => setProductSupplierFilter(v || "all")}>
-                  <SelectTrigger className="w-[190px] bg-white shrink-0">
-                    <Truck className="mr-1.5 h-3.5 w-3.5 text-slate-400" />
+                  <SelectTrigger className="w-[190px] bg-card shrink-0">
+                    <Truck className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
                     <SelectValue placeholder="Leverancier" />
                   </SelectTrigger>
                   <SelectContent>
@@ -589,7 +591,7 @@ export function ProductsClient({
                   </SelectContent>
                 </Select>
               )}
-              <span className="text-xs text-muted-foreground self-center shrink-0">
+              <span className="text-sm text-muted-foreground self-center shrink-0">
                 {filteredProducts.length} van {products.length} artikelen
               </span>
             </div>
@@ -609,7 +611,7 @@ export function ProductsClient({
               <CardContent className="flex flex-col items-center py-16">
                 <Search className="h-12 w-12 text-muted-foreground/30 mb-4" />
                 <p className="text-muted-foreground">Geen artikelen gevonden</p>
-                <p className="text-xs text-muted-foreground mt-1">Pas je zoekterm of leverancier-filter aan.</p>
+                <p className="text-sm text-muted-foreground mt-1">Pas je zoekterm of leverancier-filter aan.</p>
               </CardContent>
             </Card>
           ) : (
@@ -640,29 +642,29 @@ export function ProductsClient({
                           <p className="font-medium text-sm">{p.name}</p>
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             {p.supplier && (
-                              <Badge className="text-[10px] py-0 px-1.5 font-normal bg-slate-100 text-slate-600 hover:bg-slate-100">
+                              <Badge className="text-sm py-0 px-1.5 font-normal bg-muted text-muted-foreground hover:bg-muted">
                                 <Truck className="mr-1 h-2.5 w-2.5" />
                                 {p.supplier}
                               </Badge>
                             )}
-                            {p.datasheetId && <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-normal">Leveranciersprijs gekoppeld</Badge>}
-                            {p.sku && <span className="text-[10px] text-muted-foreground font-mono">Art# {p.sku}</span>}
-                            {p.ean && <span className="text-[10px] text-muted-foreground font-mono">EAN {p.ean}</span>}
+                            {p.datasheetId && <Badge variant="outline" className="text-sm py-0 px-1.5 font-normal">Leveranciersprijs gekoppeld</Badge>}
+                            {p.sku && <span className="text-sm text-muted-foreground font-mono">Art# {p.sku}</span>}
+                            {p.ean && <span className="text-sm text-muted-foreground font-mono">EAN {p.ean}</span>}
                             {p.priceUpdatedAt && (
-                              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                              <span className="text-sm text-muted-foreground flex items-center gap-0.5">
                                 <Clock className="h-2.5 w-2.5" />
                                 prijs {formatRelativeDate(p.priceUpdatedAt)}
                               </span>
                             )}
                           </div>
                           {p.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-1 mt-1">{p.description}</p>
+                            <p className="text-sm text-muted-foreground line-clamp-1 mt-1">{p.description}</p>
                           )}
                         </div>
                         <div className="flex items-center gap-4 shrink-0">
                           <div className="text-right">
                             <p className="text-sm font-medium">{formatCurrency(Number(p.basePrice))}</p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-sm text-muted-foreground">
                               {p.costPrice != null ? `inkoop ${formatCurrency(Number(p.costPrice))} · ` : ""}per {p.unit} · {p.vatRate}% BTW
                             </p>
                           </div>
@@ -699,7 +701,7 @@ export function ProductsClient({
               <CardContent className="flex flex-col items-center py-16">
                 <Layers className="h-12 w-12 text-muted-foreground/30 mb-4" />
                 <p className="text-muted-foreground">Nog geen productsets</p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Productsets zijn vooraf samengestelde combinaties (bijv. &quot;Thuisbatterij Starter 5kWh&quot;)
                 </p>
               </CardContent>
@@ -749,7 +751,7 @@ export function ProductsClient({
                       <div key={item.id} className="flex items-center justify-between px-6 py-2.5">
                         <span className="text-sm">{item.product.name}</span>
                         <div className="flex items-center gap-4">
-                          <span className="text-xs text-muted-foreground">×{Number(item.qty)}</span>
+                          <span className="text-sm text-muted-foreground">×{Number(item.qty)}</span>
                           <span className="text-sm">
                             {formatCurrency(Number(item.product.basePrice) * Number(item.qty))}
                           </span>
@@ -777,7 +779,7 @@ export function ProductsClient({
         <TabsContent value="inkoopprijzen" className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              Leveranciersinkoopprijzen gescrapet via <code className="text-xs bg-muted px-1 rounded">npm run scrape:oosterberg</code>
+              Leveranciersinkoopprijzen gescrapet via <code className="text-sm bg-muted px-1 rounded">npm run scrape:oosterberg</code>
             </p>
           </div>
           {datasheets.length === 0 ? (
@@ -785,7 +787,7 @@ export function ProductsClient({
               <CardContent className="flex flex-col items-center py-16">
                 <Database className="h-12 w-12 text-muted-foreground/30 mb-4" />
                 <p className="text-muted-foreground">Nog geen inkoopprijzen</p>
-                <p className="text-xs text-muted-foreground mt-1">Voer <code>npm run scrape:oosterberg</code> uit om Sigenergy-prijzen op te halen</p>
+                <p className="text-sm text-muted-foreground mt-1">Voer <code>npm run scrape:oosterberg</code> uit om Sigenergy-prijzen op te halen</p>
               </CardContent>
             </Card>
           ) : (
@@ -797,9 +799,9 @@ export function ProductsClient({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="font-medium text-sm">{d.brand} {d.model}</p>
-                          {d.category && <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{d.category}</span>}
+                          {d.category && <span className="text-sm text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{d.category}</span>}
                         </div>
-                        {d.notes && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{d.notes}</p>}
+                        {d.notes && <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">{d.notes}</p>}
                       </div>
                       <div className="flex items-center gap-3 ml-4 shrink-0">
                         {editingDsId === d.id ? (
@@ -820,9 +822,9 @@ export function ProductsClient({
                           <>
                             <div className="text-right">
                               <p className="text-sm font-medium tabular-nums">
-                                {d.price != null ? formatCurrency(Number(d.price)) : <span className="text-muted-foreground text-xs">—</span>}
+                                {d.price != null ? formatCurrency(Number(d.price)) : <span className="text-muted-foreground text-sm">—</span>}
                               </p>
-                              <p className="text-xs text-muted-foreground">inkoop excl. btw</p>
+                              <p className="text-sm text-muted-foreground">inkoop excl. btw</p>
                             </div>
                             {d.product ? (
                               <Button
@@ -935,7 +937,7 @@ export function ProductsClient({
                 <Label>Verkoop (ex)</Label>
                 <button
                   type="button"
-                  className="text-xs text-blue-600 hover:underline"
+                  className="text-sm text-primary hover:underline"
                   onClick={() => setValue("basePriceAuto", !watchedBasePriceAuto)}
                 >
                   {watchedBasePriceAuto ? "Handmatig aanpassen" : "Automatisch berekenen"}
@@ -947,10 +949,10 @@ export function ProductsClient({
                 step="0.01"
                 placeholder="0.00"
                 disabled={watchedBasePriceAuto}
-                className={watchedBasePriceAuto ? "bg-slate-50 text-slate-500" : ""}
+                className={watchedBasePriceAuto ? "bg-muted/40 text-muted-foreground" : ""}
               />
               {watchedBasePriceAuto && (
-                <p className="text-[11px] text-slate-400">Automatisch berekend: inkoop × (1 + opslag%)</p>
+                <p className="text-sm text-muted-foreground">Automatisch berekend: inkoop × (1 + opslag%)</p>
               )}
             </div>
             <div className="grid grid-cols-3 gap-4">
@@ -981,9 +983,9 @@ export function ProductsClient({
             {editingId && (
               <div className="space-y-2 rounded-lg border p-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold">Datasheets & brochures</Label>
+                  <Label className="text-sm font-semibold">Datasheets & brochures</Label>
                   <label
-                    className={`inline-flex h-7 cursor-pointer items-center rounded-md border px-2 text-xs font-medium hover:bg-slate-50 ${docUploading ? "pointer-events-none opacity-60" : ""}`}
+                    className={`inline-flex h-7 cursor-pointer items-center rounded-md border px-2 text-sm font-medium hover:bg-muted/40 ${docUploading ? "pointer-events-none opacity-60" : ""}`}
                   >
                     {docUploading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Upload className="mr-1 h-3 w-3" />}
                     Uploaden
@@ -1001,15 +1003,15 @@ export function ProductsClient({
                   </label>
                 </div>
                 {docsLoading ? (
-                  <p className="text-xs text-slate-400">Laden...</p>
+                  <p className="text-sm text-muted-foreground">Laden...</p>
                 ) : productDocs.length === 0 ? (
-                  <p className="text-xs text-slate-400">Nog geen bestanden geüpload.</p>
+                  <p className="text-sm text-muted-foreground">Nog geen bestanden geüpload.</p>
                 ) : (
                   <div className="space-y-1">
                     {productDocs.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-2 py-1.5">
-                        <span className="flex items-center gap-1.5 min-w-0 text-xs">
-                          <FileText className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                      <div key={doc.id} className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-2 py-1.5">
+                        <span className="flex items-center gap-1.5 min-w-0 text-sm">
+                          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                           <span className="truncate">{doc.name}</span>
                         </span>
                         <div className="flex items-center gap-1 shrink-0">
@@ -1095,7 +1097,7 @@ export function ProductsClient({
                       title="Artikel kiezen voor set"
                       trigger={
                         <Button type="button" variant="outline" className="flex-1 justify-start font-normal min-w-0">
-                          <Search className="mr-2 h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <Search className="mr-2 h-3.5 w-3.5 text-muted-foreground shrink-0" />
                           <span className="truncate">
                             {item.productId
                               ? products.find((p) => p.id === item.productId)?.name ?? "Onbekend artikel"
@@ -1154,21 +1156,21 @@ export function ProductsClient({
         <DialogContent className="max-w-2xl max-h-[85vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Terminal className="h-5 w-5 text-emerald-600" />
+              <Terminal className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
               CLI Scraper Uitvoeren (Realtime Output)
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-amber-800">Vereist: Brave open met CDP-debugging</p>
-                <code className="block truncate text-[11px] text-amber-700">{BRAVE_CDP_COMMAND}</code>
+                <p className="text-sm font-semibold text-amber-800">Vereist: Brave open met CDP-debugging</p>
+                <code className="block truncate text-sm text-amber-700">{BRAVE_CDP_COMMAND}</code>
               </div>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="shrink-0 bg-white"
+                className="shrink-0 bg-card"
                 onClick={() => {
                   navigator.clipboard.writeText(BRAVE_CDP_COMMAND);
                   toast.success("Commando gekopieerd");
@@ -1182,7 +1184,7 @@ export function ProductsClient({
               <div className="space-y-2">
                 <Label>Leverancier</Label>
                 <Select value={cliSupplier} onValueChange={(val) => setCliSupplier(val || "oosterberg")}>
-                  <SelectTrigger className="bg-white">
+                  <SelectTrigger className="bg-card">
                     <SelectValue placeholder="Selecteer leverancier" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1208,14 +1210,14 @@ export function ProductsClient({
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold">Terminal Stdout / Stderr Output</Label>
+                <Label className="text-sm font-semibold">Terminal Stdout / Stderr Output</Label>
                 {cliRunning && (
-                  <span className="text-xs text-emerald-600 font-mono animate-pulse flex items-center gap-1">
+                  <span className="text-sm text-emerald-700 dark:text-emerald-400 font-mono animate-pulse flex items-center gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" /> Process actief...
                   </span>
                 )}
               </div>
-              <pre className="bg-slate-950 text-emerald-400 font-mono text-xs p-4 rounded-lg h-64 overflow-y-auto whitespace-pre-wrap break-all shadow-inner border border-slate-800">
+              <pre className="bg-slate-950 text-emerald-400 font-mono text-sm p-4 rounded-lg h-64 overflow-y-auto whitespace-pre-wrap break-all shadow-inner border border-slate-800">
                 {cliLogs || "// Klik op 'Start CLI Process' om de scraper lokaal uit te voeren..."}
               </pre>
             </div>

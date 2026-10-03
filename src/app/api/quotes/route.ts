@@ -2,7 +2,6 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { generateQuoteNumber } from "@/lib/format";
 import {
   calculateQuotePriceSummary,
   quoteChoiceGroupSchema,
@@ -12,6 +11,9 @@ import { calculateLine, calculateTotals } from "@/lib/calculation";
 import { normalizeQuoteCopyValue } from "@/lib/quote-copy";
 import { getQuoteAttachmentStorageKey } from "@/lib/quote-attachments";
 import { generateAndStorePdf } from "@/lib/pdf/generate-and-store";
+import { saveQuoteModules } from "@/lib/quote-modules";
+import { nextCalculationNumber } from "@/lib/calculation-number";
+import { createDocumentProject } from "@/lib/document-project";
 
 const itemSchema = z.object({
   productId: z.string().optional(),
@@ -37,6 +39,7 @@ const attachmentSchema = z.object({
 
 const schema = z.object({
   customerId: z.string().min(1),
+  projectId: z.string().nullish().transform((value) => value && value !== "none" ? value : null),
   title: z.string().optional(),
   category: z.string().optional(),
   tagline: z.string().optional(),
@@ -57,6 +60,7 @@ const schema = z.object({
   commercial: z.any().optional(),
   batteryAdvice: z.any().optional(),
   choiceGroups: z.array(quoteChoiceGroupSchema).optional(),
+  hiddenSections: z.array(z.string()).optional(),
   internalAdvice: z.string().nullable().optional(),
   attachments: z.array(attachmentSchema).optional(),
   items: z.array(itemSchema).default([]),
@@ -70,12 +74,12 @@ export async function POST(req: NextRequest) {
   const body = normalizeQuoteCopyValue(await req.json());
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  if (parsed.data.items.length === 0 && (parsed.data.choiceGroups?.length ?? 0) === 0) {
-    return NextResponse.json({ error: "Voeg minimaal één offerteregel of configuratie toe." }, { status: 400 });
-  }
+  // Een nieuwe offerte mag leeg beginnen: de prijs komt uit een calculatie die je
+  // erna maakt. Voorheen moest je hier al een regel intypen, en juist dat losse
+  // typen wilden we kwijt.
 
   const { 
-    customerId, title, category, tagline, itemsHeader, validUntil, 
+    customerId, projectId, title, category, tagline, itemsHeader, validUntil,
     intro, outro, notes, quoteType, flow, approach, options, exclusions,
     assumptions, technicalNotes, customerResponsibilities,
     planning, commercial, batteryAdvice, choiceGroups, internalAdvice,
@@ -84,6 +88,8 @@ export async function POST(req: NextRequest) {
 
   const customer = await prisma.customer.findFirst({ where: { id: customerId, companyId }, select: { id: true } });
   if (!customer) return NextResponse.json({ error: "Klant bestaat niet binnen het actieve bedrijf." }, { status: 400 });
+  const selectedProject = projectId ? await prisma.project.findFirst({ where: { id: projectId, companyId, customerId } }) : null;
+  if (projectId && !selectedProject) return NextResponse.json({ error: "Kies een project van deze klant binnen het actieve bedrijf." }, { status: 400 });
   const attachmentPrefix = `offertes/${companyId}/`;
   if (attachments?.some((attachment) => {
     const key = getQuoteAttachmentStorageKey(attachment.imageUrl);
@@ -108,9 +114,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const count = await prisma.quote.count({ where: { companyId } });
   const company = await prisma.company.findUnique({ where: { id: companyId } });
-  const number = generateQuoteNumber(company?.slug ?? "xx", count + 1);
 
   const totals = choiceGroups?.length
     ? calculateQuotePriceSummary(items, choiceGroups).recommended
@@ -119,12 +123,16 @@ export async function POST(req: NextRequest) {
     return { ...item, total: calculateLine(item).revenueExVat, sortOrder: i };
   });
 
-  const quote = await prisma.quote.create({
+  const quote = await prisma.$transaction(async (tx) => {
+    const project = selectedProject ?? await createDocumentProject(tx, {
+      companyId, customerId, title: title?.trim() || category?.trim() || "Nieuw voorstel",
+    });
+    const createdQuote = await tx.quote.create({
     data: {
       companyId,
       customerId,
+      projectId: project.id,
       createdById: session.user.id,
-      number,
       title,
       category,
       tagline,
@@ -136,7 +144,6 @@ export async function POST(req: NextRequest) {
       notes,
       flow,
       approach,
-      options,
       exclusions,
       assumptions,
       technicalNotes,
@@ -163,9 +170,20 @@ export async function POST(req: NextRequest) {
         : undefined,
     },
     include: { customer: true, items: true, attachments: { orderBy: { sortOrder: "asc" } } },
+    });
+    if (options?.length) await saveQuoteModules(createdQuote.id, options, tx);
+    if (items.length === 0 && (choiceGroups?.length ?? 0) === 0) {
+      await tx.$queryRaw`SELECT "id" FROM "Company" WHERE "id" = ${companyId} FOR UPDATE`;
+      await tx.calculation.create({ data: {
+        companyId, customerId, projectId: createdQuote.projectId, quoteId: createdQuote.id,
+        number: await nextCalculationNumber(companyId, company?.slug ?? "xx", tx),
+        title: title ?? "Calculatie concept", status: "DRAFT", role: "BASE", vatRate: createdQuote.vatRate,
+      } });
+    }
+    return createdQuote;
   });
 
-  const host = req.headers.get("host") ?? "localhost:3000";
+  const host = req.headers.get("host") ?? "localhost:3001";
   const cookie = req.headers.get("cookie") ?? "";
   after(async () => {
     await generateAndStorePdf(quote.id, host, cookie);
