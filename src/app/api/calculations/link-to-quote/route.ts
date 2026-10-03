@@ -7,10 +7,12 @@ import { syncQuoteTotalsFromCalculations } from '@/lib/quote-totals';
 import { createDocumentProject } from '@/lib/document-project';
 
 const schema = z.object({
-  calculations: z.array(z.object({ id: z.string().min(1), role: z.enum(['BASE', 'VARIANT']) })).min(1).max(200),
+  calculations: z.array(z.object({ id: z.string().min(1), role: z.enum(['BASE', 'VARIANT']).optional(), sortOrder: z.number().int().min(0).optional() })).min(1).max(200),
   quoteId: z.string().min(1).optional(),
   customerId: z.string().min(1).optional(),
   title: z.string().trim().min(1).optional(),
+  recommendedCalculationId: z.string().min(1).optional(),
+  copyItems: z.literal(false).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -36,17 +38,31 @@ export async function POST(req: NextRequest) {
         const project = await createDocumentProject(tx, { companyId, customerId, title });
         quote = await tx.quote.create({ data: { companyId, customerId, projectId: project.id, createdById: session.user.id, title }, include: { items: { select: { id: true }, take: 1 }, calculations: { select: { id: true, role: true, sortOrder: true } } } });
       }
-      validateCalculationLinks(input.calculations, calculations, quote, quote.calculations);
+      const selected = input.calculations.map(c => {
+        const existingRole = calculations.find(existing => existing.id === c.id)?.role;
+        return { ...c, role: c.role ?? (existingRole === 'VARIANT' ? 'VARIANT' as const : 'BASE' as const) };
+      });
+      validateCalculationLinks(selected, calculations, quote, quote.calculations);
       let nextOrder = Math.max(-1, ...quote.calculations.map(c => c.sortOrder)) + 1;
-      for (const selected of input.calculations) {
-        const existing = quote.calculations.find(c => c.id === selected.id);
-        await tx.calculation.update({ where: { id: selected.id }, data: {
-          quoteId: quote.id, customerId: quote.customerId, projectId: quote.projectId,
-          role: selected.role, status: 'QUOTED', sortOrder: existing?.sortOrder ?? nextOrder++,
+      for (const calculation of selected) {
+        const existing = quote.calculations.find(c => c.id === calculation.id);
+        await tx.calculation.update({ where: { id: calculation.id }, data: {
+          // Relationship metadata only. Never change source items, prices, totals,
+          // customer/project or status when linking an existing calculation.
+          quoteId: quote.id, role: calculation.role,
+          sortOrder: calculation.sortOrder ?? existing?.sortOrder ?? nextOrder++,
         } });
       }
+      if (input.recommendedCalculationId) {
+        const variants = await tx.calculation.findMany({ where: { quoteId: quote.id, companyId, archivedAt: null, role: 'VARIANT' }, orderBy: [{ sortOrder: 'asc' }, { number: 'asc' }], select: { id: true } });
+        const recommended = variants.find(c => c.id === input.recommendedCalculationId);
+        if (!recommended || variants.length < 2) throw new CalculationLinkError('De aanbevolen calculatie moet een van minimaal twee gekoppelde varianten zijn.', 400);
+        const ordered = [recommended, ...variants.filter(c => c.id !== recommended.id)];
+        for (const [sortOrder, calculation] of ordered.entries()) await tx.calculation.update({ where: { id: calculation.id }, data: { sortOrder } });
+      }
       await syncQuoteTotalsFromCalculations(quote.id, tx);
-      return { quoteId: quote.id, affected: input.calculations.length };
+      const linked = await tx.calculation.findMany({ where: { quoteId: quote.id, companyId, archivedAt: null }, orderBy: [{ sortOrder: 'asc' }, { number: 'asc' }], select: { id: true, number: true, title: true, totalSalesPrice: true, role: true, sortOrder: true } });
+      return { quoteId: quote.id, quoteLabel: quote.number ?? quote.title ?? `Concept ${quote.id}`, affected: input.calculations.length, calculations: linked };
     });
     return NextResponse.json(result);
   } catch (error) {

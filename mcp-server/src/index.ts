@@ -436,19 +436,40 @@ function normalizeQuoteValue<T>(value: T): T {
 function createMcpServer() {
   const server = new McpServer({
     name: "websup-quote-engine",
-    version: "2.0.0",
+    version: "2.1.0",
   });
-  registerAppTools(server);
+  registerAppTools(server, {
+    quoteCompany: async (id) => {
+      const company = await queryOne<{ slug: string }>(`SELECT co.slug FROM "Quote" q JOIN "Company" co ON co.id = q."companyId" WHERE q.id = $1`, [id]);
+      if (!company) throw new Error("Offerte niet gevonden");
+      return company.slug;
+    },
+    calculationId: async (ref, slug) => {
+      const calculation = await queryOne<{ id: string }>(`SELECT c.id FROM "Calculation" c JOIN "Company" co ON co.id = c."companyId" WHERE (c.id = $1 OR c.number = $1) AND co.slug = $2`, [ref, slug]);
+      if (!calculation) throw new Error(`Calculatie ${ref} niet gevonden binnen ${slug}`);
+      return calculation.id;
+    },
+  });
 
   server.tool(
     "get_quote_contract",
-    "Geef de actuele veldbetekenis voor offertes. Gebruik dit vóór create_quote wanneer je twijfelt over basisregels, configuraties of meerwerk.",
+    "Actueel offertecontract met multi-calculation linking, BASE/VARIANT, aanbeveling en bronbehoud. Lees dit vóór koppelen of wijzigen van calculatie-uitvoeringen. Nieuwe offertes gebruiken calculaties als prijsbron; items/configurations zijn het oude importpad.",
     {},
     async () => ({
       content: [{
         type: "text",
         text: JSON.stringify({
-          version: "2026-06-20",
+          version: "2026-10-03",
+          calculation_architecture: {
+            cardinality: "Eén Quote heeft meerdere Calculations. Eén Calculation heeft maximaal één quoteId. Geen many-to-many-migratie nodig.",
+            link_tool: "link_calculations_to_quote({quote_id, calculation_ids, copy_items:false}) voegt atomair toe en behoudt andere koppelingen, bronregels en bronprijzen.",
+            alternatives: "Gebruik mode: alternatives voor twee volledige uitvoeringen. Beide krijgen VARIANT. BASE is gemeenschappelijk werk dat bovenop iedere variant wordt opgeteld, niet de aanbevolen uitvoering.",
+            metadata: "calculations: [{id, role, sort_order}] beheert alleen relatiemetadata. Zonder rol blijft de oorspronkelijke rol behouden.",
+            recommended: "De eerste VARIANT volgens sortOrder en number is standaard aanbevolen. recommended_calculation_id zet die variant expliciet vooraan.",
+            reads: "get_quote retourneert calculations[] met echte bronrecords en calculaties[] met samenvattingen. get_calculation retourneert quoteId, role en sortOrder.",
+            unlink_tool: "unlink_calculation_from_quote verwijdert alleen de koppeling. Regels en prijzen blijven behouden.",
+            copy_items: "false: relatie en optionele metadata. true wordt expliciet geweigerd, zonder wijzigingen. Er worden geen bedragen naar configurations gekopieerd.",
+          },
           items: "Vaste basis die bij iedere samenstelling hoort.",
           configurations: "Minimaal twee volledige, onderling exclusieve systemen; klant kiest exact één per groep bij akkoord.",
           optional_work: "Los aanvinkbaar meerwerk met expliciete prijs exclusief btw.",
@@ -994,7 +1015,7 @@ function createMcpServer() {
 
   server.tool(
     "get_quote",
-    "Haal alle details van een offerte op, inclusief regels, gekoppelde calculaties en klantgegevens. Let op `prijsbron`: staat daar 'calculaties', dan bepaalt de calculatie de prijs en werk je met de calculatietools, niet met add_quote_item.",
+    "Haal alle offertedetails op. calculations[] bevat de echte gekoppelde Calculation-records met id, number, title, totalSalesPrice, role, sortOrder en bronregels; calculaties[] bevat samenvattingen. Meerdere calculaties kunnen tegelijk hetzelfde quoteId hebben. Bij prijsbron=calculaties blijven die records de bron van de uitvoeringen. Gebruik calculatietools om prijzen te wijzigen.",
     { quote_id: z.string().describe("Quote ID") },
     async ({ quote_id }) => {
       const quote = await queryOne(
@@ -2165,7 +2186,7 @@ function createMcpServer() {
 
   server.tool(
     "get_calculation",
-    "Haal een calculatie op met alle regels, inkoopprijzen, opslagpercentages en marges",
+    "Haal één calculatie op met bronregels, inkoop/verkoopprijzen, opslagen en totalen. quoteId toont de actieve offertekoppeling; role en sortOrder tonen de relatiemetadata. get_quote.calculations[] kan meerdere records met datzelfde quoteId bevatten.",
     { calculation_id: z.string().describe("Calculatie ID of nummer, bijvoorbeeld KI-2026-C015") },
     async ({ calculation_id }) => {
       const calc = await queryOne(
@@ -2310,20 +2331,23 @@ function createMcpServer() {
 
   server.tool(
     "link_calculation_to_quote",
-    "Koppel één basiscalculatie aan een conceptofferte. Bestaande calculatiekoppelingen blijven behouden. Gebruik link_calculations_to_quote voor meerdere calculaties en varianten. Prijsregels worden niet gekopieerd.",
+    "Voeg één bestaande calculatie toe aan een conceptofferte (append). Behoudt andere koppelingen en alle bronregels/prijzen. Zonder role blijft de bestaande rol behouden. Gebruik link_calculations_to_quote voor meerdere calculaties of volledige alternatieven. Geen kopie van prijsregels.",
     {
       calculation_id: z.string().describe("Calculatie ID of nummer"),
       quote_id: z.string().describe("Offerte ID"),
       copy_items: z.boolean().default(false).describe("Verouderd; prijsregels worden nooit meer gekopieerd. Gebruik false."),
+      mode: z.enum(["append"]).default("append"),
+      role: z.enum(["BASE", "VARIANT"]).optional(),
+      sort_order: z.number().int().min(0).optional(),
     },
-    async ({ calculation_id, quote_id, copy_items }) => {
+    async ({ calculation_id, quote_id, copy_items, role, sort_order }) => {
       if (copy_items) return { ...appResult({ error: "copy_items is vervallen. Gebruik false, of link_calculations_to_quote voor basis en varianten." }), isError: true };
       const calc = await queryOne<{ id: string; slug: string }>(
         `SELECT c.id, co.slug FROM "Calculation" c JOIN "Company" co ON co.id = c."companyId" WHERE c.id = $1 OR c.number = $1`, [calculation_id]
       );
       if (!calc) return { ...appResult({ error: `Calculatie ${calculation_id} niet gevonden.` }), isError: true };
       try {
-        return appResult(await callApp({ company_slug: calc.slug, path: "/api/calculations/link-to-quote", method: "POST", body: { quoteId: quote_id, calculations: [{ id: calc.id, role: "BASE" }] } }));
+        return appResult(await callApp({ company_slug: calc.slug, path: "/api/calculations/link-to-quote", method: "POST", body: { quoteId: quote_id, calculations: [{ id: calc.id, role, sortOrder: sort_order }], copyItems: false } }));
       } catch (error) { return { ...appResult({ error: String(error) }), isError: true }; }
     }
   );

@@ -55,6 +55,15 @@ try {
   customerId = customer.id;
   const a = await write('/api/calculations', { title: `${marker} A`, customerId, items: [{ description: 'Test basis A', qty: 1, costPrice: 20, unitPrice: 100, vatRate: 21 }] });
   const b = await write('/api/calculations', { title: `${marker} B`, customerId, items: [{ description: 'Test basis B', qty: 1, costPrice: 30, unitPrice: 200, vatRate: 21 }] });
+  const sourceSnapshot = calculation => ({
+    title: calculation.title, description: calculation.description, customerId: calculation.customerId,
+    projectId: calculation.projectId, status: calculation.status, notes: calculation.notes,
+    totalCostPrice: calculation.totalCostPrice, totalSalesPrice: calculation.totalSalesPrice,
+    marginAmount: calculation.marginAmount, marginPercent: calculation.marginPercent,
+    items: calculation.items,
+  });
+  const originalA = sourceSnapshot(await tool('get_calculation', { calculation_id: a.number }));
+  const originalB = sourceSnapshot(await tool('get_calculation', { calculation_id: b.number }));
 
   // Real UI interaction, screenshots of the new dialog at two viewport sizes.
   browser = await chromium.launch({ headless: true, executablePath: process.env.SMOKE_BROWSER || 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
@@ -91,12 +100,36 @@ try {
   const detailedQuote = await tool('get_quote', { quote_id: quoteId });
   assert.equal(detailedQuote.calculations.length, 2);
   assert.equal(detailedQuote.usesCalculations, true);
+  // Exact acceptance: link A, then link B, then read both actual source records.
+  await tool('unlink_calculation_from_quote', { quote_id: quoteId, calculation_id: a.number });
+  await tool('unlink_calculation_from_quote', { quote_id: quoteId, calculation_id: b.number });
+  assert.equal(Number((await read(`/api/quotes/${quoteId}`)).totalExVat), 0);
+  const repeatedUnlink = await tool('unlink_calculation_from_quote', { quote_id: quoteId, calculation_id: b.number });
+  assert.equal(repeatedUnlink.data.affected, 0);
   await tool('link_calculation_to_quote', { calculation_id: a.id, quote_id: quoteId });
+  await tool('link_calculation_to_quote', { calculation_id: b.number, quote_id: quoteId, copy_items: false, mode: 'append' });
   quote = await read(`/api/quotes/${quoteId}`);
   assert.equal(quote.calculations.length, 2, 'Legacy tool must preserve other links');
-  await tool('link_calculations_to_quote', { company_slug: company.slug, quote_id: quoteId, calculations: [{ id: a.id, role: 'VARIANT' }, { id: b.id, role: 'VARIANT' }] });
+  const acceptanceQuote = await tool('get_quote', { quote_id: quoteId });
+  for (const key of ['calculations', 'calculaties']) assert.deepEqual(new Set(acceptanceQuote[key].map(c => c.number)), new Set([a.number, b.number]));
+  for (const [calculation, snapshot] of [[a, originalA], [b, originalB]]) {
+    const actual = await tool('get_calculation', { calculation_id: calculation.number });
+    assert.equal(actual.quoteId, quoteId);
+    assert.deepEqual(sourceSnapshot(actual), snapshot, 'Linking must retain source contents and totals');
+  }
+  await tool('link_calculations_to_quote', { quote_id: quoteId, calculation_ids: [a.number, b.number], copy_items: false });
+  assert.equal((await read(`/api/quotes/${quoteId}`)).calculations.length, 2, 'Repeated multi-link must not duplicate sources');
+  const rejectedCopy = await client.callTool({ name: 'link_calculations_to_quote', arguments: { quote_id: quoteId, calculation_ids: [a.number, b.number], copy_items: true } });
+  assert.equal(rejectedCopy.isError, true);
+  await tool('link_calculations_to_quote', { quote_id: quoteId, mode: 'alternatives', calculation_ids: [a.number, b.number], recommended_calculation_id: a.number });
+  let alternatives = await read(`/api/quotes/${quoteId}`);
+  assert.equal(alternatives.pricing.variants[0].id, a.id);
+  assert.equal(Number(alternatives.totalExVat), 100);
+  await tool('link_calculations_to_quote', { quote_id: quoteId, calculations: [{ id: a.id, role: 'VARIANT', sort_order: 1 }, { id: b.id, role: 'VARIANT', sort_order: 0 }], recommended_calculation_id: b.id });
   quote = await read(`/api/quotes/${quoteId}`);
   assert.equal(quote.pricing.variants.length, 2);
+  assert.equal(quote.pricing.variants[0].id, b.id);
+  for (const [calculation, snapshot] of [[a, originalA], [b, originalB]]) assert.deepEqual(sourceSnapshot(await tool('get_calculation', { calculation_id: calculation.number })), snapshot, 'Relational metadata must not reprice sources');
   const firstVariant = quote.pricing.variants[0];
   const variantTotal = Number(firstVariant.totalExVat);
   assert.equal(Number(quote.totalExVat), variantTotal, 'Use the first alternative rather than adding both');

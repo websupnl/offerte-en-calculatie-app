@@ -56,7 +56,7 @@ URL: https://jouw-domein.nl/mcp
 Header: Authorization: Bearer <MCP_API_KEY>
 ```
 
-MCP 2.0 kan de actuele appfuncties bekijken en bedienen via `get_app_capabilities`,
+MCP 2.1 kan de actuele appfuncties bekijken en bedienen via `get_app_capabilities`,
 `app_read` en `app_write`. De catalogus wordt bij `npm run build` automatisch
 opnieuw gemaakt; lokaal kan dit met `npm run mcp:catalog`.
 
@@ -73,6 +73,24 @@ en kies per calculatie **Basis** (optellen) of **Variant** (minimaal twee
 alternatieven). Andere calculaties op de offerte blijven gekoppeld. De AI doet
 hetzelfde met `link_calculations_to_quote`. Voor een lege calculatie in een
 offerte bestaat `create_quote_calculation`. Het oude `copy_items` is vervallen.
+
+De MCP ondersteunt ook `link_calculations_to_quote({quote_id,
+calculation_ids: ["KI-2026-C021", "KI-2026-C023"], copy_items: false})`.
+IDs en nummers zijn beide toegestaan; het bedrijf wordt bij een bestaande
+offerte afgeleid. Zonder opgegeven rol blijft de bestaande rol behouden.
+Gebruik `mode: "alternatives"` voor twee volledige uitvoeringen: beide worden
+`VARIANT`. `BASE` is gemeenschappelijk werk, geen aanbevolen uitvoering.
+`recommended_calculation_id` zet de gewenste variant vooraan. Per calculatie
+kunnen `role` en `sort_order` via `calculations: [{id, role, sort_order}]` worden
+ingesteld. Een calculatie blijft aan maximaal één offerte gekoppeld; meerdere
+calculaties kunnen hetzelfde `quoteId` hebben. Een schema-migratie is niet nodig.
+
+`unlink_calculation_from_quote({quote_id, calculation_id})` verwijdert alleen de
+relatie. Bronregels, prijzen, opslagen, calculatietotalen, klant, project en
+status blijven bij koppelen en ontkoppelen behouden. `copy_items: true` wordt
+expliciet geweigerd zonder wijzigingen. `get_quote` geeft de echte bronrecords
+in `calculations[]`, plus de samenvatting in `calculaties[]`. Het offertecontract
+is bijgewerkt naar versie `2026-10-03`.
 
 Controle: `npm test`, `npm run build` en `cd mcp-server && npm run build`.
 De handmatige integratietest `node scripts/test-mcp-smoke.mjs` start de app op

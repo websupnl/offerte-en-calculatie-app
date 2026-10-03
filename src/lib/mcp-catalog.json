@@ -152,7 +152,17 @@
     "queryParameters": [],
     "formFields": [],
     "bodyFields": [],
-    "schemas": "const schema = z.object({\n  calculations: z.array(z.object({ id: z.string().min(1), role: z.enum(['BASE', 'VARIANT']) })).min(1).max(200),\n  quoteId: z.string().min(1).optional(),\n  customerId: z.string().min(1).optional(),\n  title: z.string().trim().min(1).optional(),\n});"
+    "schemas": "const schema = z.object({\n  calculations: z.array(z.object({ id: z.string().min(1), role: z.enum(['BASE', 'VARIANT']).optional(), sortOrder: z.number().int().min(0).optional() })).min(1).max(200),\n  quoteId: z.string().min(1).optional(),\n  customerId: z.string().min(1).optional(),\n  title: z.string().trim().min(1).optional(),\n  recommendedCalculationId: z.string().min(1).optional(),\n  copyItems: z.literal(false).optional(),\n});"
+  },
+  {
+    "path": "/api/calculations/unlink-from-quote",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({ quoteId: z.string().min(1), calculationId: z.string().min(1) });"
   },
   {
     "path": "/api/calendar/feed",
