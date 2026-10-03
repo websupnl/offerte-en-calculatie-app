@@ -2599,6 +2599,21 @@ const requireApiKey = (req: Request, res: Response, next: () => void) => {
 app.use("/mcp", requireApiKey);
 app.use("/sse", requireApiKey);
 
+// Sommige connectoren sturen hun namespace mee in de RPC-toolnaam.
+// De catalogus gebruikt de gewone MCP-namen; accepteer beide vormen.
+const normalizeConnectorToolName = (req: Request, _res: Response, next: () => void) => {
+  const requests = Array.isArray(req.body) ? req.body : [req.body];
+  for (const request of requests) {
+    if (request?.method === "tools/call" && typeof request.params?.name === "string"
+      && request.params.name.startsWith("offerte_tool.")) {
+      request.params.name = request.params.name.slice("offerte_tool.".length);
+    }
+  }
+  next();
+};
+app.use("/mcp", normalizeConnectorToolName);
+app.use("/sse", normalizeConnectorToolName);
+
 app.post("/mcp", async (req: Request, res: Response) => {
   try {
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
