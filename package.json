@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/generate-mcp-catalog.mjs && next build",
+    "mcp:catalog": "node scripts/generate-mcp-catalog.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "tsx --test tests/*.test.ts",

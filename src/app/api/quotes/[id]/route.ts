@@ -12,6 +12,8 @@ import { calculateLine, calculateTotals } from "@/lib/calculation";
 import { normalizeQuoteCopyValue } from "@/lib/quote-copy";
 import { saveQuoteModules } from "@/lib/quote-modules";
 import { usesCalculationPricing } from "@/lib/quote-pricing";
+import { applyCalculationPricing } from "@/lib/quote-with-pricing";
+import { modulesToOptions } from "@/lib/quote-modules";
 import {
   getQuoteAttachmentStorageKey,
   resolveQuoteAttachmentImages,
@@ -84,6 +86,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       attachments: { orderBy: { sortOrder: "asc" } },
       adviceDocuments: true,
       share: true,
+      modules: { orderBy: { sortOrder: "asc" } },
+      calculations: { where: { archivedAt: null }, orderBy: { sortOrder: "asc" }, include: { items: { orderBy: { sortOrder: "asc" } } } },
+      contentBlocks: { orderBy: { sortOrder: "asc" } },
+      documents: { include: { productDocument: true }, orderBy: { sortOrder: "asc" } },
+      events: { orderBy: { createdAt: "desc" }, take: 30 },
     },
   });
 
@@ -92,7 +99,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     expiresIn: 21600,
     includeStorageRef: true,
   });
-  return NextResponse.json({ ...quote, attachments });
+  return NextResponse.json({ ...applyCalculationPricing({ ...quote, options: modulesToOptions(quote.modules) }, { internal: true }), attachments });
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

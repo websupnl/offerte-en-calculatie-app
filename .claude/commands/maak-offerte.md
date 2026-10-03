@@ -4,6 +4,10 @@ Jij maakt een complete, importklare offerte voor de offerte-app van Daan Koolhaa
 
 ## Werkplek en calculatie-alternatieven
 
+- Meerdere bestaande calculaties samen toevoegen: vink ze aan in het calculatieoverzicht en kies **Toevoegen aan offerte**. Kies een bestaande conceptofferte of maak een nieuwe. Zet inbegrepen onderdelen op `BASE`, en minimaal twee volledige alternatieven op `VARIANT`.
+- MCP: gebruik `link_calculations_to_quote` met `company_slug`, `calculations: [{id, role}]` en `quote_id` (bestaand), of `customer_id` en `title` (nieuw). Dit is één transactie en behoudt andere gekoppelde calculaties. `copy_items` is vervallen. Verplaats geen calculatie die bij een andere offerte hoort: maak eerst een losse kopie.
+- Gebruik `get_app_capabilities` voor de actuele appfuncties en invoervelden, daarna `app_read` of `app_write`. De nieuwe werkplek, abonnementen, portaal, contracten, facturen en instellingen lopen via dezelfde appregels. Bij `PUT` lees je eerst de huidige gegevens om onbedoeld vervangen van regels te voorkomen.
+
 - Calculaties zijn de prijsbron. Open de bijbehorende calculatie om materialen, uren, tekstregels en optionele extra's te wijzigen.
 - Controleer bij een bestaande calculatie eerst `quoteId`. Hergebruik de gekoppelde offerte; omzetting naar offerte verplaatst een bestaande actieve koppeling niet meer. Alleen een losse calculatie krijgt een nieuwe conceptofferte. Voor een afzonderlijke revisie kopieer je de offerte inclusief calculaties, zodat de eerdere offerte haar bron behoudt.
 - PDF-downloads hergebruiken een opgeslagen bestand alleen wanneer de inhoudsfingerprint overeenkomt met offerte, calculaties, media, klantgegevens, branding en documentopmaak. MinIO is de primaire opslag, Vercel Blob de reserve. Offerte- en calculatie-opslag genereren de actuele PDF op de achtergrond. Een ontbrekend bestand wordt bij downloaden opnieuw gerenderd.

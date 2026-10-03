@@ -56,6 +56,31 @@ URL: https://jouw-domein.nl/mcp
 Header: Authorization: Bearer <MCP_API_KEY>
 ```
 
+MCP 2.0 kan de actuele appfuncties bekijken en bedienen via `get_app_capabilities`,
+`app_read` en `app_write`. De catalogus wordt bij `npm run build` automatisch
+opnieuw gemaakt; lokaal kan dit met `npm run mcp:catalog`.
+
+Stel dezelfde `MCP_APP_KEY` in op de Next-app en MCP-service. Stel op de app
+`MCP_USER_ID` in op de bestaande gebruiker namens wie de AI werkt. De gateway
+controleert diens bedrijfstoegang en gebruikt daarna de normale app-authenticatie.
+Privétaken en notities blijven aan die gebruiker gekoppeld. Zet `APP_URL` op de
+MCP-service op de app-URL; beide services moeten met deze update worden uitgerold.
+`MCP_API_KEY` blijft de sleutel waarmee de AI de MCP-service zelf benadert.
+
+In het calculatieoverzicht: vink meerdere calculaties aan en kies
+**Toevoegen aan offerte**. Kies een bestaande conceptofferte of maak een nieuwe,
+en kies per calculatie **Basis** (optellen) of **Variant** (minimaal twee
+alternatieven). Andere calculaties op de offerte blijven gekoppeld. De AI doet
+hetzelfde met `link_calculations_to_quote`. Voor een lege calculatie in een
+offerte bestaat `create_quote_calculation`. Het oude `copy_items` is vervallen.
+
+Controle: `npm test`, `npm run build` en `cd mcp-server && npm run build`.
+De handmatige integratietest `node scripts/test-mcp-smoke.mjs` start de app op
+`:3001`, test de MCP via stdio, selecteert twee tijdelijke calculaties in de
+browser en ruimt de testklant met zijn documenten op. Vereist `.env.local`, een
+gebouwde app/MCP en Chrome (ander pad via `SMOKE_BROWSER`). Screenshots staan in
+`output/mcp-smoke/`. Deze test verstuurt geen e-mail of betalingsverzoeken.
+
 ## Environment variabelen
 
 Zie `.env.example` voor alle benodigde variabelen.

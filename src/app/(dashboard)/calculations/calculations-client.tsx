@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LinkToQuoteDialog } from "@/components/calculations/link-to-quote-dialog";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ type CalculationSummary = {
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
+  role?: string;
   customer: { id: string; name: string; email: string | null } | null;
   project: { id: string; number: string; title: string } | null;
   quote: { id: string; number: string | null; status: string } | null;
@@ -66,12 +68,14 @@ export function CalculationsClient({
   initialCalculations,
   customers,
   projects,
+  draftQuotes,
   showArchived = false,
   initialCreateOpen = false,
 }: {
   initialCalculations: CalculationSummary[];
   customers: OptionItem[];
   projects: OptionItem[];
+  draftQuotes: { id: string; title: string | null; number: string | null; customerId: string; customer: { name: string } }[];
   companySlug: string;
   showArchived?: boolean;
   initialCreateOpen?: boolean;
@@ -84,6 +88,7 @@ export function CalculationsClient({
   const [newDialogOpen, setNewDialogOpen] = useState(initialCreateOpen);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
 
   function toggleOne(id: string) {
     setSelected((prev) => {
@@ -228,6 +233,7 @@ export function CalculationsClient({
 
   return (
     <div>
+      {linkDialogOpen && <LinkToQuoteDialog calculations={calculations.filter(c => selected.has(c.id))} quotes={draftQuotes} customers={customers} onClose={() => setLinkDialogOpen(false)} />}
       <PageHeader
         eyebrow="Calculaties"
         title="Project & Kostprijs Calculaties"
@@ -300,6 +306,7 @@ export function CalculationsClient({
               <span className="font-semibold">{selected.size} geselecteerd</span>
             </label>
             <div className="ml-auto flex flex-wrap items-center gap-1.5">
+              {!showArchived && <Button size="sm" variant="secondary" className="text-base" disabled={bulkBusy} onClick={() => setLinkDialogOpen(true)}><FileText className="h-4 w-4" />Toevoegen aan offerte</Button>}
               {showArchived ? (
                 <Button size="sm" variant="secondary" disabled={bulkBusy} onClick={() => runBulk("restore")}>
                   <ArchiveRestore className="h-4 w-4" /> Herstellen
@@ -354,7 +361,6 @@ export function CalculationsClient({
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => {
                           e.stopPropagation();
-                          e.preventDefault();
                           toggleOne(calc.id);
                         }}
                       />

@@ -1,0 +1,1046 @@
+[
+  {
+    "path": "/api/advice/[id]/pdf",
+    "methods": [
+      "GET"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/ai/advice",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  quoteId: z.string(),\r\n  type: z.enum([\"BATTERY\", \"EMS\", \"SOLAR\", \"ELECTRICAL\", \"CAMERA\", \"HEATPUMP\"]),\r\n  customerData: z.record(z.string(), z.unknown()),\r\n  productIds: z.array(z.string()).optional(),\r\n});"
+  },
+  {
+    "path": "/api/ai/extract-advice",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  prompt: z.string().min(1),\r\n  customerId: z.string().min(1),\r\n});\nconst adviceResultSchema = z.object({\r\n  title: z.string(),\r\n  consumption: z.record(z.string(), z.unknown()).optional(),\r\n  summary: z.string().optional(),\r\n  analysis: z.string().optional(),\r\n  calculation: z.record(z.string(), z.unknown()).optional(),\r\n  scenarios: z.array(z.record(z.string(), z.unknown())).optional(),\r\n  recommendation: z.string().optional(),\r\n  financial: z.record(z.string(), z.unknown()).optional(),\r\n  ems: z.record(z.string(), z.unknown()).optional(),\r\n  backup: z.record(z.string(), z.unknown()).optional(),\r\n  currentDevs: z.array(z.string()).optional(),\r\n});"
+  },
+  {
+    "path": "/api/ai/extract-quote",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\n  prompt: z.string().min(1),\n  customerName: z.string().optional().default(\"de klant\"),\n  intent: z.enum([\"quoteImport\", \"legacySection\"]).optional().default(\"legacySection\"),\n});"
+  },
+  {
+    "path": "/api/ai/quote-text",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  type: z.enum([\"intro\", \"outro\", \"item_description\"]),\r\n  context: z.object({\r\n    companyName: z.string(),\r\n    customerName: z.string(),\r\n    items: z.array(z.object({ description: z.string(), qty: z.number(), unitPrice: z.number() })).optional(),\r\n    itemName: z.string().optional(),\r\n  }),\r\n});"
+  },
+  {
+    "path": "/api/ai/status",
+    "methods": [
+      "GET"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/ai/vision-extract",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [
+      "file"
+    ],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/calculations",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const calculationItemSchema = z.object({\r\n  productId: z.string().optional().nullable(),\r\n  type: z.enum([\"MATERIAL\", \"LABOR\", \"CUSTOM\", \"SET\"]).default(\"MATERIAL\"),\r\n  supplier: z.string().optional().nullable(),\r\n  sku: z.string().optional().nullable(),\r\n  description: z.string().min(1, \"Omschrijving is verplicht\"),\r\n  qty: z.coerce.number().min(0.01),\r\n  unit: z.string().optional().default(\"stuk\"),\r\n  costPrice: z.coerce.number().min(0),\r\n  markupPercent: z.coerce.number().default(0),\r\n  unitPrice: z.coerce.number().min(0),\r\n  vatRate: z.coerce.number().default(21),\n  optional: z.boolean().default(false),\n  hiddenOnQuote: z.boolean().default(false),\n  recurringInterval: z.enum([\"maand\", \"kwartaal\", \"jaar\"]).nullable().optional(),\n  quoteNote: z.string().trim().max(200).nullable().optional(),\n});\nconst schema = z.object({\r\n  title: z.string().min(1, \"Titel is verplicht\"),\r\n  description: z.string().optional().nullable(),\r\n  customerId: z.string().optional().nullable().transform((value) => value && value !== \"none\" ? value : null),\n  projectId: z.string().optional().nullable().transform((value) => value && value !== \"none\" ? value : null),\n  vatRate: z.coerce.number().default(21),\r\n  notes: z.string().optional().nullable(),\r\n  items: z.array(calculationItemSchema).default([]),\r\n});"
+  },
+  {
+    "path": "/api/calculations/[id]",
+    "methods": [
+      "GET",
+      "PUT",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const calculationItemSchema = z.object({\r\n  id: z.string().optional(),\r\n  productId: z.string().optional().nullable(),\r\n  type: z.enum([\"MATERIAL\", \"LABOR\", \"CUSTOM\", \"SET\"]).default(\"MATERIAL\"),\r\n  supplier: z.string().optional().nullable(),\r\n  sku: z.string().optional().nullable(),\r\n  description: z.string().min(1, \"Omschrijving is verplicht\"),\r\n  qty: z.coerce.number().min(0.01),\r\n  unit: z.string().optional().default(\"stuk\"),\r\n  costPrice: z.coerce.number().min(0),\r\n  markupPercent: z.coerce.number().default(0),\r\n  unitPrice: z.coerce.number().min(0),\r\n  vatRate: z.coerce.number().default(21),\r\n  optional: z.boolean().default(false),\r\n  hiddenOnQuote: z.boolean().default(false),\r\n  // null = eenmalig. \"maand\" | \"kwartaal\" | \"jaar\" = abonnement; telt niet mee in het eenmalige totaal.\r\n  // lineType en billingCycle worden hier serverside uit afgeleid en meegeschreven.\r\n  recurringInterval: z.enum([\"maand\", \"kwartaal\", \"jaar\"]).nullable().optional(),\r\n  // Toelichting die de klant op de offerte leest bij een optionele regel.\r\n  quoteNote: z.string().trim().max(200).nullable().optional(),\r\n});\nconst schema = z.object({\r\n  title: z.string().min(1, \"Titel is verplicht\"),\r\n  description: z.string().optional().nullable(),\r\n  status: z.enum([\"DRAFT\", \"COMPLETED\", \"QUOTED\"]).optional(),\r\n  customerId: z.string().optional().nullable(),\r\n  projectId: z.string().optional().nullable(),\r\n  vatRate: z.coerce.number().default(21),\r\n  notes: z.string().optional().nullable(),\r\n  // BASE telt altijd mee in de offerteprijs; VARIANT is een keuze voor de klant.\r\n  role: z.enum([\"BASE\", \"VARIANT\"]).optional(),\r\n  sortOrder: z.coerce.number().int().min(0).optional(),\r\n  items: z.array(calculationItemSchema).default([]),\r\n});"
+  },
+  {
+    "path": "/api/calculations/[id]/archive",
+    "methods": [
+      "PATCH"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({ archived: z.boolean() });"
+  },
+  {
+    "path": "/api/calculations/[id]/convert-to-quote",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/calculations/[id]/duplicate",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/calculations/[id]/refresh-quote",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/calculations/bulk",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\n  action: z.enum([\"archive\", \"restore\", \"delete\"]),\n  ids: z.array(z.string().min(1)).min(1).max(200),\n});"
+  },
+  {
+    "path": "/api/calculations/link-to-quote",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\n  calculations: z.array(z.object({ id: z.string().min(1), role: z.enum(['BASE', 'VARIANT']) })).min(1).max(200),\n  quoteId: z.string().min(1).optional(),\n  customerId: z.string().min(1).optional(),\n  title: z.string().trim().min(1).optional(),\n});"
+  },
+  {
+    "path": "/api/calendar/feed",
+    "methods": [
+      "GET",
+      "POST",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/company/[id]/branding-asset",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [
+      "kind",
+      "file"
+    ],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/company/[id]/legal",
+    "methods": [
+      "PUT"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [
+      "termsContent",
+      "privacyContent"
+    ],
+    "schemas": ""
+  },
+  {
+    "path": "/api/company/[id]/legal-pdf",
+    "methods": [
+      "POST",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [
+      "type",
+      "file"
+    ],
+    "bodyFields": [
+      "type"
+    ],
+    "schemas": ""
+  },
+  {
+    "path": "/api/company/[id]/settings",
+    "methods": [
+      "PUT",
+      "GET"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [
+      "settings",
+      "branding"
+    ],
+    "schemas": ""
+  },
+  {
+    "path": "/api/contracts",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [
+      "status"
+    ],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  customerId: z.string().min(1, \"Klant is verplicht\"),\r\n  title: z.string().min(1, \"Titel is verplicht\"),\r\n  body: z.string().optional(),\r\n  projectId: z.string().nullish(),\r\n  quoteId: z.string().nullish(),\r\n  startDate: z.string().datetime().nullish(),\r\n  endDate: z.string().datetime().nullish(),\r\n  noticePeriodDays: z.number().int().min(0).max(365).nullish(),\r\n  autoRenew: z.boolean().optional(),\r\n  recurringAmount: z.number().nullish(),\r\n  recurringPeriod: z.enum([\"MONTH\", \"QUARTER\", \"YEAR\"]).nullish(),\r\n});"
+  },
+  {
+    "path": "/api/contracts/[id]",
+    "methods": [
+      "GET",
+      "PATCH",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  title: z.string().min(1).optional(),\r\n  body: z.string().nullable().optional(),\r\n  status: z.enum([\"CONCEPT\", \"VERZONDEN\", \"GETEKEND\", \"ACTIEF\", \"OPGEZEGD\", \"VERLOPEN\"]).optional(),\r\n  startDate: z.string().datetime().nullable().optional(),\r\n  endDate: z.string().datetime().nullable().optional(),\r\n  noticePeriodDays: z.number().int().min(0).max(365).nullable().optional(),\r\n  autoRenew: z.boolean().optional(),\r\n  recurringAmount: z.number().nullable().optional(),\r\n  recurringPeriod: z.enum([\"MONTH\", \"QUARTER\", \"YEAR\"]).nullable().optional(),\r\n  projectId: z.string().nullable().optional(),\r\n});"
+  },
+  {
+    "path": "/api/contracts/[id]/send",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/convert",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  from: z.object({ type: z.enum([\"quote\", \"calculation\"]), id: z.string().min(1) }),\r\n  make: z.enum([\"project\", \"workorder\"]),\r\n});"
+  },
+  {
+    "path": "/api/customers",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [
+      "search"
+    ],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  name: z.string().min(1),\r\n  email: z.string().email().optional().or(z.literal(\"\")),\r\n  phone: z.string().optional(),\r\n  address: z.string().optional(),\r\n  city: z.string().optional(),\r\n  zipCode: z.string().optional(),\r\n  notes: z.string().optional(),\r\n});"
+  },
+  {
+    "path": "/api/customers/[id]",
+    "methods": [
+      "GET",
+      "PUT",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  name: z.string().min(1),\r\n  email: z.string().email().optional().or(z.literal(\"\")),\r\n  phone: z.string().optional(),\r\n  address: z.string().optional(),\r\n  city: z.string().optional(),\r\n  zipCode: z.string().optional(),\r\n  notes: z.string().optional(),\r\n});"
+  },
+  {
+    "path": "/api/integrations/google",
+    "methods": [
+      "GET",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/integrations/google/sync",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/invoices",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  customerId: z.string().optional(),\r\n  projectId: z.string().nullable().optional(),\r\n  source: invoiceSourceSchema.optional(),\r\n  lines: z.array(invoiceLineSchema).optional(),\r\n  reference: z.string().optional(),\r\n  notes: z.string().optional(),\r\n});"
+  },
+  {
+    "path": "/api/invoices/[id]",
+    "methods": [
+      "GET",
+      "PATCH",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  status: z.enum([\"CONCEPT\", \"GEREED\", \"BETAALD\", \"VERVALLEN\"]).optional(),\r\n  reference: z.string().nullable().optional(),\r\n  notes: z.string().nullable().optional(),\r\n  dueDate: z.string().nullable().optional(),\r\n  invoiceDate: z.string().optional(),\r\n  lines: z.array(lineSchema).optional(),\r\n});"
+  },
+  {
+    "path": "/api/invoices/[id]/payment-link",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/invoices/[id]/pdf",
+    "methods": [
+      "GET"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/invoices/[id]/send-email",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/invoices/preview",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/invoices/sources",
+    "methods": [
+      "GET"
+    ],
+    "queryParameters": [
+      "customerId"
+    ],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/knowledge/datasheets",
+    "methods": [
+      "GET"
+    ],
+    "queryParameters": [
+      "q",
+      "category"
+    ],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/knowledge/datasheets/[id]",
+    "methods": [
+      "PATCH",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const updateSchema = z.object({\r\n  price: z.coerce.number().min(0).nullable().optional(),\r\n  notes: z.string().nullable().optional(),\r\n});"
+  },
+  {
+    "path": "/api/knowledge/findings",
+    "methods": [
+      "GET"
+    ],
+    "queryParameters": [
+      "q"
+    ],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/notes",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [
+      "scope",
+      "search",
+      "projectId"
+    ],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  scope: z.enum([\"business\", \"private\"]).default(\"business\"),\r\n  title: z.string().optional(),\r\n  body: z.string().min(1, \"Notitie mag niet leeg zijn\"),\r\n  projectId: z.string().nullish(),\r\n  customerId: z.string().nullish(),\r\n  pinned: z.boolean().optional(),\r\n});"
+  },
+  {
+    "path": "/api/notes/[id]",
+    "methods": [
+      "PATCH",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  title: z.string().nullable().optional(),\r\n  body: z.string().min(1).optional(),\r\n  pinned: z.boolean().optional(),\r\n  projectId: z.string().nullable().optional(),\r\n  customerId: z.string().nullable().optional(),\r\n  visibility: z.enum([\"INTERNAL\", \"SHARED\"]).optional(),\r\n});"
+  },
+  {
+    "path": "/api/portal-access",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [
+      "projectId",
+      "customerId"
+    ],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  customerId: z.string().min(1),\r\n  projectId: z.string().nullish(),\r\n  name: z.string().optional(),\r\n  email: z.string().email().optional().or(z.literal(\"\")),\r\n  label: z.string().optional(),\r\n  canComment: z.boolean().optional(),\r\n  canUpload: z.boolean().optional(),\r\n});"
+  },
+  {
+    "path": "/api/portal-access/[id]",
+    "methods": [
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/product-sets",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const itemSchema = z.object({\r\n  productId: z.string(),\r\n  qty: z.number().min(0.01),\r\n  notes: z.string().optional(),\r\n  sortOrder: z.number().default(0),\r\n});\nconst schema = z.object({\r\n  name: z.string().min(1),\r\n  description: z.string().optional(),\r\n  category: z.string().optional(),\r\n  items: z.array(itemSchema).min(1),\r\n});"
+  },
+  {
+    "path": "/api/product-sets/[id]",
+    "methods": [
+      "PUT",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const itemSchema = z.object({\r\n  productId: z.string(),\r\n  qty: z.number().min(0.01),\r\n  notes: z.string().optional(),\r\n  sortOrder: z.number().default(0),\r\n});\nconst schema = z.object({\r\n  name: z.string().min(1),\r\n  description: z.string().optional(),\r\n  category: z.string().optional(),\r\n  items: z.array(itemSchema).min(1),\r\n});"
+  },
+  {
+    "path": "/api/products",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [
+      "category"
+    ],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  category: z.string().min(1),\r\n  name: z.string().min(1),\r\n  description: z.string().optional(),\r\n  unit: z.string().default(\"stuk\"),\r\n  basePrice: z.coerce.number().min(0),\r\n  basePriceAuto: z.boolean().default(true),\r\n  costPrice: z.coerce.number().min(0).nullable().optional(),\r\n  supplier: z.string().nullable().optional(),\r\n  sku: z.string().nullable().optional(),\r\n  ean: z.string().nullable().optional(),\r\n  defaultMarkupPercent: z.coerce.number().min(0).nullable().optional(),\r\n  laborHours: z.coerce.number().min(0).nullable().optional(),\r\n  vatRate: z.coerce.number().min(0).max(100).default(21),\r\n  specs: z.record(z.string(), z.unknown()).optional().default({}),\r\n  active: z.boolean().default(true),\r\n  datasheetId: z.string().nullable().optional(),\r\n});"
+  },
+  {
+    "path": "/api/products/[id]",
+    "methods": [
+      "PUT",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  category: z.string().min(1),\r\n  name: z.string().min(1),\r\n  description: z.string().optional(),\r\n  unit: z.string().default(\"stuk\"),\r\n  basePrice: z.coerce.number().min(0),\r\n  basePriceAuto: z.boolean().default(true),\r\n  costPrice: z.coerce.number().min(0).nullable().optional(),\r\n  supplier: z.string().nullable().optional(),\r\n  sku: z.string().nullable().optional(),\r\n  ean: z.string().nullable().optional(),\r\n  defaultMarkupPercent: z.coerce.number().min(0).nullable().optional(),\r\n  laborHours: z.coerce.number().min(0).nullable().optional(),\r\n  vatRate: z.coerce.number().min(0).max(100).default(21),\r\n  specs: z.record(z.string(), z.unknown()).optional().default({}),\r\n  active: z.boolean().default(true),\r\n  datasheetId: z.string().nullable().optional(),\r\n});"
+  },
+  {
+    "path": "/api/products/[id]/documents",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [
+      "file",
+      "type"
+    ],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/products/[id]/documents/[docId]",
+    "methods": [
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/products/documents",
+    "methods": [
+      "GET"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/projects",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [
+      "search"
+    ],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  customerId: z.string().min(1, \"Klant is verplicht\"),\r\n  title: z.string().min(1, \"Titel is verplicht\"),\r\n  description: z.string().optional(),\r\n  status: z.enum([\"OPEN\", \"IN_PROGRESS\", \"DONE\", \"ARCHIVED\"]).optional(),\r\n  address: z.string().optional(),\r\n  city: z.string().optional(),\r\n  zipCode: z.string().optional(),\r\n});"
+  },
+  {
+    "path": "/api/projects/[id]",
+    "methods": [
+      "GET",
+      "PATCH",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  title: z.string().min(1).optional(),\r\n  description: z.string().nullable().optional(),\r\n  status: z.enum([\"OPEN\", \"IN_PROGRESS\", \"DONE\", \"ARCHIVED\"]).optional(),\r\n  customerId: z.string().min(1).optional(),\r\n  address: z.string().nullable().optional(),\r\n  city: z.string().nullable().optional(),\r\n  zipCode: z.string().nullable().optional(),\r\n});"
+  },
+  {
+    "path": "/api/projects/[id]/files",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [
+      "file",
+      "category"
+    ],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/projects/[id]/files/[fileId]",
+    "methods": [
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/projects/[id]/invoices",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const lineSchema = z.object({\r\n  description: z.string().min(1),\r\n  qty: z.coerce.number().min(0).default(1),\r\n  unit: z.string().optional(),\r\n  unitPrice: z.coerce.number().default(0),\r\n  vatRate: z.coerce.number().default(21),\r\n});\nconst schema = z.object({\r\n  reference: z.string().optional(),\r\n  notes: z.string().optional(),\r\n  fromQuoteId: z.string().optional(),\r\n  fromWorkOrderId: z.string().optional(),\r\n  lines: z.array(lineSchema).optional(),\r\n});"
+  },
+  {
+    "path": "/api/projects/[id]/purchase-invoices",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [
+      "supplierName",
+      "invoiceNumber",
+      "invoiceDate",
+      "amount",
+      "vatAmount",
+      "notes",
+      "file"
+    ],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/projects/[id]/review-boards",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  name: z.string().min(1, \"Naam is verplicht\"),\r\n  kind: z.enum([\"LIVE\", \"IMAGE\"]).default(\"LIVE\"),\r\n  url: z.string().url().optional().or(z.literal(\"\")),\r\n  imageKey: z.string().optional(),\r\n  imageWidth: z.number().int().positive().optional(),\r\n  imageHeight: z.number().int().positive().optional(),\r\n});"
+  },
+  {
+    "path": "/api/projects/[id]/workorders",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const lineSchema = z.object({\r\n  type: z.enum([\"MATERIAAL\", \"ARBEID\"]).default(\"MATERIAAL\"),\r\n  description: z.string().min(1),\r\n  qty: z.coerce.number().min(0).default(1),\r\n  unit: z.string().optional(),\r\n  unitPrice: z.coerce.number().min(0).default(0),\r\n  costPrice: z.coerce.number().nullable().optional(),\r\n});\nconst schema = z.object({\r\n  title: z.string().min(1, \"Titel is verplicht\"),\r\n  description: z.string().optional(),\r\n  scheduledAt: z.string().datetime().optional().or(z.literal(\"\")),\r\n  technicianName: z.string().optional(),\r\n  fromQuoteId: z.string().optional(), // materiaal pre-invullen vanuit offerte\r\n  lines: z.array(lineSchema).optional(),\r\n});"
+  },
+  {
+    "path": "/api/purchase-invoices/[id]",
+    "methods": [
+      "GET",
+      "PATCH",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  supplierName: z.string().min(1).optional(),\r\n  invoiceNumber: z.string().nullable().optional(),\r\n  invoiceDate: z.string().datetime().nullable().optional().or(z.literal(\"\")),\r\n  amount: z.coerce.number().optional(),\r\n  vatAmount: z.coerce.number().nullable().optional(),\r\n  status: z.enum([\"ONTVANGEN\", \"GEBOEKT\", \"BETAALD\"]).optional(),\r\n  notes: z.string().nullable().optional(),\r\n});"
+  },
+  {
+    "path": "/api/quote-attachments/upload",
+    "methods": [
+      "GET",
+      "POST",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [
+      "file"
+    ],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/quotes",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const itemSchema = z.object({\n  productId: z.string().optional(),\n  description: z.string().min(1),\n  qty: z.coerce.number().min(0),\n  unitPrice: z.coerce.number().min(0),\n  costPrice: z.coerce.number().nullable().optional(),\n  vatRate: z.coerce.number().default(21),\n  indent: z.coerce.number().int().min(0).max(1).default(0),\n  type: z.string().optional().default(\"main\"),\n  hiddenOnQuote: z.boolean().default(false),\n});\nconst attachmentSchema = z.object({\n  id: z.string().optional(),\n  title: z.string().optional().nullable(),\n  imageUrl: z.string().optional().default(\"\"),\n  liveUrl: z.string().optional().nullable(),\n  caption: z.string().optional().nullable(),\n}).refine((attachment) => attachment.imageUrl.trim() || attachment.liveUrl?.trim(), {\n  message: \"Voeg een screenshot of live link toe\",\n});\nconst schema = z.object({\n  customerId: z.string().min(1),\n  projectId: z.string().nullish().transform((value) => value && value !== \"none\" ? value : null),\n  title: z.string().optional(),\n  category: z.string().optional(),\n  tagline: z.string().optional(),\n  itemsHeader: z.string().optional(),\n  validUntil: z.string().optional(),\n  quoteType: z.string().optional(),\n  intro: z.string().optional(),\n  outro: z.string().optional(),\n  notes: z.string().optional(),\n  flow: z.any().optional(),\n  approach: z.any().optional(),\n  options: z.array(quoteOptionSchema).optional(),\n  exclusions: z.any().optional(),\n  assumptions: z.any().optional(),\n  technicalNotes: z.any().optional(),\n  customerResponsibilities: z.any().optional(),\n  planning: z.any().optional(),\n  commercial: z.any().optional(),\n  batteryAdvice: z.any().optional(),\n  choiceGroups: z.array(quoteChoiceGroupSchema).optional(),\n  hiddenSections: z.array(z.string()).optional(),\n  internalAdvice: z.string().nullable().optional(),\n  attachments: z.array(attachmentSchema).optional(),\n  items: z.array(itemSchema).default([]),\n});"
+  },
+  {
+    "path": "/api/quotes/[id]",
+    "methods": [
+      "GET",
+      "PUT",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const itemSchema = z.object({\r\n  id: z.string().optional(),\r\n  productId: z.string().nullable().optional(),\r\n  description: z.string().min(1),\r\n  qty: z.coerce.number().min(0),\r\n  unitPrice: z.coerce.number().min(0),\r\n  costPrice: z.coerce.number().nullable().optional(),\r\n  vatRate: z.coerce.number().default(21),\r\n  indent: z.coerce.number().int().min(0).max(1).default(0),\r\n  type: z.string().optional().default(\"main\"),\r\n  hiddenOnQuote: z.boolean().default(false),\r\n});\nconst attachmentSchema = z.object({\r\n  id: z.string().optional(),\r\n  title: z.string().optional().nullable(),\r\n  imageUrl: z.string().optional().default(\"\"),\r\n  liveUrl: z.string().optional().nullable(),\r\n  caption: z.string().optional().nullable(),\r\n  section: z.string().optional().nullable(),\r\n}).refine((attachment) => attachment.imageUrl.trim() || attachment.liveUrl?.trim(), {\r\n  message: \"Voeg een screenshot of live link toe\",\r\n});\nconst schema = z.object({\r\n  customerId: z.string().optional(),\r\n  title: z.string().optional(),\r\n  category: z.string().optional(),\r\n  tagline: z.string().optional(),\r\n  itemsHeader: z.string().optional(),\r\n  status: z.enum([\"DRAFT\", \"SENT\", \"VIEWED\", \"ACCEPTED\", \"DECLINED\", \"EXPIRED\"]).optional(),\r\n  quoteType: z.string().optional(),\r\n  validUntil: z.string().nullable().optional().transform((v) => (v === \"\" ? null : v)),\r\n  intro: z.string().optional(),\r\n  outro: z.string().optional(),\r\n  notes: z.string().optional(),\r\n  flow: z.any().optional(),\r\n  approach: z.any().optional(),\r\n  options: z.array(quoteOptionSchema).optional(),\r\n  exclusions: z.any().optional(),\r\n  assumptions: z.any().optional(),\r\n  technicalNotes: z.any().optional(),\r\n  customerResponsibilities: z.any().optional(),\r\n  planning: z.any().optional(),\r\n  commercial: z.any().optional(),\r\n  batteryAdvice: z.any().optional(),\r\n  choiceGroups: z.array(quoteChoiceGroupSchema).optional(),\r\n  hiddenSections: z.array(z.string()).optional(),\n  internalAdvice: z.string().nullable().optional(),\r\n  items: z.array(itemSchema).optional(),\r\n  attachments: z.array(attachmentSchema).optional(),\r\n});"
+  },
+  {
+    "path": "/api/quotes/[id]/accept",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const bodySchema = z.object({\n  method: z.literal(\"verbal_confirmed\"),\n  signerName: z.string().trim().min(2).max(120),\n  note: z.string().trim().max(2000).optional(),\n});"
+  },
+  {
+    "path": "/api/quotes/[id]/activity-status",
+    "methods": [
+      "GET"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/quotes/[id]/archive",
+    "methods": [
+      "PATCH"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({ archived: z.boolean() });"
+  },
+  {
+    "path": "/api/quotes/[id]/calculations",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\n  title: z.string().trim().min(1).optional(),\n  role: z.enum([\"BASE\", \"VARIANT\"]).optional(),\n  /** Bestaande QuoteItem-regels overnemen in de nieuwe calculatie. */\n  moveItems: z.boolean().optional(),\n});"
+  },
+  {
+    "path": "/api/quotes/[id]/documents",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({ productDocumentId: z.string().min(1) });"
+  },
+  {
+    "path": "/api/quotes/[id]/documents/[quoteDocumentId]",
+    "methods": [
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/quotes/[id]/duplicate",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/quotes/[id]/editor-data",
+    "methods": [
+      "GET"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/quotes/[id]/extend",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const bodySchema = z.object({\n  // Aantal dagen dat de offerte er weer bij krijgt, of een expliciete datum.\n  days: z.number().int().min(1).max(180).optional(),\n  validUntil: z.string().datetime().optional(),\n  note: z.string().trim().max(2000).optional(),\n  emailSubject: z.string().trim().min(1).max(180).refine((value) => !/[\\r\\n]/.test(value)).optional(),\n  emailMessage: z.string().trim().min(1).max(2000).optional(),\n  // Standaard sturen we de klant een mail. Uit te zetten voor een stille verlenging.\n  notifyCustomer: z.boolean().optional().default(true),\n});"
+  },
+  {
+    "path": "/api/quotes/[id]/mark-sent",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/quotes/[id]/pdf",
+    "methods": [
+      "GET"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/quotes/[id]/pdf/status",
+    "methods": [
+      "GET"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/quotes/[id]/price-audit",
+    "methods": [
+      "GET"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/quotes/[id]/send-email",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/quotes/[id]/share",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/quotes/[id]/subscriptions",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/quotes/bulk",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\n  action: z.enum([\"archive\", \"restore\", \"delete\"]),\n  ids: z.array(z.string().min(1)).min(1).max(200),\n});"
+  },
+  {
+    "path": "/api/search",
+    "methods": [
+      "GET"
+    ],
+    "queryParameters": [
+      "q"
+    ],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/storage/presign",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/storage/upload",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [
+      "file",
+      "prefix"
+    ],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/subscriptions",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [
+      "status",
+      "clientRef",
+      "dueBefore",
+      "limit"
+    ],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const createSchema = z.object({\n  customerId: z.string().min(1).nullish(),\n  clientName: z.string().trim().min(1).max(200).optional(),\n  serviceName: z.string().trim().min(1).max(200),\n  priceCents: z.number().int().min(0),\n  vatRate: z.number().min(0).max(100).optional(),\n  currency: z.string().length(3).optional(),\n  billingCycle: z.enum(BILLING_CYCLES),\n  startDate: z.string(),\n  nextBillingDate: z.string().optional(),\n  notes: z.string().max(5000).nullish(),\n  migrationPending: z.boolean().optional(),\n});"
+  },
+  {
+    "path": "/api/subscriptions/[id]",
+    "methods": [
+      "GET",
+      "PATCH"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const patchSchema = z.object({\n  priceCents: z.number().int().min(0).optional(),\n  nextBillingDate: z.string().optional(),\n  status: z.enum(SUBSCRIPTION_STATUSES).optional(),\n  serviceName: z.string().trim().min(1).max(200).optional(),\n  notes: z.string().max(5000).nullish(),\n  migrationPending: z.boolean().optional(),\n});"
+  },
+  {
+    "path": "/api/subscriptions/[id]/invoiced",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const bodySchema = z\n  .object({\n    invoicedAt: z.string().datetime().optional(),\n    periodsAdvanced: z.number().int().min(1).max(60).optional(),\n  })\n  .optional()\n  .default({});"
+  },
+  {
+    "path": "/api/subscriptions/due",
+    "methods": [
+      "GET"
+    ],
+    "queryParameters": [
+      "withinDays"
+    ],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": ""
+  },
+  {
+    "path": "/api/task-lists",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [
+      "scope"
+    ],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  scope: z.enum([\"business\", \"private\"]).default(\"business\"),\r\n  name: z.string().min(1, \"Naam is verplicht\"),\r\n  kind: z.enum(TASK_LIST_KINDS).default(\"LIST\"),\r\n  icon: z.string().optional(),\r\n  color: z.string().optional(),\r\n});"
+  },
+  {
+    "path": "/api/task-lists/[id]",
+    "methods": [
+      "PATCH",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  name: z.string().min(1).optional(),\r\n  icon: z.string().nullable().optional(),\r\n  color: z.string().nullable().optional(),\r\n  sortOrder: z.number().int().optional(),\r\n  archived: z.boolean().optional(),\r\n});"
+  },
+  {
+    "path": "/api/tasks",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "queryParameters": [
+      "scope",
+      "listId",
+      "projectId",
+      "search",
+      "includeDone"
+    ],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const createSchema = z.object({\r\n  scope: z.enum([\"business\", \"private\"]).default(\"business\"),\r\n  // Óf een vrije regel die geparsed wordt, óf losse velden.\r\n  quickAdd: z.string().optional(),\r\n  title: z.string().optional(),\r\n  description: z.string().optional(),\r\n  listId: z.string().nullish(),\r\n  projectId: z.string().nullish(),\r\n  customerId: z.string().nullish(),\r\n  quoteId: z.string().nullish(),\r\n  status: z.enum(TASK_STATUSES).optional(),\r\n  priority: z.number().int().min(0).max(2).optional(),\r\n  dueAt: z.string().datetime().nullish(),\r\n  startAt: z.string().datetime().nullish(),\r\n  endAt: z.string().datetime().nullish(),\r\n  allDay: z.boolean().optional(),\r\n  recurRule: z.string().nullish(),\r\n  // Al bestaand Google-event linken (bv. bij \"maak hiervan een taak\") in\r\n  // plaats van er een nieuw, dubbel event voor aan te maken.\r\n  calendarEventId: z.string().optional(),\r\n});"
+  },
+  {
+    "path": "/api/tasks/[id]",
+    "methods": [
+      "GET",
+      "PATCH",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  title: z.string().min(1).optional(),\r\n  description: z.string().nullable().optional(),\r\n  status: z.enum(TASK_STATUSES).optional(),\r\n  priority: z.number().int().min(0).max(2).optional(),\r\n  listId: z.string().nullable().optional(),\r\n  projectId: z.string().nullable().optional(),\r\n  customerId: z.string().nullable().optional(),\r\n  dueAt: z.string().datetime().nullable().optional(),\r\n  startAt: z.string().datetime().nullable().optional(),\r\n  endAt: z.string().datetime().nullable().optional(),\r\n  allDay: z.boolean().optional(),\r\n  visibility: z.enum([\"INTERNAL\", \"SHARED\"]).optional(),\r\n  sortOrder: z.number().int().optional(),\r\n  recurRule: z.string().nullable().optional(),\r\n});"
+  },
+  {
+    "path": "/api/tasks/[id]/comments",
+    "methods": [
+      "POST"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  body: z.string().min(1, \"Bericht mag niet leeg zijn\"),\r\n  // INTERNAL op een gedeelde taak = mijn eigen kladblok, klant ziet 'm niet.\r\n  visibility: z.enum([\"INTERNAL\", \"SHARED\"]).default(\"INTERNAL\"),\r\n});"
+  },
+  {
+    "path": "/api/workorders/[id]",
+    "methods": [
+      "GET",
+      "PATCH",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const lineSchema = z.object({\r\n  type: z.enum([\"MATERIAAL\", \"ARBEID\"]).default(\"MATERIAAL\"),\r\n  description: z.string().min(1),\r\n  qty: z.coerce.number().min(0).default(1),\r\n  unit: z.string().optional(),\r\n  unitPrice: z.coerce.number().min(0).default(0),\r\n  costPrice: z.coerce.number().nullable().optional(),\r\n});\nconst schema = z.object({\r\n  title: z.string().min(1).optional(),\r\n  description: z.string().nullable().optional(),\r\n  status: z.enum([\"CONCEPT\", \"GEPLAND\", \"UITGEVOERD\", \"GEFACTUREERD\"]).optional(),\r\n  technicianName: z.string().nullable().optional(),\r\n  scheduledAt: z.string().datetime().nullable().optional().or(z.literal(\"\")),\r\n  executedAt: z.string().datetime().nullable().optional().or(z.literal(\"\")),\r\n  lines: z.array(lineSchema).optional(),\r\n});"
+  },
+  {
+    "path": "/api/workorders/[id]/signature",
+    "methods": [
+      "POST",
+      "DELETE"
+    ],
+    "queryParameters": [],
+    "formFields": [],
+    "bodyFields": [],
+    "schemas": "const schema = z.object({\r\n  // PNG als data-URL: \"data:image/png;base64,....\"\r\n  dataUrl: z.string().regex(/^data:image\\/png;base64,/, \"Verwacht PNG data-URL\"),\r\n  signedBy: z.string().min(1, \"Naam ondertekenaar verplicht\"),\r\n});"
+  }
+]

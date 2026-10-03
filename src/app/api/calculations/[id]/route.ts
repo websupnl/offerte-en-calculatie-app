@@ -83,8 +83,9 @@ export async function PUT(
   const companyId = session.user.activeCompanyId;
   const body = await req.json();
 
-  const existing = await prisma.calculation.findFirst({ where: { id, companyId } });
+  const existing = await prisma.calculation.findFirst({ where: { id, companyId }, include: { quote: { select: { status: true } } } });
   if (!existing) return NextResponse.json({ error: "Calculatie niet gevonden" }, { status: 404 });
+  if (existing.quote && existing.quote.status !== "DRAFT") return NextResponse.json({ error: "Deze calculatie hoort bij een verstuurde offerte. Maak een losse kopie om de prijs te wijzigen." }, { status: 409 });
 
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
@@ -92,6 +93,16 @@ export async function PUT(
   }
 
   const { title, description, status, customerId, projectId, vatRate, notes, role, sortOrder, items } = parsed.data;
+  const itemIds = items.map(item => item.id).filter((value): value is string => Boolean(value));
+  if (new Set(itemIds).size !== itemIds.length || (itemIds.length && await prisma.calculationItem.count({ where: { id: { in: itemIds }, calculationId: id } }) !== itemIds.length)) {
+    return NextResponse.json({ error: "Een regel hoort niet bij deze calculatie." }, { status: 400 });
+  }
+  const productIds = [...new Set(items.map(item => item.productId).filter((value): value is string => Boolean(value)))];
+  if (productIds.length && await prisma.product.count({ where: { id: { in: productIds }, companyId } }) !== productIds.length) return NextResponse.json({ error: "Een artikel hoort niet bij dit bedrijf." }, { status: 400 });
+  if (customerId && !await prisma.customer.findFirst({ where: { id: customerId, companyId }, select: { id: true } })) return NextResponse.json({ error: "Klant hoort niet bij dit bedrijf." }, { status: 400 });
+  const project = projectId ? await prisma.project.findFirst({ where: { id: projectId, companyId }, select: { id: true, customerId: true } }) : null;
+  if (projectId && (!project || (customerId && project.customerId !== customerId))) return NextResponse.json({ error: "Project hoort niet bij dit bedrijf of deze klant." }, { status: 400 });
+  if (existing.quoteId && (customerId !== undefined && customerId !== existing.customerId || projectId !== undefined && projectId !== existing.projectId)) return NextResponse.json({ error: "Wijzig klant en project via de gekoppelde offerte." }, { status: 409 });
 
   // Calculate totals
   let totalCostPrice = 0;
@@ -104,7 +115,7 @@ export async function PUT(
       : Math.round(item.costPrice * (1 + item.markupPercent / 100) * 100) / 100;
     const itemSales = item.qty * calculatedUnitPrice;
 
-    if (!item.optional) {
+    if (!item.optional && !item.recurringInterval) {
       // Uren zijn eigen arbeid, geen inkoopkost — telt niet mee als kostprijs
       if (item.type !== "LABOR") totalCostPrice += itemCost;
       totalSalesPrice += itemSales;
