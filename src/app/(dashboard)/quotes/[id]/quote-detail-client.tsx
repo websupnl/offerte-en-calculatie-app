@@ -45,6 +45,7 @@ import { QuoteSheetPreview } from "@/components/quote-sheet-preview";
 import { SheetScaler } from "@/components/sheet-scaler";
 import { filenameFromResponse } from "@/lib/download-filename";
 import { defaultQuoteEmailMessage, defaultQuoteExtensionMessage, defaultQuoteExtensionSubject } from "@/lib/quote-email-copy";
+import { QuoteCalculationLinker } from "@/components/calculations/quote-calculation-linker";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -229,6 +230,7 @@ export function QuoteDetailClient({
     return () => { cancelled = true; };
   }, [activeTab, editorData, editorError, quote.id]);
   const [archiving, setArchiving] = useState(false);
+  const [linkerOpen, setLinkerOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [openingMail, setOpeningMail] = useState(false);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
@@ -549,6 +551,14 @@ export function QuoteDetailClient({
 
   return (
     <div className="mx-auto w-full max-w-[1800px] space-y-3 p-4 sm:p-5 lg:px-8 lg:py-5 2xl:px-10">
+      {linkerOpen && (
+        <QuoteCalculationLinker
+          quoteId={quote.id}
+          customerId={quote.customer.id}
+          linked={quote.calculations}
+          onClose={() => setLinkerOpen(false)}
+        />
+      )}
       <PageHeader className="px-0! pt-0!" eyebrow={quote.number ?? "Concept zonder nummer"} title={quote.title || quote.number || "Conceptofferte"} description={quote.customer.name + " · " + formatDate(quote.createdAt)} actions={<><Badge variant={STATUS_VARIANT[quote.status] ?? "outline"}>{QUOTE_STATUS_LABELS[quote.status] ?? quote.status}</Badge>
           <Button variant="outline" size="sm" onClick={openPriceAudit} disabled={priceAuditLoading} className="h-9 text-base">
             {priceAuditLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -583,6 +593,11 @@ export function QuoteDetailClient({
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
+          {quote.status === "DRAFT" && !quote.archivedAt && (
+            <Button variant="outline" size="sm" onClick={() => setLinkerOpen(true)} className="h-9 text-base">
+              <Calculator className="h-4 w-4" /> {quote.calculations.length === 0 ? "Calculatie koppelen" : "Meer koppelen"}
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Meer acties"

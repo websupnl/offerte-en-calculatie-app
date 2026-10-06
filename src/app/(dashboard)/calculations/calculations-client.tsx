@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useMemo, useState } from "react";
+import { LinkToQuoteDialog } from "@/components/calculations/link-to-quote-dialog";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -55,10 +56,57 @@ type CalculationSummary = {
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
+  role?: string;
   customer: { id: string; name: string; email: string | null } | null;
   project: { id: string; number: string; title: string } | null;
-  quote: { id: string; number: string | null; status: string } | null;
+  quote: { id: string; number: string | null; title: string | null; status: string } | null;
 };
+
+/**
+ * Welke calculaties je standaard ziet. Een calculatie op een geaccepteerde
+ * offerte is een opdracht, een afgewezen of verlopen offerte is afgehandeld:
+ * die horen niet tussen het werk dat nog moet gebeuren.
+ */
+type View = "active" | "order" | "closed" | "all";
+const VIEW_LABELS: Record<View, string> = {
+  active: "Actief",
+  order: "Opdrachten",
+  closed: "Afgewezen of verlopen",
+  all: "Alles",
+};
+
+function viewOf(calc: CalculationSummary): Exclude<View, "all"> {
+  const status = calc.quote?.status;
+  if (status === "ACCEPTED") return "order";
+  if (status === "DECLINED" || status === "EXPIRED") return "closed";
+  return "active";
+}
+
+const QUOTE_STATUS_TEXT: Record<string, string> = {
+  DRAFT: "Concept",
+  SENT: "Verstuurd",
+  VIEWED: "Bekeken",
+  ACCEPTED: "Opdracht",
+  DECLINED: "Afgewezen",
+  EXPIRED: "Verlopen",
+};
+
+type Block = { key: string; quote: CalculationSummary["quote"]; calcs: CalculationSummary[] };
+
+/** Label met rol en offerte, klikbaar naar de offerte. */
+function QuoteLabel({ calc }: { calc: CalculationSummary }) {
+  if (!calc.quote) return null;
+  const role = calc.role === "VARIANT" ? "Variant" : "Basis";
+  return (
+    <Link
+      href={`/quotes/${calc.quote.id}`}
+      className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-emerald-400"
+    >
+      <FileText className="h-3.5 w-3.5" />
+      {role} · Offerte {calc.quote.number ?? "zonder nummer"}
+    </Link>
+  );
+}
 
 type OptionItem = { id: string; name?: string; title?: string; number?: string; customerId?: string };
 
@@ -66,12 +114,14 @@ export function CalculationsClient({
   initialCalculations,
   customers,
   projects,
+  draftQuotes,
   showArchived = false,
   initialCreateOpen = false,
 }: {
   initialCalculations: CalculationSummary[];
   customers: OptionItem[];
   projects: OptionItem[];
+  draftQuotes: { id: string; title: string | null; number: string | null; customerId: string; customer: { name: string } }[];
   companySlug: string;
   showArchived?: boolean;
   initialCreateOpen?: boolean;
@@ -81,9 +131,13 @@ export function CalculationsClient({
   const [calculations, setCalculations] = useState<CalculationSummary[]>(initialCalculations);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [view, setView] = useState<View>("active");
   const [newDialogOpen, setNewDialogOpen] = useState(initialCreateOpen);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  // Eén calculatie vanuit het rijmenu koppelen; de bulkselectie blijft ongemoeid.
+  const [linkSingleId, setLinkSingleId] = useState<string | null>(null);
 
   function toggleOne(id: string) {
     setSelected((prev) => {
@@ -132,20 +186,60 @@ export function CalculationsClient({
   const [projectId, setProjectId] = useState<string>("");
   const [creating, setCreating] = useState(false);
 
-  const filteredCalculations = calculations.filter((calc) => {
-    const matchesSearch =
-      calc.title.toLowerCase().includes(search.toLowerCase()) ||
-      calc.number.toLowerCase().includes(search.toLowerCase()) ||
-      (calc.customer?.name && calc.customer.name.toLowerCase().includes(search.toLowerCase())) ||
-      (calc.project?.title && calc.project.title.toLowerCase().includes(search.toLowerCase()));
+  const viewCounts = useMemo(() => {
+    const counts: Record<View, number> = { active: 0, order: 0, closed: 0, all: calculations.length };
+    for (const calc of calculations) counts[viewOf(calc)] += 1;
+    return counts;
+  }, [calculations]);
 
-    const matchesStatus = statusFilter === "ALL" || calc.status === statusFilter;
+  // In het archief toont de lijst alles: daar is de weergave niet van toepassing.
+  const effectiveView: View = showArchived ? "all" : view;
 
-    return matchesSearch && matchesStatus;
-  });
+  const filteredCalculations = useMemo(() => {
+    const query = search.toLowerCase();
+    return calculations.filter((calc) => {
+      const matchesSearch =
+        calc.title.toLowerCase().includes(query) ||
+        calc.number.toLowerCase().includes(query) ||
+        (calc.quote?.number && calc.quote.number.toLowerCase().includes(query)) ||
+        (calc.customer?.name && calc.customer.name.toLowerCase().includes(query)) ||
+        (calc.project?.title && calc.project.title.toLowerCase().includes(query));
 
-  const totalCostSum = calculations.reduce((acc, c) => acc + c.totalCostPrice, 0);
-  const totalSalesSum = calculations.reduce((acc, c) => acc + c.totalSalesPrice, 0);
+      const matchesStatus = statusFilter === "ALL" || calc.status === statusFilter;
+      const matchesView = effectiveView === "all" || viewOf(calc) === effectiveView;
+
+      return matchesSearch && matchesStatus && matchesView;
+    });
+  }, [calculations, search, statusFilter, effectiveView]);
+
+  // Calculaties op dezelfde offerte staan bij elkaar onder een kop met de offerte.
+  // Een calculatie die alleen op een offerte zit houdt een gewone rij met een label.
+  const blocks = useMemo<Block[]>(() => {
+    const byQuote = new Map<string, CalculationSummary[]>();
+    for (const calc of filteredCalculations) {
+      if (!calc.quote) continue;
+      byQuote.set(calc.quote.id, [...(byQuote.get(calc.quote.id) ?? []), calc]);
+    }
+    const seen = new Set<string>();
+    const result: Block[] = [];
+    for (const calc of filteredCalculations) {
+      const group = calc.quote ? byQuote.get(calc.quote.id) : undefined;
+      if (calc.quote && group && group.length > 1) {
+        if (seen.has(calc.quote.id)) continue;
+        seen.add(calc.quote.id);
+        const ordered = [...group].sort(
+          (a, b) => Number(a.role === "VARIANT") - Number(b.role === "VARIANT") || a.number.localeCompare(b.number),
+        );
+        result.push({ key: `quote-${calc.quote.id}`, quote: calc.quote, calcs: ordered });
+      } else {
+        result.push({ key: calc.id, quote: null, calcs: [calc] });
+      }
+    }
+    return result;
+  }, [filteredCalculations]);
+
+  const totalCostSum = filteredCalculations.reduce((acc, c) => acc + c.totalCostPrice, 0);
+  const totalSalesSum = filteredCalculations.reduce((acc, c) => acc + c.totalSalesPrice, 0);
   const totalMarginSum = totalSalesSum - totalCostSum;
   const avgMarginPercent = totalSalesSum > 0 ? (totalMarginSum / totalSalesSum) * 100 : 0;
 
@@ -228,6 +322,8 @@ export function CalculationsClient({
 
   return (
     <div>
+      {linkDialogOpen && <LinkToQuoteDialog calculations={calculations.filter(c => selected.has(c.id))} quotes={draftQuotes} customers={customers} onClose={() => setLinkDialogOpen(false)} />}
+      {linkSingleId && <LinkToQuoteDialog calculations={calculations.filter(c => c.id === linkSingleId)} quotes={draftQuotes} customers={customers} onClose={() => setLinkSingleId(null)} />}
       <PageHeader
         eyebrow="Calculaties"
         title="Project & Kostprijs Calculaties"
@@ -242,11 +338,30 @@ export function CalculationsClient({
 
       <div className="space-y-4 p-4 sm:p-5 lg:px-8 lg:py-5">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border bg-card px-4 py-3 text-base" aria-label="Calculatieoverzicht">
-          <span><strong className="tabular-nums">{calculations.length}</strong> <span className="text-muted-foreground">calculaties</span></span>
+          <span><strong className="tabular-nums">{filteredCalculations.length}</strong> <span className="text-muted-foreground">calculaties</span></span>
           <span><span className="text-muted-foreground">Inkoop</span> <strong className="tabular-nums">{formatCurrency(totalCostSum)}</strong></span>
           <span><span className="text-muted-foreground">Verkoop</span> <strong className="tabular-nums">{formatCurrency(totalSalesSum)}</strong></span>
           <span><span className="text-muted-foreground">Brutowinst</span> <strong className="tabular-nums">{formatCurrency(totalMarginSum)}</strong> <span className="text-muted-foreground">({avgMarginPercent.toFixed(1)}%)</span></span>
         </div>
+
+        {!showArchived && (
+          <div className="flex flex-wrap gap-1" role="tablist" aria-label="Weergave">
+            {(Object.keys(VIEW_LABELS) as View[]).map((key) => (
+              <Button
+                key={key}
+                role="tab"
+                aria-selected={view === key}
+                variant={view === key ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setView(key)}
+                className={`shrink-0 rounded-full text-base ${view === key ? "bg-[var(--ws-accent)] hover:bg-[var(--ws-accent-hover)]" : ""}`}
+              >
+                {VIEW_LABELS[key]}
+                <span className="tabular-nums opacity-80">{viewCounts[key]}</span>
+              </Button>
+            ))}
+          </div>
+        )}
 
         {/* Filter controls */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -300,6 +415,7 @@ export function CalculationsClient({
               <span className="font-semibold">{selected.size} geselecteerd</span>
             </label>
             <div className="ml-auto flex flex-wrap items-center gap-1.5">
+              {!showArchived && <Button size="sm" variant="secondary" className="text-base" disabled={bulkBusy} onClick={() => setLinkDialogOpen(true)}><FileText className="h-4 w-4" />Toevoegen aan offerte</Button>}
               {showArchived ? (
                 <Button size="sm" variant="secondary" disabled={bulkBusy} onClick={() => runBulk("restore")}>
                   <ArchiveRestore className="h-4 w-4" /> Herstellen
@@ -333,7 +449,9 @@ export function CalculationsClient({
               <p className="text-sm text-muted-foreground max-w-sm mt-1 mb-4">
                 {search || statusFilter !== "ALL"
                   ? "Geen resultaten gevonden voor je huidige zoekfilters."
-                  : "Maak een eerste calculatie aan om inkoop- en verkoopmarge vooraf te berekenen."}
+                  : effectiveView !== "all" && calculations.length > 0
+                    ? "Alles is afgehandeld. Opdrachten en afgewezen of verlopen offertes staan onder hun eigen tab."
+                    : "Maak een eerste calculatie aan om inkoop- en verkoopmarge vooraf te berekenen."}
               </p>
               <Button onClick={() => setNewDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -343,8 +461,17 @@ export function CalculationsClient({
           </Card>
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card divide-y divide-border">
-            {filteredCalculations.map((calc) => (
-              <div key={calc.id} className={`group px-3 py-3 transition-colors hover:bg-muted/50 sm:px-4 ${selected.has(calc.id) ? "bg-[var(--ws-accent-soft)]" : ""}`}>
+            {blocks.map((block) => {
+              const rows = block.calcs.map((calc) => (
+              <div
+                key={calc.id}
+                onClick={(e) => {
+                  // Klik op lege ruimte opent de calculatie; links, knoppen en vinkjes houden hun eigen werking.
+                  if ((e.target as HTMLElement).closest("a, button, input, label, [role=menuitem]")) return;
+                  router.push(`/calculations/${calc.id}`);
+                }}
+                className={`group cursor-pointer px-3 py-3 transition-colors hover:bg-muted/50 sm:px-4 ${selected.has(calc.id) ? "bg-[var(--ws-accent-soft)]" : ""}`}
+              >
                     <div className="grid grid-cols-[16px_minmax(0,1fr)] items-start gap-x-3 gap-y-2 md:flex md:items-center md:justify-between md:gap-4">
                       <input
                         type="checkbox"
@@ -354,7 +481,6 @@ export function CalculationsClient({
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => {
                           e.stopPropagation();
-                          e.preventDefault();
                           toggleOne(calc.id);
                         }}
                       />
@@ -368,27 +494,25 @@ export function CalculationsClient({
                           <Badge variant={CALCULATION_STATUS_COLORS[calc.status] as "default" | "secondary"}>
                             {CALCULATION_STATUS_LABELS[calc.status] ?? calc.status}
                           </Badge>
+                          {block.quote && (
+                            <Badge variant="outline">{calc.role === "VARIANT" ? "Variant" : "Basis"}</Badge>
+                          )}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                           {calc.customer && (
-                            <span className="flex items-center gap-1">
+                            <Link href={`/customers/${calc.customer.id}`} className="flex items-center gap-1 hover:text-foreground hover:underline">
                               <User className="h-3.5 w-3.5 text-muted-foreground" />
                               {calc.customer.name}
-                            </span>
+                            </Link>
                           )}
                           {calc.project && (
-                            <span className="flex items-center gap-1 font-medium text-foreground">
+                            <Link href={`/projects/${calc.project.id}`} className="flex items-center gap-1 font-medium text-foreground hover:underline">
                               <FolderKanban className="h-3.5 w-3.5 text-muted-foreground" />
-                              {calc.project.number} — {calc.project.title}
-                            </span>
+                              {calc.project.number} · {calc.project.title}
+                            </Link>
                           )}
-                          {calc.quote && (
-                            <span className="flex items-center gap-1 font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
-                              <FileText className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-400" />
-                              Offerte {calc.quote.number ?? "zonder nummer"}
-                            </span>
-                          )}
+                          {!block.quote && <QuoteLabel calc={calc} />}
                           <span>Gewijzigd {formatDate(calc.updatedAt)}</span>
                         </div>
                       </div>
@@ -439,6 +563,11 @@ export function CalculationsClient({
                               <DropdownMenuItem onClick={() => router.push(`/calculations/${calc.id}`)}>
                                 <ArrowUpRight className="h-4 w-4" /> Openen
                               </DropdownMenuItem>
+                              {!calc.archivedAt && !calc.quote && (
+                                <DropdownMenuItem onClick={() => setLinkSingleId(calc.id)}>
+                                  <FileText className="h-4 w-4" /> Toevoegen aan offerte
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onClick={() => handleDuplicate(calc.id)}>
                                 <Copy className="h-4 w-4" /> Dupliceren
                               </DropdownMenuItem>
@@ -461,7 +590,29 @@ export function CalculationsClient({
                       </div>
                     </div>
               </div>
-            ))}
+              ));
+              if (!block.quote) return <Fragment key={block.key}>{rows}</Fragment>;
+              const groupQuote = block.quote;
+              return (
+                <div key={block.key}>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-muted/40 px-3 py-2 text-sm sm:px-4">
+                    <FileText className="h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                    <Link
+                      href={`/quotes/${groupQuote.id}`}
+                      className="min-w-0 truncate font-semibold text-foreground hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      Offerte {groupQuote.number ?? "zonder nummer"}
+                      {groupQuote.title ? `: ${groupQuote.title}` : ""}
+                    </Link>
+                    <Badge variant="outline">{QUOTE_STATUS_TEXT[groupQuote.status] ?? groupQuote.status}</Badge>
+                    <span className="text-muted-foreground">
+                      {block.calcs.length} calculaties samen op deze offerte
+                    </span>
+                  </div>
+                  <div className="divide-y divide-border border-l-4 border-emerald-500/40">{rows}</div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

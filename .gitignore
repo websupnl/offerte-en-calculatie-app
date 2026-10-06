@@ -35,6 +35,7 @@ yarn-error.log*
 .winscp-deploy.tmp
 /output/bouma-offerte-module-*.zip
 /output/pv-*.png
+/output/mcp-smoke/
 /tests/pv-plugin-*.cjs
 
 # env files (can opt-in for committing if needed)

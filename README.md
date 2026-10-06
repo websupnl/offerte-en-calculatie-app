@@ -56,6 +56,49 @@ URL: https://jouw-domein.nl/mcp
 Header: Authorization: Bearer <MCP_API_KEY>
 ```
 
+MCP 2.1 kan de actuele appfuncties bekijken en bedienen via `get_app_capabilities`,
+`app_read` en `app_write`. De catalogus wordt bij `npm run build` automatisch
+opnieuw gemaakt; lokaal kan dit met `npm run mcp:catalog`.
+
+Stel dezelfde `MCP_APP_KEY` in op de Next-app en MCP-service. Stel op de app
+`MCP_USER_ID` in op de bestaande gebruiker namens wie de AI werkt. De gateway
+controleert diens bedrijfstoegang en gebruikt daarna de normale app-authenticatie.
+Privétaken en notities blijven aan die gebruiker gekoppeld. Zet `APP_URL` op de
+MCP-service op de app-URL; beide services moeten met deze update worden uitgerold.
+`MCP_API_KEY` blijft de sleutel waarmee de AI de MCP-service zelf benadert.
+
+In het calculatieoverzicht: vink meerdere calculaties aan en kies
+**Toevoegen aan offerte**. Kies een bestaande conceptofferte of maak een nieuwe,
+en kies per calculatie **Basis** (optellen) of **Variant** (minimaal twee
+alternatieven). Andere calculaties op de offerte blijven gekoppeld. De AI doet
+hetzelfde met `link_calculations_to_quote`. Voor een lege calculatie in een
+offerte bestaat `create_quote_calculation`. Het oude `copy_items` is vervallen.
+
+De MCP ondersteunt ook `link_calculations_to_quote({quote_id,
+calculation_ids: ["KI-2026-C021", "KI-2026-C023"], copy_items: false})`.
+IDs en nummers zijn beide toegestaan; het bedrijf wordt bij een bestaande
+offerte afgeleid. Zonder opgegeven rol blijft de bestaande rol behouden.
+Gebruik `mode: "alternatives"` voor twee volledige uitvoeringen: beide worden
+`VARIANT`. `BASE` is gemeenschappelijk werk, geen aanbevolen uitvoering.
+`recommended_calculation_id` zet de gewenste variant vooraan. Per calculatie
+kunnen `role` en `sort_order` via `calculations: [{id, role, sort_order}]` worden
+ingesteld. Een calculatie blijft aan maximaal één offerte gekoppeld; meerdere
+calculaties kunnen hetzelfde `quoteId` hebben. Een schema-migratie is niet nodig.
+
+`unlink_calculation_from_quote({quote_id, calculation_id})` verwijdert alleen de
+relatie. Bronregels, prijzen, opslagen, calculatietotalen, klant, project en
+status blijven bij koppelen en ontkoppelen behouden. `copy_items: true` wordt
+expliciet geweigerd zonder wijzigingen. `get_quote` geeft de echte bronrecords
+in `calculations[]`, plus de samenvatting in `calculaties[]`. Het offertecontract
+is bijgewerkt naar versie `2026-10-03`.
+
+Controle: `npm test`, `npm run build` en `cd mcp-server && npm run build`.
+De handmatige integratietest `node scripts/test-mcp-smoke.mjs` start de app op
+`:3001`, test de MCP via stdio, selecteert twee tijdelijke calculaties in de
+browser en ruimt de testklant met zijn documenten op. Vereist `.env.local`, een
+gebouwde app/MCP en Chrome (ander pad via `SMOKE_BROWSER`). Screenshots staan in
+`output/mcp-smoke/`. Deze test verstuurt geen e-mail of betalingsverzoeken.
+
 ## Environment variabelen
 
 Zie `.env.example` voor alle benodigde variabelen.

@@ -15,6 +15,7 @@ const PUBLIC_PATHS = [
   "/api/brand-assets/", // Alleen publieke bedrijfslogo's en favicons; uploads blijven beschermd.
   "/api/integrations/quote-contract",
   "/api/cli/",
+  "/api/mcp", // Eigen MCP_APP_KEY; overige app-routes houden native sessie-auth.
   // Server-to-server gateway; it has its own Bearer-token authentication.
   "/api/donna/",
   // Server-to-server webhook vanaf de publieke websites; eigen secret per site.

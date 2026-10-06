@@ -18,13 +18,13 @@ export default async function CalculationsPage({
     select: { slug: true, name: true },
   });
 
-  const [calculations, customers, projects] = await Promise.all([
+  const [calculations, customers, projects, draftQuotes] = await Promise.all([
     prisma.calculation.findMany({
       where: { companyId, archivedAt: showArchived ? { not: null } : null },
       include: {
         customer: { select: { id: true, name: true, email: true } },
         project: { select: { id: true, number: true, title: true } },
-        quote: { select: { id: true, number: true, status: true } },
+        quote: { select: { id: true, number: true, title: true, status: true } },
       },
       orderBy: { updatedAt: "desc" },
       take: 200,
@@ -39,6 +39,7 @@ export default async function CalculationsPage({
       select: { id: true, number: true, title: true, customerId: true },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.quote.findMany({ where: { companyId, status: "DRAFT", archivedAt: null }, select: { id: true, title: true, number: true, customerId: true, customer: { select: { name: true } } }, orderBy: { updatedAt: "desc" }, take: 200 }),
   ]);
 
   const serializedCalculations = calculations.map((calc) => ({
@@ -60,6 +61,7 @@ export default async function CalculationsPage({
       initialCalculations={serializedCalculations}
       customers={customers}
       projects={projects}
+      draftQuotes={draftQuotes}
       companySlug={company?.slug ?? "koolhaas"}
       showArchived={showArchived}
     />

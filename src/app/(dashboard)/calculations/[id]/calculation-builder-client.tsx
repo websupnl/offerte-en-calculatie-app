@@ -1,6 +1,7 @@
 "use client";
 
 import { CalculationForkAction } from "@/components/calculations/calculation-fork-action";
+import { LinkToQuoteDialog } from "@/components/calculations/link-to-quote-dialog";
 import { ConvertMenu } from "@/components/convert/convert-menu";
 import { Fragment, useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -34,6 +35,7 @@ import {
   EyeOff,
   Repeat,
   GripVertical,
+  ExternalLink,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { estimateTravelDistanceKm, getTravelPrice, type TravelPricingTier } from "@/lib/travel";
@@ -117,6 +119,7 @@ type CalculationDetail = {
 export function CalculationBuilderClient({
   initialCalculation,
   siblings = [],
+  draftQuotes = [],
   products: initialProducts,
   customers,
   projects,
@@ -127,6 +130,8 @@ export function CalculationBuilderClient({
   initialCalculation: CalculationDetail;
   /** De andere calculaties op dezelfde offerte, zodat je ziet wat de klant kiest. */
   siblings?: { id: string; number: string; title: string; role: string }[];
+  /** Conceptoffertes waaraan deze calculatie gekoppeld kan worden. */
+  draftQuotes?: { id: string; title: string | null; number: string | null; customerId: string; customer: { name: string } }[];
   products: ProductOption[];
   customers: { id: string; name: string; zipCode?: string | null }[];
   projects: { id: string; number: string; title: string }[];
@@ -216,6 +221,7 @@ export function CalculationBuilderClient({
   }
 
   // Form Header State
+  const [linkOpen, setLinkOpen] = useState(false);
   const [title, setTitle] = useState(initialCalculation.title);
   const description = initialCalculation.description ?? "";
   const notes = initialCalculation.notes ?? "";
@@ -753,6 +759,31 @@ export function CalculationBuilderClient({
           </div>)}
         </section>
 
+        {!calculation.quote && (
+          <Card className="border-border bg-card shadow-none">
+            <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-base font-bold text-foreground">Nog niet gekoppeld aan een offerte</p>
+                <p className="text-base text-muted-foreground">
+                  Koppel deze calculatie aan een conceptofferte, of maak een nieuwe. Een calculatie kan samen met andere calculaties op één offerte staan.
+                </p>
+              </div>
+              <Button variant="outline" className="shrink-0 text-base" onClick={() => setLinkOpen(true)}>
+                <FileText className="mr-2 h-4 w-4" />
+                Koppelen aan offerte
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+        {linkOpen && (
+          <LinkToQuoteDialog
+            calculations={[{ id: calculation.id, title, number: calculation.number, customer: customerId ? { id: customerId } : null, role: calculation.role, quote: null }]}
+            quotes={draftQuotes}
+            customers={customers}
+            onClose={() => setLinkOpen(false)}
+          />
+        )}
+
         {calculation.quote && (
           <Card className="border-border bg-card shadow-none">
             <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
@@ -831,7 +862,14 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
               </div>
 
               <div className="space-y-2">
-                <Label>Klant</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Klant</Label>
+                  {customerId && (
+                    <Link href={`/customers/${customerId}`} className="inline-flex items-center gap-1 text-sm font-medium text-[var(--ws-accent)] hover:underline">
+                      Open klant <ExternalLink className="h-3.5 w-3.5" />
+                    </Link>
+                  )}
+                </div>
                 <SearchablePopoverSelect
                   items={customers}
                   value={customerId}
@@ -846,7 +884,14 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
               </div>
 
               <div className="space-y-2">
-                <Label>Project</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Project</Label>
+                  {projectId && (
+                    <Link href={`/projects/${projectId}`} className="inline-flex items-center gap-1 text-sm font-medium text-[var(--ws-accent)] hover:underline">
+                      Open project <ExternalLink className="h-3.5 w-3.5" />
+                    </Link>
+                  )}
+                </div>
                 <SearchablePopoverSelect
                   items={projects}
                   value={projectId}
@@ -1017,12 +1062,22 @@ Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar éé
                           onChange={(e) => updateItem(idx, "description", e.target.value)}
                           className="h-8 text-sm bg-card"
                         />
-                        {item.supplier && (
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <Badge variant="outline" className="text-sm py-0 px-1 font-normal bg-muted/40">
-                              {item.supplier}
-                            </Badge>
+                        {(item.supplier || item.productId) && (
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+                            {item.supplier && (
+                              <Badge variant="outline" className="text-sm py-0 px-1 font-normal bg-muted/40">
+                                {item.supplier}
+                              </Badge>
+                            )}
                             {item.sku && <span className="text-sm text-muted-foreground font-mono">Art# {item.sku}</span>}
+                            {item.productId && (
+                              <Link
+                                href={`/admin/products?product=${item.productId}`}
+                                className="inline-flex items-center gap-1 text-sm font-medium text-[var(--ws-accent)] hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              >
+                                Open artikel <ExternalLink className="h-3.5 w-3.5" />
+                              </Link>
+                            )}
                           </div>
                         )}
                       </td>

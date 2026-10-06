@@ -54,17 +54,23 @@ export default async function QuotesPage({
   const quotesWithPricing = serialized.map((rij: (typeof serialized)[number]) => {
     // Op het nieuwe pad komen regels en varianten uit de calculaties. Zonder deze
     // vertaling rekende de lijst met een lege regellijst en stond er € 0.
+    // Labels in de lijst: welke calculaties de prijs van deze offerte bepalen.
+    const linkedCalculations = ((rij as { calculations?: { id: string; number: string; title: string; role: string }[] }).calculations ?? []).map(
+      (calculation) => ({ id: calculation.id, number: calculation.number, title: calculation.title, role: calculation.role }),
+    );
     const quote = applyCalculationPricing(rij);
     const parsedGroups = z.array(quoteChoiceGroupSchema).safeParse(quote.choiceGroups ?? []);
     const choiceGroups = parsedGroups.success ? parsedGroups.data : [];
     return {
       ...quote,
+      linkedCalculations,
       pricing: calculateQuotePriceSummary(quote.items, choiceGroups),
       choiceGroupCount: choiceGroups.length,
     };
   });
 
-  const initialStatusFilter = (["DRAFT", "SENT", "VIEWED", "EXPIRED", "ACCEPTED", "DECLINED"] as const)
-    .find((status) => status === filters.status) ?? "all";
+  // Zonder keuze landt de lijst op het werk dat nog loopt: concept, verstuurd en bekeken.
+  const initialStatusFilter = (["open", "all", "DRAFT", "SENT", "VIEWED", "EXPIRED", "ACCEPTED", "DECLINED"] as const)
+    .find((status) => status === filters.status) ?? "open";
   return <QuotesListClient key={`${showArchived}-${initialStatusFilter}`} initialQuotes={quotesWithPricing} showArchived={showArchived} initialStatusFilter={initialStatusFilter} />;
 }

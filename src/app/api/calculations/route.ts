@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { nextCalculationNumber } from "@/lib/calculation-number";
 import { createDocumentProject } from "@/lib/document-project";
+import { intervalToCycle } from "@/lib/subscriptions/cycle";
 
 const calculationItemSchema = z.object({
   productId: z.string().optional().nullable(),
@@ -17,6 +18,10 @@ const calculationItemSchema = z.object({
   markupPercent: z.coerce.number().default(0),
   unitPrice: z.coerce.number().min(0),
   vatRate: z.coerce.number().default(21),
+  optional: z.boolean().default(false),
+  hiddenOnQuote: z.boolean().default(false),
+  recurringInterval: z.enum(["maand", "kwartaal", "jaar"]).nullable().optional(),
+  quoteNote: z.string().trim().max(200).nullable().optional(),
 });
 
 const schema = z.object({
@@ -29,11 +34,29 @@ const schema = z.object({
   items: z.array(calculationItemSchema).default([]),
 });
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const companyId = session.user.activeCompanyId;
+
+  // ?summary=1: alleen de kop van elke calculatie, zonder regels. Voor keuzelijsten
+  // zoals "calculatie koppelen", waar de regels alleen gewicht toevoegen.
+  if (req.nextUrl.searchParams.get("summary") === "1") {
+    const rows = await prisma.calculation.findMany({
+      where: { companyId, archivedAt: null },
+      select: {
+        id: true, number: true, title: true, status: true, role: true, quoteId: true, customerId: true,
+        totalSalesPrice: true, updatedAt: true,
+        customer: { select: { id: true, name: true } },
+        quote: { select: { id: true, number: true, status: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 500,
+    });
+    return NextResponse.json(rows.map((row) => ({ ...row, totalSalesPrice: Number(row.totalSalesPrice) })));
+  }
+
   const calculations = await prisma.calculation.findMany({
     where: { companyId },
     include: {
@@ -91,8 +114,10 @@ export async function POST(req: NextRequest) {
     const itemSales = item.qty * calculatedUnitPrice;
 
     // Uren zijn eigen arbeid, geen inkoopkost — telt niet mee als kostprijs
-    if (item.type !== "LABOR") totalCostPrice += itemCost;
-    totalSalesPrice += itemSales;
+    if (!item.optional && !item.recurringInterval) {
+      if (item.type !== "LABOR") totalCostPrice += itemCost;
+      totalSalesPrice += itemSales;
+    }
 
     return {
       productId: item.productId || null,
@@ -108,6 +133,12 @@ export async function POST(req: NextRequest) {
       totalCostPrice: itemCost,
       totalSalesPrice: itemSales,
       vatRate: item.vatRate,
+      optional: item.optional,
+      hiddenOnQuote: item.hiddenOnQuote,
+      recurringInterval: item.recurringInterval ?? null,
+      lineType: item.recurringInterval ? ("RECURRING" as const) : ("ONE_OFF" as const),
+      billingCycle: item.recurringInterval ? intervalToCycle(item.recurringInterval) : null,
+      quoteNote: item.quoteNote ?? null,
       sortOrder: index,
     };
   });
