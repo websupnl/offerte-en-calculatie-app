@@ -36,7 +36,8 @@ async function load() {
   const [templates, doc] = await Promise.all(
     SOURCES.map((file) => import(`${pathToFileURL(file).href}?v=${version}`)),
   );
-  return { templates: templates.ARTIFACT_TEMPLATES, validate: templates.validateArtifactHtml, heightOf: templates.templateHeight, doc };
+  const examples = (templates.ARTIFACT_EXAMPLES ?? []).map((e) => ({ ...e, category: "vrij ontwerp", interactive: false, example: {}, maxItems: {}, render: () => e.html }));
+  return { templates: [...templates.ARTIFACT_TEMPLATES, ...examples], validate: templates.validateArtifactHtml, heightOf: templates.templateHeight, doc };
 }
 
 const attr = (value) => String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;");

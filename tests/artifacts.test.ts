@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ARTIFACT_TEMPLATES, clampArtifactHeight, validateArtifactHtml } from "../mcp-server/src/artifacts";
+import { ARTIFACT_EXAMPLES, ARTIFACT_TEMPLATES, clampArtifactHeight, validateArtifactHtml } from "../mcp-server/src/artifacts";
 import { ARTIFACT_MAX_HEIGHT, artifactHeight, buildArtifactDocument } from "../src/lib/artifact-document";
 
 test("elk sjabloon met voorbeeldinvulling doorstaat de eigen validator", () => {
@@ -66,4 +66,11 @@ test("hoogte wordt begrensd", () => {
   assert.equal(artifactHeight([{ height: -3 }]), 360);
   assert.equal(clampArtifactHeight(undefined, 320), 320);
   assert.equal(clampArtifactHeight(2000, 320), ARTIFACT_MAX_HEIGHT);
+});
+
+test("voorbeelden van vrij ontwerp doorstaan de validator en gebruiken geen eigen kleuren", () => {
+  for (const example of ARTIFACT_EXAMPLES) {
+    assert.deepEqual(validateArtifactHtml(example.html), [], `${example.id} wordt afgekeurd`);
+    assert.ok(!/#[0-9a-f]{3,8}/i.test(example.html), `${example.id} bevat een hexkleur`);
+  }
 });

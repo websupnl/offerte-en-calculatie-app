@@ -17,7 +17,7 @@
  * src/lib/artifact-document.ts.
  */
 
-import { artifactHeight, buildArtifactDocument } from "@/lib/artifact-document";
+import { artifactHeight, artifactThemeFor, buildArtifactDocument } from "@/lib/artifact-document";
 
 export { ARTIFACT_DEFAULT_HEIGHT, ARTIFACT_MAX_HEIGHT, artifactHeight, buildArtifactDocument } from "@/lib/artifact-document";
 
@@ -26,11 +26,14 @@ export function QuoteArtifactFrame({
   items,
   title,
   accent,
+  company,
 }: {
   html: string;
   items?: unknown;
   title?: string | null;
   accent?: string | null;
+  /** Bedrijfsslug: bepaalt fonts en merktokens in de iframe. */
+  company?: string | null;
 }) {
   return (
     <iframe
@@ -39,7 +42,7 @@ export function QuoteArtifactFrame({
       referrerPolicy="no-referrer"
       loading="eager"
       scrolling="no"
-      srcDoc={buildArtifactDocument(html, accent)}
+      srcDoc={buildArtifactDocument(html, accent, artifactThemeFor(company))}
       style={{ width: "100%", height: artifactHeight(items), border: 0, display: "block", background: "transparent" }}
     />
   );
