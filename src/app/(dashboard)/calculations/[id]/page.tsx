@@ -15,7 +15,7 @@ export default async function CalculationDetailPage({
   const { id } = await params;
   const companyId = session.user.activeCompanyId;
 
-  const [calculation, products, customers, projects, sets] = await Promise.all([
+  const [calculation, products, customers, projects, sets, draftQuotes] = await Promise.all([
     prisma.calculation.findFirst({
       where: { id, companyId },
       include: {
@@ -49,6 +49,13 @@ export default async function CalculationDetailPage({
           include: { product: true },
         },
       },
+    }),
+    // Conceptoffertes waaraan deze calculatie gekoppeld kan worden.
+    prisma.quote.findMany({
+      where: { companyId, status: "DRAFT", archivedAt: null },
+      select: { id: true, title: true, number: true, customerId: true, customer: { select: { name: true } } },
+      orderBy: { updatedAt: "desc" },
+      take: 200,
     }),
   ]);
 
@@ -137,6 +144,7 @@ export default async function CalculationDetailPage({
     <CalculationBuilderClient
       initialCalculation={serializedCalculation}
       siblings={siblings}
+      draftQuotes={draftQuotes}
       products={serializedProducts}
       customers={customers}
       projects={projects}

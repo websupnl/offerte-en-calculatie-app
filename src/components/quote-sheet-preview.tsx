@@ -1,6 +1,7 @@
 "use client";
 import { QuotePersonalNote } from "@/components/quote-personal-note";
 import { quotePersonalProfile } from "@/lib/quote-personal";
+import { QuoteArtifactFrame, artifactHeight } from "@/components/quote-artifact-frame";
 
 import {
   Check,
@@ -124,7 +125,7 @@ type QuoteSource = { id?: string; label: string; description?: string; url: stri
 
 export type QuoteContentBlock = {
   id?: string;
-  type: "heading" | "text" | "list" | "steps" | "callout" | "specs" | "image";
+  type: "heading" | "text" | "list" | "steps" | "callout" | "specs" | "image" | "html";
   title?: string | null;
   body?: string | null;
   items?: unknown;
@@ -145,6 +146,8 @@ const estimateBlockLines = (block: QuoteContentBlock): number => {
   switch (block.type) {
     case "heading": return 2;
     case "image": return 12;
+    // Een artifact heeft een vaste hoogte (items[0].height); een regel is ruwweg 22px.
+    case "html": return 2 + Math.ceil(artifactHeight(block.items) / 22);
     case "list": return 2 + list.length;
     case "steps": return 2 + list.length * 3;
     case "specs": return 2 + Math.ceil(list.length / 2) * 2;
@@ -1497,6 +1500,16 @@ export function QuoteSheetPreview({
                         {block.title && <strong>{block.title}</strong>}
                         {block.body && <CitedText value={block.body} sources={sources} paragraphs />}
                       </div>
+                    );
+                  }
+
+                  if (block.type === "html") {
+                    return (
+                      <figure className="content-artifact" key={key}>
+                        {block.title && <h3 className="content-block-title">{block.title}</h3>}
+                        <QuoteArtifactFrame html={block.body ?? ""} items={block.items} title={block.title} accent={documentBranding.accentColor} />
+                        {block.caption && <figcaption>{block.caption}</figcaption>}
+                      </figure>
                     );
                   }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useConfirm } from "@/components/confirm-provider";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -108,12 +109,14 @@ export function ProductsClient({
   initialDatasheets,
   companySlug,
   initialProductId,
+  usage = {},
 }: {
   initialProducts: Product[];
   initialSets: ProductSet[];
   initialDatasheets: Datasheet[];
   companySlug: string;
   initialProductId?: string;
+  usage?: Record<string, { id: string; number: string; title: string }[]>;
 }) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -1029,6 +1032,29 @@ export function ProductsClient({
                       </div>
                     ))}
                   </div>
+                )}
+              </div>
+            )}
+
+            {editingId && (
+              <div className="space-y-1.5 border-t border-border pt-3">
+                <Label>Gebruikt in calculaties</Label>
+                {(usage[editingId] ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nog in geen enkele actieve calculatie gebruikt.</p>
+                ) : (
+                  <ul className="max-h-40 space-y-1 overflow-y-auto">
+                    {(usage[editingId] ?? []).map((calculation) => (
+                      <li key={calculation.id}>
+                        <Link
+                          href={`/calculations/${calculation.id}`}
+                          className="flex items-center gap-2 rounded-md bg-muted/40 px-2 py-1.5 text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <span className="shrink-0 font-mono font-semibold">{calculation.number}</span>
+                          <span className="truncate">{calculation.title}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
             )}

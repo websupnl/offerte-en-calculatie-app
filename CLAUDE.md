@@ -117,6 +117,53 @@ offertes worden nooit omgezet.
   (`MONTHLY` | `QUARTERLY` | `YEARLY`) uit af. Nooit `lineType`/`billingCycle`
   los wegschrijven.
 
+## Offerte-artifacts (HTML, CSS en JS in een offerte)
+
+Een inhoudsblok met `type = "html"` is een artifact: een zelfstandig stuk HTML,
+CSS en JS (tijdlijn, vergelijking, rekenmodule). ChatGPT zet ze via de MCP in een
+offerte. Geen migratie nodig: `QuoteContentBlock.type` is een gewone string.
+
+- **Opslag:** HTML in `body`, vaste hoogte in `items[0].height` (max 880).
+- **Weergave:** `QuoteArtifactFrame` toont het in `<iframe sandbox="allow-scripts">`
+  zonder `allow-same-origin`, met een CSP die netwerkverkeer dichtzet. Reden: de
+  inhoud komt niet van ons en staat op de openbare klantpagina `/q/[token]`.
+  Nooit `allow-same-origin` toevoegen of artifact-HTML buiten de iframe renderen.
+- **Schaal:** ontwerpen zijn voor een canvas van 673px (A4-kolom); op smallere
+  schermen schaalt `artifact-document.ts` het canvas. Dus geen media queries in
+  sjablonen. De hoogte is vast omdat de A4-pagina `overflow: hidden` heeft.
+- **Validatie:** `validateArtifactHtml()` in de MCP weigert iframes, formulieren,
+  externe scripts en netwerkverkeer vóór opslaan. Test: `tests/artifacts.test.ts`.
+- **Accent:** komt uit `documentBranding.accentColor` (niet `primaryColor`, dat is
+  voor WebsUp donkerblauw).
+
+| Bestand | Wat |
+|---|---|
+| `src/lib/artifact-document.ts` | Het document in de iframe: CSP, basis-CSS, schaalscript |
+| `src/components/quote-artifact-frame.tsx` | De iframe-component |
+| `mcp-server/src/artifacts.ts` | Sjablonen, validator en ontwerpgids |
+| `mcp-server/src/quote-design-tools.ts` | MCP-tools voor blokken, secties en artifacts |
+| `docs/opdracht-artifact-ontwerpen.md` | Opdracht voor het ontwerpen van de volledige set |
+
+MCP-tools: `get_quote_design_guide` (eerst lezen), `list_quote_artifacts`,
+`render_quote_artifact`, `add_quote_artifact`, `add_quote_content_block`,
+`update_quote_content_block`, `remove_quote_content_block`, `set_quote_sections`.
+De MCP-server staat in dezelfde repo (`mcp-server/`, eigen Dockerfile) en moet apart
+opnieuw gedeployed worden: een app-deploy werkt de tools niet bij.
+
+## Calculaties koppelen en lijsten
+
+- Meerdere calculaties op één offerte staan in de calculatielijst onder één kop
+  met label Basis of Variant. Koppelen kan vanaf de lijst (selectie of rijmenu), de
+  calculatiebouwer en de offertepagina (`QuoteCalculationLinker`). Alle drie gebruiken
+  `POST /api/calculations/link-to-quote`, dat de regels afdwingt (conceptofferte,
+  dezelfde klant, nooit precies één variant).
+- `GET /api/calculations?summary=1` geeft alleen de kop per calculatie, voor keuzelijsten.
+- Standaardweergave: calculaties tonen Actief (zonder geaccepteerde, afgewezen of
+  verlopen offerte), offertes tonen Open (concept, verstuurd, bekeken). Opdrachten en
+  afgehandeld zitten onder eigen tabs, niets is verborgen of verwijderd.
+- Artikelen zijn klikbaar: `/admin/products?product=<id>` opent het artikel, en het
+  artikel toont in welke calculaties het gebruikt wordt.
+
 ## Abonnementen, akkoorden & offerte verlengen
 
 De app is de source of truth voor hosting-/domein-/service-abonnementen.

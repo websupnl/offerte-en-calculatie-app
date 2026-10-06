@@ -12,7 +12,7 @@ export default async function ProductsPage({
   const companyId = session?.user?.activeCompanyId;
   const companySlug = session?.user?.companies?.find((c) => c.id === companyId)?.slug ?? "websup";
 
-  const [products, productSets, rawDatasheets] = companyId
+  const [products, productSets, rawDatasheets, usageRows] = companyId
     ? await Promise.all([
         prisma.product.findMany({
           where: { companyId, active: true },
@@ -35,8 +35,22 @@ export default async function ProductsPage({
           orderBy: [{ brand: "asc" }, { model: "asc" }],
           take: 500,
         }),
+        // Waar een artikel in gebruikt wordt: omgekeerde koppeling naar de calculaties.
+        prisma.calculationItem.findMany({
+          where: { productId: { not: null }, calculation: { companyId, archivedAt: null } },
+          select: { productId: true, calculation: { select: { id: true, number: true, title: true } } },
+          orderBy: { calculation: { updatedAt: "desc" } },
+          take: 5000,
+        }),
       ])
-    : [[], [], []];
+    : [[], [], [], []];
+
+  const usage: Record<string, { id: string; number: string; title: string }[]> = {};
+  for (const row of usageRows) {
+    if (!row.productId) continue;
+    const list = (usage[row.productId] ??= []);
+    if (!list.some((calculation) => calculation.id === row.calculation.id)) list.push(row.calculation);
+  }
 
   const productsByDatasheetId = new Map(
     products
@@ -66,6 +80,7 @@ export default async function ProductsPage({
       initialDatasheets={serialized.datasheets}
       companySlug={companySlug}
       initialProductId={selectedProductId}
+      usage={usage}
     />
   );
 }

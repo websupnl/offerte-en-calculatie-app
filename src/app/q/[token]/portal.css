@@ -3816,6 +3816,18 @@ a.portal-preview-link:hover {
 .content-callout-warning { border-left-color: #ef4444; }
 .content-callout-success { border-left-color: #16a34a; }
 
+.content-artifact { margin: 0; }
+
+.content-artifact iframe {
+  border-radius: 14px;
+}
+
+.content-artifact figcaption {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--on-m);
+}
+
 .content-image { margin: 0; }
 
 .content-image img {

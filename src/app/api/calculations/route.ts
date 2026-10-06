@@ -34,11 +34,29 @@ const schema = z.object({
   items: z.array(calculationItemSchema).default([]),
 });
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const companyId = session.user.activeCompanyId;
+
+  // ?summary=1: alleen de kop van elke calculatie, zonder regels. Voor keuzelijsten
+  // zoals "calculatie koppelen", waar de regels alleen gewicht toevoegen.
+  if (req.nextUrl.searchParams.get("summary") === "1") {
+    const rows = await prisma.calculation.findMany({
+      where: { companyId, archivedAt: null },
+      select: {
+        id: true, number: true, title: true, status: true, role: true, quoteId: true, customerId: true,
+        totalSalesPrice: true, updatedAt: true,
+        customer: { select: { id: true, name: true } },
+        quote: { select: { id: true, number: true, status: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 500,
+    });
+    return NextResponse.json(rows.map((row) => ({ ...row, totalSalesPrice: Number(row.totalSalesPrice) })));
+  }
+
   const calculations = await prisma.calculation.findMany({
     where: { companyId },
     include: {

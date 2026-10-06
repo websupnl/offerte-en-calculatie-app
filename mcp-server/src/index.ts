@@ -7,6 +7,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { estimateQuoteLayout, layoutWarningText } from "./quote-layout-estimate.js";
 import { registerAppTools, callApp, appResult } from "./app-tools.js";
+import { blockProblems, contentBlockInputSchema, registerQuoteDesignTools } from "./quote-design-tools.js";
 
 const { Pool } = pg;
 
@@ -190,18 +191,6 @@ function appUrl(): string {
 }
 // Als SQL-literal, zodat de UNION-query de links direct kan samenstellen.
 const appUrlSql = `'${appUrl().replace(/'/g, "''")}' || `;
-
-const contentBlockInputSchema = z.object({
-  type: z.enum(["heading", "text", "list", "steps", "callout", "specs", "image"])
-    .describe("heading = sectiekop, text = alinea's, list = opsomming, steps = genummerde stappen, callout = kader dat opvalt, specs = twee kolommen kenmerk/waarde, image = afbeelding met bijschrift"),
-  title: z.string().optional().describe("Kop boven het blok"),
-  body: z.string().optional().describe("Tekst; lege regels scheiden alinea's. Bij een heading is dit het kleine label erboven."),
-  items: z.array(z.unknown()).optional()
-    .describe("list: [\"regel\", ...] · steps: [{t, d}, ...] · specs: [{k, v}, ...]"),
-  tone: z.enum(["info", "warning", "success"]).optional().describe("Alleen voor callout"),
-  image_url: z.string().optional().describe("Alleen voor image"),
-  caption: z.string().optional().describe("Bijschrift onder een afbeelding"),
-});
 
 const calculationItemInputSchema = z.object({
   type: z.enum(["MATERIAL", "LABOR", "CUSTOM", "SET"]).default("MATERIAL")
@@ -438,6 +427,7 @@ function createMcpServer() {
     name: "websup-quote-engine",
     version: "2.1.0",
   });
+  const { insertBlock } = registerQuoteDesignTools(server, { query, queryOne });
   registerAppTools(server, {
     quoteCompany: async (id) => {
       const company = await queryOne<{ slug: string }>(`SELECT co.slug FROM "Quote" q JOIN "Company" co ON co.id = q."companyId" WHERE q.id = $1`, [id]);
@@ -2398,17 +2388,12 @@ function createMcpServer() {
       const quote = await queryOne<{ number: string }>(`SELECT number FROM "Quote" WHERE id = $1`, [quote_id]);
       if (!quote) return { content: [{ type: "text", text: `Offerte ${quote_id} niet gevonden.` }] };
 
+      // Eerst alles valideren, zodat een fout in blok 5 niet de eerste vier al heeft gewist.
+      const rejected = blocks.flatMap((block, index) => blockProblems(block).map((problem) => `Blok ${index + 1}: ${problem}`));
+      if (rejected.length > 0) return { content: [{ type: "text", text: `Niets opgeslagen.\n${rejected.join("\n")}` }] };
+
       await query(`DELETE FROM "QuoteContentBlock" WHERE "quoteId" = $1`, [quote_id]);
-      for (const [index, block] of blocks.entries()) {
-        const now = new Date().toISOString();
-        await query(
-          `INSERT INTO "QuoteContentBlock" (id,"quoteId",type,title,body,items,tone,"imageUrl",caption,"sortOrder","createdAt","updatedAt")
-           VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$11)`,
-          [crypto.randomUUID(), quote_id, block.type, block.title ?? null, block.body ?? null,
-           JSON.stringify(block.items ?? []), block.tone ?? null, block.image_url ?? null,
-           block.caption ?? null, index, now]
-        );
-      }
+      for (const [index, block] of blocks.entries()) await insertBlock(quote_id, block, index);
       await query(`UPDATE "Quote" SET "pdfUrl" = NULL, "updatedAt" = NOW() WHERE id = $1`, [quote_id]);
 
       return {

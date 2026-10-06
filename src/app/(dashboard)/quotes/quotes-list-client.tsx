@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Archive, ArchiveRestore, ArrowUpRight, Copy, FileText, MoreVertical, Plus, Search, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowUpRight, Calculator, Copy, FileText, MoreVertical, Plus, Search, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,7 @@ type Quote = {
   archivedAt: string | null;
   _count: { items: number };
   choiceGroupCount: number;
+  linkedCalculations: { id: string; number: string; title: string; role: string }[];
   pricing: {
     hasChoices: boolean;
     minimum: { totalIncVat: number };
@@ -51,7 +52,48 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
   EXPIRED: "destructive",
 };
 
-const statuses = ["all", "DRAFT", "SENT", "VIEWED", "EXPIRED", "ACCEPTED", "DECLINED"] as const;
+const statuses = ["open", "DRAFT", "SENT", "VIEWED", "ACCEPTED", "EXPIRED", "DECLINED", "all"] as const;
+
+/** "Open" is het werk dat nog loopt. Geaccepteerd, afgewezen en verlopen is afgehandeld. */
+const OPEN_STATUSES = ["DRAFT", "SENT", "VIEWED"];
+
+const FILTER_LABELS: Record<(typeof statuses)[number], string> = {
+  open: "Open",
+  all: "Alles",
+  DRAFT: QUOTE_STATUS_LABELS.DRAFT,
+  SENT: QUOTE_STATUS_LABELS.SENT,
+  VIEWED: QUOTE_STATUS_LABELS.VIEWED,
+  ACCEPTED: "Opdracht",
+  EXPIRED: QUOTE_STATUS_LABELS.EXPIRED,
+  DECLINED: QUOTE_STATUS_LABELS.DECLINED,
+};
+
+function matchesStatus(quote: Quote, filter: (typeof statuses)[number]) {
+  if (filter === "all") return true;
+  if (filter === "open") return OPEN_STATUSES.includes(quote.status);
+  return quote.status === filter;
+}
+
+/** Calculaties die samen de prijs van de offerte bepalen, elk klikbaar naar de calculatie. */
+function CalculationLabels({ quote }: { quote: Quote }) {
+  if (quote.linkedCalculations.length === 0) return null;
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
+      {quote.linkedCalculations.map((calculation) => (
+        <Link
+          key={calculation.id}
+          href={`/calculations/${calculation.id}`}
+          title={`${calculation.number}: ${calculation.title}`}
+          className="inline-flex max-w-56 items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-0.5 text-sm text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Calculator className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="shrink-0 font-semibold">{calculation.role === "VARIANT" ? "Variant" : "Basis"}</span>
+          <span className="truncate text-muted-foreground">{calculation.number}</span>
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 const SENT_STATES = ["SENT", "VIEWED", "ACCEPTED", "DECLINED", "EXPIRED"];
 
@@ -78,7 +120,7 @@ function quoteAmount(quote: Quote) {
 export function QuotesListClient({
   initialQuotes,
   showArchived = false,
-  initialStatusFilter = "all",
+  initialStatusFilter = "open",
 }: {
   initialQuotes: Quote[];
   showArchived?: boolean;
@@ -238,9 +280,15 @@ export function QuotesListClient({
         (quote.number ?? "concept").toLowerCase().includes(query) ||
         quote.title?.toLowerCase().includes(query) ||
         quote.customer.name.toLowerCase().includes(query);
-      return matchesQuery && (statusFilter === "all" || quote.status === statusFilter);
+      return matchesQuery && matchesStatus(quote, statusFilter);
     });
   }, [initialQuotes, search, statusFilter]);
+
+  const statusCounts = useMemo(() => {
+    const counts = {} as Record<(typeof statuses)[number], number>;
+    for (const status of statuses) counts[status] = initialQuotes.filter((quote) => matchesStatus(quote, status)).length;
+    return counts;
+  }, [initialQuotes]);
 
   const openPricing = initialQuotes
     .filter((quote) => ["SENT", "VIEWED"].includes(quote.status))
@@ -265,7 +313,7 @@ export function QuotesListClient({
           ? `${initialQuotes.length} gearchiveerde offertes`
           : initialStatusFilter === "EXPIRED"
             ? `${initialQuotes.length} verlopen offertes getoond`
-            : `${initialQuotes.length} offertes getoond · ${openValueLabel} open bij de klant`}
+            : `${filtered.length} offertes getoond · ${openValueLabel} open bij de klant`}
         actions={
           <Button nativeButton={false} render={<Link href="/quotes/new" />}>
             <Plus className="h-4 w-4" />
@@ -294,14 +342,15 @@ export function QuotesListClient({
                 disabled={showArchived}
                 onClick={() => {
                   if (initialStatusFilter === "EXPIRED" && status !== "EXPIRED") {
-                    router.push(status === "all" ? "/quotes" : `/quotes?status=${status}`);
+                    router.push(`/quotes?status=${status}`);
                     return;
                   }
                   setStatusFilter(status);
                 }}
                 className={`shrink-0 rounded-full ${statusFilter === status ? "bg-[var(--ws-accent)] hover:bg-[var(--ws-accent-hover)]" : ""}`}
               >
-                {status === "all" ? "Alle" : QUOTE_STATUS_LABELS[status]}
+                {FILTER_LABELS[status]}
+                {!showArchived && <span className="tabular-nums opacity-70">{statusCounts[status]}</span>}
               </Button>
             ))}
             <Button
@@ -402,6 +451,9 @@ export function QuotesListClient({
                         <p className="truncate text-sm">
                           {quote._count.items} regels
                           {quote.choiceGroupCount > 0 ? ` · ${quote.choiceGroupCount} keuzes` : ""}
+                          {quote.linkedCalculations.length > 0
+                            ? ` · ${quote.linkedCalculations.map((calculation) => `${calculation.role === "VARIANT" ? "Variant" : "Basis"} ${calculation.number}`).join(", ")}`
+                            : ""}
                         </p>
                       </div>
                       <p className="text-right font-bold tabular-nums">{quoteAmount(quote)}</p>
@@ -469,16 +521,17 @@ export function QuotesListClient({
                           />
                         </TableCell>
                         <TableCell>
-                          <Link href={`/quotes/${quote.id}`} className="block" onClick={(event) => event.stopPropagation()}>
+                          <Link href={`/quotes/${quote.id}`} className="block hover:underline" onClick={(event) => event.stopPropagation()}>
                             <p className="max-w-80 truncate font-semibold text-foreground">{quote.title || quote.number || "Conceptofferte"}</p>
                             <p className="text-sm text-muted-foreground">
                               {quote.number ?? "Concept zonder nummer"} · {quote._count.items} vaste regels
                               {quote.choiceGroupCount > 0 ? ` · ${quote.choiceGroupCount} keuze${quote.choiceGroupCount === 1 ? "" : "s"}` : ""}
                             </p>
                           </Link>
+                          <CalculationLabels quote={quote} />
                         </TableCell>
-                        <TableCell>
-                          <p className="max-w-56 truncate font-medium">{quote.customer.name}</p>
+                        <TableCell onClick={(event) => event.stopPropagation()}>
+                          <Link href={`/customers/${quote.customer.id}`} className="block max-w-56 truncate font-medium hover:underline">{quote.customer.name}</Link>
                           <p className="max-w-56 truncate text-sm text-muted-foreground">{quote.customer.email || "Geen e-mail"}</p>
                         </TableCell>
                         <TableCell>

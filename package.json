@@ -25,7 +25,8 @@
     "ai:relay:status": "systemctl status ai-relay.service --no-pager --full",
     "ai:relay:logs": "journalctl -u ai-relay.service -f",
     "ai:relay:restart": "sudo systemctl restart ai-relay.service",
-    "brave": "/snap/bin/brave --remote-debugging-port=9222 --user-data-dir=\"$HOME/snap/brave/current/.config/BraveSoftware/Brave-Browser\" &"
+    "brave": "/snap/bin/brave --remote-debugging-port=9222 --user-data-dir=\"$HOME/snap/brave/current/.config/BraveSoftware/Brave-Browser\" &",
+    "artifacts:preview": "node scripts/artifact-preview.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
