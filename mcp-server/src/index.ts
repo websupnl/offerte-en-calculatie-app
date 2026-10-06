@@ -2588,7 +2588,8 @@ if (process.env.MCP_HTTP_MODE === "true" && !MCP_API_KEY) {
 const requireApiKey = (req: Request, res: Response, next: () => void) => {
   if (MCP_API_KEY) {
     const auth = req.headers.authorization;
-    if (auth !== `Bearer ${MCP_API_KEY}`) {
+    const pathKey = (req.params as { key?: string }).key;
+    if (auth !== `Bearer ${MCP_API_KEY}` && pathKey !== MCP_API_KEY) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
@@ -2596,8 +2597,8 @@ const requireApiKey = (req: Request, res: Response, next: () => void) => {
   next();
 };
 
-app.use("/mcp", requireApiKey);
-app.use("/sse", requireApiKey);
+// Route-specifiek (niet app.use) zodat req.params.key bij de juiste match hoort: ChatGPT-connectors bieden alleen een URL-veld,
+// dus /mcp/<key> en /sse/<key> accepteren de key ook uit het pad naast de Authorization-header (zie a9b7b27).
 
 // Sommige connectoren sturen hun namespace mee in de RPC-toolnaam.
 // De catalogus gebruikt de gewone MCP-namen; accepteer beide vormen.
@@ -2614,7 +2615,7 @@ const normalizeConnectorToolName = (req: Request, _res: Response, next: () => vo
 app.use("/mcp", normalizeConnectorToolName);
 app.use("/sse", normalizeConnectorToolName);
 
-app.post("/mcp", async (req: Request, res: Response) => {
+app.post(["/mcp", "/mcp/:key"], requireApiKey, async (req: Request, res: Response) => {
   try {
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     const server = createMcpServer();
@@ -2640,8 +2641,8 @@ async function handleSseConnect(req: Request, res: Response) {
   }
 }
 
-app.get("/mcp", handleSseConnect);
-app.post("/sse", async (req: Request, res: Response) => {
+app.get(["/mcp", "/mcp/:key"], requireApiKey, handleSseConnect);
+app.post(["/sse", "/sse/:key"], requireApiKey, async (req: Request, res: Response) => {
   try {
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     const server = createMcpServer();
@@ -2651,7 +2652,7 @@ app.post("/sse", async (req: Request, res: Response) => {
     if (!res.headersSent) res.status(500).json({ error: "Internal server error" });
   }
 });
-app.get("/sse", handleSseConnect);
+app.get(["/sse", "/sse/:key"], requireApiKey, handleSseConnect);
 
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", service: "websup-quote-mcp" });
