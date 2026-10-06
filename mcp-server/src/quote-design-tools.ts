@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { ARTIFACT_DESIGN_GUIDE, ARTIFACT_TEMPLATES, clampArtifactHeight, validateArtifactHtml } from "./artifacts.js";
+import { ARTIFACT_DESIGN_GUIDE, ARTIFACT_TEMPLATES, clampArtifactHeight, templateHeight, validateArtifactHtml } from "./artifacts.js";
 
 /**
  * Alles waarmee ChatGPT de opbouw en het ontwerp van een offerte kan bepalen:
@@ -174,26 +174,26 @@ OPBOUW VAN EEN OFFERTE (je stuurt dit allemaal via de MCP)
     "list_quote_artifacts",
     "Toon de kant-en-klare artifact-sjablonen (HTML, CSS, JS) voor offertes, met per sjabloon de parameters en een voorbeeldinvulling. Gebruik daarna render_quote_artifact om er een in te vullen.",
     {},
-    async () => text(JSON.stringify(ARTIFACT_TEMPLATES.map(({ render: _render, ...template }) => template), null, 2))
+    async () => text(JSON.stringify(ARTIFACT_TEMPLATES.map(({ render: _render, heightFor: _heightFor, ...template }) => template), null, 2))
   );
 
   server.tool(
     "render_quote_artifact",
     "Vul een artifact-sjabloon in. Zonder quote_id krijg je alleen de HTML terug (om te bekijken of aan te passen). Met quote_id wordt het meteen als blok in de offerte gezet. Vul alle getallen uit de calculatie of een onderbouwde berekening, verzin niets.",
     {
-      template_id: z.string().describe("ID uit list_quote_artifacts: kpi-strip, timeline, compare, payback-calculator of faq"),
+      template_id: z.string().describe(`ID uit list_quote_artifacts: ${ARTIFACT_TEMPLATES.map((candidate) => candidate.id).join(", ")}`),
       params: z.record(z.string(), z.unknown()).describe("Parameters volgens het sjabloon"),
       quote_id: z.string().optional().describe("Zet het resultaat direct in deze offerte"),
       position: z.number().int().min(0).optional().describe("Plek tussen de inhoudsblokken, 0 = bovenaan. Leeg = onderaan."),
       title: z.string().optional().describe("Optionele kop boven het artifact in de offerte"),
       caption: z.string().optional().describe("Optioneel bijschrift eronder"),
-      height: z.number().optional().describe("Eigen hoogte in pixels, maximaal 880. Standaard de hoogte van het sjabloon."),
+      height: z.number().optional().describe("Eigen hoogte in pixels, maximaal 880. Leeg = de hoogte die het sjabloon voor deze invulling uitrekent."),
     },
     async ({ template_id, params, quote_id, position, title, caption, height }) => {
       const template = ARTIFACT_TEMPLATES.find((candidate) => candidate.id === template_id);
       if (!template) return text(`Onbekend sjabloon. Kies uit: ${ARTIFACT_TEMPLATES.map((candidate) => candidate.id).join(", ")}`);
       const html = template.render(params);
-      const finalHeight = clampArtifactHeight(height, template.height);
+      const finalHeight = clampArtifactHeight(height, templateHeight(template, params));
       if (!quote_id) return text(JSON.stringify({ height: finalHeight, html }, null, 2));
       if (!(await quoteExists(quote_id))) return text(`Offerte ${quote_id} niet gevonden.`);
       const result = await addBlockAt(quote_id, { type: "html", title, body: html, caption, height: finalHeight }, position);

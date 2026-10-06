@@ -1507,7 +1507,7 @@ export function QuoteSheetPreview({
                     return (
                       <figure className="content-artifact" key={key}>
                         {block.title && <h3 className="content-block-title">{block.title}</h3>}
-                        <QuoteArtifactFrame html={block.body ?? ""} items={block.items} title={block.title} accent={documentBranding.accentColor} />
+                        <QuoteArtifactFrame html={block.body ?? ""} items={block.items} title={block.title} accent={documentBranding.accentColor} company={activeSlug} />
                         {block.caption && <figcaption>{block.caption}</figcaption>}
                       </figure>
                     );

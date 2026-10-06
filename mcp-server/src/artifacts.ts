@@ -331,12 +331,22 @@ ${header(p.eyebrow, p.title, p.highlight)}
     },
     heightFor: (p) => {
       const items = list(p.items).slice(0, 3);
-      const points = Math.max(0, ...items.map((i) => strings(i.points).slice(0, 6).length));
-      return fit(240 + (items.length > 2 && items.some((i) => i.recommended === true) ? 30 : 0) - (items.some((i) => has(i.tagline)) ? 0 : 52) + points * 34);
+      const three = items.length > 2;
+      const perLine = three ? 16 : 30;
+      const pointsHeight = Math.max(
+        0,
+        ...items.map((i) => {
+          const pts = strings(i.points).slice(0, 6);
+          return pts.reduce((sum, pt) => sum + Math.min(2, Math.ceil(pt.length / perLine)) * 22.4, 0) + Math.max(0, pts.length - 1) * 10;
+        }),
+      );
+      const slot = three && items.some((i) => i.recommended === true) ? 36 : 0;
+      return fit(244 + slot - (items.some((i) => has(i.tagline)) ? 0 : 52) + pointsHeight);
     },
     render: (p) => {
       const items = list(p.items).slice(0, 3);
       const recLabel = has(p.recommendLabel) ? p.recommendLabel : "Mijn advies";
+      const anyRec = items.some((i) => i.recommended === true);
       const three = items.length > 2;
       const anyTagline = items.some((i) => has(i.tagline));
       return `<style>
@@ -345,7 +355,7 @@ ${header(p.eyebrow, p.title, p.highlight)}
 .col.card{box-shadow:none}
 .badge{position:absolute;top:22px;right:${three ? 16 : 22}px;display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 10px;border-radius:999px;background:var(--fill);color:#fff;font-size:14px;font-weight:600}
 .rec h4{padding-right:${three ? 0 : 130}px}
-${three ? ".rec .badge{position:static;align-self:flex-start;margin:-6px 0 12px}" : ""}
+${three ? ".rec .badge,.slot{position:static;align-self:flex-start;height:29px;margin:-6px 0 13px}" : ""}
 .badge svg{width:14px;height:14px;stroke-width:2.4}
 .col h4{font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tag{margin-top:6px;font-size:16px;line-height:1.45;color:var(--muted);height:46px}
@@ -364,7 +374,7 @@ ${three ? ".rec .badge{position:static;align-self:flex-start;margin:-6px 0 12px}
         .map((i) => {
           const rec = i.recommended === true;
           const points = strings(i.points).slice(0, 6);
-          return `<article class="col ${rec ? "card-dark topline rec" : "card"}">${rec ? `<span class="badge">${icon("check", 14)}${esc(recLabel)}</span>` : ""}<h4>${esc(i.name)}</h4>${anyTagline ? `<p class="tag clamp-2">${esc(i.tagline)}</p>` : ""}<div class="pr num">${splitValue(i.price)}</div><div class="pn">${esc(i.priceNote)}</div>${points.length ? `<ul class="pts">${points.map((pt) => `<li><span class="ck">${icon("check", 13)}</span><span class="clamp-2">${esc(pt)}</span></li>`).join("")}</ul>` : ""}</article>`;
+          return `<article class="col ${rec ? "card-dark topline rec" : "card"}">${rec ? `<span class="badge">${icon("check", 14)}${esc(recLabel)}</span>` : three && anyRec ? '<span class="slot"></span>' : ""}<h4>${esc(i.name)}</h4>${anyTagline ? `<p class="tag clamp-2">${esc(i.tagline)}</p>` : ""}<div class="pr num">${splitValue(i.price)}</div><div class="pn">${esc(i.priceNote)}</div>${points.length ? `<ul class="pts">${points.map((pt) => `<li><span class="ck">${icon("check", 13)}</span><span class="clamp-2">${esc(pt)}</span></li>`).join("")}</ul>` : ""}</article>`;
         })
         .join("")}</div>`;
     },
