@@ -31,10 +31,12 @@ services:
       - >-
         export DATABASE_URL="$(cat /run/secrets/quote_mcp_database_url)" &&
         export MCP_API_KEY="$(cat /run/secrets/quote_mcp_api_key)" &&
+        export MCP_APP_KEY="$(cat /run/secrets/quote_mcp_app_key)" &&
         exec node build/index.js
     secrets:
       - quote_mcp_database_url
       - quote_mcp_api_key
+      - quote_mcp_app_key
     networks:
       - coolify
     healthcheck:
@@ -76,3 +78,6 @@ secrets:
     file: /root/.secrets/quote-mcp-database-url
   quote_mcp_api_key:
     file: /root/.secrets/quote-mcp-api-key
+
+  quote_mcp_app_key:
+    file: /root/.secrets/quote-mcp-app-key
