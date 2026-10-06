@@ -1,0 +1,83 @@
+# Losse container voor de quote-engine MCP-server (56 tools: offertes,
+# calculaties, klanten, artikelen, productsets, datasheets, projecten,
+# werkbonnen, facturen, search/fetch). Draait naast Donna's eigen MCP-server
+# op deze VPS, maar bewust NIET erin samengevoegd:
+#
+# - Eigen geheim (MCP_API_KEY) per vertrouwensdomein — offertes/facturen van
+#   twee bedrijven is een ander domein dan Donna's persoonlijke geheugen.
+# - Eigen databasepad: deze server praat rechtstreeks via pg met Neon
+#   (offerte-app), Donna's API praat via zijn eigen pool met de lokale
+#   emma-Postgres. Niet mixen in één proces.
+# - Eigen levenscyclus/build, los van Donna's 1347 tests en release-ritme.
+#
+# Vanuit mcp-server/ draaien:
+#   docker compose -f compose.yaml up -d --build
+services:
+  quote-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      MCP_HTTP_MODE: "true"
+      MCP_PORT: "3001"
+      APP_URL: https://offerte.websup.nl
+    # De app zelf kent geen *_FILE-conventie (leest alleen platte DATABASE_URL/
+    # MCP_API_KEY), dus de secrets hier inlezen vóór node start i.p.v. ze
+    # onversleuteld in `environment:` te zetten.
+    command:
+      - sh
+      - -c
+      - >-
+        export DATABASE_URL="$(cat /run/secrets/quote_mcp_database_url)" &&
+        export MCP_API_KEY="$(cat /run/secrets/quote_mcp_api_key)" &&
+        export MCP_APP_KEY="$(cat /run/secrets/quote_mcp_app_key)" &&
+        exec node build/index.js
+    secrets:
+      - quote_mcp_database_url
+      - quote_mcp_api_key
+      - quote_mcp_app_key
+    networks:
+      - coolify
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -qO-
+        - http://127.0.0.1:3001/health
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: coolify
+      traefik.http.middlewares.quote-mcp-https-redirect.redirectscheme.scheme: https
+      traefik.http.middlewares.quote-mcp-https-redirect.redirectscheme.permanent: "true"
+      traefik.http.middlewares.quote-mcp-rate-limit.ratelimit.average: "30"
+      traefik.http.middlewares.quote-mcp-rate-limit.ratelimit.burst: "60"
+      traefik.http.middlewares.quote-mcp-rate-limit.ratelimit.period: 1s
+      traefik.http.routers.quote-mcp-http.entrypoints: http
+      traefik.http.routers.quote-mcp-http.middlewares: quote-mcp-https-redirect
+      traefik.http.routers.quote-mcp-http.rule: Host(`mcp-offerte.onlinewerkplek.cloud`)
+      traefik.http.routers.quote-mcp-http.service: quote-mcp
+      traefik.http.routers.quote-mcp-https.entrypoints: https
+      traefik.http.routers.quote-mcp-https.middlewares: quote-mcp-rate-limit
+      traefik.http.routers.quote-mcp-https.rule: Host(`mcp-offerte.onlinewerkplek.cloud`)
+      traefik.http.routers.quote-mcp-https.service: quote-mcp
+      traefik.http.routers.quote-mcp-https.tls: "true"
+      traefik.http.routers.quote-mcp-https.tls.certresolver: letsencrypt
+      traefik.http.services.quote-mcp.loadbalancer.server.port: "3001"
+
+networks:
+  coolify:
+    external: true
+
+secrets:
+  quote_mcp_database_url:
+    file: /root/.secrets/quote-mcp-database-url
+  quote_mcp_api_key:
+    file: /root/.secrets/quote-mcp-api-key
+
+  quote_mcp_app_key:
+    file: /root/.secrets/quote-mcp-app-key
