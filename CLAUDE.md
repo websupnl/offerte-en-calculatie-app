@@ -76,7 +76,8 @@ hand moest synchroniseren.
 
 ```
 Quote ──< Calculation      role = BASE     telt altijd mee in de prijs
-                           role = VARIANT  de klant kiest er een uit
+                           role = VARIANT  de klant kiest er een uit (vanaf twee)
+                           role = OPTION   meerprijs: de klant vinkt de hele calculatie aan
           └──< CalculationItem
                  gewoon                 bepaalt de prijs
                  optional = true        de klant vinkt het aan als extra
@@ -109,8 +110,14 @@ offertes worden nooit omgezet.
 - `CalculationItem.id` is stabiel: het klantportaal onthoudt aangevinkte extra's
   op dat id. De PUT van een calculatie werkt regels daarom bij op id in plaats
   van ze weg te gooien en opnieuw aan te maken.
-- Optionele regels in een `VARIANT` verschijnen niet op de offerte. Zet extra's
+- Optionele regels in een `VARIANT` of `OPTION` verschijnen niet op de offerte. Zet extra's
   in de basiscalculatie. `variantExtraWaarschuwing()` meldt dit in de editor.
+- Eén losse `VARIANT` is geen keuze en telt mee als basis. Wil je naast de basis
+  iets dat de klant erbij kan nemen, gebruik dan `OPTION` (Meerprijs). Een tweede
+  calculatie op een offerte met basis krijgt standaard `OPTION`. In het portaal
+  is een meerprijs een optie met `id = Calculation.id`, dus in
+  `selectedOptionIds` staan zowel regel-id's (extra's) als calculatie-id's
+  (meerprijzen). Namen en uitleg per rol: `src/lib/calculation-role.ts`.
 - Een calculatieregel is eenmalig of terugkerend. `recurringInterval`
   (`maand` | `kwartaal` | `jaar`) is het veld dat je in de bouwer zet; de PUT
   leidt daar `lineType` (`ONE_OFF` | `RECURRING`) en `billingCycle`
