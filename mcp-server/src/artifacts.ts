@@ -257,59 +257,6 @@ export const ARTIFACT_TEMPLATES: ArtifactTemplate[] = [
 
   /* ---------------------------------------------------------------------- */
   {
-    id: "timeline",
-    name: "Tijdlijn",
-    description:
-      "Verticale planning van akkoord tot oplevering: per stap een moment, titel en korte uitleg. Voor de planning van één project. Voor een algemene werkwijze zonder data past 'process-steps' beter.",
-    category: "proces",
-    height: 500,
-    interactive: false,
-    brands: ["websup", "koolhaas"],
-    params: {
-      eyebrow: "Optioneel klein label, bijvoorbeeld 'Planning'.",
-      title: "Optionele kop, max 60 tekens.",
-      highlight: "Optioneel. Stuk letterlijk uit title dat in het merkverloop komt.",
-      items: "Lijst van {label, title, text?}. 3 tot 6 stuks. label is het moment ('Week 1', '14 nov'), max 14 tekens. title max 40 tekens. text max 120 tekens, wordt na twee regels afgekapt.",
-    },
-    maxItems: { items: 6 },
-    example: {
-      eyebrow: "Planning",
-      title: "Van akkoord tot een draaiende installatie",
-      highlight: "draaiende installatie",
-      items: [
-        { label: "Week 1", title: "Opname bij je thuis", text: "Ik meet de meterkast en de plek van de batterij in en bestel de materialen." },
-        { label: "Week 3", title: "Installatie", text: "Eén werkdag. De stroom is hooguit een uur uit." },
-        { label: "Week 3", title: "Inregelen en uitleg", text: "Ik stel de batterij af op je verbruik en loop de app met je door." },
-        { label: "Week 7", title: "Controle na een maand", text: "We kijken samen of de instellingen kloppen met wat je in de praktijk ziet." },
-      ],
-    },
-    heightFor: (p) => fit(headerHeight(p) + list(p.items).slice(0, 6).reduce((sum, i) => sum + (has(i.text) ? 92 : 56), 0)),
-    render: (p) => {
-      const items = list(p.items).slice(0, 6);
-      return `<style>${HEAD_CSS}
-.tl{list-style:none;margin:0;padding:0}
-.tl li{position:relative;display:grid;grid-template-columns:40px minmax(0,1fr) auto;column-gap:18px;min-height:56px}
-.tl li.t{min-height:92px}
-.tl .n{position:relative;z-index:1;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--paper);border:1.5px solid var(--line-strong);font-family:var(--font-head);font-weight:var(--title-weight);font-size:16px;color:var(--ink)}
-.tl li:first-child .n{background:var(--fill);border-color:transparent;color:#fff}
-.tl li:not(:last-child)::before{content:"";position:absolute;left:19px;top:46px;bottom:6px;width:2px;border-radius:2px;background:var(--line)}
-.tl li:first-child:not(:last-child)::before{background:linear-gradient(var(--accent),var(--line))}
-.tl h4{padding-top:8px;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tl p{margin-top:4px;font-size:16px;line-height:1.5;color:var(--muted)}
-.tl .chip{margin-top:8px;align-self:start}
-</style>
-${header(p.eyebrow, p.title, p.highlight)}
-<ol class="tl">${items
-        .map(
-          (i, n) =>
-            `<li class="${has(i.text) ? "t" : ""}"><span class="n">${n + 1}</span><div><h4>${esc(i.title)}</h4>${has(i.text) ? `<p class="clamp-2">${esc(i.text)}</p>` : ""}</div>${has(i.label) ? `<span class="chip">${esc(i.label)}</span>` : "<span></span>"}</li>`,
-        )
-        .join("")}</ol>`;
-    },
-  },
-
-  /* ---------------------------------------------------------------------- */
-  {
     id: "compare",
     name: "Vergelijking",
     description:
@@ -382,132 +329,6 @@ ${three ? ".rec .badge,.slot{position:static;align-self:flex-start;height:29px;m
 
   /* ---------------------------------------------------------------------- */
   {
-    id: "payback-calculator",
-    name: "Terugverdienrekenaar",
-    description:
-      "Interactief: de klant schuift het verwachte jaarvoordeel en ziet de terugverdientijd, het saldo na een aantal jaar en een grafiek van het opgebouwde saldo. In de PDF staat de beginstand. Investering en jaarvoordeel ALLEEN uit de calculatie of een onderbouwde berekening.",
-    category: "prijs",
-    height: 450,
-    interactive: true,
-    brands: ["koolhaas", "websup"],
-    params: {
-      eyebrow: "Optioneel klein label. Standaard 'Rekenvoorbeeld'.",
-      title: "Kop, bijvoorbeeld 'Wat levert het op?'. Max 40 tekens.",
-      investment: "Totale investering in euro (getal), zoals in de offerte.",
-      yearlySaving: "Verwacht voordeel per jaar in euro (getal), onderbouwd.",
-      sliderMin: "Laagste waarde van de schuif. Standaard 50% van yearlySaving.",
-      sliderMax: "Hoogste waarde van de schuif. Standaard 150% van yearlySaving.",
-      years: "Aantal jaren in de grafiek en het saldo, 5 tot 15. Standaard 10.",
-      note: "Aannames onder de rekenaar, max 160 tekens. Altijd invullen.",
-    },
-    maxItems: {},
-    example: {
-      title: "Wat levert het op?",
-      investment: 12450,
-      yearlySaving: 1400,
-      years: 12,
-      note: "Gebaseerd op je verbruik van 4.200 kWh en de huidige tarieven. Energieprijzen kunnen veranderen.",
-    },
-    heightFor: () => 450,
-    render: (p) => {
-      const investment = Math.max(0, num(p.investment, 0));
-      const saving = Math.max(1, num(p.yearlySaving, 1000));
-      const min = Math.max(1, Math.round(num(p.sliderMin, saving * 0.5)));
-      const max = Math.max(min + 1, Math.round(num(p.sliderMax, saving * 1.5)));
-      const years = Math.min(15, Math.max(5, Math.round(num(p.years, 10))));
-      const start = Math.min(Math.max(Math.round(saving), min), max);
-      const step = max - min > 2000 ? 50 : 10;
-
-      // De beginstand wordt hier al uitgerekend, zodat de PDF en een klant zonder JS
-      // dezelfde cijfers zien. Het script rekent bij schuiven alleen opnieuw.
-      const W = 290, H = 200, TOP = 10, BOTTOM = 26, GAP = 4;
-      const barW = (W - GAP * (years - 1)) / years;
-      const eur = (v: number) => `€ ${Math.round(Math.abs(v)).toLocaleString("nl-NL")}`;
-      const payback = investment > 0 ? investment / start : 0;
-      const after = start * years - investment;
-      const above = Math.max(after, 0);
-      const span = above + investment || 1;
-      const unit = (H - TOP - BOTTOM) / span;
-      const zero = TOP + (H - TOP - BOTTOM) * (above / span);
-      const rects = Array.from({ length: years }, (_, i) => {
-        const value = start * (i + 1) - investment;
-        const h = Math.max(1.5, Math.abs(value) * unit);
-        return `<rect id="b${i}" class="${value >= 0 ? "pos" : "neg"}" x="${(i * (barW + GAP)).toFixed(1)}" y="${(value >= 0 ? zero - h : zero).toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="3"/>`;
-      }).join("");
-      const caption = payback > 0 && payback <= years ? `Boven nul in jaar ${Math.ceil(payback)}` : "Nog niet terugverdiend";
-
-      return `<style>${HEAD_CSS}
-.calc{height:428px;padding:26px 28px 22px;display:flex;flex-direction:column}
-.calc .hd{margin-bottom:18px}
-.body{display:grid;grid-template-columns:minmax(0,1fr) ${W}px;gap:28px;align-items:start}
-.lbl{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-weight:600;font-size:16px}
-.lbl output{font-family:var(--font-head);font-weight:var(--head-weight);font-size:24px;letter-spacing:-.02em;color:var(--ink)}
-input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;margin:10px 0 2px;background:transparent;cursor:pointer}
-input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:99px;background:linear-gradient(90deg,var(--accent) 0 var(--pct),var(--surface-2) var(--pct) 100%)}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;margin-top:-8px;border-radius:50%;background:#fff;border:2px solid var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.18)}
-input[type=range]::-moz-range-track{height:8px;border-radius:99px;background:var(--surface-2)}
-input[type=range]::-moz-range-progress{height:8px;border-radius:99px;background:var(--accent)}
-input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid var(--accent)}
-.ends{display:flex;justify-content:space-between;font-size:14px;color:var(--muted)}
-.res{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.res div{padding:14px 16px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line)}
-.res div.hl{background:var(--dark-bg);border-color:transparent;color:var(--on-dark)}
-.res span{display:block;font-size:14px;color:var(--muted);margin-bottom:8px}
-.res .hl span{color:var(--on-dark-muted)}
-.res b{display:block;font-size:24px;white-space:nowrap}
-.chart svg{display:block;overflow:visible}
-.chart .pos{fill:var(--accent)}.chart .neg{fill:var(--line-strong)}
-.chart .zero{stroke:var(--ink);stroke-width:1.2}
-.chart text{font-family:var(--font-body);font-size:14px;fill:var(--muted)}
-.cap{margin-top:8px;font-size:14px;color:var(--muted)}
-.cap b{color:var(--ink);font-weight:600}
-.note{margin-top:auto;padding-top:14px;border-top:1px solid var(--line);font-size:14px;line-height:1.5;color:var(--muted)}
-</style>
-<section class="card calc">
-${header(has(p.eyebrow) ? p.eyebrow : "Rekenvoorbeeld", p.title, undefined, 24)}
-<div class="body">
-  <div>
-    <label class="lbl" for="s"><span>Voordeel per jaar</span><output id="v" for="s">${eur(start)}</output></label>
-    <input id="s" type="range" min="${min}" max="${max}" step="${step}" value="${start}" style="--pct:${(((start - min) / (max - min)) * 100).toFixed(1)}%"${has(p.note) ? ' aria-describedby="n"' : ""}>
-    <div class="ends"><span>${eur(min)}</span><span>${eur(max)}</span></div>
-    <div class="res">
-      <div><span>Terugverdiend in</span><b class="num" id="p">${payback > 0 ? `${payback.toFixed(1).replace(".", ",")} jaar` : "-"}</b></div>
-      <div class="hl"><span>Saldo na ${years} jaar</span><b class="num" id="t">${after < 0 ? "-" : ""}${eur(after)}</b></div>
-    </div>
-  </div>
-  <div class="chart" aria-hidden="true">
-    <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${rects}<line id="z" class="zero" x1="-4" x2="${W + 4}" y1="${zero.toFixed(1)}" y2="${zero.toFixed(1)}"/><text x="0" y="${H - 4}">Jaar 1</text><text x="${W}" y="${H - 4}" text-anchor="end">Jaar ${years}</text></svg>
-    <p class="cap"><b id="cy">${caption}</b><br>Opgebouwd saldo per jaar</p>
-  </div>
-</div>
-${has(p.note) ? `<p class="note" id="n">${esc(p.note)}</p>` : ""}
-</section>
-<script>
-(function(){
-  var invest=${investment},years=${years},H=${H},T=${TOP},B=${BOTTOM};
-  var s=document.getElementById('s'),v=document.getElementById('v'),p=document.getElementById('p'),t=document.getElementById('t'),z=document.getElementById('z'),cy=document.getElementById('cy');
-  function eur(x){return '\\u20AC '+Math.round(Math.abs(x)).toLocaleString('nl-NL');}
-  function go(){
-    var y=Number(s.value),min=Number(s.min),max=Number(s.max);
-    s.style.setProperty('--pct',((y-min)/(max-min)*100).toFixed(1)+'%');
-    v.textContent=eur(y);
-    var pb=invest>0?invest/y:0;
-    p.textContent=pb>0?pb.toFixed(1).replace('.',',')+' jaar':'-';
-    var after=y*years-invest;t.textContent=(after<0?'-':'')+eur(after);
-    var above=Math.max(after,0),span=(above+invest)||1,unit=(H-T-B)/span,zero=T+(H-T-B)*above/span;
-    z.setAttribute('y1',zero.toFixed(1));z.setAttribute('y2',zero.toFixed(1));
-    for(var i=0;i<years;i++){var val=y*(i+1)-invest,h=Math.max(1.5,Math.abs(val)*unit),r=document.getElementById('b'+i);
-      r.setAttribute('height',h.toFixed(1));r.setAttribute('y',(val>=0?zero-h:zero).toFixed(1));r.setAttribute('class',val>=0?'pos':'neg');}
-    cy.textContent=pb>0&&pb<=years?'Boven nul in jaar '+Math.ceil(pb):'Nog niet terugverdiend';
-  }
-  s.addEventListener('input',go);
-})();
-</script>`;
-    },
-  },
-
-  /* ---------------------------------------------------------------------- */
-  {
     id: "faq",
     name: "Veelgestelde vragen",
     description:
@@ -575,52 +396,144 @@ ${header(p.eyebrow, p.title, p.highlight)}
   },
 ];
 
+/**
+ * Voorbeelden van vrij ontwerp: gewone HTML met alleen de standaardklassen uit de
+ * iframe. Geen eigen kleuren, fonts of maten. ChatGPT krijgt ze mee als richtlijn;
+ * de inhoud en de vorm bepaalt het zelf.
+ */
+export type ArtifactExample = { id: string; name: string; description: string; height: number; html: string };
+
+export const ARTIFACT_EXAMPLES: ArtifactExample[] = [
+  {
+    id: "vrij-scope",
+    name: "Wat zit erin",
+    description: "Twee kolommen: inbegrepen en niet inbegrepen. Witte kaart naast een zacht vlak.",
+    height: 290,
+    html: `<div class="grid-2">
+  <div class="card pad stack">
+    <h3 class="h3">Dit zit erin</h3>
+    <ul class="check-list">
+      <li>Ontwerp van vijf pagina's</li>
+      <li>Teksten herschreven op basis van jouw input</li>
+      <li>Bestelmodule met ophaaltijden</li>
+      <li>Hosting en onderhoud het eerste jaar</li>
+    </ul>
+  </div>
+  <div class="soft pad stack">
+    <h3 class="h3">Dit zit er niet in</h3>
+    <ul class="cross-list">
+      <li>Fotografie op locatie</li>
+      <li>Koppeling met je kassasysteem</li>
+      <li>Advertenties beheren</li>
+    </ul>
+  </div>
+</div>`,
+  },
+  {
+    id: "vrij-werkwijze",
+    name: "Werkwijze",
+    description: "Label, kop en drie tot vijf stappen naast elkaar met de klasse steps.",
+    height: 250,
+    html: `<div class="stack-lg">
+  <div class="stack">
+    <span class="eyebrow">Zo pak ik het aan</span>
+    <h2 class="h2">Van eerste schets tot <span class="grad-text">live</span></h2>
+  </div>
+  <ol class="steps">
+    <li><h3 class="h3">Kennismaken</h3><p class="small">We lopen je wensen door en ik maak een schets.</p></li>
+    <li><h3 class="h3">Ontwerp</h3><p class="small">Je ziet de pagina's voordat er iets gebouwd wordt.</p></li>
+    <li><h3 class="h3">Bouwen</h3><p class="small">Ik bouw en test, jij kijkt mee in een testomgeving.</p></li>
+    <li><h3 class="h3">Live</h3><p class="small">Ik zet alles online en leg uit hoe je het beheert.</p></li>
+  </ol>
+</div>`,
+  },
+  {
+    id: "vrij-advies",
+    name: "Advies met kerncijfer",
+    description: "Donkere kaart met één cijfer naast een korte uitleg en een callout met de aanname.",
+    height: 220,
+    html: `<div class="grid-2" style="grid-template-columns:1fr 1.3fr;align-items:stretch">
+  <div class="card-dark topline pad-lg stack">
+    <span class="label">Verwacht eigen verbruik</span>
+    <div class="stat-value">78<small>%</small></div>
+    <p class="small">van je zonnestroom gebruik je zelf, nu is dat 31%.</p>
+  </div>
+  <div class="stack" style="justify-content:center">
+    <h3 class="h3">Waarom een batterij bij jou past</h3>
+    <p>Overdag ben je weinig thuis. De batterij bewaart de stroom van je panelen voor de avond, in plaats van dat je hem goedkoop teruglevert.</p>
+    <div class="callout small">Berekend op je verbruik van 4.200 kWh per jaar.</div>
+  </div>
+</div>`,
+  },
+  {
+    id: "vrij-tabel",
+    name: "Overzicht in een tabel",
+    description: "Kop met tabel. Bedragen altijd uit de calculatie, rechts uitgelijnd met de klasse r.",
+    height: 250,
+    html: `<div class="card pad stack">
+  <div class="row between"><h3 class="h3">Maandelijkse kosten</h3><span class="chip">Na oplevering</span></div>
+  <table class="table">
+    <tr><th>Onderdeel</th><th>Wat je krijgt</th><th class="r">Per maand</th></tr>
+    <tr><td>Hosting</td><td class="muted">Snelle server, back-ups, SSL</td><td class="r">€ 25</td></tr>
+    <tr><td>Onderhoud</td><td class="muted">Updates en een uur aanpassingen</td><td class="r">€ 45</td></tr>
+  </table>
+</div>`,
+  },
+];
+
+const exampleText = ARTIFACT_EXAMPLES.map((example) => `--- ${example.name} (hoogte ${example.height}) ---\n${example.html}`).join("\n\n");
+
 export const ARTIFACT_DESIGN_GUIDE = `
 ONTWERPGIDS VOOR OFFERTE-ARTIFACTS (HTML, CSS en JS in een offerteblok)
 
-WAT HET IS
-Een blok met type "html" in de offerte. Het veld body bevat een HTML-fragment (geen volledig document nodig) met eventueel <style> en <script>. De app toont het in een afgeschermde iframe in de A4-offerte, de klantpagina en de PDF.
+UITGANGSPUNT
+Je bent vrij in wat je maakt: kies zelf de vorm die het verhaal van deze offerte het best vertelt. De huisstijl ligt vast. Bouw daarom met de standaardklassen hieronder in plaats van eigen kleuren, fonts en maten. Dan past elk blok bij het bedrijf en bij de rest van de offerte. Een sjabloon (list_quote_artifacts) is een snelle optie, geen verplichting.
 
 HARDE REGELS (de app of de validator weigert anders)
 - Maximaal 60.000 tekens.
 - Geen <iframe>, <object>, <embed>, <base>, <form>, <link rel=import>, <meta http-equiv=refresh>.
 - Geen externe scripts (<script src=...>). Alle JS staat inline.
 - Geen netwerkverkeer: fetch, XMLHttpRequest en WebSocket worden door de CSP geblokkeerd. Alle gegevens staan in het blok zelf.
-- Externe bronnen mogen alleen: Google Fonts (CSS en lettertypen) en afbeeldingen via https of data:.
-- Geen verwijzingen naar parent, top, cookies of localStorage. De iframe heeft een eigen lege origin.
+- Externe bronnen mogen alleen: Google Fonts en afbeeldingen via https of data:.
+- Geen verwijzingen naar parent, top, cookies of localStorage.
 
 FORMAAT
-- Ontwerp voor een vaste breedte van 673px (A4 minus marges). Op smallere schermen schaalt de app het hele blok kleiner, dus geen media queries.
-- Hoogte is VAST en staat in het blok als items: [{"height": 360}]. Maximaal 880. Er is geen scroll en een pagina is A4. Bij sjablonen rekent render_quote_artifact de hoogte zelf uit.
-- Een A4-pagina heeft ongeveer 880px bruikbare hoogte. Meerdere kleine artifacts delen een pagina, een groot artifact krijgt een eigen pagina.
+- Vaste breedte van 673px. Op smallere schermen schaalt de app het hele blok kleiner, dus geen media queries.
+- Hoogte is VAST (items: [{"height": 360}], maximaal 880). Er is geen scroll: wat buiten de hoogte valt, is weg. Een A4-pagina heeft ongeveer 880px.
+- Hoogte schatten: tel op wat je stapelt en tel er 20 bij op.
+  Regelhoogtes: tekst 25px, .lead 29px, .small 21px, .h1 36px, .h2 29px, .h3 24px, .stat-value 36px, .eyebrow 34px.
+  Ruimtes: .pad 48 (boven en onder samen), .pad-lg 64, .stack 12 tussen elk element, .stack-lg 24, lijstregel 32.
+  Te krap is erger dan 20px te ruim.
 
-HUISSTIJL (komt automatisch mee, per bedrijf)
-De iframe levert de fonts en tokens van het bedrijf. Gebruik ze, schrijf geen eigen kleuren of fonts.
-- Tekst: --ink, --muted. Lijnen: --line, --line-strong. Vlakken: --paper (wit), --surface, --surface-2.
-- Merk: --accent, --accent-ink (accent als leesbare tekst), --accent-soft (zachte tint), --accent-2, --accent-3, --fill (gevuld vlak met witte tekst), --grad, --grad-line.
-- Donker: --dark, --dark-bg, --on-dark, --on-dark-muted, --on-dark-line, --on-dark-accent.
-- Vorm: --r-sm, --r, --r-lg, --shadow, --shadow-lg. Fonts: --font-head, --font-body, --head-weight, --title-weight.
-Klassen die klaarstaan:
-- .card (witte kaart), .card-dark (donkere merkkaart), .topline (dunne merklijn bovenaan een kaart)
-- .eyebrow (klein label boven een kop), .display (grote kop), .num (groot cijfer), .grad-text (woord in het merkverloop)
-- .chip (klein label), .icon (vierkantje voor een svg-icoon), .muted, .clamp-1 t/m .clamp-4 (afkappen na n regels)
+STANDAARDKLASSEN (komen per bedrijf in de juiste stijl mee)
+Typografie: .h1 (34px), .h2 (26px), .h3 (19px), .lead (18px), gewone tekst (16px), .small (14px), .label (14px vet), .eyebrow (label boven een kop), .grad-text (één woord in het merkverloop), .muted
+Vlakken: .card (witte kaart), .soft (licht vlak), .tint (zachte merktint), .card-dark (donkere merkkaart, tekst wordt vanzelf licht), .topline (merklijn bovenaan een kaart), .callout (opvallende notitie), .divider
+Opbouw: .stack en .stack-lg (onder elkaar), .row en .between (naast elkaar), .grid-2, .grid-3, .grid-4, .pad, .pad-lg
+Onderdelen: .check-list (vinkjes), .cross-list (niet inbegrepen), .steps (genummerde stappen naast elkaar, <ol> met <li>), .stat-value met <small> voor de eenheid, .chip, .badge, .icon (vakje voor een svg-icoon), .table met .r voor bedragen
+Afkappen: .clamp-1 tot en met .clamp-4
+Tokens als je toch iets eigens nodig hebt: --ink, --muted, --line, --surface, --accent, --accent-ink, --accent-soft, --fill, --grad, --dark-bg, --on-dark, --r, --r-lg, --shadow. Nooit een hexkleur.
 
-STIJL
-- Rustig en premium. Accent spaarzaam: één woord in .grad-text, nummers, vinkjes, een lijn. Eén donkere kaart per blok is genoeg.
+STIJLREGELS
+- Eén hoofdpunt per blok. Wat moet de klant hier onthouden? Dat wordt het grootst.
+- Accent spaarzaam: één woord in .grad-text per blok, hooguit één .card-dark per blok.
+- Liever witruimte dan een vol blok. Maximaal 6 items in een lijst, 4 kolommen in een grid.
 - Tekst minimaal 16px, kleine labels minimaal 14px. Geen lichtgrijs op wit.
-- Geen gradient-blobs, glow, glaseffecten, emoji of em dashes.
-- Iconen als inline SVG, lijndikte 1.75, stroke="currentColor".
+- Geen gradient-vlakken, glow, glaseffecten, emoji of em dashes.
+- Iconen als inline SVG met stroke="currentColor" en stroke-width 1.75.
 
 INHOUD
 - Verzin geen cijfers, claims, reviews, certificaten of prijzen. Elk getal komt uit de calculatie, de offerte of een aangeleverde berekening.
-- Een rekenmodule toont altijd zijn aannames.
-- Print mee in PDF: de beginstand moet statisch leesbaar zijn. Animaties mogen, de eindstand staat binnen 1 seconde. Niets hangt af van hover.
+- Schrijf in de je-vorm, kort en concreet. Een rekenvoorbeeld toont altijd zijn aannames.
+- De PDF print de beginstand: alles moet zonder klikken leesbaar zijn. Niets hangt af van hover.
 - Toegankelijk: labels bij inputs, <button> voor acties, kleur nooit het enige signaal.
 
 WERKWIJZE
-1. Kijk eerst met list_quote_artifacts of een sjabloon past. Gebruik render_quote_artifact om hem in te vullen.
-2. Past er niets, schrijf eigen HTML met de klassen hierboven en sla het op met add_quote_artifact (vrij ontwerp).
+1. Bedenk wat dit blok moet vertellen en kies een vorm. Kijk eventueel naar list_quote_artifacts.
+2. Schrijf de HTML met de standaardklassen en sla het op met add_quote_artifact, of vul een sjabloon in met render_quote_artifact.
 3. Controleer het resultaat met preview_quote_artifact_page voordat je de offerte deelt.
+
+VOORBEELDEN VAN VRIJ ONTWERP (alleen standaardklassen, geen eigen CSS)
+${exampleText}
 `.trim();
 
 /** Controleert artifact-HTML voordat het in de database komt. Geeft een lijst met problemen terug. */

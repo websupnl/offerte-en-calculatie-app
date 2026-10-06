@@ -122,6 +122,51 @@ p{margin:0}
 .clamp-1,.clamp-2,.clamp-3,.clamp-4{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
 .clamp-1{-webkit-line-clamp:1}.clamp-2{-webkit-line-clamp:2}.clamp-3{-webkit-line-clamp:3}.clamp-4{-webkit-line-clamp:4}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+/* Typografie: vaste schaal, zodat elk vrij ontwerp dezelfde maat aanhoudt. */
+.h1{font-family:var(--font-head);font-weight:var(--head-weight);letter-spacing:var(--head-track);font-size:34px;line-height:1.06}
+.h2{font-family:var(--font-head);font-weight:var(--head-weight);letter-spacing:var(--head-track);font-size:26px;line-height:1.1}
+.h3{font-family:var(--font-head);font-weight:var(--title-weight);letter-spacing:var(--title-track);font-size:19px;line-height:1.25}
+.lead{font-size:18px;line-height:1.6;color:var(--muted)}
+.small{font-size:14px;line-height:1.5;color:var(--muted)}
+.label{font-size:14px;font-weight:600;line-height:1.4;color:var(--muted)}
+.card-dark .lead,.card-dark .small,.card-dark .label{color:var(--on-dark-muted)}
+/* Opbouw */
+.stack{display:flex;flex-direction:column;gap:12px}
+.stack>.eyebrow,.stack-lg>.eyebrow,.stack>.chip,.stack>.badge{align-self:flex-start}.stack-lg{display:flex;flex-direction:column;gap:24px}
+.row{display:flex;align-items:center;gap:12px}.between{justify-content:space-between}
+.grid-2,.grid-3,.grid-4{display:grid;gap:14px}
+.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}.grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.pad{padding:24px}.pad-lg{padding:32px}
+.soft{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg)}
+.tint{background:var(--grad-soft);border:1px solid var(--line-tint);border-radius:var(--r-lg)}
+.divider{height:1px;border:0;margin:0;background:var(--line)}.card-dark .divider{background:var(--on-dark-line)}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;background:var(--fill);color:#fff;font-size:14px;font-weight:600;line-height:1.4;white-space:nowrap}
+/* Lijsten met vinkje, kruis of nummer */
+.check-list,.cross-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.check-list li,.cross-list li{position:relative;padding-left:32px;line-height:1.45}
+.check-list li::before,.cross-list li::before{content:"";position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:var(--accent-soft)}
+.check-list li::after{content:"";position:absolute;left:8px;top:6px;width:6px;height:10px;border:solid var(--accent-ink);border-width:0 2.2px 2.2px 0;transform:rotate(42deg)}
+.cross-list li{color:var(--muted)}
+.cross-list li::before{background:var(--surface-2)}
+.cross-list li::after{content:"";position:absolute;left:6px;top:11px;width:10px;height:2px;border-radius:2px;background:var(--muted)}
+.card-dark .check-list li::before{background:rgba(255,255,255,.1)}.card-dark .check-list li::after{border-color:var(--on-dark-accent)}
+.steps{list-style:none;margin:0;padding:0;counter-reset:s;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:16px}
+.steps>li{counter-increment:s;position:relative}
+.steps>li::before{content:counter(s);display:grid;place-items:center;width:36px;height:36px;margin-bottom:14px;border-radius:50%;background:var(--paper);border:1.5px solid var(--line-strong);font-family:var(--font-head);font-weight:var(--title-weight);color:var(--ink)}
+.steps>li:first-child::before{background:var(--fill);border-color:transparent;color:#fff}
+.steps>li:not(:last-child)::after{content:"";position:absolute;top:18px;left:46px;right:-6px;height:2px;border-radius:2px;background:var(--line)}
+/* Cijfers */
+.stat-value{font-family:var(--font-head);font-weight:var(--head-weight);letter-spacing:-.03em;font-size:36px;line-height:1;font-variant-numeric:tabular-nums}
+.stat-value small{font-size:18px;font-weight:600;letter-spacing:-.01em;color:var(--muted);margin-left:4px}
+.card-dark .stat-value small{color:var(--on-dark-muted)}
+.callout{position:relative;padding:18px 20px 18px 24px;border-radius:var(--r);background:var(--accent-soft);color:var(--ink)}
+.callout::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:3px;background:var(--grad)}
+/* Tabel */
+.table{width:100%;border-collapse:collapse;font-size:16px}
+.table th{text-align:left;font-size:14px;font-weight:600;color:var(--muted);padding:0 12px 10px;border-bottom:1px solid var(--line-strong)}
+.table td{padding:12px;border-bottom:1px solid var(--line);vertical-align:top}
+.table tr:last-child td{border-bottom:0}
+.table .r{text-align:right;font-variant-numeric:tabular-nums}
 `;
 
 const HEX = /^#[0-9a-f]{3,8}$/i;
