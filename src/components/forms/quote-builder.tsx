@@ -553,10 +553,10 @@ export function QuoteBuilder({
   // offerte. Dat melden we, in plaats van het te laten gebeuren.
   const variantExtraWaarschuwing = (() => {
     const varianten = paneelCalculaties.filter((c) => c.role === "VARIANT");
-    if (varianten.length < 2) return null;
-    const stille = varianten.filter((c) => c.extras > 0);
+    const meerprijzen = paneelCalculaties.filter((c) => c.role === "OPTION");
+    const stille = [...(varianten.length >= 2 ? varianten : []), ...meerprijzen].filter((c) => c.extras > 0);
     if (stille.length === 0) return null;
-    return `Optionele regels in een variant verschijnen niet op de offerte. Zet ze in de `
+    return `Optionele regels in een variant of meerprijs verschijnen niet op de offerte. Zet ze in de `
       + `basiscalculatie. Het gaat om: ${stille.map((c) => `${c.number} (${c.title})`).join(", ")}.`;
   })();
 

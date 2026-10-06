@@ -21,7 +21,7 @@ export function LinkToQuoteDialog({ calculations, quotes, customers, onClose }: 
   const customerIds = [...new Set(calculations.map(c => c.customer?.id).filter(Boolean))];
   const [customerId, setCustomerId] = useState(customerIds.length === 1 ? customerIds[0] ?? '' : '');
   const [title, setTitle] = useState(calculations.map(c => c.title).join(' + '));
-  const [roles, setRoles] = useState<Record<string, 'BASE' | 'VARIANT'>>(Object.fromEntries(calculations.map(c => [c.id, c.role === 'VARIANT' ? 'VARIANT' : 'BASE'])));
+  const [roles, setRoles] = useState<Record<string, 'BASE' | 'VARIANT' | 'OPTION'>>(Object.fromEntries(calculations.map(c => [c.id, c.role === 'VARIANT' || c.role === 'OPTION' ? c.role : 'BASE'])));
   const [busy, setBusy] = useState(false);
   const compatible = quotes.filter(q => customerIds.every(id => id === q.customerId));
 
@@ -55,7 +55,7 @@ export function LinkToQuoteDialog({ calculations, quotes, customers, onClose }: 
         </>}
         <ul className="space-y-3">{calculations.map(c => <li key={c.id} className="space-y-2 rounded-lg border p-3">
           <label htmlFor={`role-${c.id}`} className="block text-base font-semibold">{c.title}<span className="ml-2 text-sm font-normal text-muted-foreground">{c.number}</span></label>
-          <select id={`role-${c.id}`} className={selectClass} value={roles[c.id]} onChange={e => setRoles(prev => ({ ...prev, [c.id]: e.target.value as 'BASE' | 'VARIANT' }))} disabled={busy}><option value="BASE">Basis: telt altijd mee</option><option value="VARIANT">Variant: alternatief voor de klant</option></select>
+          <select id={`role-${c.id}`} className={selectClass} value={roles[c.id]} onChange={e => setRoles(prev => ({ ...prev, [c.id]: e.target.value as 'BASE' | 'VARIANT' | 'OPTION' }))} disabled={busy}><option value="BASE">Basis: telt altijd mee</option><option value="VARIANT">Variant: alternatief voor de klant</option><option value="OPTION">Meerprijs: klant kan het aanvinken</option></select>
         </li>)}</ul>
       </div>
       <DialogFooter><Button className="text-base" variant="outline" onClick={onClose} disabled={busy}>Annuleren</Button><Button className="text-base" onClick={submit} disabled={busy || (quoteId === 'new' && (!customerId || !title.trim()))}>{busy ? 'Toevoegen...' : 'Toevoegen aan offerte'}</Button></DialogFooter>

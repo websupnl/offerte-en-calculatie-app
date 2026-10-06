@@ -38,6 +38,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
+import { CALCULATION_ROLES, ROLE_EXPLANATION, ROLE_LABEL, roleLabel, type CalculationRole } from "@/lib/calculation-role";
 import { estimateTravelDistanceKm, getTravelPrice, type TravelPricingTier } from "@/lib/travel";
 
 type ProductOption = {
@@ -108,7 +109,7 @@ type CalculationDetail = {
   projectId: string | null;
   quoteId: string | null;
   /** BASE telt altijd mee; VARIANT is een keuze voor de klant. */
-  role?: "BASE" | "VARIANT";
+  role?: CalculationRole;
   sortOrder?: number;
   customer: { id: string; name: string } | null;
   project: { id: string; number: string; title: string } | null;
@@ -144,7 +145,7 @@ export function CalculationBuilderClient({
   const [calculation, setCalculation] = useState<CalculationDetail>(initialCalculation);
   const [items, setItems] = useState<CalculationItemState[]>(initialCalculation.items);
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
-  const [role, setRole] = useState<"BASE" | "VARIANT">(initialCalculation.role ?? "BASE");
+  const [role, setRole] = useState<CalculationRole>(initialCalculation.role ?? "BASE");
   const [variantBezig, setVariantBezig] = useState(false);
   const [products, setProducts] = useState<ProductOption[]>(initialProducts);
 
@@ -806,7 +807,7 @@ export function CalculationBuilderClient({
                     {siblings.map((zus) => (
                       <Link key={zus.id} href={`/calculations/${zus.id}`}>
                         <Badge variant="outline" className="text-sm font-normal hover:bg-muted/40">
-                          {zus.role === "VARIANT" ? "Variant" : "Basis"} · {zus.title}
+                          {roleLabel(zus.role)} · {zus.title}
                         </Badge>
                       </Link>
                     ))}
@@ -816,10 +817,7 @@ export function CalculationBuilderClient({
 
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex rounded-lg border border-border p-0.5">
-                  {([
-                    ["BASE", "Basis", "Telt altijd mee in de prijs"],
-                    ["VARIANT", "Variant", "De klant kiest tussen de varianten"],
-                  ] as const).map(([waarde, label, uitleg]) => (
+                  {CALCULATION_ROLES.map((waarde) => [waarde, ROLE_LABEL[waarde], ROLE_EXPLANATION[waarde]] as const).map(([waarde, label, uitleg]) => (
                     <button
                       key={waarde}
                       type="button"
@@ -841,9 +839,21 @@ export function CalculationBuilderClient({
 
             {role === "VARIANT" && siblings.filter((z) => z.role === "VARIANT").length === 0 && (
               <div className="border-t border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-900">
-Eén variant is geen keuze: de klant kan nergens uit kiezen. Zolang er maar één
-                is, telt deze calculatie op de offerte gewoon mee in de prijs. Voeg er een
-                tweede toe, of zet deze terug op Basis.
+                <p>
+                  Eén variant is geen keuze: zolang er maar één is, telt deze calculatie gewoon
+                  mee in de prijs. Wat bedoel je?
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setRole("OPTION")} className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100">
+                    Meerprijs: de klant kan dit aanvinken
+                  </button>
+                  <button type="button" onClick={() => setRole("BASE")} className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100">
+                    Basis: telt altijd mee
+                  </button>
+                </div>
+                <p className="mt-2">
+                  Wil je dat de klant kiest tussen twee uitvoeringen? Maak dan een tweede variant met <strong>Maak alternatief</strong>.
+                </p>
               </div>
             )}
           </Card>

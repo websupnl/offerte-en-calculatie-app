@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatCurrency } from "@/lib/format";
+import { CALCULATION_ROLES, ROLE_LABEL, type CalculationRole } from "@/lib/calculation-role";
 
 type Row = {
   id: string;
@@ -20,7 +21,7 @@ type Row = {
   quote: { id: string; number: string | null; status: string } | null;
 };
 
-type Role = "BASE" | "VARIANT";
+type Role = CalculationRole;
 
 const selectClass =
   "h-9 rounded-md border border-input bg-background px-2 text-base text-foreground focus-visible:outline-2 focus-visible:outline-ring";
@@ -157,8 +158,7 @@ export function QuoteCalculationLinker({
                         onChange={(event) => setPicked((previous) => ({ ...previous, [row.id]: event.target.value as Role }))}
                         disabled={busy}
                       >
-                        <option value="BASE">Basis</option>
-                        <option value="VARIANT">Variant</option>
+                        {CALCULATION_ROLES.map((role) => <option key={role} value={role}>{ROLE_LABEL[role]}</option>)}
                       </select>
                     )}
                   </div>
@@ -170,7 +170,7 @@ export function QuoteCalculationLinker({
 
         {singleVariant && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Eén variant is geen keuze. Kies er minimaal twee, of zet deze op Basis.
+            Eén variant is geen keuze. Kies er minimaal twee, of zet deze op Basis of Meerprijs.
           </p>
         )}
 

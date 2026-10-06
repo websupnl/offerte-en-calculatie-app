@@ -66,8 +66,8 @@ export function registerAppTools(server: McpServer, refs: AppReferences) {
     description: 'Koppel meerdere BESTAANDE calculaties atomair, zonder andere koppelingen te verwijderen of bronregels, prijzen, opslagen en totalen te veranderen. Gebruik calculation_ids (IDs of nummers), of calculations voor rol en sort_order per calculatie. Zonder rol blijft de bestaande rol behouden. BASE telt altijd op; voor twee volledige alternatieven gebruik mode=alternatives zodat BEIDE VARIANT zijn. De eerste variant is aanbevolen, of kies recommended_calculation_id. copy_items=false legt alleen de relatie en opgegeven relatiemetadata. copy_items=true wordt expliciet geweigerd. get_quote retourneert calculations[] EN calculaties[].',
     inputSchema: { company_slug: company.optional(), quote_id: z.string().optional(), customer_id: z.string().optional(), title: z.string().optional(),
       calculation_ids: z.array(z.string().min(1)).min(1).max(200).optional(),
-      calculations: z.array(z.object({ id: z.string().min(1), role: z.enum(['BASE', 'VARIANT']).optional(), sort_order: z.number().int().min(0).optional() })).min(1).max(200).optional(),
-      role: z.enum(['BASE', 'VARIANT']).optional().describe('Optionele rol voor alle opgegeven calculaties'),
+      calculations: z.array(z.object({ id: z.string().min(1), role: z.enum(['BASE', 'VARIANT', 'OPTION']).optional(), sort_order: z.number().int().min(0).optional() })).min(1).max(200).optional(),
+      role: z.enum(['BASE', 'VARIANT', 'OPTION']).optional().describe('Optionele rol voor alle opgegeven calculaties. BASE telt altijd mee, VARIANT: klant kiest er één (minimaal twee), OPTION: meerprijs die de klant kan aanvinken.'),
       mode: z.enum(['append', 'alternatives']).default('append'),
       recommended_calculation_id: z.string().optional().describe('ID of nummer van de standaard aanbevolen variant'),
       copy_items: z.boolean().default(false),
@@ -98,7 +98,7 @@ export function registerAppTools(server: McpServer, refs: AppReferences) {
   });
   server.registerTool('create_quote_calculation', {
     description: 'Maak een nieuwe lege basiscalculatie of variant binnen een conceptofferte. Gebruik move_items alleen om oude losse offerteregels naar de basiscalculatie te migreren. Vul de calculatie daarna via app_write /api/calculations/[id]. Voor bestaande calculaties gebruik link_calculations_to_quote.',
-    inputSchema: { company_slug: company, quote_id: z.string(), title: z.string().optional(), role: z.enum(['BASE', 'VARIANT']).default('BASE'), move_items: z.boolean().default(false) },
+    inputSchema: { company_slug: company, quote_id: z.string(), title: z.string().optional(), role: z.enum(['BASE', 'VARIANT', 'OPTION']).default('BASE').describe('BASE telt altijd mee, VARIANT: klant kiest er één (minimaal twee), OPTION: meerprijs die de klant kan aanvinken bovenop de basis.'), move_items: z.boolean().default(false) },
   }, async ({ company_slug, quote_id, title, role, move_items }) => {
     try { return appResult(await callApp({ company_slug, path: `/api/quotes/${quote_id}/calculations`, method: 'POST', body: { title, role, moveItems: move_items } })); }
     catch (error) { return { ...appResult({ error: String(error) }), isError: true }; }

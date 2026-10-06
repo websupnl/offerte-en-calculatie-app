@@ -37,7 +37,7 @@ const schema = z.object({
   vatRate: z.coerce.number().default(21),
   notes: z.string().optional().nullable(),
   // BASE telt altijd mee in de offerteprijs; VARIANT is een keuze voor de klant.
-  role: z.enum(["BASE", "VARIANT"]).optional(),
+  role: z.enum(["BASE", "VARIANT", "OPTION"]).optional(),
   sortOrder: z.coerce.number().int().min(0).optional(),
   items: z.array(calculationItemSchema).default([]),
 });

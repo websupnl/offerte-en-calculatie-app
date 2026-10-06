@@ -28,9 +28,10 @@ type QuoteShapeIn = {
 };
 
 /** Prijsopbouw zonder inkoop en marge: veilig om naar de browser te sturen. */
-export type PublicQuotePricing = Omit<QuotePricing, "base" | "variants" | "blocks"> & {
+export type PublicQuotePricing = Omit<QuotePricing, "base" | "variants" | "addons" | "blocks"> & {
   base: PublicBlock | null;
   variants: PublicBlock[];
+  addons: PublicBlock[];
   blocks: PublicBlock[];
 };
 type PublicBlock = Omit<QuotePricing["blocks"][number], "internal">;
@@ -44,6 +45,7 @@ const zonderInterneCijfers = (pricing: QuotePricing): PublicQuotePricing => {
   return {
     base: pricing.base ? strip(pricing.base) : null,
     variants: pricing.variants.map(strip),
+    addons: pricing.addons.map(strip),
     blocks: pricing.blocks.map(strip),
   };
 };

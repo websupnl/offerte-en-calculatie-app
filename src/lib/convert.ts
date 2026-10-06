@@ -61,7 +61,11 @@ async function load(from: ConvertFrom, companyId: string) {
       const extraIds = new Set(
         Array.isArray(quote.share?.selectedOptionIds) ? (quote.share!.selectedOptionIds as string[]) : [],
       );
-      const calcs = quote.calculations.filter((c) => !variantIds.has(c.id) || c.id === variant?.id);
+      // Niet-gekozen varianten en niet-aangevinkte meerprijzen vallen weg.
+      const addonIds = new Set(pricing.addons.map((a) => a.id));
+      const calcs = quote.calculations.filter(
+        (c) => (!variantIds.has(c.id) || c.id === variant?.id) && (!addonIds.has(c.id) || extraIds.has(c.id)),
+      );
       lines = calcs.flatMap((c) =>
         c.items
           .filter((it) => !it.recurringInterval && it.lineType !== "RECURRING" && !it.billingCycle)

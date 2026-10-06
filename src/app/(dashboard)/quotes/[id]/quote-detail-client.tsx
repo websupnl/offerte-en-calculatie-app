@@ -1,5 +1,7 @@
 "use client";
 
+import { roleLabel } from "@/lib/calculation-role";
+
 import { PageHeader } from "@/components/layout/page-header";
 
 import { ConvertMenu } from "@/components/convert/convert-menu";
@@ -587,7 +589,7 @@ export function QuoteDetailClient({
               <DropdownMenuContent align="end" className="w-72 max-w-[calc(100vw-2rem)]">
                 {quote.calculations.map((calculation) => (
                   <DropdownMenuItem key={calculation.id} render={<Link href={`/calculations/${calculation.id}`} />}>
-                    {calculation.role === "VARIANT" ? "Variant" : "Basis"}: {calculation.number} · {calculation.title}
+                    {roleLabel(calculation.role)}: {calculation.number} · {calculation.title}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>

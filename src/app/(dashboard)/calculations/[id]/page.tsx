@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { CalculationBuilderClient } from "./calculation-builder-client";
 import { DEFAULT_SETTINGS, type TravelPricingTier } from "@/lib/branding";
+import { asCalculationRole } from "@/lib/calculation-role";
 
 export default async function CalculationDetailPage({
   params,
@@ -80,7 +81,7 @@ export default async function CalculationDetailPage({
 
   const serializedCalculation = {
     ...calculation,
-    role: calculation.role === "VARIANT" ? ("VARIANT" as const) : ("BASE" as const),
+    role: asCalculationRole(calculation.role),
     vatRate: Number(calculation.vatRate),
     totalCostPrice: Number(calculation.totalCostPrice),
     totalSalesPrice: Number(calculation.totalSalesPrice),

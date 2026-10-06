@@ -5,7 +5,8 @@
  * Drie soorten prijs, allemaal uit hetzelfde model:
  *
  *   Calculation.role = "BASE"     de klant krijgt dit sowieso
- *   Calculation.role = "VARIANT"  de klant kiest er een uit
+ *   Calculation.role = "VARIANT"  de klant kiest er een uit (vanaf twee)
+ *   Calculation.role = "OPTION"   meerprijs: de klant vinkt de hele calculatie aan
  *   CalculationItem.optional      de klant mag dit aanvinken als extra
  *   CalculationItem.hiddenOnQuote alleen intern, verschijnt nooit
  *
@@ -41,7 +42,7 @@ export type PriceBlock = {
   number: string;
   title: string;
   description: string | null;
-  role: "BASE" | "VARIANT";
+  role: "BASE" | "VARIANT" | "OPTION";
   sortOrder: number;
   vatRate: number;
   /** Vaste regels: deze bepalen de prijs van dit blok. */
@@ -57,6 +58,8 @@ export type PriceBlock = {
 export type QuotePricing = {
   base: PriceBlock | null;
   variants: PriceBlock[];
+  /** Meerprijzen: hele calculaties die de klant kan aanvinken bovenop de basis. */
+  addons: PriceBlock[];
   /** Alle blokken op volgorde, handig om over te itereren. */
   blocks: PriceBlock[];
 };
@@ -192,7 +195,7 @@ function toBlock(calculation: RawCalculation): PriceBlock {
     number: calculation.number,
     title: calculation.title,
     description: calculation.description ?? null,
-    role: calculation.role === "VARIANT" ? "VARIANT" : "BASE",
+    role: calculation.role === "VARIANT" || calculation.role === "OPTION" ? calculation.role : "BASE",
     sortOrder: calculation.sortOrder ?? 0,
     vatRate: num(calculation.vatRate) || 21,
     lines,
@@ -214,13 +217,17 @@ export function buildQuotePricing(calculations: RawCalculation[]): QuotePricing 
   // Eén variant is geen keuze: de klant kan nergens uit kiezen. Zo'n calculatie
   // telt daarom gewoon mee in de prijs. Hem als variant behandelen zou hem uit
   // de offerte laten vallen, en dan verdwijnt er geld zonder dat iemand het ziet.
+  // Wil je een tweede calculatie als keuze bovenop de basis, dan is dat een
+  // meerprijs (OPTION), geen variant.
+  const addons = blocks.filter((block) => block.role === "OPTION");
   const echteVarianten = blocks.filter((block) => block.role === "VARIANT");
   const variants = echteVarianten.length >= 2 ? echteVarianten : [];
-  const basisBlokken = blocks.filter((block) => !variants.includes(block));
+  const basisBlokken = blocks.filter((block) => !variants.includes(block) && !addons.includes(block));
 
   return {
     base: mergeBlocks(basisBlokken),
     variants,
+    addons,
     blocks,
   };
 }
@@ -275,7 +282,7 @@ export function usesCalculationPricing(quote: {
 export type PricingSelection = {
   /** Calculation.id van de gekozen variant. Leeg = de aanbevolen of eerste. */
   variantId?: string | null;
-  /** CalculationItem.id's van de aangevinkte extra's. */
+  /** CalculationItem.id's van de aangevinkte extra's, en Calculation.id's van aangevinkte meerprijzen. */
   extraIds?: string[];
 };
 
@@ -289,6 +296,8 @@ export type PricingTotals = {
   /** Het blok dat de prijs bepaalt: de basis, of de gekozen variant. */
   activeBlock: PriceBlock | null;
   chosenExtras: PriceLine[];
+  /** Meerprijzen die de klant heeft aangevinkt. */
+  chosenAddons: PriceBlock[];
 };
 
 export function resolvePricing(
@@ -308,21 +317,22 @@ export function resolvePricing(
   const chosenExtras = meetellend.flatMap((block) =>
     block.extras.filter((extra) => gekozenIds.has(extra.id)),
   );
-
-  const eenmaligeRegels = [
+  // Een meerprijs telt met al zijn vaste regels mee zodra de klant hem aanvinkt.
+  const chosenAddons = (pricing.addons ?? []).filter((block) => gekozenIds.has(block.id));
+  const alleRegels = [
     ...meetellend.flatMap((block) => block.lines),
+    ...chosenAddons.flatMap((block) => block.lines),
     ...chosenExtras,
-  ].filter((line) => line.recurringInterval === null);
+  ];
+
+  const eenmaligeRegels = alleRegels.filter((line) => line.recurringInterval === null);
 
   const totalExVat = round2(eenmaligeRegels.reduce((sum, line) => sum + line.total, 0));
   const totalVat = round2(
     eenmaligeRegels.reduce((sum, line) => sum + line.total * (line.vatRate / 100), 0),
   );
 
-  const terugkerend = [
-    ...meetellend.flatMap((block) => block.lines),
-    ...chosenExtras,
-  ].filter((line) => line.recurringInterval !== null);
+  const terugkerend = alleRegels.filter((line) => line.recurringInterval !== null);
 
   const perCycle = (cycle: BillingCycle) =>
     round2(terugkerend.filter((l) => l.billingCycle === cycle).reduce((s, l) => s + l.total, 0));
@@ -336,6 +346,7 @@ export function resolvePricing(
     perYearExVat: perCycle("YEARLY"),
     activeBlock,
     chosenExtras,
+    chosenAddons,
   };
 }
 
@@ -435,7 +446,7 @@ export function pricingToPreviewShape(pricing: QuotePricing): PreviewShape {
   // Extra's horen bij de basis. Een optionele regel in een variant zou alleen
   // moeten tellen als die variant gekozen is, en dat kan het klantportaal niet.
   // De editor waarschuwt daarvoor voordat je verstuurt.
-  const options = (pricing.base?.extras ?? []).map((line) => ({
+  const options: PreviewShape["options"] = (pricing.base?.extras ?? []).map((line) => ({
     id: line.id,
     t: line.description,
     d: extraNote(line),
@@ -448,6 +459,27 @@ export function pricingToPreviewShape(pricing: QuotePricing): PreviewShape {
     defaultSelected: false,
     details: [],
   }));
+
+  // Een meerprijs is in het portaal en de PDF een optie zoals een extra, alleen
+  // met de hele calculatie erachter. Het id is het Calculation.id.
+  for (const block of pricing.addons ?? []) {
+    const terugkerend = block.lines.filter((line) => line.recurringInterval !== null);
+    const interval = terugkerend[0]?.recurringInterval ?? null;
+    const recurring = round2(terugkerend.filter((line) => line.recurringInterval === interval).reduce((sum, line) => sum + line.total, 0));
+    options.push({
+      id: block.id,
+      t: block.title,
+      d: block.description?.trim() || block.lines.map((line) => line.description).join(", "),
+      tag: "Meerprijs",
+      price: block.totalExVat !== 0 || !interval ? block.totalExVat : null,
+      recurringPrice: interval ? recurring : null,
+      recurringInterval: interval,
+      vatRate: block.vatRate,
+      required: false,
+      defaultSelected: false,
+      details: block.lines.map((line) => line.description),
+    });
+  }
 
   return { items, choiceGroups, options };
 }

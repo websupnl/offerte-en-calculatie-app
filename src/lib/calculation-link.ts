@@ -3,7 +3,7 @@ export class CalculationLinkError extends Error {
 }
 
 export function validateCalculationLinks(
-  selected: { id: string; role: 'BASE' | 'VARIANT' }[],
+  selected: { id: string; role: 'BASE' | 'VARIANT' | 'OPTION' }[],
   calculations: { id: string; quoteId: string | null; customerId: string | null }[],
   quote: { id: string; customerId: string; status: string; items: unknown[] },
   existing: { id: string; role: string }[],
@@ -16,5 +16,5 @@ export function validateCalculationLinks(
   if (calculations.some(c => c.customerId && c.customerId !== quote.customerId)) throw new CalculationLinkError('De calculaties en offerte moeten bij dezelfde klant horen.');
   const roles = new Map(existing.map(c => [c.id, c.role]));
   for (const calculation of selected) roles.set(calculation.id, calculation.role);
-  if ([...roles.values()].filter(r => r === 'VARIANT').length === 1) throw new CalculationLinkError('Kies minimaal twee varianten, of zet de calculatie op Basis.', 400);
+  if ([...roles.values()].filter(r => r === 'VARIANT').length === 1) throw new CalculationLinkError('Eén variant is geen keuze. Kies minimaal twee varianten, of zet de calculatie op Basis of Meerprijs.', 400);
 }

@@ -67,6 +67,7 @@ async function fromQuote(id: string, companyId: string, detailed = false): Promi
     lines = [
       ...(pricing.base?.lines ?? []),
       ...(variant?.lines ?? []),
+      ...totals.chosenAddons.flatMap((addon) => addon.lines),
       ...totals.chosenExtras,
     ]
       .filter((l) => l.recurringInterval === null)

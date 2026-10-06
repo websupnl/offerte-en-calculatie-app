@@ -1,5 +1,7 @@
 "use client";
 
+import { roleLabel } from "@/lib/calculation-role";
+
 import { Fragment, useMemo, useState } from "react";
 import { LinkToQuoteDialog } from "@/components/calculations/link-to-quote-dialog";
 import { useRouter } from "next/navigation";
@@ -96,7 +98,7 @@ type Block = { key: string; quote: CalculationSummary["quote"]; calcs: Calculati
 /** Label met rol en offerte, klikbaar naar de offerte. */
 function QuoteLabel({ calc }: { calc: CalculationSummary }) {
   if (!calc.quote) return null;
-  const role = calc.role === "VARIANT" ? "Variant" : "Basis";
+  const role = roleLabel(calc.role);
   return (
     <Link
       href={`/quotes/${calc.quote.id}`}
@@ -228,7 +230,7 @@ export function CalculationsClient({
         if (seen.has(calc.quote.id)) continue;
         seen.add(calc.quote.id);
         const ordered = [...group].sort(
-          (a, b) => Number(a.role === "VARIANT") - Number(b.role === "VARIANT") || a.number.localeCompare(b.number),
+          (a, b) => Number(a.role !== "BASE") - Number(b.role !== "BASE") || a.number.localeCompare(b.number),
         );
         result.push({ key: `quote-${calc.quote.id}`, quote: calc.quote, calcs: ordered });
       } else {
@@ -495,7 +497,7 @@ export function CalculationsClient({
                             {CALCULATION_STATUS_LABELS[calc.status] ?? calc.status}
                           </Badge>
                           {block.quote && (
-                            <Badge variant="outline">{calc.role === "VARIANT" ? "Variant" : "Basis"}</Badge>
+                            <Badge variant="outline">{roleLabel(calc.role)}</Badge>
                           )}
                         </div>
 

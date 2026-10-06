@@ -64,7 +64,7 @@ export type RecurringSourceLine = {
 export type QuoteSelectionForSubs = {
   /** Calculation.id's van gekozen varianten (uit QuoteShare.selectedChoiceIds). */
   chosenVariantIds: string[];
-  /** CalculationItem.id's van aangevinkte extra's (uit QuoteShare.selectedOptionIds). */
+  /** CalculationItem.id's van aangevinkte extra's en Calculation.id's van aangevinkte meerprijzen (uit QuoteShare.selectedOptionIds). */
   chosenExtraItemIds: string[];
 };
 
@@ -96,6 +96,8 @@ export function recurringLinesFromCalculations(
     const isUnchosenVariant =
       variantsAreReal && calc.role === "VARIANT" && !chosenVariants.has(calc.id);
     if (isUnchosenVariant) continue;
+    // Een meerprijs (OPTION) telt alleen als de klant hem heeft aangevinkt.
+    if (calc.role === "OPTION" && !chosenExtras.has(calc.id)) continue;
 
     for (const item of calc.items) {
       if (item.hiddenOnQuote) continue;

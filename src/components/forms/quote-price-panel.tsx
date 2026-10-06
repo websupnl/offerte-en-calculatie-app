@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { ArrowRight, GitBranch, Loader2, Plus, TrendingUp } from "lucide-react";
+import { ArrowRight, GitBranch, Loader2, Plus, PlusCircle, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
 
@@ -56,7 +56,8 @@ export function QuotePricePanel({
   // gewoon mee in de prijs. Pas vanaf twee mag de klant kiezen.
   const gemarkeerdeVarianten = calculations.filter((c) => c.role === "VARIANT");
   const varianten = gemarkeerdeVarianten.length >= 2 ? gemarkeerdeVarianten : [];
-  const basis = calculations.filter((c) => !varianten.includes(c));
+  const meerprijzen = calculations.filter((c) => c.role === "OPTION");
+  const basis = calculations.filter((c) => !varianten.includes(c) && !meerprijzen.includes(c));
 
   async function maakCalculatie(body: Record<string, unknown>, melding: string) {
     setBezig(melding);
@@ -76,6 +77,10 @@ export function QuotePricePanel({
   }
 
   const totaal = basis.reduce((sum, c) => sum + c.totalExVat, 0);
+  const plusTekst = [
+    varianten.length > 0 ? "de variant die de klant kiest" : null,
+    meerprijzen.length > 0 ? "de meerprijzen die de klant aanvinkt" : null,
+  ].filter(Boolean).join(" en ");
 
   return (
     <div className="space-y-5">
@@ -131,13 +136,14 @@ export function QuotePricePanel({
             </p>
             <p className="mt-1 text-2xl font-black tabular-nums">{formatCurrency(totaal)}</p>
             <p className="text-sm text-muted-foreground">
-              excl. btw{varianten.length > 0 ? ", plus de variant die de klant kiest" : ""}
+              excl. btw{plusTekst ? `, plus ${plusTekst}` : ""}
             </p>
           </div>
 
           {[
             ["Basis", basis, "Telt altijd mee in de prijs"],
             ["Varianten", varianten, "De klant kiest er een uit"],
+            ["Meerprijzen", meerprijzen, "De klant kan dit aanvinken bovenop de basis"],
           ].map(([kop, lijst, uitleg]) => {
             const rijen = lijst as PanelCalculation[];
             if (rijen.length === 0) return null;
@@ -201,6 +207,17 @@ export function QuotePricePanel({
                 ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                 : <GitBranch className="mr-1.5 h-4 w-4" />}
               Lege variant
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={bezig !== null}
+              onClick={() => maakCalculatie({ role: "OPTION" }, "meerprijs")}
+            >
+              {bezig === "meerprijs"
+                ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                : <PlusCircle className="mr-1.5 h-4 w-4" />}
+              Meerprijs toevoegen
             </Button>
           </div>}
 

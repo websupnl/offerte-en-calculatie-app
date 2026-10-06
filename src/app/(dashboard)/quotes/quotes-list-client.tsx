@@ -1,5 +1,7 @@
 "use client";
 
+import { roleLabel } from "@/lib/calculation-role";
+
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -87,7 +89,7 @@ function CalculationLabels({ quote }: { quote: Quote }) {
           className="inline-flex max-w-56 items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-0.5 text-sm text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Calculator className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className="shrink-0 font-semibold">{calculation.role === "VARIANT" ? "Variant" : "Basis"}</span>
+          <span className="shrink-0 font-semibold">{roleLabel(calculation.role)}</span>
           <span className="truncate text-muted-foreground">{calculation.number}</span>
         </Link>
       ))}
@@ -452,7 +454,7 @@ export function QuotesListClient({
                           {quote._count.items} regels
                           {quote.choiceGroupCount > 0 ? ` · ${quote.choiceGroupCount} keuzes` : ""}
                           {quote.linkedCalculations.length > 0
-                            ? ` · ${quote.linkedCalculations.map((calculation) => `${calculation.role === "VARIANT" ? "Variant" : "Basis"} ${calculation.number}`).join(", ")}`
+                            ? ` · ${quote.linkedCalculations.map((calculation) => `${roleLabel(calculation.role)} ${calculation.number}`).join(", ")}`
                             : ""}
                         </p>
                       </div>

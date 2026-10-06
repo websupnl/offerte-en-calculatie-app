@@ -7,7 +7,7 @@ import { syncQuoteTotalsFromCalculations } from '@/lib/quote-totals';
 import { createDocumentProject } from '@/lib/document-project';
 
 const schema = z.object({
-  calculations: z.array(z.object({ id: z.string().min(1), role: z.enum(['BASE', 'VARIANT']).optional(), sortOrder: z.number().int().min(0).optional() })).min(1).max(200),
+  calculations: z.array(z.object({ id: z.string().min(1), role: z.enum(['BASE', 'VARIANT', 'OPTION']).optional(), sortOrder: z.number().int().min(0).optional() })).min(1).max(200),
   quoteId: z.string().min(1).optional(),
   customerId: z.string().min(1).optional(),
   title: z.string().trim().min(1).optional(),
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       }
       const selected = input.calculations.map(c => {
         const existingRole = calculations.find(existing => existing.id === c.id)?.role;
-        return { ...c, role: c.role ?? (existingRole === 'VARIANT' ? 'VARIANT' as const : 'BASE' as const) };
+        return { ...c, role: c.role ?? (existingRole === 'VARIANT' || existingRole === 'OPTION' ? existingRole : 'BASE' as const) };
       });
       validateCalculationLinks(selected, calculations, quote, quote.calculations);
       let nextOrder = Math.max(-1, ...quote.calculations.map(c => c.sortOrder)) + 1;

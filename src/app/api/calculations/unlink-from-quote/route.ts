@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       const remaining = await tx.calculation.findMany({ where: { quoteId, companyId, archivedAt: null }, orderBy: [{ sortOrder: 'asc' }, { number: 'asc' }], select: { id: true, number: true, title: true, totalSalesPrice: true, role: true, sortOrder: true } });
       if (remaining.length) await syncQuoteTotalsFromCalculations(quoteId, tx);
       else if (!quote.items.length) await tx.quote.update({ where: { id: quoteId }, data: { totalExVat: 0, totalVat: 0, totalIncVat: 0, pdfUrl: null } });
-      return { quoteId, calculationId, affected, calculations: remaining, warning: remaining.filter(c => c.role === 'VARIANT').length === 1 ? 'Er is nog één variant. Die telt als inbegrepen werk totdat een tweede variant wordt gekoppeld.' : null };
+      return { quoteId, calculationId, affected, calculations: remaining, warning: remaining.filter(c => c.role === 'VARIANT').length === 1 ? 'Er is nog één variant. Die telt als inbegrepen werk. Koppel een tweede variant, of zet hem op Basis of Meerprijs.' : null };
     });
     return NextResponse.json(result);
   } catch (error) {

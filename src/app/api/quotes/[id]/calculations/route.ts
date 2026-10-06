@@ -18,7 +18,7 @@ import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
 
 const schema = z.object({
   title: z.string().trim().min(1).optional(),
-  role: z.enum(["BASE", "VARIANT"]).optional(),
+  role: z.enum(["BASE", "VARIANT", "OPTION"]).optional(),
   /** Bestaande QuoteItem-regels overnemen in de nieuwe calculatie. */
   moveItems: z.boolean().optional(),
 });
@@ -49,8 +49,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     );
   }
 
-  const heeftBasis = quote.calculations.some((calculation) => calculation.role !== "VARIANT");
-  const role = parsed.data.role ?? (heeftBasis ? "VARIANT" : "BASE");
+  // Een tweede calculatie naast een basis is meestal een meerprijs: iets wat de
+  // klant erbij kan nemen. Eén losse variant zou stil bij de basis optellen.
+  const heeftBasis = quote.calculations.some((calculation) => calculation.role === "BASE");
+  const role = parsed.data.role ?? (heeftBasis ? "OPTION" : "BASE");
   const moveItems = parsed.data.moveItems === true && quote.items.length > 0;
 
   const company = await prisma.company.findUnique({ where: { id: companyId }, select: { slug: true } });
