@@ -433,7 +433,7 @@ const COMPANY_COPY = {
     investmentDescription:
       "Een eenmalige investering voor materialen, montage, aansluiting, controle en oplevering zoals beschreven in deze offerte.",
     optionsEyebrow: "Optioneel meerwerk",
-    optionsTitle: "Alleen waar het technisch logisch is.",
+    optionsTitle: "",
     exclusionsEyebrow: "Niet inbegrepen",
     exclusionsTitle: "Wat valt er buiten de offerte.",
     closingTitle: "Onderteken om te starten.",
@@ -1135,7 +1135,7 @@ export function QuoteSheetPreview({
       <div className="row-badge">
         <div>
           <span className="eyebrow">{brand.optionsEyebrow}</span>
-          <h2 className="h2">{brand.optionsTitle}</h2>
+          {brand.optionsTitle && <h2 className="h2">{brand.optionsTitle}</h2>}
         </div>
         {isEditable && (
           <button type="button" className="doc-edit-btn" onClick={addOption}>
