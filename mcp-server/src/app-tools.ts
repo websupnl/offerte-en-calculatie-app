@@ -36,6 +36,103 @@ export function registerAppTools(server: McpServer, refs: AppReferences) {
   const company = z.string().describe('Actief bedrijf: websup of koolhaas. Privéwerk via scope=private gebruikt de vaste MCP-gebruiker.');
   const query = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional();
   const read = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
+  server.registerTool('update_calculation', {
+    description: 'Wijzig uitsluitend titel en algemene beschrijving van een bestaande calculatie. Behoudt artikelen, prijzen, marges en offertekoppelingen. Gekoppelde offertes lezen de actuele tekst en hun PDF-cache wordt vernieuwd. Ook tekstcorrecties bij verstuurde offertes zijn toegestaan.',
+    inputSchema: {
+      company_slug: company,
+      calculation_id: z.string().min(1).describe('ID of calculatienummer, bijvoorbeeld KI-2026-C026'),
+      title: z.string().trim().min(1).optional(),
+      description: z.string().nullable().optional().describe('Algemene beschrijving. Null of een lege string wist de tekst.'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, async ({ company_slug, calculation_id, title, description }) => {
+    try {
+      if (title === undefined && description === undefined) throw new Error('Geef een titel of beschrijving op.');
+      const id = await refs.calculationId(calculation_id, company_slug);
+      const result = await callApp({ company_slug, path: `/api/calculations/${id}`, method: 'PATCH', body: {
+        ...(title !== undefined ? { title } : {}),
+        ...(description !== undefined ? { description } : {}),
+      } });
+      return { ...appResult(result), ...(result.status >= 400 ? { isError: true } : {}) };
+    } catch (error) { return { ...appResult({ error: String(error) }), isError: true }; }
+  });
+  const mutation = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false };
+  const quoteRef = { quote_id: z.string().min(1), company_slug: company.optional() };
+  async function quoteRequest(quote_id: string, company_slug: string | undefined, suffix: string, method: string, body?: unknown) {
+    const slug = company_slug ?? await refs.quoteCompany(quote_id);
+    const result = await callApp({ company_slug: slug, path: `/api/quotes/${quote_id}${suffix}`, method, body });
+    return { ...appResult(result), ...(result.status >= 400 ? { isError: true } : {}) };
+  }
+  const safely = async (action: () => Promise<ReturnType<typeof appResult>>) => {
+    try { return await action(); } catch (error) { return { ...appResult({ error: String(error) }), isError: true }; }
+  };
+  const fields = z.object({ title: z.string().min(1).optional(), category: z.string().optional(), tagline: z.string().optional(), intro: z.string().optional(), outro: z.string().optional(), itemsHeader: z.string().optional(), hiddenSections: z.array(z.enum(['content', 'approach', 'visuals', 'modules', 'terms', 'sources'])).optional() }).strict();
+  const optionChanges = z.object({ title: z.string().min(1).optional(), description: z.string().optional(), details: z.array(z.string()).optional(), tag: z.string().min(1).optional() }).strict();
+  server.registerTool('patch_quote', {
+    description: 'Wijzig uitsluitend de opgegeven klantgerichte offertevelden. Geen prijswijzigingen of vervanging van lijsten. Voorbeeld fields={intro:"Nieuwe introductie"}. Geaccepteerde offertes blijven vergrendeld.',
+    inputSchema: { ...quoteRef, fields }, annotations: mutation,
+  }, ({ quote_id, company_slug, fields }) => safely(() => quoteRequest(quote_id, company_slug, '/presentation', 'PATCH', { fields })));
+  server.registerTool('update_quote_option', {
+    description: 'Wijzig titel, beschrijving, details of label van één optioneel meerwerkblok op de offerte, zonder broncalculatie of bedragen te veranderen. option_id uit get_quote.options; reset=true herstelt de actuele brontekst.',
+    inputSchema: { ...quoteRef, option_id: z.string(), changes: optionChanges.optional(), reset: z.boolean().optional() }, annotations: mutation,
+  }, ({ quote_id, company_slug, option_id, changes, reset }) => safely(() => quoteRequest(quote_id, company_slug, '/presentation', 'PATCH', { option: { id: option_id, changes, reset } })));
+  server.registerTool('update_quote_item', {
+    description: 'Wijzig alleen de klantomschrijving of zichtbaarheid van details van één offertepost. hidden_on_quote=true toont een neutrale som zodat geen geld verdwijnt. De broncalculatie, aantallen en prijzen blijven intact. reset=true gebruikt weer de bron.',
+    inputSchema: { ...quoteRef, item_id: z.string(), description: z.string().min(1).optional(), hidden_on_quote: z.boolean().optional(), reset: z.boolean().optional() }, annotations: mutation,
+  }, ({ quote_id, company_slug, item_id, description, hidden_on_quote, reset }) => safely(() => quoteRequest(quote_id, company_slug, '/presentation', 'PATCH', { item: { id: item_id, changes: { description, hiddenOnQuote: hidden_on_quote }, reset } })));
+  server.registerTool('delete_quote_content_block', {
+    description: 'Verwijder één verouderd inhoudsblok uit deze offerte. Andere blokken en calculaties blijven intact.',
+    inputSchema: { ...quoteRef, block_id: z.string() }, annotations: { ...mutation, destructiveHint: true },
+  }, ({ quote_id, company_slug, block_id }) => safely(() => quoteRequest(quote_id, company_slug, '/presentation', 'PATCH', { deleteBlockId: block_id })));
+  server.registerTool('add_quote_image', {
+    description: 'Voeg een productfoto of installatieschema als afzonderlijk afbeeldingblok toe. Gebruik een bestaande HTTPS-afbeelding, geen verzonnen foto.',
+    inputSchema: { ...quoteRef, image_url: z.string().url(), title: z.string().optional(), caption: z.string().optional() }, annotations: { ...mutation, idempotentHint: false },
+  }, ({ quote_id, company_slug, image_url, title, caption }) => safely(() => quoteRequest(quote_id, company_slug, '/presentation', 'PATCH', { image: { url: image_url, title, caption } })));
+  server.registerTool('reorder_quote_sections', {
+    description: 'Zet de echte offertepagina’s in een nieuwe volgorde. Omslag blijft eerste en akkoord laatste. Geef alle acht secties eenmaal op, ook als ze momenteel leeg of verborgen zijn.',
+    inputSchema: { ...quoteRef, order: z.array(z.enum(['intro', 'content', 'approach', 'visuals', 'pricing', 'modules', 'terms', 'sources'])).length(8) }, annotations: mutation,
+  }, ({ quote_id, company_slug, order }) => safely(() => quoteRequest(quote_id, company_slug, '/presentation', 'PATCH', { sectionOrder: order })));
+  server.registerTool('preview_quote', {
+    description: 'Render de werkelijke klantdocument-layout als PNG-pagina’s, inclusief actuele prijzen, optioneel meerwerk en opgeslagen klantkeuzes. Geen publicatie of verzending. Maximaal vier pagina’s per call; start_page is 0-based. Bekijk alle pagina’s voor een volledige opmaakcontrole.',
+    inputSchema: { ...quoteRef, start_page: z.number().int().min(0).default(0), limit: z.number().int().min(1).max(4).default(4) }, annotations: read,
+  }, async ({ quote_id, company_slug, start_page, limit }) => {
+    try {
+      const slug = company_slug ?? await refs.quoteCompany(quote_id);
+      const result = await callApp({ company_slug: slug, path: `/api/quotes/${quote_id}/preview`, query: { startPage: start_page, limit } });
+      if (result.status >= 400) return { ...appResult(result), isError: true };
+      const data = result.data as { images: string[]; [key: string]: unknown };
+      const { images, ...metadata } = data;
+      return { content: [{ type: 'text' as const, text: JSON.stringify(metadata, null, 2) }, ...images.map(image => ({ type: 'image' as const, data: image, mimeType: 'image/png' }))] };
+    } catch (error) { return { ...appResult({ error: String(error) }), isError: true }; }
+  });
+  server.registerTool('update_project', {
+    description: 'Bewerk projecttitel, beschrijving, locatie en uitvoeringsstatus. Behoudt documenten en calculaties.',
+    inputSchema: { company_slug: company, project_id: z.string(), fields: z.object({ title: z.string().min(1).optional(), description: z.string().nullable().optional(), address: z.string().nullable().optional(), city: z.string().nullable().optional(), zipCode: z.string().nullable().optional(), status: z.enum(['OPEN', 'IN_PROGRESS', 'DONE', 'ARCHIVED']).optional() }).strict() }, annotations: mutation,
+  }, ({ company_slug, project_id, fields }) => safely(async () => { const result = await callApp({ company_slug, path: `/api/projects/${project_id}`, method: 'PATCH', body: fields }); return { ...appResult(result), ...(result.status >= 400 ? { isError: true } : {}) }; }));
+  server.registerTool('delete_project', {
+    description: 'Verwijder een leeg project. Projecten met documenten, bestanden, taken of andere gekoppelde gegevens kunnen alleen worden gearchiveerd via update_project status=ARCHIVED.',
+    inputSchema: { company_slug: company, project_id: z.string() }, annotations: { ...mutation, destructiveHint: true },
+  }, ({ company_slug, project_id }) => safely(async () => { const result = await callApp({ company_slug, path: `/api/projects/${project_id}`, method: 'DELETE' }); return { ...appResult(result), ...(result.status >= 400 ? { isError: true } : {}) }; }));
+  server.registerTool('validate_quote', {
+    description: 'Controleer ontbrekende klantgegevens en meerwerkteksten, dubbele posten en mogelijke dubbele bedragen, en afwijkende calculatiekoppelingen. Signalen vervangen geen technische beoordeling: gebruik ook preview_quote.',
+    inputSchema: quoteRef, annotations: read,
+  }, ({ quote_id, company_slug }) => safely(() => quoteRequest(quote_id, company_slug, '/validate', 'GET')));
+  server.registerTool('get_quote_history', {
+    description: 'Toon maximaal 100 vastgelegde presentatieversies met tijd, actor en snapshot om tekst en opmaak te vergelijken. Alleen de nieuwe presentatieacties leggen deze versies vast; geen volledig calculatiearchief.',
+    inputSchema: quoteRef, annotations: read,
+  }, ({ quote_id, company_slug }) => safely(() => quoteRequest(quote_id, company_slug, '/history', 'GET')));
+  server.registerTool('restore_quote_version', {
+    description: 'Herstel een vastgelegde presentatieversie: commerciële tekst, meerwerkoverrides, inhoudsblokken en sectievolgorde. Calculatieregels, prijzen, koppelingen en klantkeuzes blijven intact. Geaccepteerde offertes zijn vergrendeld.',
+    inputSchema: { ...quoteRef, version_id: z.string() }, annotations: { ...mutation, destructiveHint: true, idempotentHint: false },
+  }, ({ quote_id, company_slug, version_id }) => safely(() => quoteRequest(quote_id, company_slug, '/history', 'POST', { versionId: version_id })));
+  server.registerTool('clone_quote', {
+    description: 'Maak een nieuw concept vanuit een bestaande offerte, inclusief eigen kopieën van calculaties en presentatie. customer_id kiest optioneel een nieuwe klant van hetzelfde bedrijf. De oorspronkelijke offerte blijft intact. Controleer klantgerichte tekst opnieuw met preview_quote.',
+    inputSchema: { ...quoteRef, customer_id: z.string().optional() }, annotations: { ...mutation, idempotentHint: false },
+  }, ({ quote_id, company_slug, customer_id }) => safely(() => quoteRequest(quote_id, company_slug, '/duplicate', 'POST', { customerId: customer_id })));
+  server.registerTool('update_quote_content_block', {
+    description: 'Wijzig alleen de opgegeven velden van één inhoudsblok, met bedrijfscontrole, PDF-vernieuwing en herstelbare presentatieversie. Het bloktype en andere blokken blijven intact. Voor HTML-hoogte geef items=[{height:360}] mee.',
+    inputSchema: { ...quoteRef, block_id: z.string(), changes: z.object({ title: z.string().optional(), body: z.string().optional(), items: z.array(z.unknown()).optional(), tone: z.enum(['info', 'warning', 'success']).optional(), imageUrl: z.string().url().optional(), caption: z.string().optional() }).strict() }, annotations: mutation,
+  }, ({ quote_id, company_slug, block_id, changes }) => safely(() => quoteRequest(quote_id, company_slug, '/presentation', 'PATCH', { block: { id: block_id, changes } })));
   server.registerTool('get_app_capabilities', {
     description: 'Ontdek ALLE actuele appfuncties en hun invoervelden. Taken, lijsten, notities, agenda, klanten, projecten, calculaties, offertes, artikelen, bestanden, facturen, abonnementen, contracten, portaal, reviewborden, AI en instellingen. De catalogus wordt bij iedere app-build bijgewerkt. Lees eerst de relevante paden en schema’s, gebruik daarna app_read of app_write. Schema’s gebruiken camelCase.',
     inputSchema: { filter: z.string().optional().describe('Filter op pad, bijvoorbeeld tasks, subscriptions, calculations of quotes') }, annotations: read,

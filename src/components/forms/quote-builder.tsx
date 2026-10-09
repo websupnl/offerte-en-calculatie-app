@@ -277,6 +277,7 @@ type InitialQuote = Partial<Omit<QuotePreviewData, "items" | "customer" | "choic
    * artikelen; `items` blijft alleen gevuld bij offertes van vóór die omslag.
    */
   usesCalculations?: boolean;
+  calculationSummaries?: { id: string; title: string; description: string | null }[];
   calculations?: {
     id: string;
     number: string;
@@ -680,6 +681,7 @@ export function QuoteBuilder({
     batteryAdvice,
     hiddenSections,
     contentBlocks: initialQuote?.contentBlocks ?? [],
+    calculationSummaries: initialQuote?.calculationSummaries ?? [],
     createdAt: initialQuote?.createdAt ?? null,
     commercial: { ...commercial, priceDisplayMode },
     customer: {

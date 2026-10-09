@@ -72,6 +72,28 @@ async function launchBrowser() {
  * @param cookie  Optional session cookie string for authenticated pages
  * @param expectedSelector  Element that must exist before accepting the PDF
  */
+export async function renderQuotePreview(url: string, cookie: string, startPage = 0, limit = 4) {
+  const browser = await launchBrowser();
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1000, height: 1200, deviceScaleFactor: 1 });
+    if (cookie) await page.setExtraHTTPHeaders({ cookie });
+    const response = await page.goto(url, { waitUntil: "networkidle0", timeout: 30000 });
+    if (!response?.ok() || new URL(page.url()).pathname !== new URL(url).pathname) throw new Error("De klantweergave is niet bereikbaar");
+    await page.waitForSelector(".sheet", { timeout: 10000 });
+    await page.evaluate(() => document.fonts.ready);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    const sheets = await page.$$(".sheet");
+    const images: string[] = [];
+    for (const sheet of sheets.slice(startPage, startPage + limit)) {
+      images.push(Buffer.from(await sheet.screenshot({ type: "png" })).toString("base64"));
+    }
+    const text = await page.evaluate(() => Array.from(document.querySelectorAll(".sheet")).map((sheet) => (sheet as HTMLElement).innerText));
+    const overflow = await page.evaluate(() => Array.from(document.querySelectorAll(".sheet")).map((sheet, index) => ({ page: index + 1, overflow: sheet.scrollHeight > sheet.clientHeight + 2 })).filter((row) => row.overflow));
+    return { pageCount: sheets.length, startPage, images, text, overflow };
+  } finally { await browser.close().catch(() => {}); }
+}
+
 export async function renderPageAsPdf(url: string, cookie?: string, expectedSelector?: string): Promise<Buffer | null> {
   let browser: Awaited<ReturnType<typeof launchBrowser>> | null = null;
   try {

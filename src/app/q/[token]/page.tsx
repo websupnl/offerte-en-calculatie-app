@@ -279,6 +279,7 @@ export default async function QuotePortalPage({ params }: { params: Promise<{ to
     })),
     hiddenSections: serialized.quote.hiddenSections,
     contentBlocks: serialized.quote.contentBlocks,
+    calculationSummaries: serialized.quote.calculationSummaries,
     attachments: serialized.quote.attachments,
     documents: serialized.quote.documents,
     adviceDocuments: [],

@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
 import { intervalToCycle } from "@/lib/subscriptions/cycle";
+import { calculationTextSchema } from "@/lib/calculation-text";
+import { updateCalculationText } from "@/lib/update-calculation-text";
 
 const calculationItemSchema = z.object({
   id: z.string().optional(),
@@ -70,6 +72,28 @@ export async function GET(
   }
 
   return NextResponse.json(calculation);
+}
+
+/** Alleen presentatietekst wijzigen, ook wanneer de offerte al verstuurd is. */
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await params;
+  const parsed = calculationTextSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  const updated = await prisma.$transaction((tx) => updateCalculationText(tx, id, session.user.activeCompanyId, parsed.data));
+  if (!updated) return NextResponse.json({ error: "Calculatie niet gevonden" }, { status: 404 });
+  if (updated.quoteId) {
+    const quoteId = updated.quoteId;
+    const host = req.headers.get("host") ?? "localhost:3001";
+    const cookie = req.headers.get("cookie") ?? "";
+    after(async () => { await generateAndStorePdf(quoteId, host, cookie); });
+  }
+  return NextResponse.json(updated);
 }
 
 export async function PUT(
