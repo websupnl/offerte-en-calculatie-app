@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { KOOLHAAS_CONTACT } from "@/lib/company-contact";
 import { brandAssetUrl, DEFAULT_BRANDING, getBranding, gradientCssFromBranding, type CompanyBranding } from "@/lib/branding";
 import { defaultQuoteExtensionMessage, defaultQuoteExtensionSubject } from "@/lib/quote-email-copy";
 
@@ -22,7 +23,7 @@ const COMPANY_EMAIL_IDENTITIES: Record<string, CompanyEmailIdentity> = {
     fromName: "Koolhaas Installaties",
     fromEmail: "koolhaasinstallaties@onlinewerkplek.cloud",
     replyTo: "info@koolhaasinstallaties.nl",
-    phone: "06 82 20 21 48",
+    phone: KOOLHAAS_CONTACT.phone,
     logoUrl: "/logos/koolhaas-wordmark-black.png",
     signatureImageUrl: "/signatures/daan-koolhaas-signature.png",
     signerName: "Daan Koolhaas",
