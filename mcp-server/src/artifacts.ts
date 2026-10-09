@@ -530,7 +530,7 @@ INHOUD
 WERKWIJZE
 1. Bedenk wat dit blok moet vertellen en kies een vorm. Kijk eventueel naar list_quote_artifacts.
 2. Schrijf de HTML met de standaardklassen en sla het op met add_quote_artifact, of vul een sjabloon in met render_quote_artifact.
-3. Controleer het resultaat met preview_quote_artifact_page voordat je de offerte deelt.
+3. Controleer het resultaat met preview_quote voordat je de offerte deelt. Deze tool toont de echte documentpagina's, inclusief artifacts. Controleer pageCount en overflow en bekijk alle pagina's met start_page.
 
 VOORBEELDEN VAN VRIJ ONTWERP (alleen standaardklassen, geen eigen CSS)
 ${exampleText}
