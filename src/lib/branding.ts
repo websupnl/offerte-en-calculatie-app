@@ -1,3 +1,5 @@
+import { KOOLHAAS_CONTACT } from "./company-contact";
+
 export type BrandGradient = {
   from: string;
   via: string;
@@ -84,6 +86,7 @@ export const DEFAULT_BRANDING: Record<string, CompanyBranding> = {
     backgroundColor: "#fbfcfd",
     textColor: "#102D59",
     logoUrl: "/logos/koolhaas-logo.png",
+    personalWhatsapp: KOOLHAAS_CONTACT.phone,
     faviconUrl: "/logos/koolhaas-icon.png",
     font: "Sora",
     gradient: { from: "#102d59", via: "#247eb2", to: "#6edbcf", angle: 120, viaPosition: 48 },

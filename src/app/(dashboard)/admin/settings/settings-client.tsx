@@ -484,7 +484,7 @@ export function SettingsClient({
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="personal-whatsapp">WhatsApp-nummer</Label>
-                    <Input id="personal-whatsapp" type="tel" value={branding.personalWhatsapp ?? "06 82 20 21 48"} maxLength={30} onChange={(e) => setBranding((b) => ({ ...b, personalWhatsapp: e.target.value }))} />
+                    <Input id="personal-whatsapp" type="tel" value={branding.personalWhatsapp ?? getBranding(companySlug).personalWhatsapp ?? "06 82 20 21 48"} maxLength={30} onChange={(e) => setBranding((b) => ({ ...b, personalWhatsapp: e.target.value }))} />
                   </div>
                 </div>
                 <div className="space-y-2">

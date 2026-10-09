@@ -3,6 +3,7 @@ import { OrderedQuotePages } from "@/components/ordered-quote-pages";
 import { readPresentation } from "@/lib/quote-presentation";
 import { QuotePersonalNote } from "@/components/quote-personal-note";
 import { quotePersonalProfile } from "@/lib/quote-personal";
+import { KOOLHAAS_CONTACT } from "@/lib/company-contact";
 import { QuoteArtifactFrame, artifactHeight } from "@/components/quote-artifact-frame";
 
 import {
@@ -414,7 +415,7 @@ const COMPANY_COPY = {
     logoText: null,
     website: "koolhaasinstallaties.nl",
     email: "info@koolhaasinstallaties.nl",
-    phone: "06 82 20 21 48",
+    phone: KOOLHAAS_CONTACT.phone,
     kvk: "95524061",
     role: "Koolhaas Installaties",
     defaultCategory: "Installatie - Energieopslag",
@@ -848,6 +849,11 @@ export function QuoteSheetPreview({
           <span>{brand.phone}</span>
           <span>KVK {brand.kvk}</span>
         </div>
+        {isKoolhaas && (
+          <div className="doc-foot-meta-row" style={{ fontSize: 16 }}>
+            <span>{KOOLHAAS_CONTACT.address}</span>
+          </div>
+        )}
         <div className="doc-foot-meta-row">
           {validUntilLabel && <span>Geldig tot {validUntilLabel}</span>}
           <span>{pageNo}</span>

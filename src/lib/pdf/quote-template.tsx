@@ -15,6 +15,7 @@ import {
 import { readFileSync } from "node:fs";
 import { getBranding, type BrandGradient, type CompanyBranding } from "@/lib/branding";
 import { quotePersonalProfile } from "@/lib/quote-personal";
+import { KOOLHAAS_CONTACT } from "@/lib/company-contact";
 import {
   getQuoteOptionPrice,
   getQuoteOptionRecurringInterval,
@@ -266,7 +267,7 @@ const BRANDS: Record<BrandKey, BrandConfig> = {
     logoIcon: logoDataUri("koolhaas-icon.png"),
     website: "koolhaasinstallaties.nl",
     email: "info@koolhaasinstallaties.nl",
-    phone: "06 82 20 21 48",
+    phone: KOOLHAAS_CONTACT.phone,
     kvk: "95524061",
     role: "Koolhaas Installaties",
     defaultCategory: "Installatie - Energieopslag",
@@ -1231,6 +1232,7 @@ export function QuotePDF({
           <View style={{ alignItems: "flex-end" }}>
             <Text style={{ fontSize: 7.5, color: "#94A3B8" }}>{brand.name} &nbsp;&middot;&nbsp; Daan Koolhaas &nbsp;&middot;&nbsp; Friesland</Text>
             <Text style={{ fontSize: 7.5, color: "#94A3B8", marginTop: 2 }}>{brand.website} &nbsp;&middot;&nbsp; {brand.email} &nbsp;&middot;&nbsp; {brand.phone} &nbsp;&middot;&nbsp; KVK {brand.kvk}</Text>
+            {isKoolhaas && <Text style={{ fontSize: 12, color: brand.colors.primary, marginTop: 2 }}>{KOOLHAAS_CONTACT.address}</Text>}
             <Text style={{ fontSize: 7.5, color: "#94A3B8", marginTop: 2 }}>Offerte geldig tot {validUntil || "—"}</Text>
           </View>
         </View>

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { InvoicePdfDownload } from "@/components/invoices/invoice-pdf-download";
 import { getInvoiceSettings } from "@/lib/branding";
+import { KOOLHAAS_CONTACT } from "@/lib/company-contact";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { invoiceCustomerPaymentUrl } from "@/lib/mollie-invoice-validation";
 import * as QRCode from "qrcode";
@@ -15,7 +16,7 @@ import * as QRCode from "qrcode";
  */
 const BRAND = {
   websup: { website: "websup.nl", email: "info@websup.nl", phone: "06 82 20 21 48" },
-  koolhaas: { website: "koolhaasinstallaties.nl", email: "info@koolhaasinstallaties.nl", phone: "06 82 20 21 48" },
+  koolhaas: { website: "koolhaasinstallaties.nl", email: "info@koolhaasinstallaties.nl", phone: KOOLHAAS_CONTACT.phone },
 } as const;
 
 export default async function InvoicePrintPage({
