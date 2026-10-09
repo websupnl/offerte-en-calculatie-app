@@ -28,6 +28,8 @@ npm run dev
 Login: `info@websup.nl` / `Admin123!`
 
 ## Deploy (Coolify)
+Voor de losse VPS-MCP: bouw in `mcp-server/` met `npm run build` en voer `node --test tests/tool-catalog.test.mjs` uit vóór uitrol. Die test opent de volledige echte MCP-catalogus zonder databaseacties en vangt dubbele toolnamen tussen `index.ts`, `app-tools.ts` en `quote-design-tools.ts`. Na `docker compose up -d --build` ook het publieke `tools/list`, de appgateway en een read-only offertepreview controleren; een gezonde container alleen bewijst geen bruikbare MCP.
+
 1. Push naar Git repo
 2. In Coolify: New Service → Dockerfile → koppel repo
 3. Stel env vars in (DATABASE_URL, NEXTAUTH_SECRET, OPENAI_API_KEY)

@@ -1824,7 +1824,7 @@ function createMcpServer() {
   );
 
   server.tool(
-    "update_project",
+    "update_project_legacy",
     "Pas een project aan (status, datum, adres, etc.)",
     {
       project_id: z.string().describe("Project ID"),
