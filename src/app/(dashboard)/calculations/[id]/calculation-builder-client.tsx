@@ -9,6 +9,7 @@ import { useConfirm } from "@/components/confirm-provider";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -224,7 +225,7 @@ export function CalculationBuilderClient({
   // Form Header State
   const [linkOpen, setLinkOpen] = useState(false);
   const [title, setTitle] = useState(initialCalculation.title);
-  const description = initialCalculation.description ?? "";
+  const [description, setDescription] = useState(initialCalculation.description ?? "");
   const notes = initialCalculation.notes ?? "";
   const [customerId, setCustomerId] = useState(initialCalculation.customerId ?? "");
   const [projectId, setProjectId] = useState(initialCalculation.projectId ?? "");
@@ -539,6 +540,17 @@ export function CalculationBuilderClient({
     items,
   };
   const currentSignature = JSON.stringify(savePayload);
+  const financialSignature = JSON.stringify({ status, notes, customerId, projectId, role, items });
+  const savedFinancialSignatureRef = useRef(financialSignature);
+  // Een tekstcorrectie schrijft nooit regels, totalen of relatiemetadata opnieuw.
+  const saveRequest = () => {
+    const textOnly = financialSignature === savedFinancialSignatureRef.current;
+    return {
+      method: textOnly ? "PATCH" : "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(textOnly ? { title, description } : savePayload),
+    };
+  };
 
   // Stille opslag voor autosave: PUT zonder toast, met statusindicatie.
   // De debounce-effect hieronder maakt bij elke wijziging een nieuwe timer met
@@ -549,15 +561,12 @@ export function CalculationBuilderClient({
     autosaveInFlight.current = true;
     setSaveStatus("saving");
     try {
-      const res = await fetch(`/api/calculations/${calculation.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(savePayload),
-      });
+      const res = await fetch(`/api/calculations/${calculation.id}`, saveRequest());
       const updated = await res.json();
       if (!res.ok) throw new Error(updated.error || "Opslaan mislukt");
       setCalculation(updated);
       savedSignatureRef.current = currentSignature;
+      savedFinancialSignatureRef.current = financialSignature;
       setSaveStatus("saved");
     } catch {
       setSaveStatus("error");
@@ -573,13 +582,13 @@ export function CalculationBuilderClient({
       savedSignatureRef.current = currentSignature;
       return;
     }
-    if (!title.trim()) return;
+    if (!title.trim() || saveStatus === "saving" || saveStatus === "error") return;
     if (currentSignature === savedSignatureRef.current) return;
     setSaveStatus("unsaved");
     const timer = setTimeout(() => void silentSave(), 1500);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSignature]);
+  }, [currentSignature, saveStatus]);
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -605,15 +614,12 @@ export function CalculationBuilderClient({
     setSaving(true);
     setSaveStatus("saving");
     try {
-      const res = await fetch(`/api/calculations/${calculation.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(savePayload),
-      });
+      const res = await fetch(`/api/calculations/${calculation.id}`, saveRequest());
       const updated = await res.json();
       if (!res.ok) throw new Error(updated.error || "Opslaan mislukt");
       setCalculation(updated);
       savedSignatureRef.current = currentSignature;
+      savedFinancialSignatureRef.current = financialSignature;
       setSaveStatus("saved");
       return true;
     } catch (err) {
@@ -867,8 +873,8 @@ export function CalculationBuilderClient({
           <CardContent className="p-5">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>Titel calculatie *</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+                <Label htmlFor="calculation-title">Titel calculatie *</Label>
+                <Input id="calculation-title" className="text-base" value={title} onChange={(e) => setTitle(e.target.value)} />
               </div>
 
               <div className="space-y-2">
@@ -918,6 +924,21 @@ export function CalculationBuilderClient({
             </div>
 
 
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card shadow-none">
+          <CardHeader className="pb-3 border-b">
+            <CardTitle className="text-base font-semibold">Beschrijving voor de offerte</CardTitle>
+          </CardHeader>
+          <CardContent className="p-5 space-y-2">
+            <Label htmlFor="calculation-description">Algemene beschrijving</Label>
+            <Textarea id="calculation-description" className="text-base min-h-32"
+              value={description} onChange={(e) => setDescription(e.target.value)}
+              aria-describedby="calculation-description-help" />
+            <p id="calculation-description-help" className="text-base text-muted-foreground">
+              Wordt automatisch opgeslagen. Gekoppelde offertes nemen deze tekst over, tenzij daar eigen klanttekst is ingesteld.
+            </p>
           </CardContent>
         </Card>
 

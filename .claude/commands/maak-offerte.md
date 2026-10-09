@@ -4,6 +4,20 @@ Jij maakt een complete, importklare offerte voor de offerte-app van Daan Koolhaa
 
 ## Werkplek en calculatie-alternatieven
 
+### Gerichte correcties en controle via MCP
+
+- `update_calculation(company_slug, calculation_id, title?, description?)` wijzigt uitsluitend de bronbeschrijving en titel. Gebruik een ID of calculatienummer. Geen artikelen, hoeveelheden, prijzen, marges of koppelingen worden geschreven. De interface slaat losse tekstwijzigingen automatisch op via PATCH.
+- `update_quote_option(quote_id, option_id, changes)` wijzigt de commerciële titel, beschrijving, details en tag van één meerwerkoptie, onafhankelijk van de broncalculatie. De actuele bron blijft alle bedragen bepalen. `reset=true` verwijdert de override en herstelt de actuele brontekst.
+- `patch_quote(quote_id, fields)` wijzigt alleen opgegeven presentatieteksten, zoals intro, outro en tagline. Geen volledige lijsten meesturen. Een geaccepteerde offerte blijft vergrendeld voor presentatieacties.
+- `update_quote_content_block(quote_id, block_id, changes)` en `delete_quote_content_block` wijzigen één blok en bewaren een presentatieversie. `add_quote_image` voegt een HTTPS-afbeelding met bijschrift toe.
+- `update_quote_item(quote_id, item_id, description?, hidden_on_quote?)` corrigeert klantgerichte posttekst. Verbergen van details toont een neutrale post met dezelfde prijs, geen korting. De oude financiële actie heet voortaan `update_quote_legacy_item` en is alleen voor losse oude offerteregels.
+- `reorder_quote_sections` ontvangt alle acht secties eenmaal: intro, content, approach, visuals, pricing, modules, terms, sources. Omslag en akkoord houden hun positie. De daadwerkelijke pagina's en paginanummers volgen deze volgorde.
+- `preview_quote` retourneert echte gerenderde klantdocumentpagina's als PNG, maximaal vier per aanroep met `start_page` vanaf 0. Lees ook `pageCount` en `overflow`; controleer alle pagina's. Dit is dezelfde documentlayout als het portaal en de PDF, zonder publicatie of verzending.
+- `validate_quote` controleert ontbrekende gegevens, vermoedelijke duplicaten en calculatiekoppelingen. De controle kan technische claims niet bewijzen; beoordeel de preview ook inhoudelijk.
+- `clone_quote(quote_id, customer_id?)` maakt een nieuw concept met eigen calculatiekopieën. Bij een andere klant vervalt de oude projectlocatiekoppeling. Controleer persoonlijke en technische teksten opnieuw.
+- `get_quote_history` en `restore_quote_version` werken met presentatieversies die via de nieuwe presentatieacties zijn vastgelegd, maximaal honderd in de lijst. Ze zetten geen calculaties, prijzen, klantkeuzes of vroegere ongeregistreerde wijzigingen terug.
+- Projecten: `update_project` bewerkt tekst, locatie en status; `delete_project` verwijdert alleen lege projecten. Archiveer projecten met gekoppelde gegevens via status ARCHIVED. De detailpagina heeft een bewerkformulier en verwijderknop.
+
 - Meerdere bestaande calculaties samen toevoegen: vink ze aan in het calculatieoverzicht en kies **Toevoegen aan offerte**. Kies een bestaande conceptofferte of maak een nieuwe. Zet inbegrepen onderdelen op `BASE`, en minimaal twee volledige alternatieven op `VARIANT`.
 - MCP: gebruik `link_calculations_to_quote` met `company_slug`, `calculations: [{id, role}]` en `quote_id` (bestaand), of `customer_id` en `title` (nieuw). Dit is één transactie en behoudt andere gekoppelde calculaties. `copy_items` is vervallen. Verplaats geen calculatie die bij een andere offerte hoort: maak eerst een losse kopie.
 - Ook ondersteund: `{quote_id, calculation_ids: ["KI-2026-C021", "KI-2026-C023"], copy_items: false}`. Het bedrijf wordt afgeleid; bestaande rollen blijven behouden. Gebruik `mode: "alternatives"` om beide volledige uitvoeringen `VARIANT` te maken. `BASE` betekent inbegrepen werk, niet aanbevolen. Kies de aanbevolen variant met `recommended_calculation_id`, of zet diens `sort_order` vooraan via `calculations`. Ontkoppelen: `unlink_calculation_from_quote({quote_id, calculation_id})`. Controleer beide koppelingen via `get_quote.calculations[]` én `get_calculation.quoteId`. Koppelen verandert geen bronregels, prijzen, opslagen of totalen.

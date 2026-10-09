@@ -118,6 +118,7 @@ type Project = {
   status: string;
   address: string | null;
   city: string | null;
+  zipCode?: string | null;
   customer: { id: string; name: string; email: string | null } | null;
   quotes: Quote[];
   files: ProjectFile[];
@@ -139,6 +140,30 @@ export function ProjectDetailClient({ project }: { project: Project }) {
   const router = useRouter();
   const confirm = useConfirm();
   const [status, setStatus] = useState(project.status);
+  const [editing, setEditing] = useState(false);
+  const [projectBusy, setProjectBusy] = useState(false);
+  const [form, setForm] = useState({ title: project.title, description: project.description ?? "", address: project.address ?? "", city: project.city ?? "", zipCode: project.zipCode ?? "" });
+  async function saveProject() {
+    setProjectBusy(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Controleer de projectgegevens");
+      setEditing(false); router.refresh(); toast.success("Project bijgewerkt");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Opslaan mislukt"); }
+    finally { setProjectBusy(false); }
+  }
+  async function deleteProject() {
+    if (!(await confirm({ title: "Project verwijderen?", confirmLabel: "Verwijderen", destructive: true }))) return;
+    setProjectBusy(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Verwijderen mislukt");
+      router.push("/projects"); router.refresh(); toast.success("Project verwijderd");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Verwijderen mislukt"); }
+    finally { setProjectBusy(false); }
+  }
   const [files, setFiles] = useState<ProjectFile[]>(project.files);
   const [uploading, setUploading] = useState(false);
   const [uploadCategory, setUploadCategory] = useState("OVERIG");
@@ -303,7 +328,7 @@ export function ProjectDetailClient({ project }: { project: Project }) {
         <ArrowLeft className="h-4 w-4" /> Terug naar projecten
       </Link>
 
-      <PageHeader className="px-0! pt-0!" eyebrow={project.number} title={project.title} description={[project.customer?.name ?? "Geen klant", project.city].filter(Boolean).join(" · ")} actions={<Select value={status} onValueChange={(v) => { if (v) changeStatus(v); }}>
+      <PageHeader className="px-0! pt-0!" eyebrow={project.number} title={project.title} description={[project.customer?.name ?? "Geen klant", project.city].filter(Boolean).join(" · ")} actions={<div className="flex flex-wrap items-center gap-2"><Button variant="outline" disabled={projectBusy} onClick={() => { setForm({ title: project.title, description: project.description ?? "", address: project.address ?? "", city: project.city ?? "", zipCode: project.zipCode ?? "" }); setEditing(true); }}>Project bewerken</Button><Button variant="outline" disabled={projectBusy} onClick={() => void deleteProject()}><Trash2 className="h-4 w-4" />Verwijderen</Button><Select value={status} onValueChange={(v) => { if (v) changeStatus(v); }}>
             <SelectTrigger className="w-44">
               <SelectValue />
             </SelectTrigger>
@@ -312,8 +337,20 @@ export function ProjectDetailClient({ project }: { project: Project }) {
                 <SelectItem key={s} value={s}>{PROJECT_STATUS_LABELS[s]}</SelectItem>
               ))}
             </SelectContent>
-          </Select>} />
+          </Select></div>} />
 
+      <Dialog open={editing} onOpenChange={setEditing}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Project bewerken</DialogTitle></DialogHeader>
+          <form onSubmit={(event) => { event.preventDefault(); void saveProject(); }} className="space-y-4">
+            {([ ["title", "Projecttitel"], ["address", "Adres"], ["zipCode", "Postcode"], ["city", "Plaats"] ] as const).map(([key, label]) => (
+              <div key={key} className="space-y-2"><Label htmlFor={`project-${key}`}>{label}</Label><Input id={`project-${key}`} className="text-base" required={key === "title"} value={form[key]} disabled={projectBusy} onChange={(event) => setForm((previous) => ({ ...previous, [key]: event.target.value }))} /></div>
+            ))}
+            <div className="space-y-2"><Label htmlFor="project-description">Beschrijving</Label><Textarea id="project-description" className="text-base min-h-28" value={form.description} disabled={projectBusy} onChange={(event) => setForm((previous) => ({ ...previous, description: event.target.value }))} /></div>
+            <DialogFooter><Button type="button" variant="outline" disabled={projectBusy} onClick={() => setEditing(false)}>Annuleren</Button><Button type="submit" disabled={projectBusy}>{projectBusy ? "Opslaan..." : "Project opslaan"}</Button></DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Overzicht</TabsTrigger>

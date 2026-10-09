@@ -81,6 +81,7 @@ export default async function CalculationDetailPage({
 
   const serializedCalculation = {
     ...calculation,
+    quote: calculation.quote ? { id: calculation.quote.id, number: calculation.quote.number, status: calculation.quote.status } : null,
     role: asCalculationRole(calculation.role),
     vatRate: Number(calculation.vatRate),
     totalCostPrice: Number(calculation.totalCostPrice),

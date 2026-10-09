@@ -112,6 +112,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     select: {
       status: true,
       sentAt: true,
+      commercial: true,
       calculations: { where: { archivedAt: null }, select: { id: true } },
       choiceGroups: true,
       items: {
@@ -143,6 +144,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  // Presentatieoverrides zijn van de gerichte PATCH-acties. Een oudere of
+  // gelijktijdig geopende editor mag ze niet met zijn commerciële instellingen wissen.
+  if (parsed.data.commercial !== undefined) {
+    const existingCommercial = existingQuote.commercial;
+    const presentation = existingCommercial && typeof existingCommercial === "object" && !Array.isArray(existingCommercial)
+      ? existingCommercial.presentation : undefined;
+    if (presentation !== undefined) parsed.data.commercial = { ...parsed.data.commercial, presentation };
   }
 
   // Ook oudere editors kunnen previewregels terugsturen. Bij een offerte met

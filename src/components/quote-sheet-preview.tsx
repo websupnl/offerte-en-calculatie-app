@@ -1,4 +1,6 @@
 "use client";
+import { OrderedQuotePages } from "@/components/ordered-quote-pages";
+import { readPresentation } from "@/lib/quote-presentation";
 import { QuotePersonalNote } from "@/components/quote-personal-note";
 import { quotePersonalProfile } from "@/lib/quote-personal";
 import { QuoteArtifactFrame, artifactHeight } from "@/components/quote-artifact-frame";
@@ -313,6 +315,7 @@ export type QuotePreviewData = {
   technicalNotes?: string[];
   customerResponsibilities?: string[];
   contentBlocks?: QuoteContentBlock[];
+  calculationSummaries?: { id: string; title: string; description: string | null }[];
   hiddenSections?: string[];
   attachments?: QuoteAttachment[];
   adviceDocuments?: { id: string; type: string }[];
@@ -692,6 +695,12 @@ export function QuoteSheetPreview({
     ...sourcePages.map((_, i) => `sources-${i}`),
     "sign",
   ];
+  const sectionOrder = readPresentation(quote.commercial).sectionOrder;
+  if (sectionOrder) {
+    const group = (page: string) => page.startsWith("content-") ? "content" : page.startsWith("approach-") ? "approach" : page.startsWith("attachment-") ? "visuals" : page.startsWith("choice-") || page === "items" || page === "investering" ? "pricing" : page === "options" ? "modules" : page.startsWith("terms") ? "terms" : page.startsWith("sources-") ? "sources" : "intro";
+    const rank = (page: string) => page === "cover" ? -1 : page === "sign" ? 9 : sectionOrder.indexOf(group(page));
+    pageOrder.sort((a, b) => rank(a) - rank(b));
+  }
   const totalPages = pageOrder.length;
 
   // Zelfde lijst, maar met een naam en de sectie waar de pagina bij hoort. De
@@ -958,6 +967,7 @@ export function QuoteSheetPreview({
     </div>
   );
 
+  const effectiveItemsHeader = quote.itemsHeader || (quote.calculationSummaries?.length === 1 ? quote.calculationSummaries[0].title : null) || (isKoolhaas ? "Materiaaloverzicht" : "Prijsopbouw");
   const itemsTableBlock = (
     <>
       <div className="article-table-head">
@@ -966,12 +976,18 @@ export function QuoteSheetPreview({
           <h2 className="h2">
             <InlineInput
               isEditable={isEditable}
-              value={quote.itemsHeader || (isKoolhaas ? "Materiaaloverzicht" : "Prijsopbouw")}
+              value={effectiveItemsHeader}
               onChange={(v) => onUpdate?.({ itemsHeader: v })}
             />
           </h2>
         </div>
       </div>
+      {quote.calculationSummaries?.map((calculation) => (
+        <div key={calculation.id} className="content-block" style={{ marginBottom: 16 }}>
+          {calculation.title !== effectiveItemsHeader && <h3 className="content-block-title">{calculation.title}</h3>}
+          {calculation.description && <p style={{ fontSize: 16, whiteSpace: "pre-wrap" }}>{calculation.description}</p>}
+        </div>
+      ))}
       <div className="article-table-wrap">
         <table className="article-table">
           <thead>
@@ -1310,10 +1326,10 @@ export function QuoteSheetPreview({
 
   return (
     <div className={`portal-container ${isKoolhaas ? "portal-koolhaas" : "portal-websup"}`} style={{ ...portalVarsFromBranding(documentBranding), minHeight: 'auto', backgroundColor: 'transparent' }}>
-      <div className="doc-viewer" style={{ paddingBottom: 0 }}>
+      <OrderedQuotePages order={pageOrder}>
         
         {/* ── PAGINA 1: COVER ── */}
-        <section className="sheet cover">
+        <section className="sheet cover" data-page="cover">
           <div className="cov-layout">
             <div className="cov-panel">
               <div className="bar"></div>
@@ -1374,7 +1390,7 @@ export function QuoteSheetPreview({
         </section>
 
         {/* ── PAGINA 2: INTRO ── */}
-        <section className="sheet">
+        <section className="sheet" data-page="intro">
           <div className="bar"></div>
           <div className="pad">
             <div className="ph">
@@ -1424,7 +1440,7 @@ export function QuoteSheetPreview({
 
         {/* ── INHOUDSBLOKKEN: vrije uitleg tussen intro en prijzen ── */}
         {contentPages.map((page, pageIndex) => (
-          <section className="sheet" key={`content-${pageIndex}`}>
+          <section className="sheet" data-page={`content-${pageIndex}`} key={`content-${pageIndex}`}>
             <div className="bar"></div>
             <div className="pad">
               <div className="ph">
@@ -1542,7 +1558,7 @@ export function QuoteSheetPreview({
 
         {/* ── WERKING VAN DE INSTALLATIE ── */}
         {approachPages.map((paginaStappen, paginaIndex) => (
-          <section className="sheet" key={`approach-${paginaIndex}`}>
+          <section className="sheet" data-page={`approach-${paginaIndex}`} key={`approach-${paginaIndex}`}>
             <div className="bar"></div>
             <div className="pad">
               <div className="ph">
@@ -1624,7 +1640,7 @@ export function QuoteSheetPreview({
 
         {/* ── EXTRA ONTWERPPAGINA'S ── */}
         {standaloneAttachments.map((attachment, index) => (
-          <section className="sheet design-sheet" key={attachment.id ?? `${attachment.imageUrl}-${index}`}>
+          <section className="sheet design-sheet" data-page={`attachment-${index}`} key={attachment.id ?? `${attachment.imageUrl}-${index}`}>
             <div className="bar"></div>
             <div className="pad">
               <div className="ph">
@@ -1698,7 +1714,7 @@ export function QuoteSheetPreview({
 
         {/* ── PAGINA 4: INVESTERING (of geen keuzes) ── */}
         {choiceEntries.length === 0 && (
-          <section className="sheet">
+          <section className="sheet" data-page="investering">
             <div className="bar"></div>
             <div className="pad">
               <div className="ph">
@@ -1735,7 +1751,7 @@ export function QuoteSheetPreview({
             (item) => !item.hiddenOnQuote && Number(item.unitPrice) === 0 && item.description.trim().toLowerCase() !== "inbegrepen werkzaamheden",
           );
           return (
-            <section className="sheet" key={choice.id}>
+            <section className="sheet" data-page={`choice-${entryIndex}`} key={choice.id}>
               <div className="bar"></div>
               <div className="pad">
                 <div className="ph">
@@ -1819,7 +1835,7 @@ export function QuoteSheetPreview({
         })}
 
         {splitItemsPage && (
-          <section className="sheet">
+          <section className="sheet" data-page="items">
             <div className="bar"></div>
             <div className="pad">
               <div className="ph">
@@ -1836,7 +1852,7 @@ export function QuoteSheetPreview({
         )}
 
         {hasOptionsPage && (
-          <section className="sheet">
+          <section className="sheet" data-page="options">
             <div className="bar"></div>
             <div className="pad">
               <div className="ph">
@@ -1853,7 +1869,7 @@ export function QuoteSheetPreview({
         )}
 
         {hasTermsPage && (
-          <section className="sheet">
+          <section className="sheet" data-page="terms">
             <div className="bar"></div>
             <div className="pad">
               <div className="ph">
@@ -1884,7 +1900,7 @@ export function QuoteSheetPreview({
         )}
 
         {splitTermsPage && (
-          <section className="sheet">
+          <section className="sheet" data-page="terms-2">
             <div className="bar"></div>
             <div className="pad">
               <div className="ph">
@@ -1905,7 +1921,7 @@ export function QuoteSheetPreview({
         )}
 
         {sourcePages.map((paginaBronnen, paginaIndex) => (
-          <section className="sheet" key={`sources-${paginaIndex}`}>
+          <section className="sheet" data-page={`sources-${paginaIndex}`} key={`sources-${paginaIndex}`}>
             <div className="bar"></div>
             <div className="pad">
               <div className="ph">
@@ -2003,7 +2019,7 @@ export function QuoteSheetPreview({
         ))}
 
         {/* ── PAGINA 5: SIGN ── */}
-        <section className="sheet">
+        <section className="sheet" data-page="sign">
           <div className="bar"></div>
           <div className="pad">
             <div className="ph">
@@ -2053,7 +2069,7 @@ export function QuoteSheetPreview({
             {renderPageFooter(pageNr("sign"))}
           </div>
         </section>
-      </div>
+      </OrderedQuotePages>
     </div>
   );
 }

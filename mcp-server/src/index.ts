@@ -1348,7 +1348,7 @@ function createMcpServer() {
   );
 
   server.tool(
-    "update_quote_item",
+    "update_quote_legacy_item",
     "Pas een bestaande offerteregel aan (omschrijving, aantal, prijs, btw, inspringen, keuze-groep). Herberekent automatisch de totalen.",
     {
       item_id: z.string().describe("ID van de offerteregel"),

@@ -6,6 +6,8 @@ import { nextCalculationNumber } from "@/lib/calculation-number";
 import { syncQuoteTotalsFromCalculations } from "@/lib/quote-totals";
 import { remapChoiceCalculationIds } from "@/lib/quote-revision";
 import type { Prisma } from "@/generated/prisma/client";
+import { z } from "zod";
+import { readPresentation } from "@/lib/quote-presentation";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -13,6 +15,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { id } = await params;
   const companyId = session.user.activeCompanyId;
+  const input = z.object({ customerId: z.string().min(1).optional() }).strict().safeParse(await req.json().catch(() => ({})));
+  if (!input.success) return NextResponse.json({ error: input.error.flatten() }, { status: 400 });
+  if (input.data.customerId && !await prisma.customer.findFirst({ where: { id: input.data.customerId, companyId }, select: { id: true } })) return NextResponse.json({ error: "Klant niet gevonden" }, { status: 404 });
 
   const source = await prisma.quote.findFirst({
     where: { id, companyId },
@@ -35,7 +40,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const duplicate = await prisma.quote.create({
     data: {
       companyId,
-      customerId: source.customerId,
+      customerId: input.data.customerId ?? source.customerId,
       createdById: session.user.id,
       title: source.title,
       category: source.category,
@@ -61,6 +66,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       batteryAdvice: source.batteryAdvice ?? undefined,
       choiceGroups: source.choiceGroups ?? undefined,
       internalAdvice: source.internalAdvice,
+      hiddenSections: source.hiddenSections,
       totalExVat: source.totalExVat,
       totalVat: source.totalVat,
       totalIncVat: source.totalIncVat,
@@ -114,20 +120,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           }
         : undefined,
     },
-    include: { customer: true, items: true, attachments: { orderBy: { sortOrder: "asc" } } },
+    include: { customer: true, items: { orderBy: { sortOrder: "asc" } }, attachments: { orderBy: { sortOrder: "asc" } } },
   });
 
   // Calculaties krijgen elk een eigen nummer, dus die kunnen niet als geneste
   // create mee. Zonder deze kopie zou een gedupliceerde offerte op het nieuwe
   // pad helemaal geen prijs hebben.
   const calculationIdMap = new Map<string, string>();
+  const itemIdMap = new Map(source.items.map((item, index) => [item.id, duplicate.items[index].id]));
   for (const bron of source.calculations) {
     const calculatieNummer = await nextCalculationNumber(companyId, company?.slug ?? "xx");
     const copiedCalculation = await prisma.calculation.create({
       data: {
         companyId,
-        customerId: bron.customerId,
-        projectId: bron.projectId,
+        customerId: input.data.customerId ?? bron.customerId,
+        projectId: input.data.customerId && input.data.customerId !== source.customerId ? null : bron.projectId,
         quoteId: duplicate.id,
         number: calculatieNummer,
         title: bron.title,
@@ -151,14 +158,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 totalSalesPrice: regel.totalSalesPrice, vatRate: regel.vatRate,
                 optional: regel.optional, hiddenOnQuote: regel.hiddenOnQuote,
                 recurringInterval: regel.recurringInterval, quoteNote: regel.quoteNote,
+                lineType: regel.lineType, billingCycle: regel.billingCycle,
                 sortOrder: regel.sortOrder,
               })),
             }
           : undefined,
       },
+      include: { items: { orderBy: { sortOrder: "asc" } } },
     });
     calculationIdMap.set(bron.id, copiedCalculation.id);
+    bron.items.forEach((item, index) => itemIdMap.set(item.id, copiedCalculation.items[index].id));
   }
+  const presentation = readPresentation(source.commercial);
+  const remap = (entries: Record<string, unknown> | undefined) => Object.fromEntries(Object.entries(entries ?? {}).map(([key, value]) => [calculationIdMap.get(key) ?? itemIdMap.get(key) ?? key, value]));
+  const commercial = source.commercial && typeof source.commercial === "object" && !Array.isArray(source.commercial) ? source.commercial : {};
+  await prisma.quote.update({ where: { id: duplicate.id }, data: { commercial: { ...commercial, presentation: { ...presentation, options: remap(presentation.options), items: remap(presentation.items) } } as Prisma.InputJsonValue } });
   if (calculationIdMap.size > 0 && source.choiceGroups) {
     const remappedChoices = remapChoiceCalculationIds(source.choiceGroups, calculationIdMap);
     await prisma.quote.update({

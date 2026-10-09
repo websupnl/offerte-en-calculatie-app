@@ -4,6 +4,7 @@ import {
   usesCalculationPricing,
   type QuotePricing,
 } from "@/lib/quote-pricing";
+import { applyOptionCopy, applyItemCopy } from "@/lib/quote-presentation";
 
 /**
  * Eén regel om overal hetzelfde te doen: als een offerte op het nieuwe pad zit,
@@ -25,6 +26,8 @@ import {
 type QuoteShapeIn = {
   items?: unknown[] | null;
   calculations?: Parameters<typeof buildQuotePricing>[0] | null;
+  commercial?: unknown;
+  options?: unknown;
 };
 
 /** Prijsopbouw zonder inkoop en marge: veilig om naar de browser te sturen. */
@@ -57,6 +60,7 @@ export function applyCalculationPricing<T extends QuoteShapeIn>(
   calculations?: T["calculations"];
   pricing: QuotePricing | PublicQuotePricing | null;
   usesCalculations: boolean;
+  calculationSummaries: { id: string; title: string; description: string | null }[];
 } {
   const calculations = quote.calculations ?? [];
   const intern = opties.internal === true;
@@ -67,7 +71,10 @@ export function applyCalculationPricing<T extends QuoteShapeIn>(
   const basis = intern ? { ...rest, calculations: quote.calculations } : rest;
 
   if (!usesCalculationPricing({ calculations, items: quote.items })) {
-    return { ...basis, pricing: null, usesCalculations: false } as ReturnType<
+    return { ...basis,
+      options: Array.isArray(quote.options) ? applyOptionCopy(quote.options, quote.commercial) : quote.options,
+      items: Array.isArray(quote.items) ? applyItemCopy(quote.items as Parameters<typeof applyItemCopy>[0], quote.commercial) : quote.items,
+      calculationSummaries: [], pricing: null, usesCalculations: false } as ReturnType<
       typeof applyCalculationPricing<T>
     >;
   }
@@ -76,10 +83,13 @@ export function applyCalculationPricing<T extends QuoteShapeIn>(
   const shape = pricingToPreviewShape(pricing);
   return {
     ...basis,
-    items: shape.items,
+    items: applyItemCopy(shape.items, quote.commercial),
     choiceGroups: shape.choiceGroups,
-    options: shape.options,
+    options: applyOptionCopy(shape.options, quote.commercial),
     pricing: intern ? pricing : zonderInterneCijfers(pricing),
     usesCalculations: true,
+    calculationSummaries: pricing.blocks
+      .filter((block) => !pricing.variants.some((variant) => variant.id === block.id) && !pricing.addons.some((addon) => addon.id === block.id))
+      .map(({ id, title, description }) => ({ id, title, description })),
   } as ReturnType<typeof applyCalculationPricing<T>>;
 }

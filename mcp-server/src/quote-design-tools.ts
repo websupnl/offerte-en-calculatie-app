@@ -85,7 +85,7 @@ export function registerQuoteDesignTools(server: McpServer, { query, queryOne }:
   );
 
   server.tool(
-    "update_quote_content_block",
+    "update_quote_content_block_legacy",
     "Pas één bestaand inhoudsblok aan. Alleen de velden die je meegeeft veranderen. Het type kan niet wijzigen; verwijder en voeg opnieuw toe als dat nodig is. Haal block_id's op met get_quote_content.",
     {
       block_id: z.string().describe("ID van het blok"),
