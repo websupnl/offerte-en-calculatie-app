@@ -389,7 +389,7 @@ export function QuotePortalClient({
   const renderOptionCard = (option: QuoteOption) => {
     const selected = selectedOptionIds.includes(option.id);
     const expanded = expandedOptionIds.includes(option.id);
-    const canExpandDescription = (option.d?.length ?? 0) > 110;
+    const canExpandDescription = (option.d?.length ?? 0) > 110 || option.details.length > 0;
     const isRequired = option.required === true;
     const optionPrice = getQuoteOptionPrice(option);
     const optionInterval = getQuoteOptionRecurringInterval(option);
@@ -420,56 +420,56 @@ export function QuotePortalClient({
               <b>{option.t}</b>
               {isRequired ? <em>Verplicht</em> : option.defaultSelected ? <em>Inbegrepen</em> : null}
             </span>
+          </span>
+        </label>
+        <div className="portal-option-body">
+          <div id={`option-details-${option.id}`}>
             {option.d && (
-              <>
-                <small className={`portal-option-desc ${expanded ? "is-expanded" : ""}`}>{option.d}</small>
-                {canExpandDescription && (
-                  <button
-                    type="button"
-                    className="portal-option-read-more"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      toggleOptionExpanded(option.id);
-                    }}
-                  >
-                    {expanded ? "Minder tonen" : "Lees meer"}
-                  </button>
-                )}
-              </>
+              <small className={`portal-option-desc ${expanded || !canExpandDescription ? "is-expanded" : ""}`}>{option.d}</small>
             )}
-            {option.details.length > 0 && (
+            {expanded && option.details.length > 0 && (
               <ul className="portal-option-bullets">
                 {option.details.map((detail) => <li key={detail}>{detail}</li>)}
               </ul>
             )}
-            {option.technicalCondition && (
-              <small className="portal-option-condition">{option.technicalCondition}</small>
+          </div>
+          {canExpandDescription && (
+            <button
+              type="button"
+              className="portal-option-read-more"
+              aria-expanded={expanded}
+              aria-controls={`option-details-${option.id}`}
+              onClick={() => toggleOptionExpanded(option.id)}
+            >
+              {expanded ? "Minder tonen" : "Lees meer"}
+            </button>
+          )}
+          {option.technicalCondition && (
+            <small className="portal-option-condition">{option.technicalCondition}</small>
+          )}
+          <span className="portal-option-price">
+            {displayedOptionPrice != null && (
+              <span className="portal-option-price-row">
+                <b>+ {formatCurrency(displayedOptionPrice)}</b>
+                <small>eenmalig {priceLabel}</small>
+              </span>
             )}
-            <span className="portal-option-price">
-              {displayedOptionPrice != null && (
-                <span className="portal-option-price-row">
-                  <b>+ {formatCurrency(displayedOptionPrice)}</b>
-                  <small>eenmalig {priceLabel}</small>
-                </span>
-              )}
-              {displayedRecurringOptionPrice != null && optionInterval && (
-                <span className="portal-option-price-row is-recurring">
-                  <b>+ {formatCurrency(displayedRecurringOptionPrice)}</b>
-                  <small>{optionInterval} {priceLabel}</small>
-                </span>
-              )}
-              {displayedOptionPrice == null && displayedRecurringOptionPrice == null
-                ? fallbackPriceParts
-                  ? <>
-                      <b>{prefixFallbackPrice && "+ "}{fallbackPriceParts[1]}</b>
-                      <small>{fallbackPriceParts[2].trim()}</small>
-                    </>
-                  : <b>{prefixFallbackPrice && "+ "}{fallbackPriceLabel}</b>
-                : null}
-            </span>
+            {displayedRecurringOptionPrice != null && optionInterval && (
+              <span className="portal-option-price-row is-recurring">
+                <b>+ {formatCurrency(displayedRecurringOptionPrice)}</b>
+                <small>{optionInterval} {priceLabel}</small>
+              </span>
+            )}
+            {displayedOptionPrice == null && displayedRecurringOptionPrice == null
+              ? fallbackPriceParts
+                ? <>
+                    <b>{prefixFallbackPrice && "+ "}{fallbackPriceParts[1]}</b>
+                    <small>{fallbackPriceParts[2].trim()}</small>
+                  </>
+                : <b>{prefixFallbackPrice && "+ "}{fallbackPriceLabel}</b>
+              : null}
           </span>
-        </label>
+        </div>
       </div>
     );
   };

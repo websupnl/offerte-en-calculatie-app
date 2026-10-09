@@ -2566,8 +2566,17 @@ a.portal-preview-link:hover {
   grid-template-columns: 1.25rem minmax(0, 1fr);
   align-items: flex-start;
   gap: .75rem;
-  padding: 1rem;
+  padding: .85rem .85rem .5rem;
   cursor: pointer;
+}
+
+.portal-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  min-width: 0;
+  padding: 0 .85rem .85rem;
+  overflow-wrap: anywhere;
 }
 
 .portal-option-desc {
@@ -2576,6 +2585,9 @@ a.portal-preview-link:hover {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  color: #64748b;
+  font-size: .9375rem;
+  line-height: 1.45;
 }
 
 .portal-option-desc.is-expanded {
@@ -2602,6 +2614,7 @@ a.portal-preview-link:hover {
 }
 
 .portal-option-bullets {
+  list-style: disc;
   display: grid;
   gap: .25rem;
   margin: .25rem 0 0;
@@ -2625,7 +2638,7 @@ a.portal-preview-link:hover {
 .portal-option-price {
   display: grid;
   gap: .25rem;
-  width: fit-content;
+  width: 100%;
   margin-top: .45rem;
   padding-top: .55rem;
   border-top: 1px solid #e2e8f0;
@@ -2633,6 +2646,7 @@ a.portal-preview-link:hover {
 
 .portal-option-price-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: .4rem;
 }
@@ -2763,8 +2777,8 @@ a.portal-preview-link:hover {
 .portal-result-selection > strong { margin-top: .25rem; font-size: 1rem; }
 
 @media (max-width: 640px) {
-  .portal-select-card,
-  .portal-option-card > label { padding: 1rem; }
+  .portal-select-card { padding: 1rem; }
+  .portal-option-card { padding: 0; }
   .portal-select-card {
     grid-template-columns: 1.15rem minmax(0, 1fr);
     gap: .75rem;
