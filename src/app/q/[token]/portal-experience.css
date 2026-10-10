@@ -177,7 +177,8 @@
 .quote-portal .portal-select-card { border-radius: 6px; padding: 14px; background: #fff; border-color: var(--border); box-shadow: none; }
 .quote-portal .portal-select-card.is-selected { border-color: var(--portal-accent); background: var(--accent-bg); box-shadow: none; }
 .quote-portal .portal-option-card { padding: 0; }
-.quote-portal .portal-option-card > label { padding: 14px; }
+.quote-portal .portal-option-card > label { padding: 14px 14px 8px; }
+.quote-portal .portal-option-body { padding: 0 14px 14px; }
 .quote-portal .portal-select-title b { font-size: 16px; font-weight: 600; }
 .quote-portal :is(.portal-select-title b, .portal-select-copy > strong, .portal-option-price b, .portal-composer-heading h3, .portal-choice-group legend, .portal-result-card h3, .portal-expired-card h3) { color: var(--on); }
 .quote-portal .portal-option-card.is-selected .portal-option-price b { color: var(--on); }

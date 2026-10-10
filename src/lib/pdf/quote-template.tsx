@@ -286,7 +286,7 @@ const BRANDS: Record<BrandKey, BrandConfig> = {
     investmentLabel: "Totale investering",
     investmentDescription: "Een eenmalige investering voor materialen, montage, aansluiting, controle en oplevering zoals beschreven in deze offerte.",
     optionsEyebrow: "Optioneel meerwerk",
-    optionsTitle: "Alleen waar het technisch logisch is.",
+    optionsTitle: "",
     exclusionsEyebrow: "Niet inbegrepen",
     exclusionsTitle: "Duidelijke grenzen aan de scope.",
     closingTitle: "Akkoord voor uitvoering",
@@ -973,7 +973,7 @@ export function QuotePDF({
         {options.length > 0 && (
           <>
             <Eyebrow text="Mogelijke uitbreidingen" color={brand.colors.accent} />
-            <H2 text={brand.optionsTitle} />
+            {brand.optionsTitle && <H2 text={brand.optionsTitle} />}
             <View style={{ gap: 7 }}>
               {options.map((o, i) => {
                 const isSelected = o.id ? selectedOptionIds.includes(o.id) : false;
